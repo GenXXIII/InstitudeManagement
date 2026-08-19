@@ -1,0 +1,17 @@
+# dependencies and builds
+node_modules/
+.next/
+bin/
+obj/
+
+# local configuration
+.env
+*.user
+*.suo
+
+# editors and OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
