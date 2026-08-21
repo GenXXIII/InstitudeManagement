@@ -4,9 +4,23 @@ namespace InstituteManagement.Infrastructure.Persistence.SeedData;
 
 public static class AttendanceSeedFactory
 {
-    public static IEnumerable<AttendanceRecord> Create(Student[] students)
+    public static IEnumerable<AttendanceRecord> Create(Student[] students, string academicYear = "2026\u20132027", string term = "Semester 1")
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        return students.Select((student, index) => new AttendanceRecord { StudentId = student.Id, Date = today, CheckedInAt = index % 12 == 0 ? new TimeOnly(8, 18) : new TimeOnly(7, 45).AddMinutes(index % 28), Status = index % 17 == 0 ? "Absent" : index % 12 == 0 ? "Late" : "Present" });
+        return students.SelectMany((student, studentIndex) => Enumerable.Range(0, 5).Select(dayOffset =>
+        {
+            var absent = (studentIndex + dayOffset) % 17 == 0;
+            var late = !absent && (studentIndex + dayOffset) % 12 == 0;
+            return new AttendanceRecord
+            {
+                StudentId = student.Id,
+                Date = today.AddDays(-dayOffset),
+                CheckedInAt = absent ? new TimeOnly(11, 30) : late ? new TimeOnly(8, 18) : new TimeOnly(7, 45).AddMinutes((studentIndex + dayOffset) % 28),
+                Status = absent ? "Absent" : late ? "Late" : "Present",
+                Method = absent ? "Manual" : "ID Card",
+                AcademicYear = academicYear,
+                Term = term
+            };
+        }));
     }
 }

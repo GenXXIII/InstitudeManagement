@@ -49,6 +49,8 @@ public static class DependencyInjection
         services.AddScoped<IOperationModuleReader, CourseOperationReader>();
         services.AddScoped<IOperationModuleReader, TimetableOperationReader>();
         services.AddScoped<IOperationalRecordQueryService, OperationalRecordQueryService>();
+        services.AddScoped<ClassSessionRecorderService>();
+        services.AddHostedService<ClassSessionRecorderHostedService>();
         services.AddScoped<IOperationalRecordReader, StudentOperationalRecordReader>();
         services.AddScoped<IOperationalRecordReader, TeacherOperationalRecordReader>();
         services.AddScoped<IOperationalRecordReader, ClassroomOperationalRecordReader>();
@@ -64,6 +66,8 @@ public static class DependencyInjection
         services.AddScoped<IHistorySnapshotProvider, GradeHistorySnapshotProvider>();
         services.AddScoped<IManagementService, ManagementService>();
         services.AddScoped<ISettingsService, SettingsService>();
+        services.AddScoped<AcademicCalendarRolloverService>();
+        services.AddHostedService<AcademicCalendarHostedService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IGradeService, GradeService>();
         services.AddScoped<IManagementFeature, StudentManagementFeature>();

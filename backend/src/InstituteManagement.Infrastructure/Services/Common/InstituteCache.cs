@@ -7,18 +7,20 @@ public sealed class InstituteCache(IConnectionMultiplexer? redis = null)
 {
     private const string DashboardKey = "institute:dashboard:v3";
 
-    public async Task<T?> ReadDashboardAsync<T>()
+    public async Task<T?> ReadDashboardAsync<T>(CancellationToken cancellationToken)
     {
         if (redis is null) return default;
-        var value = await redis.GetDatabase().StringGetAsync(DashboardKey);
+        var value = await redis.GetDatabase().StringGetAsync(DashboardKey).WaitAsync(cancellationToken);
         return value.IsNullOrEmpty ? default : JsonSerializer.Deserialize<T>(value.ToString());
     }
 
-    public Task WriteDashboardAsync<T>(T value) => redis is null
+    public Task WriteDashboardAsync<T>(T value, CancellationToken cancellationToken) => redis is null
         ? Task.CompletedTask
-        : redis.GetDatabase().StringSetAsync(DashboardKey, JsonSerializer.Serialize(value), TimeSpan.FromSeconds(20));
+        : redis.GetDatabase()
+            .StringSetAsync(DashboardKey, JsonSerializer.Serialize(value), TimeSpan.FromSeconds(20))
+            .WaitAsync(cancellationToken);
 
-    public Task InvalidateDashboardAsync() => redis is null
+    public Task InvalidateDashboardAsync(CancellationToken cancellationToken) => redis is null
         ? Task.CompletedTask
-        : redis.GetDatabase().KeyDeleteAsync(DashboardKey);
+        : redis.GetDatabase().KeyDeleteAsync(DashboardKey).WaitAsync(cancellationToken);
 }

@@ -26,9 +26,11 @@ public static class DatabaseSeeder
         db.Classrooms.AddRange(rooms);
         db.Courses.AddRange(courses);
         db.Students.AddRange(students);
-        db.AttendanceRecords.AddRange(AttendanceSeedFactory.Create(students));
-        db.GradeRecords.AddRange(GradeSeedFactory.Create(students, courses));
-        db.ScheduleEntries.AddRange(TimetableSeedFactory.Create(courses, teachers, rooms));
+        const string academicYear = "2026\u20132027";
+        const string term = "Semester 1";
+        db.AttendanceRecords.AddRange(AttendanceSeedFactory.Create(students, academicYear, term));
+        db.GradeRecords.AddRange(GradeSeedFactory.Create(students, courses, academicYear, term));
+        db.ScheduleEntries.AddRange(TimetableSeedFactory.Create(courses, rooms));
         db.Notifications.AddRange(NotificationSeedFactory.Create());
         db.AuditLogs.AddRange(AuditLogSeedFactory.Create(students, courses, rooms));
         db.SystemSettings.AddRange(SystemSettingSeedFactory.Create());

@@ -1,4 +1,5 @@
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.DTOs.Management;
+using InstituteManagement.Application.DTOs.Management.Courses;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
@@ -9,23 +10,88 @@ namespace InstituteManagement.Infrastructure.Services.Management.Courses;
 public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCache cache) : ManagementFeatureBase(db, cache)
 {
     public override string Resource => "courses";
-    public override async Task<IReadOnlyList<CatalogItemDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct) => (await Db.Courses.AsNoTracking().Include(x => x.Department).Include(x => x.Teacher).Where(x => x.IsActive && (!departmentId.HasValue || x.DepartmentId == departmentId)).ToListAsync(ct)).Where(x => Matches(search, x.Code, x.Name, x.Department?.Name)).Select(x => Item(x.Id, ("code", x.Code), ("name", x.Name), ("departmentId", x.DepartmentId.ToString()), ("department", x.Department?.Name ?? "—"), ("teacherId", x.TeacherId?.ToString() ?? ""), ("teacher", x.Teacher?.FullName ?? "Unassigned"), ("credits", x.Credits.ToString()), ("capacity", x.Capacity.ToString()), ("status", "Active"))).ToList();
-    public override async Task<CatalogItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
+    public override async Task<IReadOnlyList<IManagementItemDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
-        var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct); var teacherId = await RelatedIdAsync<Teacher>(values, "teacherId", ct); await ValidateTeacherAsync(teacherId, departmentId, ct);
-        return await SaveCreatedAsync(new Course { Code = Required(values, "code"), Name = Required(values, "name"), DepartmentId = departmentId, TeacherId = teacherId, Credits = Int(values, "credits", 3), Capacity = Int(values, "capacity", 40), IsActive = true }, values, ct);
+        var courses = await Db.Courses.AsNoTracking().Include(course => course.Department).Include(course => course.Teacher)
+            .Where(course => course.IsActive && (!departmentId.HasValue || course.DepartmentId == departmentId))
+            .ToListAsync(ct);
+        return courses.Where(course => Matches(search, course.Code, course.Name, course.Department?.Name))
+            .Select(course => (IManagementItemDto)new CourseResponseDto(course.Id, new CourseValuesDto(
+                course.Code,
+                course.Name,
+                course.DepartmentId.ToString(),
+                course.Department?.Name ?? "—",
+                course.TeacherId?.ToString() ?? "",
+                course.Teacher?.FullName ?? "Unassigned",
+                course.Credits.ToString(),
+                course.Capacity.ToString(),
+                "Active")))
+            .ToList();
     }
-    public override async Task<CatalogItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
+
+    public override async Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var entity = await RequiredEntityAsync(Db.Courses, id, ct); var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct);
+        var code = Required(values, "code");
+        await EnsureUniqueAsync(Db.Courses.Where(course => course.Code == code), "Course code", ct);
+        var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct);
+        var teacherId = await TeacherIdAsync(values, departmentId, ct);
+        return await SaveCreatedAsync(new Course
+        {
+            Code = code,
+            Name = Required(values, "name"),
+            DepartmentId = departmentId,
+            TeacherId = teacherId,
+            Credits = IntInRange(values, "credits", 3, 1, 30),
+            Capacity = IntInRange(values, "capacity", 40, 1, 10000),
+            IsActive = CourseStatus(values) == "Active"
+        }, values, ct);
+    }
+    public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
+    {
+        var entity = await RequiredEntityAsync(Db.Courses, id, ct);
+        var code = Required(values, "code");
+        await EnsureUniqueAsync(Db.Courses.Where(course => course.Id != id && course.Code == code), "Course code", ct);
+        var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct);
         if (entity.DepartmentId != departmentId && (await Db.ScheduleEntries.AnyAsync(x => x.CourseId == id && x.Status != "Cancelled" && (x.Teacher!.DepartmentId != departmentId || x.Classroom!.DepartmentId != departmentId), ct) || await Db.GradeRecords.AnyAsync(x => x.CourseId == id && x.Student!.DepartmentId != departmentId, ct))) throw new InvalidOperationException("Reassign this course's timetable and grade relationships before changing department.");
-        if (Get(values, "status", "Active") == "Inactive") await ValidateDeleteAsync(entity, ct);
-        var teacherId = await RelatedIdAsync<Teacher>(values, "teacherId", ct); await ValidateTeacherAsync(teacherId, departmentId, ct);
-        entity.Code = Required(values, "code"); entity.Name = Required(values, "name"); entity.DepartmentId = departmentId; entity.TeacherId = teacherId; entity.Credits = Int(values, "credits", 3); entity.Capacity = Int(values, "capacity", 40); entity.IsActive = Get(values, "status", "Active") == "Active"; Touch(entity);
+        var status = CourseStatus(values);
+        if (status == "Inactive") await ValidateDeleteAsync(entity, ct);
+        var teacherId = await TeacherIdAsync(values, departmentId, ct);
+        entity.Code = code;
+        entity.Name = Required(values, "name");
+        entity.DepartmentId = departmentId;
+        entity.TeacherId = teacherId;
+        entity.Credits = IntInRange(values, "credits", 3, 1, 30);
+        entity.Capacity = IntInRange(values, "capacity", 40, 1, 10000);
+        entity.IsActive = status == "Active";
+        Touch(entity);
         return await SaveUpdatedAsync(id, values, ct);
     }
     protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct) { if (await Db.ScheduleEntries.AnyAsync(x => x.CourseId == entity.Id && x.Status != "Cancelled", ct) || await Db.GradeRecords.AnyAsync(x => x.CourseId == entity.Id, ct)) throw new InvalidOperationException("Course still has timetable or grade relationships."); }
     protected override async Task<Entity?> FindAsync(Guid id, CancellationToken ct) => await Db.Courses.FindAsync([id], ct);
     protected override void Deactivate(Entity entity) { ((Course)entity).IsActive = false; Touch(entity); }
-    private async Task ValidateTeacherAsync(Guid teacherId, Guid departmentId, CancellationToken ct) { var teacher = await Db.Teachers.FindAsync([teacherId], ct) ?? throw new KeyNotFoundException("Teacher not found."); if (teacher.Status == "Inactive" || teacher.DepartmentId != departmentId) throw new InvalidOperationException("Course teacher must be active and belong to the same department."); }
+    protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
+        new CourseResponseDto(id, new CourseValuesDto(
+            Get(values, "code"),
+            Get(values, "name"),
+            Get(values, "departmentId"),
+            Get(values, "department"),
+            Get(values, "teacherId"),
+            Get(values, "teacher", "Unassigned"),
+            Get(values, "credits"),
+            Get(values, "capacity"),
+            Get(values, "status", "Active")));
+
+    private async Task<Guid?> TeacherIdAsync(Dictionary<string, string> values, Guid departmentId, CancellationToken ct)
+    {
+        var raw = Get(values, "teacherId");
+        var required = await SettingEnabledAsync("courses", "requireAssignedTeacher", true, ct);
+        if (string.IsNullOrWhiteSpace(raw)) { if (required) throw new ArgumentException("Assigned teacher is required by Course settings."); return null; }
+        if (!Guid.TryParse(raw, out var teacherId)) throw new ArgumentException("teacherId is invalid.");
+        await ValidateTeacherAsync(teacherId, departmentId, ct);
+        return teacherId;
+    }
+    private async Task ValidateTeacherAsync(Guid? teacherId, Guid departmentId, CancellationToken ct) { if (!teacherId.HasValue) return; var teacher = await Db.Teachers.FindAsync([teacherId.Value], ct) ?? throw new KeyNotFoundException("Teacher not found."); var allowCrossDepartment = await SettingEnabledAsync("departments", "allowCrossDepartmentTeaching", false, ct); if (teacher.Status == "Inactive" || (!allowCrossDepartment && teacher.DepartmentId != departmentId)) throw new InvalidOperationException("Course teacher must be active and comply with Department settings."); }
+    private async Task<bool> SettingEnabledAsync(string section, string key, bool fallback, CancellationToken ct) { var value = await Db.SystemSettings.AsNoTracking().Where(x => x.Section == section && x.Key == key).Select(x => x.Value).FirstOrDefaultAsync(ct); return bool.TryParse(value, out var enabled) ? enabled : fallback; }
+    private static string CourseStatus(Dictionary<string, string> values) =>
+        OneOf(values, "status", "Active", "Active", "Inactive");
 }

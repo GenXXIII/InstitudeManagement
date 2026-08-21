@@ -14,7 +14,7 @@ export function OperationContent({ data, departmentId }: { data: Operation; depa
   if (data.module === "students") return <StudentOperationTable rows={data.students ?? []}/>;
   if (data.module === "teachers") return <TeacherOperationTable rows={data.teachers ?? []}/>;
   if (data.module === "classrooms") return <ClassroomBuilding rows={data.classrooms ?? []}/>;
-  if (data.module === "timetable") return <WeeklyTimetable rows={data.weeklySchedule ?? []}/>;
+  if (data.module === "timetable") return <WeeklyTimetable rows={data.weeklySchedule ?? []} periods={data.timetablePeriods ?? []} rooms={data.timetableRooms ?? []}/>;
   if (data.module === "courses") return <CourseOperationList rows={data.courses ?? []}/>;
   if (data.module === "attendance") return <AttendanceOperationList rows={data.attendance ?? []}/>;
   if (data.module === "departments") return <DepartmentOperationList rows={data.departments ?? []}/>;

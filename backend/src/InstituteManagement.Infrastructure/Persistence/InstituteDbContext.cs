@@ -13,6 +13,7 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
     public DbSet<ScheduleEntry> ScheduleEntries => Set<ScheduleEntry>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<GradeRecord> GradeRecords => Set<GradeRecord>();
+    public DbSet<ClassSessionRecord> ClassSessionRecords => Set<ClassSessionRecord>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();

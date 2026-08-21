@@ -4,6 +4,7 @@ public sealed class Classroom : Entity
 {
     public required string Code { get; set; }
     public string Building { get; set; } = string.Empty;
+    public string RoomType { get; set; } = "Classroom";
     public int Capacity { get; set; }
     public Guid? DepartmentId { get; set; }
     public Department? Department { get; set; }

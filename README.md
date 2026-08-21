@@ -7,12 +7,16 @@ The current milestone includes dashboard reporting, module-specific live operati
 ## Data behavior
 
 - **Institute operations** starts with a one-page dashboard for Students, Teachers, Classrooms, and Courses; each card links to its complete live workspace.
-- **Record** is a read-only operational log for students, teachers, classrooms, and courses. Each row expands to show saved timetable, attendance, course, and assessment activity over time; it has no add, edit, deactivate, or remove controls.
+- **Record** is a read-only operational log for students, teachers, classrooms, and courses. At each timetable end, the backend freezes the course, teacher, room, cohort, and every related student's attendance state; Student, Teacher, and Course rows expose those completed sessions alongside grades and attendance.
 - **Management** is the only place for adding, editing, deactivating, or removing current data. Every module can be scoped by department.
+- Attendance management groups all dated statuses and check-in times into one row per student. Grade management groups department-course results into one row per student with total, average, and overall grade.
 - **History** uses a Management-style read-only register for every current and inactive entity. Search and status dropdowns filter the register, and each row expands to its complete append-only snapshot history.
 - Students and teachers require a stored 4×6 portrait.
 - Departments require a real teacher as head of department.
 - Courses, schedules, classrooms, attendance, and grades validate their department relationships before saving.
+- Timetable management uses backend-defined periods and Year 1–4 cohorts: Monday–Friday has morning, afternoon, and evening sessions; Saturday–Sunday has morning and afternoon sessions. The one-page Operations matrix shows 13 concurrent learning spaces by room and time. Classrooms and meeting rooms are both schedulable and automatically show `In Study` while occupied.
+- Administration is institute-wide configuration: saved identity, academic calendar, department/course/classroom policies, attendance workflow, A–F grading, notification routing, language/time zone, and refresh timing are consumed by the shell and validated by backend workflows.
+- Semester dates drive automatic lifecycle changes. Semester 1 expiry activates Semester 2; Semester 2 expiry advances the academic year and promotes active Year 1–3 students while preserving Year 4. Grade and attendance rows are tagged by academic year/semester, remain in read-only Records history, and start with a fresh current Management ledger.
 - Active dependencies must be reassigned or cancelled before a linked department, teacher, classroom, or course can be deactivated.
 - **Settings** has a distinct view and validation for each section; grade boundaries and relationship rules are used by backend workflows.
 
@@ -66,10 +70,13 @@ backend/src/InstituteManagement.API   HTTP, SignalR, OpenAPI
 backend/src/InstituteManagement.Application  MediatR commands, queries, handlers, DTOs, and interfaces
 backend/src/InstituteManagement.Domain       One business entity per file
 backend/src/InstituteManagement.Infrastructure EF Core configurations and resource-specific services
-backend/tests/                        Unit tests
+backend/tests/InstituteManagement.Application.Tests     Application behavior and validation tests
+backend/tests/InstituteManagement.Infrastructure.Tests  EF Core mapping and workflow tests
 docker-compose.yml                    Docker Compose environment
 docs/                                 Original product and architecture sources
 ```
+
+See [`docs/architecture.md`](docs/architecture.md) for dependency direction, request flow, validation/error behavior, persistence conventions, and test boundaries.
 
 ## Verification
 
@@ -80,4 +87,4 @@ npm run build --prefix frontend/web
 
 ## CI/CD
 
-`.github/workflows/ci-cd.yml` runs backend restore/build/tests, frontend install/lint/build, Docker Compose validation, production container builds, and a full-stack smoke test of the health endpoint, Overview API, INK-branded web app, and logo. Successful pushes to `main` or `v*` tags publish `ink-management-api` and `ink-management-web` images to GitHub Container Registry using the repository `GITHUB_TOKEN`.
+`.github/workflows/ci-cd.yml` runs backend restore/build/tests, frontend install/lint/build, Docker Compose validation, production container builds, and a full-stack smoke test of the health endpoint, Overview API, Institude of New Khmer web app, and logo. Successful pushes to `main` or `v*` tags publish `ink-management-api` and `ink-management-web` images to GitHub Container Registry using the repository `GITHUB_TOKEN`.

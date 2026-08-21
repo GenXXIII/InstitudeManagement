@@ -3,7 +3,8 @@ node_modules/
 .next/
 bin/
 obj/
-docs/
+docs/*
+!docs/architecture.md
 
 # local configuration
 .env

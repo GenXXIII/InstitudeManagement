@@ -8,6 +8,7 @@ public sealed class ScheduleEntry : Entity
     public Classroom? Classroom { get; set; }
     public Guid TeacherId { get; set; }
     public Teacher? Teacher { get; set; }
+    public int YearLevel { get; set; } = 1;
     public DayOfWeek DayOfWeek { get; set; }
     public TimeOnly StartsAt { get; set; }
     public TimeOnly EndsAt { get; set; }

@@ -2,6 +2,7 @@ using InstituteManagement.Application.Abstractions;
 using InstituteManagement.Application.DTOs;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Grades;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Dashboard;
@@ -10,7 +11,7 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
 {
     public async Task<DashboardDto> GetAsync(CancellationToken ct)
     {
-        var cached = await cache.ReadDashboardAsync<DashboardDto>();
+        var cached = await cache.ReadDashboardAsync<DashboardDto>(ct);
         if (cached is not null) return cached;
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -20,7 +21,12 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
         var courseCount = await db.Courses.AsNoTracking().CountAsync(x => x.IsActive, ct);
         var classroomCount = await db.Classrooms.AsNoTracking().CountAsync(x => x.Status != "Inactive", ct);
         var attendance = await db.AttendanceRecords.AsNoTracking().Where(x => x.Date == today).ToListAsync(ct);
-        var grades = await db.GradeRecords.AsNoTracking().Select(x => x.Score).ToListAsync(ct);
+        var period = await db.SystemSettings.AsNoTracking().Where(x => (x.Section == "academic-year" && x.Key == "currentYear") || (x.Section == "semester" && x.Key == "currentTerm")).ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, ct);
+        var academicYear = period.GetValueOrDefault("academic-year:currentYear", "2026\u20132027");
+        var term = period.GetValueOrDefault("semester:currentTerm", "Semester 1");
+        var grades = await db.GradeRecords.AsNoTracking().Where(x => x.AcademicYear == academicYear && x.Term == term).Select(x => x.Score).ToListAsync(ct);
+        var gradeSettings = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "grade-rules").ToDictionaryAsync(x => x.Key, x => x.Value, ct);
+        var gradeScale = GradeThresholds.From(gradeSettings);
         var scheduleRows = await db.ScheduleEntries.AsNoTracking().Where(x => x.DayOfWeek == currentDay && x.Status != "Cancelled").OrderBy(x => x.StartsAt).Take(5).Select(x => new { x.StartsAt, Course = x.Course!.Name, Classroom = x.Classroom!.Code, x.Status }).ToListAsync(ct);
         var schedule = scheduleRows.Select(x => new StatusItemDto(x.StartsAt.ToString("HH:mm"), x.Course, x.Classroom, x.Status)).ToList();
         var notifications = await db.Notifications.AsNoTracking().Where(x => !x.IsRead).Take(4).Select(x => new ActivityDto("Now", x.Title, x.Message, x.Severity.ToLower())).ToListAsync(ct);
@@ -39,9 +45,9 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
             notifications,
             activity,
             departments,
-            [new("A", Percentage(grades, 90, 101)), new("B", Percentage(grades, 80, 90)), new("C", Percentage(grades, 70, 80)), new("D", Percentage(grades, 60, 70)), new("F", Percentage(grades, 0, 60))]);
+            [new("A", Percentage(grades, gradeScale.A, 101)), new("B", Percentage(grades, gradeScale.B, gradeScale.A)), new("C", Percentage(grades, gradeScale.C, gradeScale.B)), new("D", Percentage(grades, gradeScale.D, gradeScale.C)), new("E", Percentage(grades, gradeScale.E, gradeScale.D)), new("F", Percentage(grades, 0, gradeScale.E))]);
 
-        await cache.WriteDashboardAsync(result);
+        await cache.WriteDashboardAsync(result, ct);
         return result;
     }
 

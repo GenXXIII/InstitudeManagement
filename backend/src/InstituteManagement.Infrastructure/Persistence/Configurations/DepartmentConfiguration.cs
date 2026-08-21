@@ -9,6 +9,12 @@ public sealed class DepartmentConfiguration : IEntityTypeConfiguration<Departmen
     public void Configure(EntityTypeBuilder<Department> builder)
     {
         builder.HasIndex(x => x.Code).IsUnique();
-        builder.HasOne(x => x.HeadTeacher).WithMany().HasForeignKey(x => x.HeadTeacherId).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(x => x.Code).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.Head).HasMaxLength(200).IsRequired();
+        builder.HasOne(x => x.HeadTeacher)
+            .WithMany()
+            .HasForeignKey(x => x.HeadTeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
