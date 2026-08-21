@@ -1,0 +1,108 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+concurrency:
+  group: ink-management-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Build and test
+    runs-on: ubuntu-latest
+    env:
+      SQL_PASSWORD: NorthstarCiOnly!2026
+      SQL_DATABASE: INK_Manangement
+      SQL_HOSTNAME: INK-SQL-SERVER
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/web/package-lock.json
+      - name: Restore backend
+        run: dotnet restore backend/InstituteManagement.slnx
+      - name: Build backend
+        run: dotnet build backend/InstituteManagement.slnx --configuration Release --no-restore
+      - name: Test backend
+        run: dotnet test backend/InstituteManagement.slnx --configuration Release --no-build
+      - name: Install frontend
+        working-directory: frontend/web
+        run: npm ci
+      - name: Lint frontend
+        working-directory: frontend/web
+        run: npm run lint
+      - name: Build frontend
+        working-directory: frontend/web
+        run: npm run build
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+      - name: Build production containers
+        run: docker compose build api web
+      - name: Start production stack
+        run: docker compose up -d --wait --wait-timeout 180
+      - name: Smoke test INK application
+        run: |
+          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:5080/health
+          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:5080/api/dashboard
+          docker compose exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$SQL_PASSWORD" -C -b -Q "IF @@SERVERNAME <> N'INK-SQL-SERVER' THROW 51000, 'Unexpected SQL Server name.', 1; IF DB_ID(N'INK_Manangement') IS NULL THROW 51000, 'INK database is missing.', 1;"
+          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:3000/branding/ink-logo.png --output /dev/null
+          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:3000/icon.png --output /dev/null
+          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:3000 | grep -F "<title>Institude of New Khmer</title>"
+      - name: Stop production stack
+        if: always()
+        run: docker compose down --volumes
+
+  publish:
+    name: Publish containers
+    needs: validate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: ink-management-api
+            context: .
+            file: backend/src/InstituteManagement.API/Dockerfile
+          - image: ink-management-web
+            context: frontend/web
+            file: frontend/web/Dockerfile
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: metadata
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

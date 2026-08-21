@@ -1,0 +1,29 @@
+import type { Activity, Metric } from "@/lib/types/presentation-types";
+
+export type OperationSummary = { module: string; summary: string; value: string; detail: string; status: string; route: string; tone: string };
+export type StudentOperation = { id: string; student: string; studentNumber: string; department: string; year: number; attendanceStatus: string };
+export type TeacherOperation = { id: string; teacher: string; teacherNumber: string; department: string; status: string };
+export type ClassroomOperation = { id: string; room: string; floor: number; building: string; capacity: number; device: string; status: string };
+export type CourseOperation = { id: string; course: string; code: string; teacher: string; department: string; capacity: number; status: string };
+export type WeeklyTimetableSlot = { id: string; day: string; startsAt: string; endsAt: string; course: string; teacher: string; room: string; status: string };
+export type AttendanceOperation = { id: string; time: string; student: string; studentNumber: string; method: string; status: string };
+export type DepartmentOperation = { id: string; department: string; head: string; students: number; teachers: number; courses: number; status: string };
+export type GradeOperation = { id: string; student: string; course: string; score: number; grade: string; term: string };
+
+export type Operation = {
+  module: string;
+  title: string;
+  description: string;
+  metrics: Metric[];
+  activity: Activity[];
+  attention: Activity[];
+  summary?: OperationSummary[];
+  students?: StudentOperation[];
+  teachers?: TeacherOperation[];
+  classrooms?: ClassroomOperation[];
+  courses?: CourseOperation[];
+  weeklySchedule?: WeeklyTimetableSlot[];
+  attendance?: AttendanceOperation[];
+  departments?: DepartmentOperation[];
+  grades?: GradeOperation[];
+};

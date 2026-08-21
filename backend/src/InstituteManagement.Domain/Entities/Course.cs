@@ -1,0 +1,14 @@
+namespace InstituteManagement.Domain.Entities;
+
+public sealed class Course : Entity
+{
+    public required string Code { get; set; }
+    public required string Name { get; set; }
+    public Guid DepartmentId { get; set; }
+    public Department? Department { get; set; }
+    public Guid? TeacherId { get; set; }
+    public Teacher? Teacher { get; set; }
+    public int Credits { get; set; } = 3;
+    public int Capacity { get; set; } = 40;
+    public bool IsActive { get; set; } = true;
+}

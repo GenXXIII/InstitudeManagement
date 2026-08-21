@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.API.Middleware;
 
-public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails) : IExceptionHandler
+public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, ILogger<ApiExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
     {
@@ -15,6 +15,8 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails) :
             DbUpdateException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
         };
+        if (status == StatusCodes.Status500InternalServerError)
+            logger.LogError(exception, "Unhandled API exception for {Method} {Path}", context.Request.Method, context.Request.Path);
         context.Response.StatusCode = status;
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {

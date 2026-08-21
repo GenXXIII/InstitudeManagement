@@ -1,7 +1,7 @@
 using InstituteManagement.API.Hubs;
 using InstituteManagement.API.Services;
 using InstituteManagement.Application;
-using InstituteManagement.Application.Common;
+using InstituteManagement.Application.Abstractions;
 using InstituteManagement.Infrastructure;
 using InstituteManagement.Infrastructure.Persistence;
 

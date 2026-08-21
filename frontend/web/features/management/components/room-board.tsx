@@ -1,0 +1,6 @@
+import type { LayoutProps } from "../management-types";
+import { ManagementActions } from "./management-actions";
+
+export function RoomBoard({ items, onEdit, onDeactivate }: LayoutProps) {
+  return <section className="panel horizontal-management-table room-horizontal"><div className="horizontal-management-head"><span>Room</span><span>Building</span><span>Department ownership</span><span>Capacity</span><span>Attendance device</span><span>Status</span><span>Actions</span></div>{items.map(item => <article className="horizontal-management-row" key={item.id}><div className="room-code-horizontal">{item.values.code}</div><div className="horizontal-detail"><span>Building</span><strong>{item.values.building}</strong></div><div className="horizontal-detail"><span>Assigned department</span><strong>{item.values.department}</strong></div><div className="horizontal-detail"><span>Maximum occupancy</span><strong>{item.values.capacity} seats</strong></div><div className="device-detail"><i className={item.values.deviceOnline === "true" ? "online" : ""}/><strong>{item.values.deviceOnline === "true" ? "Online" : "Offline"}</strong></div><span className={`table-status ${item.values.status.toLowerCase()}`}>{item.values.status}</span><ManagementActions item={item} onEdit={onEdit} onDeactivate={onDeactivate}/></article>)}</section>;
+}

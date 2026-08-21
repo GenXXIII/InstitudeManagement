@@ -1,5 +1,5 @@
 using InstituteManagement.API.Hubs;
-using InstituteManagement.Application.Common;
+using InstituteManagement.Application.Abstractions;
 using Microsoft.AspNetCore.SignalR;
 
 namespace InstituteManagement.API.Services;

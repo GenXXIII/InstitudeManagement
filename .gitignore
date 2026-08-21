@@ -3,11 +3,13 @@ node_modules/
 .next/
 bin/
 obj/
+docs/
 
 # local configuration
 .env
 *.user
 *.suo
+.dockerignore
 
 # editors and OS
 .vs/

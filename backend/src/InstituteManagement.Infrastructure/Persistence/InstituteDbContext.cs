@@ -19,22 +19,7 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Department>().HasIndex(x => x.Code).IsUnique();
-        modelBuilder.Entity<Student>().HasIndex(x => x.StudentNumber).IsUnique();
-        modelBuilder.Entity<Teacher>().HasIndex(x => x.TeacherNumber).IsUnique();
-        modelBuilder.Entity<Classroom>().HasIndex(x => x.Code).IsUnique();
-        modelBuilder.Entity<Course>().HasIndex(x => x.Code).IsUnique();
-        modelBuilder.Entity<SystemSetting>().HasIndex(x => new { x.Section, x.Key }).IsUnique();
-        modelBuilder.Entity<GradeRecord>().Property(x => x.Score).HasPrecision(5, 2);
-        modelBuilder.Entity<Department>()
-            .HasOne(x => x.HeadTeacher)
-            .WithMany()
-            .HasForeignKey(x => x.HeadTeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        // SQL Server rejects the model's legitimate relationship graph when
-        // multiple cascade paths converge on attendance, grade, and schedule
-        // records. Deletion is explicit in application workflows instead.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(InstituteDbContext).Assembly);
         foreach (var foreignKey in modelBuilder.Model.GetEntityTypes().SelectMany(entity => entity.GetForeignKeys()))
             foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
     }

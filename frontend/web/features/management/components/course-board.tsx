@@ -1,0 +1,6 @@
+import type { LayoutProps } from "../management-types";
+import { ManagementActions } from "./management-actions";
+
+export function CourseBoard({ items, onEdit, onDeactivate }: LayoutProps) {
+  return <section className="panel horizontal-management-table course-horizontal"><div className="horizontal-management-head"><span>Code</span><span>Course</span><span>Department</span><span>Assigned teacher</span><span>Credits</span><span>Capacity</span><span>Status</span><span>Actions</span></div>{items.map(item => <article className="horizontal-management-row" key={item.id}><div className="course-code">{item.values.code}</div><div className="horizontal-primary"><strong>{item.values.name}</strong><span>Active curriculum course</span></div><div className="horizontal-detail"><span>Owning department</span><strong>{item.values.department}</strong></div><div className="horizontal-detail"><span>Teacher relationship</span><strong>{item.values.teacher}</strong></div><div className="relationship-number"><strong>{item.values.credits}</strong><span>Credits</span></div><div className="relationship-number"><strong>{item.values.capacity}</strong><span>Seats</span></div><span className={`table-status ${item.values.status.toLowerCase()}`}>{item.values.status}</span><ManagementActions item={item} onEdit={onEdit} onDeactivate={onDeactivate}/></article>)}</section>;
+}
