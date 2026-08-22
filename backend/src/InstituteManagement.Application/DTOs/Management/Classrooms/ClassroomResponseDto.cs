@@ -6,7 +6,7 @@ public sealed record ClassroomResponseDto(Guid Id, ClassroomValuesDto Values) : 
 }
 
 public sealed record ClassroomValuesDto(
-    string Code,
+    string ClassroomCode,
     string Building,
     string RoomType,
     string DepartmentId,
@@ -14,4 +14,5 @@ public sealed record ClassroomValuesDto(
     string Capacity,
     string Status,
     string StudyStatus,
-    string DeviceOnline);
+    string DeviceOnline,
+    string CreateAt);

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
@@ -8,12 +7,9 @@ import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitive
 import { resultApi } from "./result-api";
 import type { SemesterResult } from "./result-types";
 
-type ResultMode = "operation" | "record" | "management" | "history";
+type ResultMode = "history";
 const copy: Record<ResultMode, { eyebrow: string; title: string; description: string }> = {
-  operation: { eyebrow: "Live semester outcomes", title: "Student results", description: "Current and recorded semester outcomes calculated from attendance, course grades, and Administration grade rules." },
-  record: { eyebrow: "Semester result register", title: "Recorded student results", description: "One result row per student and semester, preserving its attendance totals, course scores, total, average, and final outcome." },
-  management: { eyebrow: "Calculated academic results", title: "Result management", description: "Review computed semester outcomes. Update source attendance or grades and the result recalculates automatically." },
-  history: { eyebrow: "Read-only semester history", title: "Result history", description: "All available semester outcomes calculated from retained attendance and grade records." },
+  history: { eyebrow: "Closed-semester record history", title: "Semester result history", description: "Every completed semester outcome remains available here after the active semester ledger advances." },
 };
 
 export function ResultWorkspace({ mode }: { mode: ResultMode }) {
@@ -34,7 +30,7 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
   const visible = useMemo(() => rows.filter(row => {
     const text = query.trim().toLowerCase();
     const matchesOutcome = outcome === "all" || outcome === "final" && row.totalGrade !== "Pending" || row.totalGrade.toLowerCase().replaceAll(" ", "-") === outcome;
-    return matchesOutcome && (semester === "all" || row.semester === semester) && (academicYear === "all" || row.academicYear === academicYear) && (!text || [row.fullName, row.studentNumber, row.department, row.semester, ...row.grades.flatMap(grade => [grade.code, grade.name])].some(value => value.toLowerCase().includes(text)));
+    return matchesOutcome && (semester === "all" || row.semester === semester) && (academicYear === "all" || row.academicYear === academicYear) && (!text || [row.fullName, row.studentCode, row.department, row.semester, ...row.grades.flatMap(grade => [grade.courseCode, grade.name])].some(value => value.toLowerCase().includes(text)));
   }).toSorted((left, right) => mode === "history" ? right.academicYear.localeCompare(left.academicYear) || semesterNumber(right.semester) - semesterNumber(left.semester) || left.fullName.localeCompare(right.fullName) : left.year - right.year || left.fullName.localeCompare(right.fullName)), [academicYear, mode, outcome, query, rows, semester]);
   const details = copy[mode];
   if (error) return <ErrorPage retry={load}/>;
@@ -42,7 +38,7 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
   const failed = visible.filter(row => row.totalGrade === "Fail").length;
   const retake = visible.filter(row => row.totalGrade === "Retake Exam").length;
   return <>
-    <PageHeading eyebrow={details.eyebrow} title={details.title} description={`${details.description}${year ? ` Showing Year ${year}.` : ""}`} actions={<>{mode === "management" && <><Link className="button secondary" href={`/management/attendance${scope(departmentId, year)}`}>Manage attendance</Link><Link className="button primary" href={`/management/grades${scope(departmentId, year)}`}>Manage grades</Link></>}<button className="button secondary" onClick={load}><Icon name="pulse" size={15}/>Refresh</button></>}/>
+    <PageHeading eyebrow={details.eyebrow} title={details.title} description={`${details.description}${year ? ` Showing Year ${year}.` : ""}`} actions={<button className="button secondary" onClick={load}><Icon name="pulse" size={15}/>Refresh</button>}/>
     <section className="result-rule-notice"><Icon name="grade" size={20}/><div><strong>Final result logic</strong><span>8+ absences = Fail · 6–7 absences = Retake Exam · otherwise the total grade follows Administration grade thresholds. Average = total score ÷ graded courses.</span></div></section>
     <section className="operational-record-summary result-summary"><article className="panel"><span>Semester results</span><strong>{visible.length}</strong><small>One student per semester</small></article><article className="panel"><span>Retake exam</span><strong>{retake}</strong><small>6–7 absent records</small></article><article className="panel"><span>Failed by attendance</span><strong>{failed}</strong><small>8 or more absent records</small></article></section>
     <section className="record-toolbar panel result-toolbar"><label className="record-search"><Icon name="search" size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search student, course, or department…"/></label><select value={academicYear} onChange={event => setAcademicYear(event.target.value)}><option value="all">All academic years</option>{academicYears.map(value => <option value={value} key={value}>{value}</option>)}</select><select value={semester} onChange={event => setSemester(event.target.value)}><option value="all">All semesters</option>{semesters.map(value => <option value={value} key={value}>{value}</option>)}</select><select value={outcome} onChange={event => setOutcome(event.target.value)} aria-label="Result outcome"><option value="final">Completed results</option><option value="pending">Pending only</option><option value="retake-exam">Retake exam</option><option value="fail">Failed</option><option value="all">All outcomes</option></select><span className="record-count">{visible.length} results</span></section>
@@ -51,8 +47,7 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
 }
 
 function ResultRow({ row }: { row: SemesterResult }) {
-  return <article className="semester-result-row"><div className="result-student"><span>{initials(row.fullName)}</span><div><strong>{row.fullName}</strong><small>{row.studentNumber} · {row.department}</small></div></div><div className="result-period"><strong>Year {row.year}</strong><span>{row.semester}</span><small>{row.academicYear}</small></div><div className="result-attendance"><span className="present"><b>{row.presentCount}</b> Present</span><span className="absent"><b>{row.absentCount}</b> Absent</span><span className="permission"><b>{row.permissionCount}</b> Permission</span></div><div className="result-course-grades">{row.grades.length ? row.grades.map(grade => <span key={grade.courseId}><strong>{grade.code} {grade.score.toFixed(1)}/{grade.grade}</strong><small>{grade.name}</small></span>) : <i>No course grades yet</i>}</div><div className="result-total"><strong>{row.totalScore.toFixed(1)}</strong><span>{row.totalCourses} course{row.totalCourses === 1 ? "" : "s"}</span></div><div className="result-average"><strong>{row.average.toFixed(2)}%</strong><span>Total ÷ {row.totalCourses || 0}</span></div><span className={`result-final result-${row.totalGrade.toLowerCase().replaceAll(" ", "-")}`}>{row.totalGrade}</span></article>;
+  return <article className="semester-result-row"><div className="result-student"><span>{initials(row.fullName)}</span><div><strong>{row.fullName}</strong><small>{row.studentCode} · {row.department}</small></div></div><div className="result-period"><strong>Year {row.year}</strong><span>{row.semester}</span><small>{row.academicYear}</small></div><div className="result-attendance"><span className="present"><b>{row.presentCount}</b> Present</span><span className="absent"><b>{row.absentCount}</b> Absent</span><span className="permission"><b>{row.permissionCount}</b> Permission</span></div><div className="result-course-grades">{row.grades.length ? row.grades.map(grade => <span key={grade.courseId}><strong>{grade.courseCode} {grade.score.toFixed(1)}/{grade.grade}</strong><small>{grade.name}</small></span>) : <i>No course grades yet</i>}</div><div className="result-total"><strong>{row.totalScore.toFixed(1)}</strong><span>{row.totalCourses} course{row.totalCourses === 1 ? "" : "s"}</span></div><div className="result-average"><strong>{row.average.toFixed(2)}%</strong><span>Total ÷ {row.totalCourses || 0}</span></div><span className={`result-final result-${row.totalGrade.toLowerCase().replaceAll(" ", "-")}`}>{row.totalGrade}</span></article>;
 }
 function initials(value: string) { return value.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase(); }
 function semesterNumber(value: string) { return Number(value.match(/\d+/)?.[0] ?? 0); }
-function scope(departmentId: string, year: string) { const params = new URLSearchParams(); if (departmentId) params.set("departmentId", departmentId); if (year) params.set("year", year); const query = params.toString(); return query ? `?${query}` : ""; }

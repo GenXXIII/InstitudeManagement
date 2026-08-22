@@ -2,6 +2,7 @@ namespace InstituteManagement.Domain.Entities;
 
 public sealed class ClassSessionRecord : Entity
 {
+    public string ClassSessionRecordCode { get; set; } = $"CSR-{Guid.NewGuid():N}";
     public Guid ScheduleEntryId { get; set; }
     public ScheduleEntry? ScheduleEntry { get; set; }
     public DateOnly SessionDate { get; set; }
@@ -28,4 +29,4 @@ public sealed class ClassSessionRecord : Entity
     public string StudentAttendanceJson { get; set; } = "[]";
 }
 
-public sealed record SessionStudentSnapshot(Guid StudentId, string StudentNumber, string StudentName, string Status, string CheckedInAt);
+public sealed record SessionStudentSnapshot(Guid StudentId, string StudentCode, string StudentName, string Status, string CheckedInAt);

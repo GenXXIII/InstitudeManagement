@@ -1,5 +1,5 @@
 export type CourseValues = Record<string, string> & {
-  code: string;
+  courseCode: string;
   name: string;
   departmentId: string;
   department: string;
@@ -7,6 +7,7 @@ export type CourseValues = Record<string, string> & {
   teacher: string;
   capacity: string;
   status: string;
+  createAt: string;
 };
 
 export type CourseItem = { id: string; values: CourseValues };

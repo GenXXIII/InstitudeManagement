@@ -1,7 +1,8 @@
 export type AttendanceValues = Record<string, string> & {
+  attendanceCode: string;
   studentId: string;
   student: string;
-  number: string;
+  studentCode: string;
   departmentId: string;
   department: string;
   date: string;
@@ -10,6 +11,7 @@ export type AttendanceValues = Record<string, string> & {
   method: string;
   academicYear: string;
   term: string;
+  createAt: string;
 };
 
 export type AttendanceItem = { id: string; values: AttendanceValues };

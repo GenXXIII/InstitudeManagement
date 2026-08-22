@@ -2,7 +2,7 @@
 
 A full-stack institute operations platform built from `docs/Layout/SystemLayout.md` and the architecture described in `docs/Personality/AboutMe.md`.
 
-The current milestone includes dashboard reporting, module-specific live operations, relationship-aware current-data management, immutable historical records, configurable institute rules, seeded data, and SignalR events. Authentication, authorization/security, and payments are intentionally deferred.
+The current milestone includes dashboard reporting, module-specific live operations, relationship-aware current-data management, immutable historical records, configurable institute rules, user-managed data, and SignalR events. Authentication, authorization/security, and payments are intentionally deferred.
 
 ## Data behavior
 
@@ -31,7 +31,7 @@ The current milestone includes dashboard reporting, module-specific live operati
 
 ## Database migrations
 
-EF Core migrations are stored in `backend/src/InstituteManagement.Infrastructure/Persistence/Migrations`. Startup applies pending migrations automatically. Existing databases created before migrations are upgraded by the compatibility bridge and baseline-marked without deleting their data.
+EF Core migrations are stored in `backend/src/InstituteManagement.Infrastructure/Persistence/Migrations`. Startup applies pending migrations automatically but does not seed business records. Existing databases created before migrations are upgraded by the compatibility bridge and baseline-marked without deleting their data.
 
 Create a future migration from the repository root with:
 
@@ -47,7 +47,7 @@ The root `.env` is configured for local development and ignored by Git. From the
 docker compose up --build
 ```
 
-This starts the web app, API, SQL Server, and Redis. Open `http://localhost:3000`; the API health endpoint is `http://localhost:5080/health`. SQL Server data and Redis cache data are stored in named Docker volumes and survive container restarts.
+This starts the web app, API, SQL Server, and Redis. Open `http://localhost:3000`; the API health endpoint is `http://localhost:5080/health`. The local images are `ink-web`, `ink-api`, `ink-sql-server`, and `ink-redis`; containers and persistent volumes use explicit `INK-*` names. A fresh database contains schema only so institute data can be entered through Management or SQL.
 
 Stop the application with:
 
@@ -62,16 +62,16 @@ The local data is preserved. Use `docker compose down -v` only when you intentio
 Use these values for SQL Server Management Studio or Azure Data Studio when the Docker stack is running:
 
 ```text
-Server address: 127.0.0.1,1433
-SQL Server name: INK-SQL-SERVER
+Server address for SSMS: tcp:127.0.0.1,1433
+Logical/container name: INK-SQL-SERVER
 Database: INK_Manangement
 Authentication: SQL Server Authentication
 Login: sa
-Password: NorthstarLocal!2026
+Password: 1234
 Encryption: Optional (or Trust server certificate: Yes)
 ```
 
-The API container uses `sqlserver,1433` as its Docker network address. SQL Server reports its logical server name as `INK-SQL-SERVER`. The local password is defined by `SQL_PASSWORD` in the ignored root `.env`; `.env.example` contains the development default.
+Enter `tcp:127.0.0.1,1433` in the SSMS **Server name** field. `INK-SQL-SERVER` is the SQL logical/container name and is not a Windows network address unless an administrator adds a Windows hosts or SQL client alias. The API container uses `sqlserver,1433` on the Docker network. SQL Server's container startup rejects weak passwords, so Compose starts it with the policy-compliant `SQL_BOOTSTRAP_PASSWORD`, disables password policy for the local `sa` login, and then sets the requested local password to `1234`. This development-only password must not be used for an internet-accessible deployment.
 
 ## Repository structure
 

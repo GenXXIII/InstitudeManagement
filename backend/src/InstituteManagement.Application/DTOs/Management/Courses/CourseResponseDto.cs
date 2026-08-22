@@ -6,11 +6,12 @@ public sealed record CourseResponseDto(Guid Id, CourseValuesDto Values) : IManag
 }
 
 public sealed record CourseValuesDto(
-    string Code,
+    string CourseCode,
     string Name,
     string DepartmentId,
     string Department,
     string TeacherId,
     string Teacher,
     string Capacity,
-    string Status);
+    string Status,
+    string CreateAt);

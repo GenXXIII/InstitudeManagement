@@ -8,9 +8,9 @@ public sealed class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
 {
     public void Configure(EntityTypeBuilder<Teacher> builder)
     {
-        builder.HasIndex(x => x.TeacherNumber).IsUnique();
+        builder.HasIndex(x => x.TeacherCode).IsUnique();
         builder.HasIndex(x => x.DepartmentId);
-        builder.Property(x => x.TeacherNumber).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.TeacherCode).HasMaxLength(32).IsRequired();
         builder.Property(x => x.FullName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.Email).HasMaxLength(320).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();

@@ -9,7 +9,7 @@ public sealed class GetDashboardHandlerTests
     [Fact]
     public async Task Handle_returns_query_service_snapshot()
     {
-        var expected = new DashboardDto([], 94.2m, 1.2m, [], [], [], [], [], [], []);
+        var expected = new DashboardDto([], 94.2m, 1.2m, [], [], [], [], [], [], 82.4m, []);
         var handler = new GetDashboardHandler(new FakeDashboardService(expected));
 
         var result = await handler.Handle(new GetDashboardQuery(), CancellationToken.None);

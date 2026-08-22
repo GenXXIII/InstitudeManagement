@@ -2,6 +2,7 @@ namespace InstituteManagement.Domain.Entities;
 
 public sealed class GradeRecord : Entity
 {
+    public string GradeCode { get; set; } = string.Empty;
     public Guid StudentId { get; set; }
     public Student? Student { get; set; }
     public Guid CourseId { get; set; }

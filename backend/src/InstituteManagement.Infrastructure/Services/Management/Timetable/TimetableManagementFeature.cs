@@ -16,14 +16,15 @@ public sealed class TimetableManagementFeature(InstituteDbContext db, InstituteC
         var entries = await Db.ScheduleEntries.AsNoTracking().Include(entry => entry.Course).ThenInclude(course => course!.Department).Include(entry => entry.Teacher).Include(entry => entry.Classroom)
             .Where(entry => entry.Status != "Cancelled" && (!departmentId.HasValue || entry.Course!.DepartmentId == departmentId))
             .ToListAsync(ct);
-        return entries.Where(entry => Matches(search, entry.Course?.Name, entry.Teacher?.FullName, entry.Classroom?.Code, entry.Status))
+        return entries.Where(entry => Matches(search, entry.TimetableCode, entry.Course?.Name, entry.Teacher?.FullName, entry.Classroom?.ClassroomCode, entry.Status))
             .Select(entry => (IManagementItemDto)new TimetableResponseDto(entry.Id, new TimetableValuesDto(
+                entry.TimetableCode,
                 entry.CourseId.ToString(),
                 entry.Course?.Name ?? "—",
                 entry.TeacherId.ToString(),
                 entry.Teacher?.FullName ?? "—",
                 entry.ClassroomId.ToString(),
-                entry.Classroom?.Code ?? "—",
+                entry.Classroom?.ClassroomCode ?? "—",
                 entry.Classroom?.RoomType ?? "Classroom",
                 entry.Course?.DepartmentId.ToString() ?? "",
                 entry.Course?.Department?.Name ?? "—",
@@ -31,7 +32,8 @@ public sealed class TimetableManagementFeature(InstituteDbContext db, InstituteC
                 entry.DayOfWeek.ToString(),
                 entry.StartsAt.ToString("HH:mm"),
                 entry.EndsAt.ToString("HH:mm"),
-                entry.Status)))
+                entry.Status,
+                entry.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
     }
 
@@ -41,6 +43,7 @@ public sealed class TimetableManagementFeature(InstituteDbContext db, InstituteC
     protected override void Deactivate(Entity entity) { ((ScheduleEntry)entity).Status = "Cancelled"; Touch(entity); }
     protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
         new TimetableResponseDto(id, new TimetableValuesDto(
+            Get(values, "timetableCode"),
             Get(values, "courseId"),
             Get(values, "course"),
             Get(values, "teacherId"),
@@ -54,15 +57,20 @@ public sealed class TimetableManagementFeature(InstituteDbContext db, InstituteC
             Get(values, "dayOfWeek"),
             Get(values, "startsAt"),
             Get(values, "endsAt"),
-            Get(values, "status", "Upcoming")));
+            Get(values, "status", "Upcoming"),
+            Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
     private async Task ApplyAsync(ScheduleEntry entry, Dictionary<string, string> values, CancellationToken ct)
     {
+        var timetableCode = Required(values, "timetableCode");
+        await EnsureUniqueAsync(Db.ScheduleEntries.Where(item => item.Id != entry.Id && item.TimetableCode == timetableCode), "TimetableCode", ct);
+        entry.TimetableCode = timetableCode;
         entry.CourseId = await RelatedIdAsync<Course>(values, "courseId", ct); entry.TeacherId = await RelatedIdAsync<Teacher>(values, "teacherId", ct); entry.ClassroomId = await RelatedIdAsync<Classroom>(values, "classroomId", ct);
         var course = await Db.Courses.FindAsync([entry.CourseId], ct) ?? throw new KeyNotFoundException("Course not found."); var teacher = await Db.Teachers.FindAsync([entry.TeacherId], ct) ?? throw new KeyNotFoundException("Teacher not found."); var room = await Db.Classrooms.FindAsync([entry.ClassroomId], ct) ?? throw new KeyNotFoundException("Classroom not found.");
         var allowCrossDepartment = await SettingEnabledAsync("departments", "allowCrossDepartmentTeaching", false, ct);
         var allowSharedRooms = await SettingEnabledAsync("classrooms", "allowSharedRooms", false, ct);
-        if (!course.IsActive || teacher.Status == "Inactive" || room.Status is "Inactive" or "Offline" or "Starting" || (!allowCrossDepartment && teacher.DepartmentId != course.DepartmentId) || (!allowSharedRooms && room.DepartmentId != course.DepartmentId)) throw new InvalidOperationException("Course, teacher, and learning space must comply with Administration department and room-sharing rules.");
+        if (!course.IsActive || teacher.Status == "Inactive" || room.Status is "Inactive" or "Offline" or "Starting" || (!allowCrossDepartment && teacher.DepartmentId.HasValue && teacher.DepartmentId != course.DepartmentId) || (!allowSharedRooms && room.DepartmentId != course.DepartmentId)) throw new InvalidOperationException("Course, teacher, and learning space must comply with Administration department and room-sharing rules.");
+        teacher.DepartmentId ??= course.DepartmentId;
         entry.YearLevel = IntInRange(values, "yearLevel", 1, 1, 4);
         entry.DayOfWeek = Enum.TryParse<DayOfWeek>(Required(values, "dayOfWeek"), true, out var day)
             ? day

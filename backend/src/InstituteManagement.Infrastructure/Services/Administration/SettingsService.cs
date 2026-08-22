@@ -31,21 +31,29 @@ public sealed class SettingsService : ISettingsService
     public async Task<SettingsDto> SaveAsync(string section, Dictionary<string, string> values, CancellationToken ct)
     {
         EnsureSection(section);
-        var existing = await db.SystemSettings.Where(x => x.Section == section).ToListAsync(ct);
-        var merged = existing.ToDictionary(x => x.Key, x => x.Value);
-        foreach (var item in values) merged[item.Key] = item.Value.Trim();
-        Validate(section, merged);
-
         foreach (var item in values)
         {
+            if (string.IsNullOrWhiteSpace(item.Key) || item.Key.Length > 128) throw new ArgumentException("Setting names must contain 1 to 128 characters.");
+            if (item.Value is null) throw new ArgumentException($"{item.Key} requires a value.");
+            if (item.Value.Length > 2048) throw new ArgumentException($"{item.Key} must contain no more than 2048 characters.");
+        }
+
+        var existing = await db.SystemSettings.Where(x => x.Section == section).ToListAsync(ct);
+        var normalized = values.ToDictionary(item => item.Key, item => item.Value.Trim());
+        Validate(section, normalized);
+
+        db.SystemSettings.RemoveRange(existing.Where(setting => !values.ContainsKey(setting.Key)));
+
+        foreach (var item in normalized)
+        {
             var setting = existing.FirstOrDefault(x => x.Key == item.Key);
-            if (setting is null) db.SystemSettings.Add(new SystemSetting { Section = section, Key = item.Key, Value = item.Value.Trim() });
-            else { setting.Value = item.Value.Trim(); setting.UpdatedAtUtc = DateTime.UtcNow; }
+            if (setting is null) db.SystemSettings.Add(new SystemSetting { Section = section, Key = item.Key, Value = item.Value });
+            else { setting.Value = item.Value; setting.UpdatedAtUtc = DateTime.UtcNow; }
         }
 
         if (section == "grade-rules")
         {
-            var scale = GradeThresholds.From(merged);
+            var scale = GradeThresholds.From(normalized);
             foreach (var grade in await db.GradeRecords.ToListAsync(ct)) { grade.LetterGrade = scale.Letter(grade.Score); grade.UpdatedAtUtc = DateTime.UtcNow; }
         }
 

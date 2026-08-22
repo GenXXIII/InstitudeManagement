@@ -15,6 +15,7 @@ using InstituteManagement.Infrastructure.Services.Management.Grades;
 using InstituteManagement.Infrastructure.Services.Management.Students;
 using InstituteManagement.Infrastructure.Services.Management.Teachers;
 using InstituteManagement.Infrastructure.Services.Management.Timetable;
+using InstituteManagement.Infrastructure.Services.Notifications;
 using InstituteManagement.Infrastructure.Services.Operations;
 using InstituteManagement.Infrastructure.Services.Record;
 using InstituteManagement.Infrastructure.Services.Results;
@@ -69,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<IHistorySnapshotProvider, GradeHistorySnapshotProvider>();
         services.AddScoped<IManagementService, ManagementService>();
         services.AddScoped<ISettingsService, SettingsService>();
+        services.AddScoped<INotificationCenterService, NotificationCenterService>();
         services.AddScoped<AcademicCalendarRolloverService>();
         services.AddHostedService<AcademicCalendarHostedService>();
         services.AddScoped<IAttendanceService, AttendanceService>();

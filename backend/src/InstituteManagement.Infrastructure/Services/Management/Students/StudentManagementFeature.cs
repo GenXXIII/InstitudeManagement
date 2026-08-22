@@ -20,28 +20,29 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
             .ToListAsync(ct);
 
         return students
-            .Where(student => Matches(search, student.FullName, student.StudentNumber, student.Department?.Name))
+            .Where(student => Matches(search, student.FullName, student.StudentCode, student.Department?.Name))
             .Select(student => (IManagementItemDto)new StudentResponseDto(
                 student.Id,
                 new StudentValuesDto(
                     student.PhotoDataUrl,
-                    student.StudentNumber,
+                    student.StudentCode,
                     student.FullName,
                     student.Email,
                     student.DepartmentId.ToString(),
                     student.Department?.Name ?? "—",
                     student.YearLevel.ToString(),
-                    student.Status)))
+                    student.Status,
+                    student.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
     }
 
     public override async Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var number = Required(values, "number");
-        await EnsureUniqueAsync(Db.Students.Where(student => student.StudentNumber == number), "Student ID", ct);
+        var studentCode = Required(values, "studentCode");
+        await EnsureUniqueAsync(Db.Students.Where(student => student.StudentCode == studentCode), "StudentCode", ct);
         var entity = new Student
         {
-            StudentNumber = number,
+            StudentCode = studentCode,
             FullName = Required(values, "name"),
             Email = Email(values, "email"),
             PhotoDataUrl = Required(values, "photoDataUrl"),
@@ -55,11 +56,11 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
     public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
         var entity = await RequiredEntityAsync(Db.Students, id, ct);
-        var number = Required(values, "number");
-        await EnsureUniqueAsync(Db.Students.Where(student => student.Id != id && student.StudentNumber == number), "Student ID", ct);
+        var studentCode = Required(values, "studentCode");
+        await EnsureUniqueAsync(Db.Students.Where(student => student.Id != id && student.StudentCode == studentCode), "StudentCode", ct);
         var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct);
         if (entity.DepartmentId != departmentId && await Db.GradeRecords.AnyAsync(x => x.StudentId == id && x.Course!.DepartmentId != departmentId, ct)) throw new InvalidOperationException("Move or remove this student's grade relationships before changing department.");
-        entity.StudentNumber = number;
+        entity.StudentCode = studentCode;
         entity.FullName = Required(values, "name");
         entity.Email = Email(values, "email");
         entity.PhotoDataUrl = Required(values, "photoDataUrl");
@@ -75,11 +76,12 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
     protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
         new StudentResponseDto(id, new StudentValuesDto(
             Get(values, "photoDataUrl"),
-            Get(values, "number"),
+            Get(values, "studentCode"),
             Get(values, "name"),
             Get(values, "email"),
             Get(values, "departmentId"),
             Get(values, "department"),
             Get(values, "year"),
-            Get(values, "status", "Active")));
+            Get(values, "status", "Active"),
+            Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 }

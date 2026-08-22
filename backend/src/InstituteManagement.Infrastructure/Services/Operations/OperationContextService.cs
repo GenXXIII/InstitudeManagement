@@ -13,8 +13,8 @@ public sealed class OperationContextService(InstituteDbContext db)
             : null;
         var activityQuery = db.AuditLogs.AsNoTracking().AsQueryable();
         if (departmentId.HasValue) activityQuery = activityQuery.Where(x => x.Details.Contains(departmentId.Value.ToString()));
-        var activity = await activityQuery.OrderByDescending(x => x.CreatedAtUtc).Take(4).Select(x => new ActivityDto(x.CreatedAtUtc.ToString("HH:mm"), x.Action, x.Subject)).ToListAsync(cancellationToken);
-        var attention = departmentId.HasValue ? [] : await db.Notifications.AsNoTracking().Where(x => !x.IsRead).Take(4).Select(x => new ActivityDto("Now", x.Title, x.Message, x.Severity.ToLower())).ToListAsync(cancellationToken);
-        return new OperationContext(department is null ? "the whole institute" : $"{department.Name} ({department.Code})", activity, attention);
+        var activity = await activityQuery.OrderByDescending(x => x.CreateAt).Take(4).Select(x => new ActivityDto(x.CreateAt.ToString("HH:mm"), x.Action, x.Subject)).ToListAsync(cancellationToken);
+        var attention = departmentId.HasValue ? [] : await db.Notifications.AsNoTracking().Where(x => !x.IsRead).Take(4).Select(x => new ActivityDto("Now", x.Title, x.Message, x.Severity.ToLower(), x.NotificationCode)).ToListAsync(cancellationToken);
+        return new OperationContext(department is null ? "the whole institute" : $"{department.Name} ({department.DepartmentCode})", activity, attention);
     }
 }

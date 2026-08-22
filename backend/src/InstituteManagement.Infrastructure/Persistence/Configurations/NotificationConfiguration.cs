@@ -8,9 +8,12 @@ public sealed class NotificationConfiguration : IEntityTypeConfiguration<Notific
 {
     public void Configure(EntityTypeBuilder<Notification> builder)
     {
-        builder.HasIndex(x => new { x.IsRead, x.CreatedAtUtc });
+        builder.HasIndex(x => x.NotificationCode).IsUnique();
+        builder.HasIndex(x => new { x.IsRead, x.CreateAt });
+        builder.Property(x => x.NotificationCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.Type).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Title).HasMaxLength(200).IsRequired();
-        builder.Property(x => x.Message).HasMaxLength(1000).IsRequired();
+        builder.Property(x => x.Message).HasMaxLength(2000).IsRequired();
         builder.Property(x => x.Severity).HasMaxLength(32).IsRequired();
     }
 }

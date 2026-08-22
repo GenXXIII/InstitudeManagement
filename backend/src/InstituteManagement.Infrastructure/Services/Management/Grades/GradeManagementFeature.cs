@@ -17,8 +17,9 @@ public sealed class GradeManagementFeature(InstituteDbContext db, InstituteCache
         var grades = await Db.GradeRecords.AsNoTracking().Include(grade => grade.Student).ThenInclude(student => student!.Department).Include(grade => grade.Course)
             .Where(grade => grade.AcademicYear == period.AcademicYear && grade.Term == period.Term && grade.Student!.Status != "Inactive" && grade.Course!.IsActive && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId))
             .ToListAsync(ct);
-        return grades.Where(grade => Matches(search, grade.Student!.FullName, grade.Course!.Name, grade.LetterGrade))
+        return grades.Where(grade => Matches(search, grade.GradeCode, grade.Student!.FullName, grade.Course!.Name, grade.LetterGrade))
             .Select(grade => (IManagementItemDto)new GradeResponseDto(grade.Id, new GradeValuesDto(
+                grade.GradeCode,
                 grade.StudentId.ToString(),
                 grade.Student?.FullName ?? "—",
                 grade.CourseId.ToString(),
@@ -28,7 +29,8 @@ public sealed class GradeManagementFeature(InstituteDbContext db, InstituteCache
                 grade.Score.ToString("0.0"),
                 grade.LetterGrade,
                 grade.AcademicYear,
-                grade.Term)))
+                grade.Term,
+                grade.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
     }
 
@@ -44,6 +46,7 @@ public sealed class GradeManagementFeature(InstituteDbContext db, InstituteCache
     }
     protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
         new GradeResponseDto(id, new GradeValuesDto(
+            Get(values, "gradeCode"),
             Get(values, "studentId"),
             Get(values, "student"),
             Get(values, "courseId"),
@@ -53,16 +56,24 @@ public sealed class GradeManagementFeature(InstituteDbContext db, InstituteCache
             Get(values, "score"),
             Get(values, "grade"),
             Get(values, "academicYear"),
-            Get(values, "term", "Semester 1")));
+            Get(values, "term", "Semester 1"),
+            Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
     private async Task<GradeRecord> BuildAsync(GradeRecord entity, Dictionary<string, string> values, CancellationToken ct)
     {
+        var gradeCode = Required(values, "gradeCode");
+        await EnsureUniqueAsync(Db.GradeRecords.Where(item => item.Id != entity.Id && item.GradeCode == gradeCode), "GradeCode", ct);
+        entity.GradeCode = gradeCode;
         entity.StudentId = await RelatedIdAsync<Student>(values, "studentId", ct);
         entity.CourseId = await RelatedIdAsync<Course>(values, "courseId", ct);
         var student = await Db.Students.FindAsync([entity.StudentId], ct);
         var course = await Db.Courses.FindAsync([entity.CourseId], ct);
-        if (student?.DepartmentId != course?.DepartmentId || student?.Status == "Inactive" || course?.IsActive != true)
+        if (student is null || course is null || student.DepartmentId != course.DepartmentId || student.Status == "Inactive" || !course.IsActive)
             throw new InvalidOperationException("Student and course must be active and belong to the same department.");
+        values["student"] = student.FullName;
+        values["course"] = course.Name;
+        values["departmentId"] = student.DepartmentId.ToString();
+        values["department"] = student.Department?.Name ?? "";
         entity.Score = DecimalInRange(values, "score", 0, 100);
         entity.LetterGrade = await LetterAsync(entity.Score, ct);
         values["grade"] = entity.LetterGrade;

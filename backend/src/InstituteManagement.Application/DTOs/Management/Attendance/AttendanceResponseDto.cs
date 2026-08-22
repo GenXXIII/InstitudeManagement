@@ -6,9 +6,10 @@ public sealed record AttendanceResponseDto(Guid Id, AttendanceValuesDto Values) 
 }
 
 public sealed record AttendanceValuesDto(
+    string AttendanceCode,
     string StudentId,
     string Student,
-    string Number,
+    string StudentCode,
     string DepartmentId,
     string Department,
     string Date,
@@ -16,4 +17,5 @@ public sealed record AttendanceValuesDto(
     string Status,
     string Method,
     string AcademicYear,
-    string Term);
+    string Term,
+    string CreateAt);

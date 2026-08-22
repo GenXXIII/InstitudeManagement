@@ -50,7 +50,7 @@ public sealed class AcademicCalendarRolloverServiceTests
         Assert.Contains(db.AuditLogs, x => x.Action == "Year rollover" && x.Details.Contains("Year 4 students were preserved"));
     }
 
-    private static Student Student(int year) => new() { StudentNumber = $"S{year}{Guid.NewGuid():N}", FullName = $"Year {year} Student", DepartmentId = Guid.NewGuid(), YearLevel = year };
+    private static Student Student(int year) => new() { StudentCode = $"S{year}{Guid.NewGuid():N}", FullName = $"Year {year} Student", DepartmentId = Guid.NewGuid(), YearLevel = year };
     private static string Value(InstituteDbContext db, string section, string key) => db.SystemSettings.Single(x => x.Section == section && x.Key == key).Value;
     private static void AddCalendar(InstituteDbContext db, string term = "Semester 1", string startsOn = "2026-08-03", string endsOn = "2026-12-18") => db.SystemSettings.AddRange(new[]
     {

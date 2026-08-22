@@ -21,7 +21,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         var academicYear = period.GetValueOrDefault("academic-year:currentYear", "2026\u20132027");
         var currentTerm = period.GetValueOrDefault("semester:currentTerm", "Semester 1");
         var grade = await db.GradeRecords.FirstOrDefaultAsync(x => x.StudentId == studentId && x.CourseId == courseId && x.AcademicYear == academicYear && x.Term == currentTerm, cancellationToken);
-        if (grade is null) { grade = new GradeRecord { StudentId = studentId, CourseId = courseId, AcademicYear = academicYear, Term = currentTerm }; db.GradeRecords.Add(grade); }
+        if (grade is null) { grade = new GradeRecord { GradeCode = $"GRD-{Guid.NewGuid():N}", StudentId = studentId, CourseId = courseId, AcademicYear = academicYear, Term = currentTerm }; db.GradeRecords.Add(grade); }
         grade.Score = score; grade.LetterGrade = await LetterAsync(score, cancellationToken); grade.UpdatedAtUtc = DateTime.UtcNow;
         db.AuditLogs.Add(new AuditLog { ResourceId = grade.Id, Type = "Grade", Subject = student.FullName, Action = $"Grade {grade.LetterGrade}", Details = $"{course.Name}: {score:0.0} · {academicYear} · {currentTerm}" });
         var reminders = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "notifications" && x.Key == "gradeReminders").Select(x => x.Value).FirstOrDefaultAsync(cancellationToken);

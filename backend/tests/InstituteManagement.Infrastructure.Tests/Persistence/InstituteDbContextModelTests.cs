@@ -11,10 +11,20 @@ public sealed class InstituteDbContextModelTests
     {
         using var db = CreateContext();
 
-        AssertUniqueIndex<Student>(db, nameof(Student.StudentNumber));
-        AssertUniqueIndex<Teacher>(db, nameof(Teacher.TeacherNumber));
-        AssertUniqueIndex<Course>(db, nameof(Course.Code));
-        AssertUniqueIndex<Classroom>(db, nameof(Classroom.Code));
+        AssertUniqueIndex<Student>(db, nameof(Student.StudentCode));
+        AssertUniqueIndex<Teacher>(db, nameof(Teacher.TeacherCode));
+        AssertUniqueIndex<Department>(db, nameof(Department.DepartmentCode));
+        AssertUniqueIndex<Course>(db, nameof(Course.CourseCode));
+        AssertUniqueIndex<Classroom>(db, nameof(Classroom.ClassroomCode));
+        AssertUniqueIndex<ScheduleEntry>(db, nameof(ScheduleEntry.TimetableCode));
+        AssertUniqueIndex<AttendanceRecord>(db, nameof(AttendanceRecord.AttendanceCode));
+        AssertUniqueIndex<GradeRecord>(db, nameof(GradeRecord.GradeCode));
+        AssertUniqueIndex<AuditLog>(db, nameof(AuditLog.AuditLogCode));
+        AssertUniqueIndex<ClassSessionRecord>(db, nameof(ClassSessionRecord.ClassSessionRecordCode));
+        AssertUniqueIndex<Notification>(db, nameof(Notification.NotificationCode));
+        AssertUniqueIndex<SystemSetting>(db, nameof(SystemSetting.SystemSettingCode));
+        AssertUniqueIndex<Announcement>(db, nameof(Announcement.AnnouncementCode));
+        AssertUniqueIndex<NotificationHistory>(db, nameof(NotificationHistory.NotificationHistoryCode));
         AssertUniqueIndex<AttendanceRecord>(db, nameof(AttendanceRecord.StudentId), nameof(AttendanceRecord.Date));
         AssertUniqueIndex<GradeRecord>(db, nameof(GradeRecord.StudentId), nameof(GradeRecord.CourseId), nameof(GradeRecord.AcademicYear), nameof(GradeRecord.Term));
         AssertUniqueIndex<ClassSessionRecord>(db, nameof(ClassSessionRecord.ScheduleEntryId), nameof(ClassSessionRecord.SessionDate));

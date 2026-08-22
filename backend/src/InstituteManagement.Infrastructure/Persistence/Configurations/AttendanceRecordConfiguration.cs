@@ -8,7 +8,9 @@ public sealed class AttendanceRecordConfiguration : IEntityTypeConfiguration<Att
 {
     public void Configure(EntityTypeBuilder<AttendanceRecord> builder)
     {
+        builder.HasIndex(x => x.AttendanceCode).IsUnique();
         builder.HasIndex(x => new { x.StudentId, x.Date }).IsUnique();
+        builder.Property(x => x.AttendanceCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Method).HasMaxLength(32).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();

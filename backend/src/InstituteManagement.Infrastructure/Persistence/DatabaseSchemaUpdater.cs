@@ -24,6 +24,7 @@ public static class DatabaseSchemaUpdater
             BEGIN
                 CREATE TABLE [ClassSessionRecords] (
                     [Id] uniqueidentifier NOT NULL,
+                    [ClassSessionRecordCode] nvarchar(64) NOT NULL,
                     [CreatedAtUtc] datetime2 NOT NULL,
                     [UpdatedAtUtc] datetime2 NOT NULL,
                     [ScheduleEntryId] uniqueidentifier NOT NULL,
@@ -53,6 +54,7 @@ public static class DatabaseSchemaUpdater
                     CONSTRAINT [FK_ClassSessionRecords_Classrooms_ClassroomId] FOREIGN KEY ([ClassroomId]) REFERENCES [Classrooms] ([Id])
                 );
                 CREATE UNIQUE INDEX [IX_ClassSessionRecords_ScheduleEntryId_SessionDate] ON [ClassSessionRecords] ([ScheduleEntryId], [SessionDate]);
+                CREATE UNIQUE INDEX [IX_ClassSessionRecords_ClassSessionRecordCode] ON [ClassSessionRecords] ([ClassSessionRecordCode]);
                 CREATE INDEX [IX_ClassSessionRecords_CourseId] ON [ClassSessionRecords] ([CourseId]);
                 CREATE INDEX [IX_ClassSessionRecords_TeacherId] ON [ClassSessionRecords] ([TeacherId]);
                 CREATE INDEX [IX_ClassSessionRecords_ClassroomId] ON [ClassSessionRecords] ([ClassroomId]);

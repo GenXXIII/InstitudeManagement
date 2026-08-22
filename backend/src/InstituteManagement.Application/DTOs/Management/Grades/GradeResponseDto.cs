@@ -6,6 +6,7 @@ public sealed record GradeResponseDto(Guid Id, GradeValuesDto Values) : IManagem
 }
 
 public sealed record GradeValuesDto(
+    string GradeCode,
     string StudentId,
     string Student,
     string CourseId,
@@ -15,4 +16,5 @@ public sealed record GradeValuesDto(
     string Score,
     string Grade,
     string AcademicYear,
-    string Term);
+    string Term,
+    string CreateAt);

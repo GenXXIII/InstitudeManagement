@@ -10,4 +10,5 @@ public sealed record DashboardDto(
     IReadOnlyList<ActivityDto> Attention,
     IReadOnlyList<ActivityDto> Activity,
     IReadOnlyList<StatusItemDto> DepartmentStatus,
+    decimal AverageGrade,
     IReadOnlyList<ChartPointDto> GradeDistribution);

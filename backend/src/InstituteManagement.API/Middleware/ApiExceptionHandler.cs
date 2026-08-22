@@ -40,7 +40,9 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             {
                 Status = status,
                 Title = TitleFor(status),
-                Detail = status == StatusCodes.Status500InternalServerError
+                Detail = exception is DbUpdateException
+                    ? "This record duplicates an existing ID or unique relationship. Change the ID or selected relationship and try again."
+                    : status == StatusCodes.Status500InternalServerError
                     ? "The request could not be completed."
                     : exception.Message
             };

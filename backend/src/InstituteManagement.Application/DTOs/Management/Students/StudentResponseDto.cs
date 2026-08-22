@@ -7,10 +7,11 @@ public sealed record StudentResponseDto(Guid Id, StudentValuesDto Values) : IMan
 
 public sealed record StudentValuesDto(
     string PhotoDataUrl,
-    string Number,
+    string StudentCode,
     string Name,
     string Email,
     string DepartmentId,
     string Department,
     string Year,
-    string Status);
+    string Status,
+    string CreateAt);

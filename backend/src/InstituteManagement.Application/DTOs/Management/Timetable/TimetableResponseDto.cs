@@ -6,6 +6,7 @@ public sealed record TimetableResponseDto(Guid Id, TimetableValuesDto Values) : 
 }
 
 public sealed record TimetableValuesDto(
+    string TimetableCode,
     string CourseId,
     string Course,
     string TeacherId,
@@ -19,4 +20,5 @@ public sealed record TimetableValuesDto(
     string DayOfWeek,
     string StartsAt,
     string EndsAt,
-    string Status);
+    string Status,
+    string CreateAt);

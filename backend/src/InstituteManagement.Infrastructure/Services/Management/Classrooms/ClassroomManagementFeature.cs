@@ -21,9 +21,9 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
         var rooms = await Db.Classrooms.AsNoTracking().Include(room => room.Department)
             .Where(room => room.Status != "Inactive" && (!departmentId.HasValue || room.DepartmentId == departmentId))
             .ToListAsync(ct);
-        return rooms.Where(room => Matches(search, room.Code, room.Building, room.RoomType, room.Status, room.Department?.Name))
+        return rooms.Where(room => Matches(search, room.ClassroomCode, room.Building, room.RoomType, room.Status, room.Department?.Name))
             .Select(room => (IManagementItemDto)new ClassroomResponseDto(room.Id, new ClassroomValuesDto(
-                room.Code,
+                room.ClassroomCode,
                 room.Building,
                 room.RoomType,
                 room.DepartmentId?.ToString() ?? "",
@@ -31,37 +31,41 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
                 room.Capacity.ToString(),
                 room.Status,
                 inStudyRoomIds.Contains(room.Id) ? "In Study" : room.Status,
-                room.DeviceOnline.ToString().ToLowerInvariant())))
+                room.DeviceOnline.ToString().ToLowerInvariant(),
+                room.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
     }
 
     public override async Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var code = Required(values, "code");
-        await EnsureUniqueAsync(Db.Classrooms.Where(room => room.Code == code), "Classroom code", ct);
+        var classroomCode = Required(values, "classroomCode");
+        await EnsureUniqueAsync(Db.Classrooms.Where(room => room.ClassroomCode == classroomCode), "ClassroomCode", ct);
         var status = RoomStatus(values); var deviceOnline = Bool(values, "deviceOnline", true); await ValidateDeviceAsync(status, deviceOnline, ct);
-        return await SaveCreatedAsync(new Classroom
+        var entity = new Classroom
         {
-            Code = code,
+            ClassroomCode = classroomCode,
             Building = Required(values, "building"),
             RoomType = RoomType(values),
             DepartmentId = await RelatedIdAsync<Department>(values, "departmentId", ct),
             Capacity = IntInRange(values, "capacity", 40, 1, 10000),
             Status = status,
             DeviceOnline = deviceOnline
-        }, values, ct);
+        };
+        await AddDeviceAlertAsync(entity, !deviceOnline, ct);
+        return await SaveCreatedAsync(entity, values, ct);
     }
     public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
         var entity = await RequiredEntityAsync(Db.Classrooms, id, ct);
-        var code = Required(values, "code");
-        await EnsureUniqueAsync(Db.Classrooms.Where(room => room.Id != id && room.Code == code), "Classroom code", ct);
+        var classroomCode = Required(values, "classroomCode");
+        await EnsureUniqueAsync(Db.Classrooms.Where(room => room.Id != id && room.ClassroomCode == classroomCode), "ClassroomCode", ct);
         var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct);
         if (entity.DepartmentId != departmentId && await Db.ScheduleEntries.AnyAsync(x => x.ClassroomId == id && x.Course!.DepartmentId != departmentId && x.Status != "Cancelled", ct)) throw new InvalidOperationException("Move this classroom's active timetable entries before changing department.");
         var status = RoomStatus(values);
+        var wasOnline = entity.DeviceOnline;
         var deviceOnline = Bool(values, "deviceOnline", true); await ValidateDeviceAsync(status, deviceOnline, ct);
         if (status == "Inactive") await ValidateDeleteAsync(entity, ct);
-        entity.Code = code;
+        entity.ClassroomCode = classroomCode;
         entity.Building = Required(values, "building");
         entity.RoomType = RoomType(values);
         entity.DepartmentId = departmentId;
@@ -69,6 +73,7 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
         entity.Status = status;
         entity.DeviceOnline = deviceOnline;
         Touch(entity);
+        await AddDeviceAlertAsync(entity, wasOnline && !deviceOnline, ct);
         return await SaveUpdatedAsync(id, values, ct);
     }
     protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct) { if (await Db.ScheduleEntries.AnyAsync(x => x.ClassroomId == entity.Id && x.Status != "Cancelled", ct)) throw new InvalidOperationException("Classroom is still used by an active timetable entry."); }
@@ -76,7 +81,7 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
     protected override void Deactivate(Entity entity) { var room = (Classroom)entity; room.Status = "Inactive"; room.DeviceOnline = false; Touch(room); }
     protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
         new ClassroomResponseDto(id, new ClassroomValuesDto(
-            Get(values, "code"),
+            Get(values, "classroomCode"),
             Get(values, "building"),
             Get(values, "roomType", "Classroom"),
             Get(values, "departmentId"),
@@ -84,7 +89,8 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
             Get(values, "capacity"),
             Get(values, "status", "Available"),
             Get(values, "studyStatus", Get(values, "status", "Available")),
-            Get(values, "deviceOnline", "true")));
+            Get(values, "deviceOnline", "true"),
+            Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
     private static string RoomStatus(Dictionary<string, string> values)
     {
@@ -100,5 +106,13 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
         var value = await Db.SystemSettings.AsNoTracking().Where(x => x.Section == "classrooms" && x.Key == "attendanceDeviceRequired").Select(x => x.Value).FirstOrDefaultAsync(ct);
         var required = !bool.TryParse(value, out var enabled) || enabled;
         if (required && status is "Available" or "Starting" && !deviceOnline) throw new InvalidOperationException("An online attendance device is required for active learning spaces by Classroom settings.");
+    }
+
+    private async Task AddDeviceAlertAsync(Classroom room, bool shouldAlert, CancellationToken ct)
+    {
+        if (!shouldAlert) return;
+        var value = await Db.SystemSettings.AsNoTracking().Where(x => x.Section == "notifications" && x.Key == "deviceAlerts").Select(x => x.Value).FirstOrDefaultAsync(ct);
+        if (!bool.TryParse(value, out var enabled) || enabled)
+            Db.Notifications.Add(new Notification { Title = "Classroom device offline", Message = $"Room {room.ClassroomCode} attendance device is offline.", Severity = "Warning" });
     }
 }

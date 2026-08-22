@@ -19,31 +19,31 @@ public sealed class TeacherManagementFeature(InstituteDbContext db, InstituteCac
             .ToListAsync(ct);
 
         return teachers
-            .Where(teacher => Matches(search, teacher.FullName, teacher.TeacherNumber, teacher.Department?.Name))
+            .Where(teacher => Matches(search, teacher.FullName, teacher.TeacherCode, teacher.Department?.Name))
             .Select(teacher => (IManagementItemDto)new TeacherResponseDto(
                 teacher.Id,
                 new TeacherValuesDto(
                     teacher.PhotoDataUrl,
-                    teacher.TeacherNumber,
+                    teacher.TeacherCode,
                     teacher.FullName,
                     teacher.Email,
-                    teacher.DepartmentId.ToString(),
+                    teacher.DepartmentId?.ToString() ?? "",
                     teacher.Department?.Name ?? "—",
-                    teacher.Status)))
+                    teacher.Status,
+                    teacher.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
     }
 
     public override async Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var number = Required(values, "number");
-        await EnsureUniqueAsync(Db.Teachers.Where(teacher => teacher.TeacherNumber == number), "Teacher ID", ct);
+        var teacherCode = Required(values, "teacherCode");
+        await EnsureUniqueAsync(Db.Teachers.Where(teacher => teacher.TeacherCode == teacherCode), "TeacherCode", ct);
         return await SaveCreatedAsync(new Teacher
         {
-            TeacherNumber = number,
+            TeacherCode = teacherCode,
             FullName = Required(values, "name"),
             Email = Email(values, "email"),
             PhotoDataUrl = Required(values, "photoDataUrl"),
-            DepartmentId = await RelatedIdAsync<Department>(values, "departmentId", ct),
             Status = TeacherStatus(values)
         }, values, ct);
     }
@@ -51,17 +51,14 @@ public sealed class TeacherManagementFeature(InstituteDbContext db, InstituteCac
     public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
         var entity = await RequiredEntityAsync(Db.Teachers, id, ct);
-        var number = Required(values, "number");
-        await EnsureUniqueAsync(Db.Teachers.Where(teacher => teacher.Id != id && teacher.TeacherNumber == number), "Teacher ID", ct);
-        var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct);
-        if (entity.DepartmentId != departmentId && (await Db.Departments.AnyAsync(x => x.HeadTeacherId == id && x.Id != departmentId, ct) || await Db.Courses.AnyAsync(x => x.TeacherId == id && x.DepartmentId != departmentId, ct) || await Db.ScheduleEntries.AnyAsync(x => x.TeacherId == id && x.Course!.DepartmentId != departmentId, ct))) throw new InvalidOperationException("Reassign this teacher's department-head, course, and timetable relationships first.");
+        var teacherCode = Required(values, "teacherCode");
+        await EnsureUniqueAsync(Db.Teachers.Where(teacher => teacher.Id != id && teacher.TeacherCode == teacherCode), "TeacherCode", ct);
         var status = TeacherStatus(values);
         if (status == "Inactive") await ValidateDeleteAsync(entity, ct);
-        entity.TeacherNumber = number;
+        entity.TeacherCode = teacherCode;
         entity.FullName = Required(values, "name");
         entity.Email = Email(values, "email");
         entity.PhotoDataUrl = Required(values, "photoDataUrl");
-        entity.DepartmentId = departmentId;
         entity.Status = status;
         Touch(entity);
         return await SaveUpdatedAsync(id, values, ct);
@@ -77,12 +74,13 @@ public sealed class TeacherManagementFeature(InstituteDbContext db, InstituteCac
     protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
         new TeacherResponseDto(id, new TeacherValuesDto(
             Get(values, "photoDataUrl"),
-            Get(values, "number"),
+            Get(values, "teacherCode"),
             Get(values, "name"),
             Get(values, "email"),
             Get(values, "departmentId"),
             Get(values, "department"),
-            Get(values, "status", "Available")));
+            Get(values, "status", "Available"),
+            Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
     private static string TeacherStatus(Dictionary<string, string> values) =>
         OneOf(values, "status", "Available", "Available", "Teaching", "Meeting", "On leave", "Inactive");

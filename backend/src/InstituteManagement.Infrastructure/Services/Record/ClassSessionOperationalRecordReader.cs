@@ -29,7 +29,9 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
                 ("Date", session.SessionDate.ToString("yyyy-MM-dd")),
                 ("Time", time),
                 ("Student", student.StudentName),
-                ("Student number", student.StudentNumber),
+                ("StudentCode", student.StudentCode),
+                ("Academic year", session.AcademicYear),
+                ("Term", session.Term),
                 ("Attendance", student.Status),
                 ("Check in", string.IsNullOrWhiteSpace(student.CheckedInAt) ? "No check-in" : student.CheckedInAt))));
             return new OperationalRecordDto(
@@ -40,7 +42,8 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
                 "Completed",
                 $"{time} · {session.TeacherName} · {session.StudentCount} students · {session.PresentCount + session.LateCount} came · {session.AbsentCount} absent",
                 session.UpdatedAtUtc,
-                activities);
+                activities,
+                session.ClassSessionRecordCode);
         }).ToList();
     }
 

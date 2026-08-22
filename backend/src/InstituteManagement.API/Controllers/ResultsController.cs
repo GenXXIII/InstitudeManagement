@@ -9,6 +9,6 @@ namespace InstituteManagement.API.Controllers;
 public sealed class ResultsController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(Guid? departmentId, int? year, string? semester, string? academicYear, CancellationToken cancellationToken) =>
-        Ok(await sender.Send(new GetResultsQuery(departmentId, year, semester, academicYear), cancellationToken));
+    public async Task<IActionResult> Get(Guid? departmentId, int? year, string? semester, string? academicYear, bool history, CancellationToken cancellationToken) =>
+        Ok(await sender.Send(new GetResultsQuery(departmentId, year, semester, academicYear, history), cancellationToken));
 }

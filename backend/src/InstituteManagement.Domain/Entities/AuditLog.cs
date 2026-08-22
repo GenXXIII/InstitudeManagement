@@ -2,6 +2,7 @@ namespace InstituteManagement.Domain.Entities;
 
 public sealed class AuditLog : Entity
 {
+    public string AuditLogCode { get; set; } = $"AUD-{Guid.NewGuid():N}";
     public Guid? ResourceId { get; set; }
     public string Type { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;

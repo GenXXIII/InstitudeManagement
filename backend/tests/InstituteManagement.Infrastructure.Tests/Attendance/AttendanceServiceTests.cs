@@ -12,10 +12,10 @@ public sealed class AttendanceServiceTests
     public async Task RecordAsync_updates_the_existing_daily_record()
     {
         await using var db = CreateContext();
-        var department = new Department { Code = "IT", Name = "Information Technology" };
+        var department = new Department { DepartmentCode = "IT", Name = "Information Technology" };
         var student = new Student
         {
-            StudentNumber = "ST-001",
+            StudentCode = "ST-001",
             FullName = "Sok Dara",
             Email = "sok@example.edu",
             DepartmentId = department.Id,

@@ -1,7 +1,7 @@
 import type { Field } from "../management-types";
 
 export const courseFields: Field[] = [
-  { key: "code", label: "Course code", required: true },
+  { key: "courseCode", label: "CourseCode", required: true },
   { key: "name", label: "Course name", required: true },
   { key: "departmentId", label: "Department", type: "select", source: "departments", required: true },
   { key: "teacherId", label: "Assigned teacher", type: "select", source: "teachers", required: true },

@@ -29,7 +29,7 @@ function SessionRecordCard({ row, open, onToggle }: { row: OperationalRecord; op
   const permission = students.filter(student => student.Attendance === "Excused" || student.Attendance === "Permission").length;
   return <article className={`session-timetable-card ${open ? "open" : ""}`}>
     <button className="session-timetable-trigger" type="button" onClick={onToggle} aria-expanded={open}>
-      <div className="session-card-time"><span>Timetable period</span><strong>{time}</strong><small>{sessionName(time)} session</small></div>
+      <div className="session-card-time"><span>{row.classSessionRecordCode || "Class session"}</span><strong>{time}</strong><small>{sessionName(time)} session</small></div>
       <div className="session-card-date"><span className="session-card-calendar"><Icon name="calendar" size={17}/></span><div><small>Class date</small><strong>{displayNumericDate(date)}</strong></div></div>
       <div className="session-card-course"><small>Timetable cohort</small><strong>{summary?.Year ?? "Year unavailable"}</strong><span>Room {summary?.Classroom ?? "—"}</span></div>
       <div className="session-card-class"><small>Scheduled teaching</small><strong>{summary?.Teacher ?? "Teacher unavailable"}</strong><span>{summary?.Course ?? "Course unavailable"}</span></div>
@@ -46,7 +46,7 @@ function ActivitiesAtTime({ items, time }: { items: Record<string, string>[]; ti
   if (!students.length) return <>{items.map((activity, index) => <ActivityAtTime activity={activity} key={`${time}-${index}`}/>)}</>;
   return <article className="session-attendance-visual">
     <div className="session-attendance-head"><div className="operational-time-block"><time>{time}</time><span>{sessionName(time)}</span></div><div><span className="operational-action-kind">Completed class</span><strong>{summary?.Course ?? "Scheduled class"}</strong><small>{[summary?.Year, summary?.Teacher, summary?.Classroom].filter(Boolean).join(" · ")}</small></div><b>{summary?.Attendance}</b></div>
-    <div className="session-student-status-grid">{students.map((student, index) => <div className={`session-student-status attendance-${student.Attendance.toLowerCase()}`} key={`${student["Student number"]}-${index}`}><span>{student.Student.split(" ").map(value => value[0]).join("").slice(0, 2)}</span><div><strong>{student.Student}</strong><small>{student["Student number"]} · {student["Check in"]}</small></div><b>{attendanceLabel(student.Attendance)}</b></div>)}</div>
+    <div className="session-student-status-grid">{students.map((student, index) => <div className={`session-student-status attendance-${student.Attendance.toLowerCase()}`} key={`${student.StudentCode}-${index}`}><span>{student.Student.split(" ").map(value => value[0]).join("").slice(0, 2)}</span><div><strong>{student.Student}</strong><small>{student.StudentCode} · {student["Check in"]}</small></div><b>{attendanceLabel(student.Attendance)}</b></div>)}</div>
   </article>;
 }
 

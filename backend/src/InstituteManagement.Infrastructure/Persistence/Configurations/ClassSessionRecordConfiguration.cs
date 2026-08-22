@@ -8,10 +8,12 @@ public sealed class ClassSessionRecordConfiguration : IEntityTypeConfiguration<C
 {
     public void Configure(EntityTypeBuilder<ClassSessionRecord> builder)
     {
+        builder.HasIndex(x => x.ClassSessionRecordCode).IsUnique();
         builder.HasIndex(x => new { x.ScheduleEntryId, x.SessionDate }).IsUnique();
         builder.HasIndex(x => x.CourseId);
         builder.HasIndex(x => x.TeacherId);
         builder.HasIndex(x => x.ClassroomId);
+        builder.Property(x => x.ClassSessionRecordCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Term).HasMaxLength(32).IsRequired();
         builder.Property(x => x.CourseName).HasMaxLength(256).IsRequired();

@@ -1,12 +1,13 @@
 export type StudentValues = Record<string, string> & {
   photoDataUrl: string;
-  number: string;
+  studentCode: string;
   name: string;
   email: string;
   departmentId: string;
   department: string;
   year: string;
   status: string;
+  createAt: string;
 };
 
 export type StudentItem = { id: string; values: StudentValues };

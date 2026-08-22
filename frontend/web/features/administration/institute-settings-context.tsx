@@ -7,7 +7,7 @@ export const settingSections = ["institute", "academic-year", "semester", "depar
 export type SettingSection = typeof settingSections[number];
 export type InstituteSettings = Record<SettingSection, Record<string, string>>;
 
-const defaults: InstituteSettings = {
+export const defaultSettings: InstituteSettings = {
   institute: { name: "Institude of New Khmer", shortName: "INK", email: "info@ink.edu.kh", phone: "+855 23 000 000", address: "Phnom Penh, Cambodia" },
   "academic-year": { currentYear: "2026–2027", startsOn: "2026-08-03", endsOn: "2027-06-18" },
   semester: { currentTerm: "Semester 1", startsOn: "2026-08-03", endsOn: "2026-12-18", semester1StartsOn: "2026-08-03", semester1EndsOn: "2026-12-18", semester2StartsOn: "2027-01-04", semester2EndsOn: "2027-06-18" },
@@ -20,11 +20,18 @@ const defaults: InstituteSettings = {
   system: { timeZone: "Asia/Bangkok", language: "English", dateFormat: "DD MMM YYYY", autoRefreshSeconds: "30" },
 };
 
+export const settingsTemplates: InstituteSettings = {
+  ...defaultSettings,
+  institute: { name: "Institude of New Khmer", shortName: "INK", email: "", phone: "", address: "" },
+  "academic-year": { currentYear: "", startsOn: "", endsOn: "" },
+  semester: { currentTerm: "Semester 1", startsOn: "", endsOn: "", semester1StartsOn: "", semester1EndsOn: "", semester2StartsOn: "", semester2EndsOn: "" },
+};
+
 type SettingsContextValue = { settings: InstituteSettings; refresh: () => Promise<void>; ready: boolean };
-const SettingsContext = createContext<SettingsContextValue>({ settings: defaults, refresh: async () => {}, ready: false });
+const SettingsContext = createContext<SettingsContextValue>({ settings: defaultSettings, refresh: async () => {}, ready: false });
 
 export function InstituteSettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<InstituteSettings>(defaults);
+  const [settings, setSettings] = useState<InstituteSettings>(defaultSettings);
   const [ready, setReady] = useState(false);
   const refresh = useCallback(async () => {
     const results = await Promise.all(settingSections.map(section => administrationApi.get(section).catch(() => ({ section, values: {} }))));

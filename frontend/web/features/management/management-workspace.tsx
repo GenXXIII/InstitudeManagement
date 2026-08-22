@@ -13,6 +13,7 @@ import { courseApi } from "./courses/course-api";
 import { departmentApi } from "./departments/department-api";
 import { managementApis } from "./management-apis";
 import { emptyReferences, managementCopy } from "./management-config";
+import { managementCode } from "./management-id";
 import { studentApi } from "./students/student-api";
 import { teacherApi } from "./teachers/teacher-api";
 import { timetableApi } from "./timetable/timetable-api";
@@ -112,15 +113,23 @@ function sortItemsByYear(items: ManagementItem[], module: ManagementModule, refe
     if (module === "departments" || module === "overview") return studentDepartments.get(item.id) ?? 99;
     return 99;
   };
-  return items.toSorted((left, right) => yearOf(left) - yearOf(right));
+  const businessId = (item: ManagementItem) => {
+    const values = item.values as unknown as Record<string, string>;
+    return managementCode(module, values) || item.id;
+  };
+  return items.toSorted((left, right) => yearOf(left) - yearOf(right) || businessId(left).localeCompare(businessId(right), undefined, { numeric: true, sensitivity: "base" }));
 }
 
 function sortReferencesByYear(references: References): References {
   const studentYears = new Map(references.students.map(student => [student.id, Number(student.values.year)]));
   return {
     ...references,
-    students: references.students.toSorted((left, right) => Number(left.values.year) - Number(right.values.year)),
-    timetable: references.timetable.toSorted((left, right) => Number(left.values.yearLevel) - Number(right.values.yearLevel)),
-    attendance: references.attendance.toSorted((left, right) => (studentYears.get(left.values.studentId) ?? 99) - (studentYears.get(right.values.studentId) ?? 99)),
+    departments: references.departments.toSorted((left, right) => left.values.departmentCode.localeCompare(right.values.departmentCode, undefined, { numeric: true })),
+    teachers: references.teachers.toSorted((left, right) => left.values.teacherCode.localeCompare(right.values.teacherCode, undefined, { numeric: true })),
+    students: references.students.toSorted((left, right) => Number(left.values.year) - Number(right.values.year) || left.values.studentCode.localeCompare(right.values.studentCode, undefined, { numeric: true })),
+    classrooms: references.classrooms.toSorted((left, right) => left.values.classroomCode.localeCompare(right.values.classroomCode, undefined, { numeric: true })),
+    courses: references.courses.toSorted((left, right) => left.values.courseCode.localeCompare(right.values.courseCode, undefined, { numeric: true })),
+    timetable: references.timetable.toSorted((left, right) => Number(left.values.yearLevel) - Number(right.values.yearLevel) || left.values.timetableCode.localeCompare(right.values.timetableCode, undefined, { numeric: true })),
+    attendance: references.attendance.toSorted((left, right) => (studentYears.get(left.values.studentId) ?? 99) - (studentYears.get(right.values.studentId) ?? 99) || left.values.attendanceCode.localeCompare(right.values.attendanceCode, undefined, { numeric: true })),
   };
 }

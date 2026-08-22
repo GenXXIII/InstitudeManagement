@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { managementApis } from "@/features/management/management-apis";
+import { managementCode } from "@/features/management/management-id";
 import type { ManagementItem, ManagementResource } from "@/features/management/management-types";
 
 const resources: { id: ManagementResource; label: string }[] = [
@@ -49,8 +50,14 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     if (departmentId) params.set("departmentId", departmentId);
     if (year) params.set("year", year);
     const section = pathname.split("/")[1];
-    const operationalRecord = ["students", "teachers", "courses"].includes(resource);
-    const target = section === "records" ? `/records/${resource}` : section === "record" && operationalRecord ? `/record/${resource}` : `/management/${resource}`;
+    const operationalRecord = ["students", "teachers", "courses", "classrooms"].includes(resource);
+    const target = section === "records"
+      ? `/records/${resource}`
+      : section === "record-history" && operationalRecord
+        ? `/record-history/${resource}`
+        : section === "record" && operationalRecord
+          ? `/record/${resource}`
+          : `/management/${resource}`;
     setOpen(false);
     router.push(`${target}?${params}`);
   }
@@ -77,7 +84,8 @@ function startsWithWord(value: string, query: string) { const text = query.trim(
 function matchesYear(item: ManagementItem, year: string) { return !year || !item.values.year && !item.values.yearLevel || item.values.year === year || item.values.yearLevel === year; }
 function suggestion(item: ManagementItem, resource: ManagementResource) {
   const values = item.values;
-  const label = values.name ?? values.student ?? values.course ?? (resource === "classrooms" ? `Room ${values.code}` : values.code) ?? "Institute record";
-  const detail = [values.number ?? values.code, values.department, values.email, values.dayOfWeek && values.startsAt ? `${values.dayOfWeek} ${values.startsAt}` : ""].filter(Boolean).join(" · ");
+  const uiId = managementCode(resource, values);
+  const label = values.name ?? values.student ?? values.course ?? (resource === "classrooms" ? `Room ${uiId}` : uiId) ?? "Institute record";
+  const detail = [uiId, values.department, values.email, values.dayOfWeek && values.startsAt ? `${values.dayOfWeek} ${values.startsAt}` : ""].filter(Boolean).join(" · ");
   return { id: item.id, label, detail };
 }

@@ -21,7 +21,7 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
             var completed = sessions.Where(x => x.TeacherId == teacher.Id).ToList();
             var events = completed.Select(x => (x.UpdatedAtUtc, Create(("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term), ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"), ("Year", $"Year {x.YearLevel}"), ("Course", x.CourseName), ("Classroom", x.ClassroomCode), ("Attendance", $"{x.PresentCount} present · {x.LateCount} late · {x.AbsentCount} absent · {x.ExcusedCount} permission"), ("Students", StudentSummary(x.StudentAttendanceJson)))))
                 .OrderByDescending(x => x.Item1).ToList();
-            return new OperationalRecordDto(teacher.Id, "Teacher", teacher.FullName, teacher.TeacherNumber, teacher.Status, $"{completed.Count} completed timetable classes", events.Count == 0 ? null : events[0].Item1, events.Select(x => x.Item2).ToList());
+            return new OperationalRecordDto(teacher.Id, "Teacher", teacher.FullName, teacher.TeacherCode, teacher.Status, $"{completed.Count} completed timetable classes", events.Count == 0 ? null : events[0].Item1, events.Select(x => x.Item2).ToList());
         }).ToList();
     }
 

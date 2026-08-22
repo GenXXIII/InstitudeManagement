@@ -1,31 +1,59 @@
-name: ${COMPOSE_PROJECT_NAME:-northstar-institute-local}
+name: ${COMPOSE_PROJECT_NAME:-ink}
 
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: ink-sql-server
+    image: ink-sql-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.sqlserver
+    container_name: INK-SQL-SERVER
     hostname: ${SQL_HOSTNAME:-INK-SQL-SERVER}
     ports:
       - "${SQL_PORT:-1433}:1433"
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer
-      MSSQL_SA_PASSWORD: "${SQL_PASSWORD}"
+      MSSQL_SA_PASSWORD: "${SQL_BOOTSTRAP_PASSWORD}"
+      SQL_PASSWORD: "${SQL_PASSWORD:-1234}"
     volumes:
-      - institute_sql:/var/opt/mssql
+      - ink_sql_data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${SQL_PASSWORD}\" -C -Q 'SELECT 1' || /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q 'SELECT 1' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 18
       start_period: 20s
     restart: unless-stopped
 
+  sql-init:
+    image: ink-sql-server:latest
+    pull_policy: never
+    container_name: INK-SQL-INIT
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      SQL_BOOTSTRAP_PASSWORD: "${SQL_BOOTSTRAP_PASSWORD}"
+      SQL_PASSWORD: "${SQL_PASSWORD:-1234}"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        if /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${SQL_PASSWORD}" -C -Q 'SELECT 1' >/dev/null 2>&1; then
+          exit 0
+        fi
+        /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${SQL_BOOTSTRAP_PASSWORD}" -C -b -Q "ALTER LOGIN [sa] WITH CHECK_POLICY = OFF;"
+        /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${SQL_BOOTSTRAP_PASSWORD}" -C -b -Q "ALTER LOGIN [sa] WITH PASSWORD = '$${SQL_PASSWORD}';"
+    restart: "no"
+
   redis:
-    image: redis:7-alpine
+    image: ink-redis:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.redis
+    container_name: INK-REDIS
     command: redis-server --appendonly yes
     volumes:
-      - institute_redis:/data
+      - ink_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -34,21 +62,23 @@ services:
     restart: unless-stopped
 
   api:
+    image: ink-api:latest
     build:
       context: .
       dockerfile: backend/src/InstituteManagement.API/Dockerfile
+    container_name: INK-API
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       Database__UseInMemory: "false"
-      ConnectionStrings__Database: "Server=sqlserver,1433;Database=${SQL_DATABASE:-INK_Manangement};User Id=sa;Password=${SQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__Database: "Server=sqlserver,1433;Database=${SQL_DATABASE:-INK_Manangement};User Id=sa;Password=${SQL_PASSWORD:-1234};TrustServerCertificate=True"
       ConnectionStrings__Redis: redis:6379
       Cors__Origins__0: http://localhost:${WEB_PORT:-3000}
     ports:
       - "${API_PORT:-5080}:8080"
     depends_on:
-      sqlserver:
-        condition: service_healthy
+      sql-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     healthcheck:
@@ -60,11 +90,13 @@ services:
     restart: unless-stopped
 
   web:
+    image: ink-web:latest
     build:
       context: frontend/web
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5080}
+    container_name: INK-WEB
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5080}
     ports:
@@ -81,5 +113,11 @@ services:
     restart: unless-stopped
 
 volumes:
-  institute_sql:
-  institute_redis:
+  ink_sql_data:
+    name: INK-SQL-DATA
+  ink_redis_data:
+    name: INK-REDIS-DATA
+
+networks:
+  default:
+    name: INK-NETWORK

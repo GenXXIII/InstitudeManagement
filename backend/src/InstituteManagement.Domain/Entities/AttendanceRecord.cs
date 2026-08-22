@@ -2,6 +2,7 @@ namespace InstituteManagement.Domain.Entities;
 
 public sealed class AttendanceRecord : Entity
 {
+    public string AttendanceCode { get; set; } = string.Empty;
     public Guid StudentId { get; set; }
     public Student? Student { get; set; }
     public DateOnly Date { get; set; }

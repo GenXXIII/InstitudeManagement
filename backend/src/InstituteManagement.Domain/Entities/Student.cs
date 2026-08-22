@@ -2,7 +2,7 @@ namespace InstituteManagement.Domain.Entities;
 
 public sealed class Student : Entity
 {
-    public required string StudentNumber { get; set; }
+    public required string StudentCode { get; set; }
     public required string FullName { get; set; }
     public string Email { get; set; } = string.Empty;
     public string PhotoDataUrl { get; set; } = string.Empty;

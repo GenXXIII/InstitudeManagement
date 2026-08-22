@@ -1,10 +1,10 @@
 namespace InstituteManagement.Application.DTOs.Results;
 
-public sealed record CourseResultDto(Guid CourseId, string Code, string Name, decimal Score, string Grade);
+public sealed record CourseResultDto(Guid CourseId, string CourseCode, string Name, decimal Score, string Grade);
 
 public sealed record SemesterResultDto(
     Guid StudentId,
-    string StudentNumber,
+    string StudentCode,
     string FullName,
     Guid DepartmentId,
     string Department,

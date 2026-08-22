@@ -16,13 +16,14 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
         var period = await CurrentPeriodAsync(ct);
         var records = await Db.AttendanceRecords.AsNoTracking().Include(record => record.Student).ThenInclude(student => student!.Department)
             .Where(record => record.AcademicYear == period.AcademicYear && record.Term == period.Term && record.Student!.Status != "Inactive" && (!departmentId.HasValue || record.Student.DepartmentId == departmentId))
-            .OrderByDescending(record => record.CreatedAtUtc)
+            .OrderByDescending(record => record.CreateAt)
             .ToListAsync(ct);
-        return records.Where(record => Matches(search, record.Student!.FullName, record.Student.StudentNumber, record.Status))
+        return records.Where(record => Matches(search, record.AttendanceCode, record.Student!.FullName, record.Student.StudentCode, record.Status))
             .Select(record => (IManagementItemDto)new AttendanceResponseDto(record.Id, new AttendanceValuesDto(
+                record.AttendanceCode,
                 record.StudentId.ToString(),
                 record.Student?.FullName ?? "—",
-                record.Student?.StudentNumber ?? "—",
+                record.Student?.StudentCode ?? "—",
                 record.Student?.DepartmentId.ToString() ?? "",
                 record.Student?.Department?.Name ?? "—",
                 record.Date.ToString("yyyy-MM-dd"),
@@ -30,7 +31,8 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
                 record.Status,
                 record.Method,
                 record.AcademicYear,
-                record.Term)))
+                record.Term,
+                record.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
     }
 
@@ -46,6 +48,7 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
     public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
         if (!await SettingEnabledAsync("attendance-rules", "allowCorrection", true, ct)) throw new InvalidOperationException("Attendance corrections are disabled by Attendance settings.");
+        if (await SettingEnabledAsync("attendance-rules", "requireCorrectionReason", false, ct)) Required(values, "correctionReason");
         var entity = await RequiredEntityAsync(Db.AttendanceRecords, id, ct);
         var period = await CurrentPeriodAsync(ct);
         if (entity.AcademicYear != period.AcademicYear || entity.Term != period.Term) throw new InvalidOperationException("Completed-semester attendance is read-only in Records history.");
@@ -68,9 +71,10 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
     protected override void Deactivate(Entity entity) => Db.Remove(entity);
     protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
         new AttendanceResponseDto(id, new AttendanceValuesDto(
+            Get(values, "attendanceCode"),
             Get(values, "studentId"),
             Get(values, "student"),
-            Get(values, "number"),
+            Get(values, "studentCode"),
             Get(values, "departmentId"),
             Get(values, "department"),
             Get(values, "date"),
@@ -78,11 +82,19 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
             Get(values, "status", "Present"),
             Get(values, "method", "ID Card"),
             Get(values, "academicYear"),
-            Get(values, "term", "Semester 1")));
+            Get(values, "term", "Semester 1"),
+            Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
     private async Task<AttendanceRecord> BuildAsync(AttendanceRecord entity, Dictionary<string, string> values, CancellationToken ct)
     {
+        var attendanceCode = Required(values, "attendanceCode");
+        await EnsureUniqueAsync(Db.AttendanceRecords.Where(item => item.Id != entity.Id && item.AttendanceCode == attendanceCode), "AttendanceCode", ct);
+        entity.AttendanceCode = attendanceCode;
         entity.StudentId = await RelatedIdAsync<Student>(values, "studentId", ct);
+        var student = await Db.Students.AsNoTracking().FirstAsync(x => x.Id == entity.StudentId, ct);
+        values["student"] = student.FullName;
+        values["studentCode"] = student.StudentCode;
+        values["departmentId"] = student.DepartmentId.ToString();
         entity.Date = DateOnly.TryParse(Required(values, "date"), out var date)
             ? date
             : throw new ArgumentException("date must be a valid date.");
@@ -107,8 +119,20 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
             if (entity.CheckedInAt.Value > firstPeriod.StartsAt.AddMinutes(threshold)) entity.Status = "Late";
         }
         values["status"] = entity.Status; values["method"] = entity.Method; values["academicYear"] = entity.AcademicYear; values["term"] = entity.Term;
-        if (entity.Status is "Late" or "Absent" && await SettingEnabledAsync("notifications", "attendanceAlerts", true, ct) && await SettingEnabledAsync("attendance-rules", "notifyAdministrator", true, ct))
-            Db.Notifications.Add(new Notification { Title = $"Attendance {entity.Status.ToLowerInvariant()}", Message = $"{(await Db.Students.FindAsync([entity.StudentId], ct))?.FullName ?? "Student"} was marked {entity.Status} on {entity.Date:yyyy-MM-dd}.", Severity = entity.Status == "Absent" ? "Warning" : "Info" });
+        if (entity.Status is "Late" or "Absent" && await SettingEnabledAsync("notifications", "attendanceAlerts", true, ct))
+        {
+            var studentName = student?.FullName ?? "Student";
+            if (await SettingEnabledAsync("attendance-rules", "notifyAdministrator", true, ct))
+                Db.Notifications.Add(new Notification { Title = $"Attendance {entity.Status.ToLowerInvariant()}", Message = $"{studentName} was marked {entity.Status} on {entity.Date:yyyy-MM-dd}.", Severity = entity.Status == "Absent" ? "Warning" : "Info" });
+            if (await SettingEnabledAsync("attendance-rules", "notifyTeacher", true, ct))
+            {
+                var teacher = await Db.ScheduleEntries.AsNoTracking()
+                    .Where(entry => entry.DayOfWeek == entity.Date.DayOfWeek && entry.YearLevel == student!.YearLevel && entry.Course!.DepartmentId == student.DepartmentId && entry.Status != "Cancelled")
+                    .Select(entry => entry.Teacher!.FullName)
+                    .FirstOrDefaultAsync(ct);
+                Db.Notifications.Add(new Notification { Title = "Teacher attendance alert", Message = $"{teacher ?? "Assigned teacher"}: {studentName} was marked {entity.Status}.", Severity = entity.Status == "Absent" ? "Warning" : "Info" });
+            }
+        }
         return entity;
     }
     private async Task<string> SettingValueAsync(string section, string key, string fallback, CancellationToken ct) => await Db.SystemSettings.AsNoTracking().Where(x => x.Section == section && x.Key == key).Select(x => x.Value).FirstOrDefaultAsync(ct) ?? fallback;

@@ -1,4 +1,5 @@
 export type TimetableValues = Record<string, string> & {
+  timetableCode: string;
   courseId: string;
   course: string;
   teacherId: string;
@@ -13,6 +14,7 @@ export type TimetableValues = Record<string, string> & {
   startsAt: string;
   endsAt: string;
   status: string;
+  createAt: string;
 };
 
 export type TimetableItem = { id: string; values: TimetableValues };

@@ -9,5 +9,5 @@ public sealed class TeacherHistorySnapshotProvider(InstituteDbContext db) : IHis
 {
     public string Type => "Teacher";
     public async Task<IReadOnlyList<RecordDto>> GetAsync(CancellationToken cancellationToken) =>
-        (await db.Teachers.AsNoTracking().Include(x => x.Department).ToListAsync(cancellationToken)).Select(x => Create(x.Id, x.UpdatedAtUtc, Type, x.FullName, x.Status == "Inactive" ? "Inactive" : "Current", new { number = x.TeacherNumber, name = x.FullName, x.Email, photoStored = !string.IsNullOrWhiteSpace(x.PhotoDataUrl), x.DepartmentId, department = x.Department?.Name, x.Status, x.CreatedAtUtc, x.UpdatedAtUtc })).ToList();
+        (await db.Teachers.AsNoTracking().Include(x => x.Department).ToListAsync(cancellationToken)).Select(x => Create(x.Id, x.UpdatedAtUtc, Type, x.FullName, x.Status == "Inactive" ? "Inactive" : "Current", new { teacherCode = x.TeacherCode, name = x.FullName, x.Email, photoStored = !string.IsNullOrWhiteSpace(x.PhotoDataUrl), x.DepartmentId, department = x.Department?.Name, x.Status, x.CreateAt, x.UpdatedAtUtc })).ToList();
 }

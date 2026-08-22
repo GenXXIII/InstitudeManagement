@@ -39,7 +39,7 @@ app.MapHealthChecks("/health");
 
 using (var scope = app.Services.CreateScope())
 {
-    await DatabaseSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<InstituteDbContext>());
+    await DatabaseInitializer.InitializeAsync(scope.ServiceProvider.GetRequiredService<InstituteDbContext>());
     await scope.ServiceProvider.GetRequiredService<InstituteManagement.Infrastructure.Services.Record.ClassSessionRecorderService>().RecordCompletedForCurrentTimeAsync(CancellationToken.None);
     await scope.ServiceProvider.GetRequiredService<InstituteManagement.Infrastructure.Services.Administration.AcademicCalendarRolloverService>().ApplyForCurrentDateAsync(CancellationToken.None);
 }

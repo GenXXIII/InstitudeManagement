@@ -12,7 +12,7 @@ export const emptyReferences: References = { departments: [], teachers: [], stud
 export const managementCopy: Record<ManagementModule, { title: string; description: string; singular: string }> = {
   overview: { title: "Institute management", description: "Manage current institute data through connected department workspaces.", singular: "item" },
   students: { title: "Student management", description: "Enroll students, maintain 4×6 profile photos, and assign each learner to a department.", singular: "student" },
-  teachers: { title: "Teacher management", description: "Maintain faculty profiles, availability, department membership, and leadership eligibility.", singular: "teacher" },
+  teachers: { title: "Teacher management", description: "Maintain faculty profiles, availability, and leadership eligibility.", singular: "teacher" },
   classrooms: { title: "Learning-space management", description: "Manage classrooms and meeting rooms with capacity, operational state, and live study status.", singular: "learning space" },
   courses: { title: "Course management", description: "Connect courses to departments and eligible teachers with capacity rules.", singular: "course" },
   timetable: { title: "Timetable management", description: "Manage every scheduled class as readable data rows with day, time, course, cohort, teacher, room, student count, status, and actions.", singular: "class" },
@@ -34,7 +34,7 @@ export const managementFields: Record<Exclude<ManagementModule, "overview">, Fie
 
 export function moduleDefaults(module: Exclude<ManagementModule, "overview">, departmentId: string): Record<string, string> {
   if (module === "students") return studentDefaults(departmentId);
-  if (module === "teachers") return teacherDefaults(departmentId);
+  if (module === "teachers") return teacherDefaults();
   if (module === "classrooms") return classroomDefaults(departmentId);
   if (module === "courses") return courseDefaults(departmentId);
   if (module === "timetable") return timetableDefaults(departmentId);

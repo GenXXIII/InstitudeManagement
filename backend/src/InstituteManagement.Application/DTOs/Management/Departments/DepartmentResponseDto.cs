@@ -6,8 +6,9 @@ public sealed record DepartmentResponseDto(Guid Id, DepartmentValuesDto Values) 
 }
 
 public sealed record DepartmentValuesDto(
-    string Code,
+    string DepartmentCode,
     string Name,
     string HeadTeacherId,
     string Head,
-    string Status);
+    string Status,
+    string CreateAt);

@@ -8,10 +8,10 @@ public sealed class CourseConfiguration : IEntityTypeConfiguration<Course>
 {
     public void Configure(EntityTypeBuilder<Course> builder)
     {
-        builder.HasIndex(x => x.Code).IsUnique();
+        builder.HasIndex(x => x.CourseCode).IsUnique();
         builder.HasIndex(x => x.DepartmentId);
         builder.HasIndex(x => x.TeacherId);
-        builder.Property(x => x.Code).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.CourseCode).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
         builder.HasOne(x => x.Department)
             .WithMany()

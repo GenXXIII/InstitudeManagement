@@ -3,13 +3,12 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useInstituteSettings } from "@/features/administration/institute-settings-context";
-import { dashboardApi } from "@/features/dashboard/dashboard-api";
 import { departmentApi } from "@/features/management/departments/department-api";
 import type { DepartmentItem } from "@/features/management/types/department";
+import { NotificationCenter } from "@/features/notifications/notification-center";
 import { Sidebar } from "@/features/shell/sidebar";
 import { TopbarSearch } from "@/features/shell/topbar-search";
 import { useLiveUpdates } from "@/features/shell/use-live-updates";
-import type { Activity } from "@/lib/types/presentation-types";
 import { Icon } from "./icon";
 import { SearchableSelect } from "./searchable-select";
 
@@ -23,7 +22,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [yearScope, setYearScope] = useState("");
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Activity[]>([]);
   const [now, setNow] = useState(() => new Date());
   const { live, events } = useLiveUpdates();
   const institute = settings.institute;
@@ -39,7 +37,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => { window.clearTimeout(timer); window.removeEventListener("popstate", sync); };
   }, [pathname]);
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 1_000); return () => window.clearInterval(timer); }, []);
-  useEffect(() => { document.documentElement.lang = system.language?.toLowerCase().startsWith("kh") ? "km" : "en"; }, [system.language]);
+  useEffect(() => {
+    document.documentElement.lang = system.language?.toLowerCase().startsWith("kh") ? "km" : "en";
+    document.title = institute.name || "Institude of New Khmer";
+  }, [institute.name, system.language]);
 
   function changeScope(key: "departmentId" | "year", value: string) {
     if (key === "departmentId") setDepartmentScope(value); else setYearScope(value);
@@ -47,9 +48,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (value) params.set(key, value); else params.delete(key);
     router.push(`${pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
   }
-  async function toggleNotifications() { const next = !notificationOpen; setNotificationOpen(next); setProfileOpen(false); if (next) dashboardApi.get().then(data => setNotifications(data.attention)).catch(() => setNotifications([])); }
   const clockLocale = system.language?.toLowerCase().startsWith("kh") ? "km-KH" : "en-GB";
-  const currentDate = new Intl.DateTimeFormat(clockLocale, { day: "2-digit", month: "short", year: "numeric", timeZone: system.timeZone || "Asia/Bangkok" }).format(now);
+  const currentDate = formatDate(now, clockLocale, system.timeZone || "Asia/Bangkok", system.dateFormat);
   const clockTime = new Intl.DateTimeFormat(clockLocale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: system.timeZone || "Asia/Bangkok" }).format(now);
   const currentTime = `${currentDate} · ${clockTime}`;
   const avatar = (institute.shortName || "INK").slice(0, 2).toUpperCase();
@@ -69,11 +69,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="top-actions">
           <button className="term-chip topbar-term-button" onClick={() => router.push("/settings/academic-year")}><span>{semester.currentTerm || "Current term"} · {currentTime}</span><strong>{academicYear.currentYear || "2026–2027"}</strong></button>
-          <div className="topbar-popover-anchor"><button className="icon-button notification-button" aria-label="Open notifications" aria-expanded={notificationOpen} onClick={toggleNotifications}><Icon name="bell"/><span>{Math.max(events, notifications.length)}</span></button>{notificationOpen && <aside className="topbar-popover notification-popover"><header><div><strong>Notifications</strong><span>Controlled by Administration rules</span></div><button onClick={() => setNotificationOpen(false)}>Close</button></header><div>{notifications.length ? notifications.map((item, index) => <article key={`${item.title}-${index}`}><i className={`tone-${item.tone}`}/><div><strong>{item.title}</strong><span>{item.detail}</span><small>{item.time}</small></div></article>) : <p>No unread notifications.</p>}</div><button className="topbar-popover-link" onClick={() => { setNotificationOpen(false); router.push("/settings/notifications"); }}>Configure notifications</button></aside>}</div>
-          <div className="topbar-popover-anchor"><button className="avatar avatar-button" aria-label="Open profile menu" aria-expanded={profileOpen} onClick={() => { setProfileOpen(value => !value); setNotificationOpen(false); }}>{avatar}</button>{profileOpen && <aside className="topbar-popover profile-popover"><header><div><strong>Institute administrator</strong><span>{institute.email}</span></div></header><button onClick={() => { setProfileOpen(false); router.push("/settings/institute"); }}>Institute profile</button><button onClick={() => { setProfileOpen(false); router.push("/settings/system"); }}>System preferences</button><button onClick={() => { setProfileOpen(false); router.push("/records/audit"); }}>Audit history</button></aside>}</div>
+          <NotificationCenter open={notificationOpen} events={events} onToggle={() => { setNotificationOpen(value => !value); setProfileOpen(false); }} onClose={() => setNotificationOpen(false)}/>
+          <div className="topbar-popover-anchor"><button className="avatar avatar-button" aria-label="Open profile menu" aria-expanded={profileOpen} onClick={() => { setProfileOpen(value => !value); setNotificationOpen(false); }}>{avatar}</button>{profileOpen && <aside className="topbar-popover profile-popover"><header><div><strong>{institute.name || "Institute administrator"}</strong><span>{[institute.email, institute.phone, institute.address].filter(Boolean).join(" · ")}</span></div></header><button onClick={() => { setProfileOpen(false); router.push("/settings/institute"); }}>Institute profile</button><button onClick={() => { setProfileOpen(false); router.push("/settings/system"); }}>System preferences</button><button onClick={() => { setProfileOpen(false); router.push("/records/students"); }}>Audit history</button></aside>}</div>
         </div>
       </header>
       <main className="content">{children}</main>
     </div>
   </div>;
+}
+
+function formatDate(date: Date, locale: string, timeZone: string, format = "DD MMM YYYY") {
+  const normalized = format.trim().toUpperCase();
+  if (normalized === "YYYY-MM-DD") return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(date);
+  if (normalized === "MM/DD/YYYY") return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(date);
+  if (normalized === "DD/MM/YYYY") return new Intl.DateTimeFormat("en-GB", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(date);
+  return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric", timeZone }).format(date);
 }

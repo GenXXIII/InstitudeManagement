@@ -1,5 +1,5 @@
 export type ClassroomValues = Record<string, string> & {
-  code: string;
+  classroomCode: string;
   building: string;
   roomType: string;
   departmentId: string;
@@ -8,6 +8,7 @@ export type ClassroomValues = Record<string, string> & {
   status: string;
   studyStatus: string;
   deviceOnline: string;
+  createAt: string;
 };
 
 export type ClassroomItem = { id: string; values: ClassroomValues };

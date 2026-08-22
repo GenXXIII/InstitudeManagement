@@ -1,14 +1,19 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import { managementApis } from "../management-apis";
 import { managementCopy, managementFields, moduleDefaults } from "../management-config";
+import { relationshipCode } from "../management-id";
 import type { Field, ManagementItem, ManagementModule, References } from "../management-types";
+import { validateManagementFields, validationMessages, type FieldErrors } from "../management-validation";
+import { relationshipCreateTarget } from "../relationship-create";
 import { EditorField } from "./editor-field";
 
 export function ManagementEditor({ module, item, references, scopeDepartmentId, scopeYear, onClose, onSaved }: { module: Exclude<ManagementModule, "overview">; item: ManagementItem | null; references: References; scopeDepartmentId: string; scopeYear: string; onClose: () => void; onSaved: () => void }) {
+  const router = useRouter();
   const { settings } = useInstituteSettings();
   const defaults = moduleDefaults(module, scopeDepartmentId);
   if (scopeYear && module === "students") defaults.year = scopeYear;
@@ -20,15 +25,18 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
   const [values, setValues] = useState<Record<string, string>>(item ? { ...defaults, ...item.values } : defaults);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const saveController = useRef<AbortController | null>(null);
-  const fields = managementFields[module].map(field => field.key === "teacherId" && module === "courses"
+  const configuredFields = managementFields[module].map(field => field.key === "teacherId" && module === "courses"
     ? { ...field, required: settings.courses.requireAssignedTeacher === "true" }
     : field.key === "headTeacherId" && module === "departments"
       ? { ...field, required: settings.departments.requireDepartmentHead === "true" }
       : field.key === "term" && module === "grades"
         ? { ...field, options: Array.from(new Set([settings.semester.currentTerm, ...(field.options ?? [])].filter(Boolean))) }
         : field);
-  const canSave = fields.every(field => !field.required || Boolean(values[field.key]?.trim()));
+  const fields: Field[] = [...configuredFields, ...(module === "attendance" && item && settings["attendance-rules"].requireCorrectionReason === "true"
+    ? [{ key: "correctionReason", label: "Correction reason", required: true } satisfies Field]
+    : [])];
 
   function optionsFor(field: Field) {
     if (field.options) return field.options.map(value => ({ id: value, label: value }));
@@ -36,18 +44,42 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
     const source: ManagementItem[] = references[field.source];
     const allowCrossDepartmentTeacher = field.source === "teachers" && module === "courses" && settings.departments.allowCrossDepartmentTeaching === "true";
     const scoped = ["teachers", "students", "classrooms", "courses"].includes(field.source) && values.departmentId && !allowCrossDepartmentTeacher
-      ? source.filter(option => option.values.departmentId === values.departmentId)
+      ? source.filter(option => option.values.departmentId === values.departmentId || (field.source === "teachers" && module === "courses" && !option.values.departmentId))
       : source;
-    return scoped.filter(option => option.values.status !== "Inactive" && (field.source !== "students" || !scopeYear || option.values.year === scopeYear)).map(option => ({ id: option.id, label: option.values.name ?? option.values.code ?? option.values.student ?? option.values.course, detail: [option.values.number, option.values.department].filter(Boolean).join(" · ") }));
+    return scoped.filter(option => option.values.status !== "Inactive" && (field.source !== "students" || !scopeYear || option.values.year === scopeYear)).map(option => ({
+      id: option.id,
+      label: `${relationshipCode(field.source!, option.values)} - ${option.values.name ?? option.values.building ?? option.values.student ?? option.values.course}`,
+      detail: [option.values.roomType, option.values.department].filter(Boolean).join(" - "),
+    }));
   }
 
   async function save(event: React.FormEvent) {
-    event.preventDefault(); setSaving(true); setError("");
+    event.preventDefault();
+    const optionSets = Object.fromEntries(fields.filter(field => field.type === "select").map(field => [field.key, new Set(optionsFor(field).map(option => option.id))]));
+    const nextErrors = validateManagementFields(fields, values, optionSets);
+    setFieldErrors(nextErrors);
+    setError("");
+    if (Object.keys(nextErrors).length) return;
+
+    setSaving(true);
     const controller = new AbortController();
     saveController.current = controller;
-    try { if (item) await managementApis[module].update(item.id, values, controller.signal); else await managementApis[module].create(values, controller.signal); onSaved(); }
-    catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not save this record."); setSaving(false); }
-    finally { if (saveController.current === controller) saveController.current = null; }
+    try {
+      if (item) await managementApis[module].update(item.id, values, controller.signal);
+      else await managementApis[module].create(values, controller.signal);
+      onSaved();
+    } catch (reason) {
+      if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not save this record.");
+      setSaving(false);
+    } finally {
+      if (saveController.current === controller) saveController.current = null;
+    }
+  }
+
+  function change(field: Field, value: string) {
+    setValues(current => ({ ...current, [field.key]: value }));
+    setFieldErrors(current => { const next = { ...current }; delete next[field.key]; return next; });
+    setError("");
   }
 
   function cancel() {
@@ -55,5 +87,12 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
     onClose();
   }
 
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) cancel(); }}><form className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{item ? "Edit current data" : "New current data"}</span><h2>{item ? `Edit ${managementCopy[module].singular}` : `Add ${managementCopy[module].singular}`}</h2><p>Required relationships and Administration rules are validated before saving.</p></div><button type="button" className="icon-button" onClick={cancel}><Icon name="close"/></button></div><div className="management-form-grid">{fields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} onChange={value => setValues(current => ({ ...current, [field.key]: value }))}/>)}</div>{error && <p className="form-error">{error}</p>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>{saving ? "Cancel request" : "Cancel"}</button><button className="button primary" disabled={saving || !canSave}>{saving ? "Saving relationships…" : item ? "Save changes" : `Add ${managementCopy[module].singular}`}</button></div></form></div>;
+  function createOptionFor(field: Field) {
+    const target = relationshipCreateTarget(field.source);
+    if (!target) return undefined;
+    return { id: `create-${field.source}`, label: target.label, action: () => { cancel(); router.push(target.path); } };
+  }
+
+  const problems = validationMessages(fieldErrors, error);
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) cancel(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{item ? "Edit current data" : "New current data"}</span><h2>{item ? `Edit ${managementCopy[module].singular}` : `Add ${managementCopy[module].singular}`}</h2><p>Required relationships and Administration rules are validated before saving.</p></div><button type="button" className="icon-button" onClick={cancel}><Icon name="close"/></button></div><div className="management-form-grid">{fields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} onChange={value => change(field, value)}/>)}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>{saving ? "Cancel request" : "Cancel"}</button><button className="button primary" disabled={saving}>{saving ? "Saving relationships..." : item ? "Save changes" : `Add ${managementCopy[module].singular}`}</button></div></form></div>;
 }

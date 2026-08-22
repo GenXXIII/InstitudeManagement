@@ -14,12 +14,13 @@ public sealed class ManagementDtoSerializationTests
         [
             new StudentResponseDto(
                 Guid.NewGuid(),
-                new StudentValuesDto("photo", "ST-001", "Sok Dara", "sok@example.edu", Guid.NewGuid().ToString(), "IT", "2", "Active"))
+                new StudentValuesDto("photo", "ST-001", "Sok Dara", "sok@example.edu", Guid.NewGuid().ToString(), "IT", "2", "Active", "2026-08-22"))
         ];
 
         var json = JsonSerializer.Serialize(items);
 
-        Assert.Contains("\"Number\":\"ST-001\"", json);
+        Assert.Contains("\"StudentCode\":\"ST-001\"", json);
+        Assert.Contains("\"CreateAt\":\"2026-08-22\"", json);
         Assert.Contains("\"Values\"", json);
     }
 
@@ -28,11 +29,12 @@ public sealed class ManagementDtoSerializationTests
     {
         IManagementItemDto item = new ClassroomResponseDto(
             Guid.NewGuid(),
-            new ClassroomValuesDto("501", "Main Building", "Meeting Room", Guid.NewGuid().ToString(), "IT", "50", "Available", "In Study", "true"));
+            new ClassroomValuesDto("501", "Main Building", "Meeting Room", Guid.NewGuid().ToString(), "IT", "50", "Available", "In Study", "true", "2026-08-22"));
 
         var json = JsonSerializer.Serialize(item);
 
         Assert.Contains("\"RoomType\":\"Meeting Room\"", json);
+        Assert.Contains("\"ClassroomCode\":\"501\"", json);
         Assert.Contains("\"StudyStatus\":\"In Study\"", json);
     }
 }

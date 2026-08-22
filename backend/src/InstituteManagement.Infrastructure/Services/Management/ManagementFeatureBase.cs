@@ -51,12 +51,29 @@ public abstract class ManagementFeatureBase(InstituteDbContext db, InstituteCach
         return Response(id, values);
     }
 
-    protected AuditLog Audit(Guid id, Dictionary<string, string> values, string action) => new() { ResourceId = id, Type = ResourceType(Resource), Subject = values.GetValueOrDefault("name", values.GetValueOrDefault("code", values.GetValueOrDefault("number", Resource))), Action = action, Details = JsonSerializer.Serialize(values) };
+    protected AuditLog Audit(Guid id, Dictionary<string, string> values, string action) => new() { ResourceId = id, Type = ResourceType(Resource), Subject = values.GetValueOrDefault("name", ResourceDisplayId(values)), Action = action, Details = JsonSerializer.Serialize(values) };
+
+    private string ResourceDisplayId(IReadOnlyDictionary<string, string> values)
+    {
+        var key = Resource switch
+        {
+            "students" => "studentCode",
+            "teachers" => "teacherCode",
+            "departments" => "departmentCode",
+            "courses" => "courseCode",
+            "classrooms" => "classroomCode",
+            "timetable" => "timetableCode",
+            "attendance" => "attendanceCode",
+            "grades" => "gradeCode",
+            _ => ""
+        };
+        return string.IsNullOrEmpty(key) ? Resource : values.GetValueOrDefault(key, Resource);
+    }
     protected static bool Matches(string? search, params string?[] values) => string.IsNullOrWhiteSpace(search) || values.Any(x => x?.Contains(search, StringComparison.OrdinalIgnoreCase) == true);
     protected static string Required(Dictionary<string, string> values, string key) =>
         values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
             ? value.Trim()
-            : throw new ArgumentException($"{key} is required.");
+            : throw new ArgumentException($"{FieldName(key)} is required.");
 
     protected static string Get(IReadOnlyDictionary<string, string> values, string key, string fallback = "") =>
         values.TryGetValue(key, out var value) ? value.Trim() : fallback;
@@ -64,7 +81,7 @@ public abstract class ManagementFeatureBase(InstituteDbContext db, InstituteCach
     protected static string Email(Dictionary<string, string> values, string key)
     {
         var value = Required(values, key);
-        return MailAddress.TryCreate(value, out _) ? value : throw new ArgumentException($"{key} must be a valid email address.");
+        return MailAddress.TryCreate(value, out _) ? value : throw new ArgumentException($"{FieldName(key)} must be a valid email address.");
     }
 
     protected static string OneOf(Dictionary<string, string> values, string key, string fallback, params string[] allowed)
@@ -72,14 +89,14 @@ public abstract class ManagementFeatureBase(InstituteDbContext db, InstituteCach
         var value = Get(values, key, fallback);
         return allowed.Contains(value, StringComparer.OrdinalIgnoreCase)
             ? allowed.First(item => item.Equals(value, StringComparison.OrdinalIgnoreCase))
-            : throw new ArgumentException($"{key} must be one of: {string.Join(", ", allowed)}.");
+            : throw new ArgumentException($"{FieldName(key)} must be one of: {string.Join(", ", allowed)}.");
     }
 
     protected static int Int(Dictionary<string, string> values, string key, int fallback)
     {
         var input = Get(values, key);
         if (string.IsNullOrWhiteSpace(input)) return fallback;
-        return int.TryParse(input, out var value) ? value : throw new ArgumentException($"{key} must be a whole number.");
+        return int.TryParse(input, out var value) ? value : throw new ArgumentException($"{FieldName(key)} must be a whole number.");
     }
 
     protected static int IntInRange(Dictionary<string, string> values, string key, int fallback, int minimum, int maximum)
@@ -87,23 +104,23 @@ public abstract class ManagementFeatureBase(InstituteDbContext db, InstituteCach
         var value = Int(values, key, fallback);
         return value >= minimum && value <= maximum
             ? value
-            : throw new ArgumentException($"{key} must be between {minimum} and {maximum}.");
+            : throw new ArgumentException($"{FieldName(key)} must be between {minimum} and {maximum}.");
     }
 
     protected static decimal DecimalInRange(Dictionary<string, string> values, string key, decimal minimum, decimal maximum)
     {
         var value = decimal.TryParse(Required(values, key), out var parsed)
             ? parsed
-            : throw new ArgumentException($"{key} must be a number.");
+            : throw new ArgumentException($"{FieldName(key)} must be a number.");
         return value >= minimum && value <= maximum
             ? value
-            : throw new ArgumentException($"{key} must be between {minimum} and {maximum}.");
+            : throw new ArgumentException($"{FieldName(key)} must be between {minimum} and {maximum}.");
     }
     protected static bool Bool(Dictionary<string, string> values, string key, bool fallback)
     {
         var input = Get(values, key);
         if (string.IsNullOrWhiteSpace(input)) return fallback;
-        return bool.TryParse(input, out var value) ? value : throw new ArgumentException($"{key} must be true or false.");
+        return bool.TryParse(input, out var value) ? value : throw new ArgumentException($"{FieldName(key)} must be true or false.");
     }
     protected static void Touch(Entity entity) => entity.UpdatedAtUtc = DateTime.UtcNow;
     protected static async Task<T> RequiredEntityAsync<T>(DbSet<T> set, Guid id, CancellationToken ct) where T : Entity => await set.FindAsync([id], ct) ?? throw new KeyNotFoundException($"{typeof(T).Name} not found.");
@@ -114,22 +131,51 @@ public abstract class ManagementFeatureBase(InstituteDbContext db, InstituteCach
     }
     protected async Task<Guid> RelatedIdAsync<T>(Dictionary<string, string> values, string key, CancellationToken ct) where T : Entity
     {
-        if (!Guid.TryParse(Required(values, key), out var id) || !await Db.Set<T>().AnyAsync(x => x.Id == id, ct)) throw new ArgumentException($"{key} does not reference an existing {typeof(T).Name.ToLowerInvariant()}.");
+        if (!Guid.TryParse(Required(values, key), out var id) || !await Db.Set<T>().AnyAsync(x => x.Id == id, ct)) throw new ArgumentException($"{FieldName(key)} must reference an existing {typeof(T).Name.ToLowerInvariant()}.");
         return id;
     }
 
+    private static string FieldName(string key) => key switch
+    {
+        "photoDataUrl" => "Photo",
+        "attendanceCode" => "AttendanceCode",
+        "classroomCode" => "ClassroomCode",
+        "courseCode" => "CourseCode",
+        "departmentCode" => "DepartmentCode",
+        "gradeCode" => "GradeCode",
+        "studentCode" => "StudentCode",
+        "teacherCode" => "TeacherCode",
+        "timetableCode" => "TimetableCode",
+        "departmentId" => "Department",
+        "teacherId" => "Teacher",
+        "studentId" => "Student",
+        "courseId" => "Course",
+        "classroomId" => "Learning space",
+        "name" => "Full name",
+        "email" => "Email",
+        "headTeacherId" => "Head of department",
+        "roomType" => "Learning-space type",
+        "year" or "yearLevel" => "Year level",
+        "checkedInAt" => "Check-in time",
+        "dayOfWeek" => "Day",
+        "startsAt" => "Start time",
+        "endsAt" => "End time",
+        "correctionReason" => "Correction reason",
+        _ => char.ToUpperInvariant(key[0]) + key[1..]
+    };
+
     private static string ResourceType(string resource) => resource switch { "timetable" => "Timetable", "attendance" => "Attendance", "grades" => "Grade", _ => char.ToUpperInvariant(resource[0]) + resource.TrimEnd('s')[1..] };
-    private static string Subject(Entity entity) => entity switch { Student x => x.FullName, Teacher x => x.FullName, Classroom x => x.Code, Course x => x.Name, Department x => x.Name, ScheduleEntry x => x.Id.ToString(), AttendanceRecord x => x.Id.ToString(), GradeRecord x => x.Id.ToString(), _ => entity.Id.ToString() };
+    private static string Subject(Entity entity) => entity switch { Student x => x.FullName, Teacher x => x.FullName, Classroom x => x.ClassroomCode, Course x => x.Name, Department x => x.Name, ScheduleEntry x => x.TimetableCode, AttendanceRecord x => x.AttendanceCode, GradeRecord x => x.GradeCode, _ => entity.Id.ToString() };
     private static object Snapshot(Entity entity) => entity switch
     {
-        Student x => new { x.StudentNumber, x.FullName, x.Email, x.DepartmentId, x.YearLevel, x.Status },
-        Teacher x => new { x.TeacherNumber, x.FullName, x.Email, x.DepartmentId, x.Status },
-        Classroom x => new { x.Code, x.Building, x.RoomType, x.DepartmentId, x.Capacity, x.Status, x.DeviceOnline },
-        Course x => new { x.Code, x.Name, x.DepartmentId, x.TeacherId, x.Capacity, x.IsActive },
-        Department x => new { x.Code, x.Name, x.HeadTeacherId, x.IsActive },
-        ScheduleEntry x => new { x.CourseId, x.TeacherId, x.ClassroomId, x.YearLevel, x.DayOfWeek, x.StartsAt, x.EndsAt, x.Status },
-        AttendanceRecord x => new { x.StudentId, x.Date, x.CheckedInAt, x.Status, x.Method },
-        GradeRecord x => new { x.StudentId, x.CourseId, x.Score, x.LetterGrade, x.Term },
+        Student x => new { x.StudentCode, x.FullName, x.Email, x.DepartmentId, x.YearLevel, x.Status },
+        Teacher x => new { x.TeacherCode, x.FullName, x.Email, x.DepartmentId, x.Status },
+        Classroom x => new { x.ClassroomCode, x.Building, x.RoomType, x.DepartmentId, x.Capacity, x.Status, x.DeviceOnline },
+        Course x => new { x.CourseCode, x.Name, x.DepartmentId, x.TeacherId, x.Capacity, x.IsActive },
+        Department x => new { x.DepartmentCode, x.Name, x.HeadTeacherId, x.IsActive },
+        ScheduleEntry x => new { x.TimetableCode, x.CourseId, x.TeacherId, x.ClassroomId, x.YearLevel, x.DayOfWeek, x.StartsAt, x.EndsAt, x.Status },
+        AttendanceRecord x => new { x.AttendanceCode, x.StudentId, x.Date, x.CheckedInAt, x.Status, x.Method },
+        GradeRecord x => new { x.GradeCode, x.StudentId, x.CourseId, x.Score, x.LetterGrade, x.Term },
         _ => new { entity.Id }
     };
 }

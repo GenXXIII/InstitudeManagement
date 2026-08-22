@@ -4,13 +4,14 @@ import { configuredGrade, useInstituteSettings } from "@/features/administration
 import { useEffect, useState } from "react";
 import type { CourseItem } from "../types/course";
 import type { GradeItem } from "../types/grade";
+import type { StudentItem } from "../types/student";
 import { initials } from "../management-utils";
 import { ManagementActions } from "./management-actions";
 
-type GradeGroup = { studentId: string; student: string; departmentId: string; department: string; records: GradeItem[] };
+type GradeGroup = { studentId: string; student: string; studentCode: string; departmentId: string; department: string; records: GradeItem[] };
 const cancelledPendingStorageKey = "ink.cancelled-grade-pending.v1";
 
-export function Gradebook({ items, courses, onEdit, onDeactivate }: { items: GradeItem[]; courses: CourseItem[]; onEdit: (item: GradeItem) => void; onDeactivate: (item: GradeItem) => void }) {
+export function Gradebook({ items, courses, students, onEdit, onDeactivate }: { items: GradeItem[]; courses: CourseItem[]; students: StudentItem[]; onEdit: (item: GradeItem) => void; onDeactivate: (item: GradeItem) => void }) {
   const { settings } = useInstituteSettings();
   const [cancelledPending, setCancelledPending] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -21,8 +22,11 @@ export function Gradebook({ items, courses, onEdit, onDeactivate }: { items: Gra
     return () => window.clearTimeout(timer);
   }, []);
   const groups = Array.from(items.reduce((result, item) => {
-    const group = result.get(item.values.studentId) ?? { studentId: item.values.studentId, student: item.values.student, departmentId: item.values.departmentId, department: item.values.department, records: [] };
-    group.records.push(item); result.set(item.values.studentId, group); return result;
+    const student = students.find(candidate => candidate.id === item.values.studentId);
+    const group = result.get(item.values.studentId) ?? { studentId: item.values.studentId, student: item.values.student, studentCode: student?.values.studentCode ?? "Unknown", departmentId: item.values.departmentId, department: item.values.department, records: [] };
+    group.records.push(item);
+    result.set(item.values.studentId, group);
+    return result;
   }, new Map<string, GradeGroup>()).values());
 
   function cancelPending(key: string) {
@@ -41,7 +45,7 @@ export function Gradebook({ items, courses, onEdit, onDeactivate }: { items: Gra
     const total = records.reduce((sum, record) => sum + Number(record.values.score || 0), 0);
     const average = records.length ? total / records.length : 0;
     const grade = configuredGrade(average, settings["grade-rules"]);
-    return <article className="panel student-record-row" key={group.studentId}><header><span className="initial-chip">{initials(group.student)}</span><div><strong>{group.student}</strong><small>{group.department} · {records[0]?.values.academicYear} · {records[0]?.values.term}</small></div><div className="grade-totals"><span>Total <b>{total.toFixed(1)}</b></span><span>Average <b>{average.toFixed(1)}%</b></span><span>Grade <b className={`grade-letter grade-${grade.toLowerCase()}`}>{grade}</b></span></div></header><div className="student-record-cells">{records.map(item => <div className="grade-record-cell" key={item.id}><div><strong>{item.values.course} {Number(item.values.score).toFixed(1)}/{item.values.grade}</strong><small>{item.values.term}</small></div><ManagementActions item={item} onEdit={onEdit} onDeactivate={onDeactivate}/></div>)}{departmentCourses.filter(course => {
+    return <article className="panel student-record-row" key={group.studentId}><header><div className="record-business-id"><span>StudentCode</span><strong>{group.studentCode}</strong></div><span className="initial-chip">{initials(group.student)}</span><div className="student-record-identity"><strong>{group.student}</strong><small>{group.department} - {records[0]?.values.academicYear} - {records[0]?.values.term}</small></div><div className="grade-totals"><span>Total <b>{total.toFixed(1)}</b></span><span>Average <b>{average.toFixed(1)}%</b></span><span>Grade <b className={`grade-letter grade-${grade.toLowerCase()}`}>{grade}</b></span></div></header><div className="student-record-cells">{records.map(item => <div className="grade-record-cell" key={item.id}><div><strong>{item.values.course} {Number(item.values.score).toFixed(1)}/{item.values.grade}</strong><small>Grade {item.values.gradeCode} - {item.values.term} - Create At {item.values.createAt}</small></div><ManagementActions item={item} onEdit={onEdit} onDeactivate={onDeactivate}/></div>)}{departmentCourses.filter(course => {
       const pendingKey = `${group.studentId}:${course.id}:${records[0]?.values.academicYear}:${records[0]?.values.term}`;
       return !gradedCourseIds.has(course.id) && !cancelledPending.has(pendingKey);
     }).map(course => {

@@ -3,13 +3,14 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { Icon } from "./icon";
 
-export type SearchableOption = { id: string; label: string; detail?: string };
+export type SearchableOption = { id: string; label: string; detail?: string; action?: () => void };
 
-export function SearchableSelect({ value, options, placeholder, ariaLabel, required = false, className = "", onChange }: {
+export function SearchableSelect({ value, options, placeholder, ariaLabel, ariaInvalid = false, required = false, className = "", onChange }: {
   value: string;
   options: SearchableOption[];
   placeholder: string;
   ariaLabel: string;
+  ariaInvalid?: boolean;
   required?: boolean;
   className?: string;
   onChange: (value: string) => void;
@@ -24,7 +25,7 @@ export function SearchableSelect({ value, options, placeholder, ariaLabel, requi
   const visible = useMemo(() => {
     const text = query.trim().toLowerCase();
     if (!text || text === selected?.label.toLowerCase()) return options;
-    return options.filter(option => option.label.toLowerCase().split(/\s+/).some(word => word.startsWith(text)) || option.detail?.toLowerCase().split(/\s+/).some(word => word.startsWith(text)));
+    return options.filter(option => option.action || option.label.toLowerCase().split(/\s+/).some(word => word.startsWith(text)) || option.detail?.toLowerCase().split(/\s+/).some(word => word.startsWith(text)));
   }, [options, query, selected?.label]);
 
   function cancelClose() {
@@ -42,6 +43,13 @@ export function SearchableSelect({ value, options, placeholder, ariaLabel, requi
 
   function choose(option: SearchableOption) {
     cancelClose();
+    if (option.action) {
+      setOpen(false);
+      setQuery("");
+      setActive(0);
+      option.action();
+      return;
+    }
     onChange(option.id);
     setQuery(option.label);
     setOpen(false);
@@ -62,6 +70,7 @@ export function SearchableSelect({ value, options, placeholder, ariaLabel, requi
       aria-autocomplete="list"
       aria-controls={listId}
       aria-expanded={open}
+      aria-invalid={ariaInvalid}
       role="combobox"
       required={required}
       value={open ? query : selected?.label ?? ""}
@@ -78,7 +87,7 @@ export function SearchableSelect({ value, options, placeholder, ariaLabel, requi
     />
     <button className="searchable-select-arrow" type="button" aria-label={open ? "Close options" : "Open options"} onMouseDown={event => event.preventDefault()} onClick={() => { if (open) { cancelClose(); setOpen(false); setQuery(""); input.current?.blur(); } else { input.current?.focus(); openMenu(); } }}>⌄</button>
     {open && <div className="searchable-select-menu" role="listbox" id={listId}>
-      {visible.length ? visible.map((option, index) => <button className={`${index === active ? "active" : ""} ${option.id === value ? "selected" : ""}`} type="button" role="option" aria-selected={option.id === value} onMouseDown={event => event.preventDefault()} onClick={() => choose(option)} key={option.id || "all"}><span>{option.label}</span>{option.detail && <small>{option.detail}</small>}</button>) : <p>No matching options</p>}
+      {visible.length ? visible.map((option, index) => <button className={`${index === active ? "active" : ""} ${!option.action && option.id === value ? "selected" : ""} ${option.action ? "searchable-select-action" : ""}`} type="button" role="option" aria-selected={!option.action && option.id === value} onMouseDown={event => event.preventDefault()} onClick={() => choose(option)} key={option.id || "all"}>{option.action && <Icon name="plus" size={14}/>}<span>{option.label}</span>{option.detail && <small>{option.detail}</small>}</button>) : <p>No matching options</p>}
     </div>}
   </div>;
 }

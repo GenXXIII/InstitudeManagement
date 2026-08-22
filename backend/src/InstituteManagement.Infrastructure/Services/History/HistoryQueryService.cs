@@ -16,7 +16,7 @@ public sealed class HistoryQueryService(InstituteDbContext db, IEnumerable<IHist
         var query = db.AuditLogs.AsNoTracking().AsQueryable();
         if (!requestedType.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.Type == requestedType);
         if (!string.IsNullOrWhiteSpace(term)) query = query.Where(x => x.Subject.Contains(term) || x.Action.Contains(term) || x.Details.Contains(term));
-        var audit = await query.Select(x => new RecordDto(x.Id, x.ResourceId, x.CreatedAtUtc, x.Type, x.Subject, x.Action, x.Details)).ToListAsync(cancellationToken);
+        var audit = await query.Select(x => new RecordDto(x.Id, x.ResourceId, x.CreateAt, x.Type, x.Subject, x.Action, x.Details, x.AuditLogCode)).ToListAsync(cancellationToken);
         var selected = requestedType.Equals("all", StringComparison.OrdinalIgnoreCase) ? _providers.Values : _providers.TryGetValue(requestedType, out var provider) ? [provider] : [];
         var snapshots = new List<RecordDto>();
         foreach (var snapshotProvider in selected)

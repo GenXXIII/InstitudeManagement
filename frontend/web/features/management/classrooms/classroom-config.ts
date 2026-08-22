@@ -1,7 +1,7 @@
 import type { Field } from "../management-types";
 
 export const classroomFields: Field[] = [
-  { key: "code", label: "Room code", required: true },
+  { key: "classroomCode", label: "ClassroomCode", required: true },
   { key: "building", label: "Building", required: true },
   { key: "roomType", label: "Learning-space type", type: "select", options: ["Classroom", "Meeting Room"], required: true },
   { key: "departmentId", label: "Department", type: "select", source: "departments", required: true },

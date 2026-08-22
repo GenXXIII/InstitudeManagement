@@ -7,9 +7,10 @@ public sealed record TeacherResponseDto(Guid Id, TeacherValuesDto Values) : IMan
 
 public sealed record TeacherValuesDto(
     string PhotoDataUrl,
-    string Number,
+    string TeacherCode,
     string Name,
     string Email,
     string DepartmentId,
     string Department,
-    string Status);
+    string Status,
+    string CreateAt);

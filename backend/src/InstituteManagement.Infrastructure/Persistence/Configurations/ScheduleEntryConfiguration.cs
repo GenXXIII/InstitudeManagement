@@ -8,10 +8,12 @@ public sealed class ScheduleEntryConfiguration : IEntityTypeConfiguration<Schedu
 {
     public void Configure(EntityTypeBuilder<ScheduleEntry> builder)
     {
+        builder.HasIndex(x => x.TimetableCode).IsUnique();
         builder.HasIndex(x => new { x.DayOfWeek, x.StartsAt, x.EndsAt });
         builder.HasIndex(x => x.CourseId);
         builder.HasIndex(x => x.ClassroomId);
         builder.HasIndex(x => x.TeacherId);
+        builder.Property(x => x.TimetableCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.YearLevel).HasDefaultValue(1).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
         builder.HasOne(x => x.Course)

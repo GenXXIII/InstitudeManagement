@@ -10,5 +10,6 @@ export type Dashboard = {
   attention: Activity[];
   activity: Activity[];
   departmentStatus: StatusItem[];
+  averageGrade: number;
   gradeDistribution: ChartPoint[];
 };
