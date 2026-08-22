@@ -54,12 +54,12 @@ jobs:
         run: docker compose up -d --wait --wait-timeout 180
       - name: Smoke test INK application
         run: |
-          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:5080/health
-          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:5080/api/dashboard
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 http://localhost:5080/health
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 http://localhost:5080/api/dashboard --output /dev/null
           docker compose exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$SQL_PASSWORD" -C -b -Q "IF @@SERVERNAME <> N'INK-SQL-SERVER' THROW 51000, 'Unexpected SQL Server name.', 1; IF DB_ID(N'INK_Manangement') IS NULL THROW 51000, 'INK database is missing.', 1;"
-          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:3000/branding/ink-logo.png --output /dev/null
-          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:3000/icon.png --output /dev/null
-          curl --fail --retry 20 --retry-all-errors --retry-delay 3 http://localhost:3000 | grep -F "<title>Institude of New Khmer</title>"
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 http://localhost:3000/branding/ink-logo.png --output /dev/null
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 http://localhost:3000/icon.png --output /dev/null
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 http://localhost:3000 | grep -F "<title>Institude of New Khmer</title>"
       - name: Stop production stack
         if: always()
         run: docker compose down --volumes
