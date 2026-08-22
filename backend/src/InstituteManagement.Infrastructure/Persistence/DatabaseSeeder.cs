@@ -10,7 +10,11 @@ public static class DatabaseSeeder
     {
         if (db.Database.IsRelational())
         {
-            if (await HasExistingInstituteSchemaAsync(db, cancellationToken))
+            // A fresh SQL Server instance does not contain the institute database yet.
+            // Only inspect legacy tables when the configured database can be opened;
+            // MigrateAsync below is responsible for creating a new database.
+            if (await db.Database.CanConnectAsync(cancellationToken) &&
+                await HasExistingInstituteSchemaAsync(db, cancellationToken))
             {
                 await DatabaseSchemaUpdater.EnsureAsync(db, cancellationToken);
                 await MarkInitialMigrationAppliedAsync(db, cancellationToken);
