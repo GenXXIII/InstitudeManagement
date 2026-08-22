@@ -13,12 +13,12 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
     {
         var rooms = await db.Classrooms.AsNoTracking().Where(x => !departmentId.HasValue || x.DepartmentId == departmentId).OrderBy(x => x.Code).ToListAsync(cancellationToken);
         var ids = rooms.Select(x => x.Id).ToList();
-        var schedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Course).Include(x => x.Teacher).Where(x => ids.Contains(x.ClassroomId)).ToListAsync(cancellationToken);
+        var sessions = await db.ClassSessionRecords.AsNoTracking().Where(x => ids.Contains(x.ClassroomId)).ToListAsync(cancellationToken);
         return rooms.Select(room =>
         {
-            var related = schedules.Where(x => x.ClassroomId == room.Id).OrderByDescending(x => x.UpdatedAtUtc).ToList();
-            var events = related.Select(x => Create(("Activity", "Timetable"), ("Day", x.DayOfWeek.ToString()), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"), ("Year", $"Year {x.YearLevel}"), ("Course", x.Course?.Name ?? "—"), ("Teacher", x.Teacher?.FullName ?? "—"), ("Status", x.Status))).ToList();
-            return new OperationalRecordDto(room.Id, "Classroom", room.Code, room.Building, room.Status, $"{events.Count} timetable entries · {room.Capacity} seats · device {(room.DeviceOnline ? "online" : "offline")}", related.Count == 0 ? null : related[0].UpdatedAtUtc, events);
+            var completed = sessions.Where(x => x.ClassroomId == room.Id).OrderByDescending(x => x.UpdatedAtUtc).ToList();
+            var events = completed.Select(x => Create(("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term), ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"), ("Year", $"Year {x.YearLevel}"), ("Course", x.CourseName), ("Teacher", x.TeacherName), ("Attendance", $"{x.PresentCount} present · {x.LateCount} late · {x.AbsentCount} absent · {x.ExcusedCount} excused"))).ToList();
+            return new OperationalRecordDto(room.Id, "Classroom", room.Code, room.Building, room.Status, $"{events.Count} completed timetable classes", completed.Count == 0 ? null : completed[0].UpdatedAtUtc, events);
         }).ToList();
     }
 }

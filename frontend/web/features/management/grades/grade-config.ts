@@ -6,4 +6,4 @@ export const gradeFields: Field[] = [
   { key: "score", label: "Score", type: "number", required: true },
 ];
 
-export const gradeDefaults = (departmentId: string) => ({ departmentId, term: "Semester 1", score: "80" });
+export const gradeDefaults = (departmentId: string) => ({ departmentId, term: "Semester 1", score: "" });

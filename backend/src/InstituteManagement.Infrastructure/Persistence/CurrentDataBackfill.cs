@@ -46,7 +46,7 @@ public static class CurrentDataBackfill
 
     private static async Task BackfillSettingsAsync(InstituteDbContext db, CancellationToken cancellationToken)
     {
-        var defaults = new Dictionary<string, Dictionary<string, string>> { ["departments"] = new() { ["requireDepartmentHead"] = "true", ["allowCrossDepartmentTeaching"] = "false", ["defaultStatus"] = "Active" }, ["courses"] = new() { ["defaultCredits"] = "3", ["defaultCapacity"] = "40", ["requireAssignedTeacher"] = "true" }, ["classrooms"] = new() { ["defaultCapacity"] = "40", ["attendanceDeviceRequired"] = "true", ["allowSharedRooms"] = "false" } };
+        var defaults = new Dictionary<string, Dictionary<string, string>> { ["departments"] = new() { ["requireDepartmentHead"] = "true", ["allowCrossDepartmentTeaching"] = "false", ["defaultStatus"] = "Active" }, ["courses"] = new() { ["defaultCapacity"] = "40", ["requireAssignedTeacher"] = "true" }, ["classrooms"] = new() { ["defaultCapacity"] = "40", ["attendanceDeviceRequired"] = "true", ["allowSharedRooms"] = "false" } };
         defaults["grade-rules"] = new() { ["eMinimum"] = "50" };
         defaults["attendance-rules"] = new() { ["requireCorrectionReason"] = "false" };
         defaults["semester"] = new()
@@ -68,10 +68,17 @@ public static class CurrentDataBackfill
     {
         var academicYear = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "academic-year" && x.Key == "currentYear").Select(x => x.Value).FirstOrDefaultAsync(cancellationToken) ?? "2026\u20132027";
         var term = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "semester" && x.Key == "currentTerm").Select(x => x.Value).FirstOrDefaultAsync(cancellationToken) ?? "Semester 1";
-        foreach (var record in await db.AttendanceRecords.Where(x => x.AcademicYear == "" || x.Term == "").ToListAsync(cancellationToken))
+        var semesterDates = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "semester").ToDictionaryAsync(x => x.Key, x => x.Value, cancellationToken);
+        var semester1Start = DateOnly.TryParse(semesterDates.GetValueOrDefault("semester1StartsOn"), out var firstStart) ? firstStart : new DateOnly(2026, 8, 3);
+        var semester1End = DateOnly.TryParse(semesterDates.GetValueOrDefault("semester1EndsOn"), out var firstEnd) ? firstEnd : new DateOnly(2026, 12, 18);
+        var semester2Start = DateOnly.TryParse(semesterDates.GetValueOrDefault("semester2StartsOn"), out var secondStart) ? secondStart : new DateOnly(2027, 1, 4);
+        var semester2End = DateOnly.TryParse(semesterDates.GetValueOrDefault("semester2EndsOn"), out var secondEnd) ? secondEnd : new DateOnly(2027, 6, 18);
+        foreach (var record in await db.AttendanceRecords.ToListAsync(cancellationToken))
         {
-            record.AcademicYear = academicYear;
-            record.Term = term;
+            if (string.IsNullOrWhiteSpace(record.AcademicYear)) record.AcademicYear = academicYear;
+            if (record.AcademicYear == academicYear && record.Date >= semester1Start && record.Date <= semester1End) record.Term = "Semester 1";
+            else if (record.AcademicYear == academicYear && record.Date >= semester2Start && record.Date <= semester2End) record.Term = "Semester 2";
+            else if (string.IsNullOrWhiteSpace(record.Term)) record.Term = term;
         }
         foreach (var record in await db.GradeRecords.Where(x => x.AcademicYear == "").ToListAsync(cancellationToken)) record.AcademicYear = academicYear;
     }

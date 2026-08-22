@@ -12,6 +12,5 @@ public sealed record CourseValuesDto(
     string Department,
     string TeacherId,
     string Teacher,
-    string Credits,
     string Capacity,
     string Status);

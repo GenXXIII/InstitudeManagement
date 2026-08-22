@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import { ErrorPage, LoadingPage, MetricCards, PageHeading } from "@/components/page-primitives";
 import { Icon } from "@/components/icon";
 import { useInstituteSettings } from "@/features/administration/institute-settings-context";
-import { ActivityPanel } from "./components/activity-panel";
 import { OperationPanel } from "./components/operation-panel";
 import { operationsApi } from "./operations-api";
 import type { Operation } from "./operations-types";
@@ -14,14 +13,33 @@ import type { Operation } from "./operations-types";
 export default function OperationsWorkspace() {
   const { settings } = useInstituteSettings();
   const { module } = useParams<{ module: string }>();
-  const sidebarDepartmentId = useSearchParams().get("departmentId") ?? "";
+  const searchParams = useSearchParams();
+  const sidebarDepartmentId = searchParams.get("departmentId") ?? "";
+  const year = Number(searchParams.get("year") ?? 0);
   const timetable = module === "timetable";
   const [data, setData] = useState<Operation>();
   const [error, setError] = useState(false);
   const departmentId = sidebarDepartmentId;
-  const load = useCallback(() => operationsApi.get(module, departmentId).then(value => { setData(value); setError(false); }).catch(() => setError(true)), [module, departmentId]);
+  const load = useCallback(async () => {
+    try {
+      let value = await operationsApi.get(module, departmentId);
+      if (module === "dashboard") {
+        const [students, teachers, classrooms, courses, timetableData] = await Promise.all(["students", "teachers", "classrooms", "courses", "timetable"].map(area => operationsApi.get(area, departmentId)));
+        value = { ...value, students: students.students, teachers: teachers.teachers, classrooms: classrooms.classrooms, courses: courses.courses, weeklySchedule: timetableData.weeklySchedule };
+      }
+      const [studentsData, timetableData] = await Promise.all([
+        module === "students" ? Promise.resolve(value) : operationsApi.get("students", departmentId),
+        module === "timetable" ? Promise.resolve(value) : operationsApi.get("timetable", departmentId),
+      ]);
+      if (year) {
+        value = filterOperationYear(value, year, studentsData, timetableData);
+      }
+      setData(sortOperationByYear(value, studentsData, timetableData));
+      setError(false);
+    } catch { setError(true); }
+  }, [module, departmentId, year]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
   const refreshSeconds = Math.max(5, Number(settings.system.autoRefreshSeconds) || 30);
   useEffect(() => { const timer = window.setInterval(() => void load(), refreshSeconds * 1000); return () => window.clearInterval(timer); }, [load, refreshSeconds]);
   if (error) return <ErrorPage retry={load}/>;
@@ -30,8 +48,47 @@ export default function OperationsWorkspace() {
   const dashboard = data.module === "dashboard";
   const visual = data.module === "classrooms" || data.module === "timetable";
   return <div className={`operations-workspace ${visual ? "operations-visual-workspace" : ""}`}>
-    <PageHeading eyebrow={dashboard ? "Institute operations" : "Live operation"} title={data.title} description={data.description} actions={<>{timetable && <Link className="button secondary" href={`/management/timetable${departmentId ? `?departmentId=${encodeURIComponent(departmentId)}` : ""}`}>Manage timetable</Link>}<span className="live-pill"><i/> {dashboard ? "Institute status current" : "Auto-refresh on"}</span><button className="button primary" onClick={load}><Icon name={dashboard ? "dashboard" : "pulse"} size={16}/>Refresh</button></>}/>
+    <PageHeading eyebrow={dashboard ? "Institute operations" : "Live operation"} title={data.title} description={`${data.description}${year ? ` Showing Year ${year}.` : ""}`} actions={<>{timetable && <Link className="button secondary" href={`/management/timetable?${scopeQuery(departmentId, year)}`}>Manage timetable</Link>}<span className="live-pill"><i/> {dashboard ? "Institute status current" : "Auto-refresh on"}</span><button className="button primary" onClick={load}><Icon name={dashboard ? "dashboard" : "pulse"} size={16}/>Refresh</button></>}/>
     {!dashboard && !visual && <MetricCards metrics={data.metrics}/>} 
-    {dashboard || visual ? <OperationPanel data={data} departmentId={departmentId} className={dashboard ? "operation-dashboard-page" : "operation-visual-page"} kicker={dashboard ? "Four core institute operations" : timetable ? "One-page weekly schedule" : "Whole view · no scrolling"}/> : <section className="operation-layout"><OperationPanel data={data} departmentId={departmentId} kicker="Live data"/><aside className="operation-side"><ActivityPanel title="Attention" kicker="Requires action" items={data.attention}/><ActivityPanel title="Recent activity" kicker="Stream" items={data.activity}/></aside></section>}
+    <OperationPanel data={data} departmentId={departmentId} year={year} className={dashboard ? "operation-dashboard-page" : visual ? "operation-visual-page" : "operation-standard-page"} kicker={dashboard ? "Four core institute operations" : timetable ? "One-page weekly schedule" : visual ? "Whole view · no scrolling" : "Live management-sized data"}/>
   </div>;
 }
+
+function filterOperationYear(data: Operation, year: number, studentsData: Operation, timetableData: Operation): Operation {
+  const students = (studentsData.students ?? []).filter(student => student.year === year);
+  const studentNames = new Set(students.map(student => student.student));
+  const departments = new Set(students.map(student => student.department));
+  const schedule = (timetableData.weeklySchedule ?? []).filter(entry => entry.yearLevel === year);
+  const teachers = new Set(schedule.map(entry => entry.teacher));
+  const courses = new Set(schedule.map(entry => entry.course));
+  return {
+    ...data,
+    students: (data.students ?? []).filter(student => student.year === year),
+    teachers: (data.teachers ?? []).filter(teacher => teachers.has(teacher.teacher)),
+    courses: (data.courses ?? []).filter(course => courses.has(course.course)),
+    weeklySchedule: (data.weeklySchedule ?? []).filter(entry => entry.yearLevel === year),
+    attendance: (data.attendance ?? []).filter(entry => studentNames.has(entry.student)),
+    grades: (data.grades ?? []).filter(entry => studentNames.has(entry.student)),
+    departments: (data.departments ?? []).filter(entry => departments.has(entry.department)),
+  };
+}
+
+function sortOperationByYear(data: Operation, studentsData: Operation, timetableData: Operation): Operation {
+  const students = studentsData.students ?? [];
+  const schedule = timetableData.weeklySchedule ?? [];
+  const studentYears = new Map(students.map(student => [student.student, student.year]));
+  const departmentYears = new Map<string, number>();
+  for (const student of students) departmentYears.set(student.department, Math.min(departmentYears.get(student.department) ?? 99, student.year));
+  const scheduledYear = (field: "teacher" | "course" | "room", value: string) => schedule.filter(entry => entry[field] === value).reduce((minimum, entry) => Math.min(minimum, entry.yearLevel), 99);
+  return {
+    ...data,
+    students: data.students?.toSorted((left, right) => left.year - right.year),
+    teachers: data.teachers?.toSorted((left, right) => scheduledYear("teacher", left.teacher) - scheduledYear("teacher", right.teacher)),
+    courses: data.courses?.toSorted((left, right) => scheduledYear("course", left.course) - scheduledYear("course", right.course)),
+    weeklySchedule: data.weeklySchedule?.toSorted((left, right) => left.yearLevel - right.yearLevel),
+    attendance: data.attendance?.toSorted((left, right) => (studentYears.get(left.student) ?? 99) - (studentYears.get(right.student) ?? 99)),
+    grades: data.grades?.toSorted((left, right) => (studentYears.get(left.student) ?? 99) - (studentYears.get(right.student) ?? 99)),
+    departments: data.departments?.toSorted((left, right) => (departmentYears.get(left.department) ?? 99) - (departmentYears.get(right.department) ?? 99)),
+  };
+}
+function scopeQuery(departmentId: string, year: number) { const params = new URLSearchParams(); if (departmentId) params.set("departmentId", departmentId); if (year) params.set("year", String(year)); return params.toString(); }

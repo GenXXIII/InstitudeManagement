@@ -11,9 +11,10 @@ import { timetableApi } from "./timetable-api";
 
 const weekendDays = new Set(["Saturday", "Sunday"]);
 
-export function TimetableEditor({ item, references, scopeDepartmentId, onClose, onSaved }: { item: TimetableItem | null; references: References; scopeDepartmentId: string; onClose: () => void; onSaved: () => void }) {
+export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear, onClose, onSaved }: { item: TimetableItem | null; references: References; scopeDepartmentId: string; scopeYear: string; onClose: () => void; onSaved: () => void }) {
   const { settings } = useInstituteSettings();
   const defaults = timetableDefaults(scopeDepartmentId);
+  if (scopeYear) defaults.yearLevel = scopeYear;
   const [values, setValues] = useState<Record<string, string>>(() => item
     ? { ...defaults, ...item.values, period: `${item.values.startsAt}|${item.values.endsAt}` }
     : defaults);
@@ -50,6 +51,7 @@ export function TimetableEditor({ item, references, scopeDepartmentId, onClose, 
       label: field.source === "classrooms"
         ? `${option.values.roomType ?? "Classroom"} ${option.values.code}`
         : option.values.name ?? option.values.code ?? option.values.student ?? option.values.course,
+      detail: [option.values.number, option.values.department].filter(Boolean).join(" · "),
     }));
   }
 

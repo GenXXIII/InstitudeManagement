@@ -1,0 +1,2 @@
+export type CourseResult = { courseId: string; code: string; name: string; score: number; grade: string };
+export type SemesterResult = { studentId: string; studentNumber: string; fullName: string; departmentId: string; department: string; year: number; academicYear: string; semester: string; presentCount: number; absentCount: number; permissionCount: number; grades: CourseResult[]; totalCourses: number; totalScore: number; average: number; totalGrade: string };

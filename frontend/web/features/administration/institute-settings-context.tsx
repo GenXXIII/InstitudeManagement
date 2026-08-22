@@ -12,7 +12,7 @@ const defaults: InstituteSettings = {
   "academic-year": { currentYear: "2026–2027", startsOn: "2026-08-03", endsOn: "2027-06-18" },
   semester: { currentTerm: "Semester 1", startsOn: "2026-08-03", endsOn: "2026-12-18", semester1StartsOn: "2026-08-03", semester1EndsOn: "2026-12-18", semester2StartsOn: "2027-01-04", semester2EndsOn: "2027-06-18" },
   departments: { requireDepartmentHead: "true", allowCrossDepartmentTeaching: "false", defaultStatus: "Active" },
-  courses: { defaultCredits: "3", defaultCapacity: "40", requireAssignedTeacher: "true" },
+  courses: { defaultCapacity: "40", requireAssignedTeacher: "true" },
   classrooms: { defaultCapacity: "40", attendanceDeviceRequired: "true", allowSharedRooms: "false" },
   "attendance-rules": { method: "ID Card", lateThresholdMinutes: "15", autoAbsent: "true", autoPercentage: "true", notifyTeacher: "true", notifyAdministrator: "true", allowCorrection: "true", requireCorrectionReason: "false" },
   "grade-rules": { aMinimum: "90", bMinimum: "80", cMinimum: "70", dMinimum: "60", eMinimum: "50" },

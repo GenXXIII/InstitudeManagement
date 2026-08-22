@@ -23,7 +23,6 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
                 course.Department?.Name ?? "—",
                 course.TeacherId?.ToString() ?? "",
                 course.Teacher?.FullName ?? "Unassigned",
-                course.Credits.ToString(),
                 course.Capacity.ToString(),
                 "Active")))
             .ToList();
@@ -41,7 +40,6 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
             Name = Required(values, "name"),
             DepartmentId = departmentId,
             TeacherId = teacherId,
-            Credits = IntInRange(values, "credits", 3, 1, 30),
             Capacity = IntInRange(values, "capacity", 40, 1, 10000),
             IsActive = CourseStatus(values) == "Active"
         }, values, ct);
@@ -60,7 +58,6 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
         entity.Name = Required(values, "name");
         entity.DepartmentId = departmentId;
         entity.TeacherId = teacherId;
-        entity.Credits = IntInRange(values, "credits", 3, 1, 30);
         entity.Capacity = IntInRange(values, "capacity", 40, 1, 10000);
         entity.IsActive = status == "Active";
         Touch(entity);
@@ -77,7 +74,6 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
             Get(values, "department"),
             Get(values, "teacherId"),
             Get(values, "teacher", "Unassigned"),
-            Get(values, "credits"),
             Get(values, "capacity"),
             Get(values, "status", "Active")));
 

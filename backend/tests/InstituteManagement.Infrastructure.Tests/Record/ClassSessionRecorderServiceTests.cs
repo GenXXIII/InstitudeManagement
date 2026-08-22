@@ -38,6 +38,23 @@ public sealed class ClassSessionRecorderServiceTests
         var students = JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(session.StudentAttendanceJson)!;
         Assert.Contains(students, x => x.StudentId == present.Id && x.Status == "Present");
         Assert.Contains(students, x => x.StudentId == absent.Id && x.Status == "Absent");
+
+        var records = await new ClassSessionOperationalRecordReader(db).GetAsync(department.Id, CancellationToken.None);
+        var record = Assert.Single(records);
+        Assert.Equal("Session", record.Module);
+        Assert.Contains(record.Activities, activity =>
+            activity["Activity"] == "Student attendance" &&
+            activity["Student"] == "Absent Student" &&
+            activity["Attendance"] == "Absent");
+
+        var studentRecords = await new StudentOperationalRecordReader(db).GetAsync(department.Id, CancellationToken.None);
+        Assert.All(studentRecords.SelectMany(item => item.Activities), activity => Assert.Equal("Class attendance", activity["Activity"]));
+        Assert.Contains(studentRecords, item => item.Subject == "Absent Student" && item.Activities.Single()["Attendance"] == "Absent");
+
+        var teacherRecord = Assert.Single(await new TeacherOperationalRecordReader(db).GetAsync(department.Id, CancellationToken.None));
+        var courseRecord = Assert.Single(await new CourseOperationalRecordReader(db).GetAsync(department.Id, CancellationToken.None));
+        var classroomRecord = Assert.Single(await new ClassroomOperationalRecordReader(db).GetAsync(department.Id, CancellationToken.None));
+        Assert.All(teacherRecord.Activities.Concat(courseRecord.Activities).Concat(classroomRecord.Activities), activity => Assert.Equal("Completed class", activity["Activity"]));
     }
 
     private static IEnumerable<SystemSetting> Settings() => new[]

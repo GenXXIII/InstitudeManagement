@@ -9,12 +9,12 @@ import { StudentOperationTable } from "./student-operation-table";
 import { TeacherOperationTable } from "./teacher-operation-table";
 import { WeeklyTimetable } from "./weekly-timetable";
 
-export function OperationContent({ data, departmentId }: { data: Operation; departmentId: string }) {
-  if (data.module === "dashboard") return <DashboardOperationGrid rows={data.summary ?? []} departmentId={departmentId}/>;
+export function OperationContent({ data, departmentId, year }: { data: Operation; departmentId: string; year: number }) {
+  if (data.module === "dashboard") return <DashboardOperationGrid data={data} departmentId={departmentId} year={year}/>;
   if (data.module === "students") return <StudentOperationTable rows={data.students ?? []}/>;
   if (data.module === "teachers") return <TeacherOperationTable rows={data.teachers ?? []}/>;
   if (data.module === "classrooms") return <ClassroomBuilding rows={data.classrooms ?? []}/>;
-  if (data.module === "timetable") return <WeeklyTimetable rows={data.weeklySchedule ?? []} periods={data.timetablePeriods ?? []} rooms={data.timetableRooms ?? []}/>;
+  if (data.module === "timetable") return <WeeklyTimetable rows={data.weeklySchedule ?? []} periods={data.timetablePeriods ?? []} rooms={data.timetableRooms ?? []} globalYear={year}/>;
   if (data.module === "courses") return <CourseOperationList rows={data.courses ?? []}/>;
   if (data.module === "attendance") return <AttendanceOperationList rows={data.attendance ?? []}/>;
   if (data.module === "departments") return <DepartmentOperationList rows={data.departments ?? []}/>;

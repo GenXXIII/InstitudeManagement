@@ -17,6 +17,7 @@ using InstituteManagement.Infrastructure.Services.Management.Teachers;
 using InstituteManagement.Infrastructure.Services.Management.Timetable;
 using InstituteManagement.Infrastructure.Services.Operations;
 using InstituteManagement.Infrastructure.Services.Record;
+using InstituteManagement.Infrastructure.Services.Results;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,7 +56,9 @@ public static class DependencyInjection
         services.AddScoped<IOperationalRecordReader, TeacherOperationalRecordReader>();
         services.AddScoped<IOperationalRecordReader, ClassroomOperationalRecordReader>();
         services.AddScoped<IOperationalRecordReader, CourseOperationalRecordReader>();
+        services.AddScoped<IOperationalRecordReader, ClassSessionOperationalRecordReader>();
         services.AddScoped<IHistoryQueryService, HistoryQueryService>();
+        services.AddScoped<IResultQueryService, ResultQueryService>();
         services.AddScoped<IHistorySnapshotProvider, StudentHistorySnapshotProvider>();
         services.AddScoped<IHistorySnapshotProvider, TeacherHistorySnapshotProvider>();
         services.AddScoped<IHistorySnapshotProvider, ClassroomHistorySnapshotProvider>();

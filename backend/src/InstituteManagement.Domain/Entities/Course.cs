@@ -8,7 +8,6 @@ public sealed class Course : Entity
     public Department? Department { get; set; }
     public Guid? TeacherId { get; set; }
     public Teacher? Teacher { get; set; }
-    public int Credits { get; set; } = 3;
     public int Capacity { get; set; } = 40;
     public bool IsActive { get; set; } = true;
 }

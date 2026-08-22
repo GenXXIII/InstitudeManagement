@@ -21,7 +21,7 @@ public static class SystemSettingSeedFactory
                 ["semester2EndsOn"] = "2027-06-18"
             },
             ["departments"] = new() { ["requireDepartmentHead"] = "true", ["allowCrossDepartmentTeaching"] = "false", ["defaultStatus"] = "Active" },
-            ["courses"] = new() { ["defaultCredits"] = "3", ["defaultCapacity"] = "40", ["requireAssignedTeacher"] = "true" },
+            ["courses"] = new() { ["defaultCapacity"] = "40", ["requireAssignedTeacher"] = "true" },
             ["classrooms"] = new() { ["defaultCapacity"] = "40", ["attendanceDeviceRequired"] = "true", ["allowSharedRooms"] = "false" },
             ["attendance-rules"] = new() { ["method"] = "ID Card", ["lateThresholdMinutes"] = "15", ["autoAbsent"] = "true", ["autoPercentage"] = "true", ["notifyTeacher"] = "true", ["notifyAdministrator"] = "true", ["allowCorrection"] = "true", ["requireCorrectionReason"] = "false" },
             ["grade-rules"] = new() { ["aMinimum"] = "90", ["bMinimum"] = "80", ["cMinimum"] = "70", ["dMinimum"] = "60", ["eMinimum"] = "50" },

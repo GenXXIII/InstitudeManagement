@@ -125,7 +125,7 @@ public abstract class ManagementFeatureBase(InstituteDbContext db, InstituteCach
         Student x => new { x.StudentNumber, x.FullName, x.Email, x.DepartmentId, x.YearLevel, x.Status },
         Teacher x => new { x.TeacherNumber, x.FullName, x.Email, x.DepartmentId, x.Status },
         Classroom x => new { x.Code, x.Building, x.RoomType, x.DepartmentId, x.Capacity, x.Status, x.DeviceOnline },
-        Course x => new { x.Code, x.Name, x.DepartmentId, x.TeacherId, x.Credits, x.Capacity, x.IsActive },
+        Course x => new { x.Code, x.Name, x.DepartmentId, x.TeacherId, x.Capacity, x.IsActive },
         Department x => new { x.Code, x.Name, x.HeadTeacherId, x.IsActive },
         ScheduleEntry x => new { x.CourseId, x.TeacherId, x.ClassroomId, x.YearLevel, x.DayOfWeek, x.StartsAt, x.EndsAt, x.Status },
         AttendanceRecord x => new { x.StudentId, x.Date, x.CheckedInAt, x.Status, x.Method },

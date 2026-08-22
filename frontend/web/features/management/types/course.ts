@@ -5,7 +5,6 @@ export type CourseValues = Record<string, string> & {
   department: string;
   teacherId: string;
   teacher: string;
-  credits: string;
   capacity: string;
   status: string;
 };

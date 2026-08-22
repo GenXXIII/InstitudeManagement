@@ -15,17 +15,13 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
     {
         var teachers = await db.Teachers.AsNoTracking().Where(x => !departmentId.HasValue || x.DepartmentId == departmentId).OrderBy(x => x.FullName).ToListAsync(cancellationToken);
         var ids = teachers.Select(x => x.Id).ToList();
-        var schedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Course).Include(x => x.Classroom).Where(x => ids.Contains(x.TeacherId)).ToListAsync(cancellationToken);
-        var courses = await db.Courses.AsNoTracking().Where(x => x.TeacherId.HasValue && ids.Contains(x.TeacherId.Value)).ToListAsync(cancellationToken);
         var sessions = await db.ClassSessionRecords.AsNoTracking().Where(x => ids.Contains(x.TeacherId)).ToListAsync(cancellationToken);
         return teachers.Select(teacher =>
         {
             var completed = sessions.Where(x => x.TeacherId == teacher.Id).ToList();
-            var events = schedules.Where(x => x.TeacherId == teacher.Id).Select(x => (x.UpdatedAtUtc, Create(("Activity", "Timetable"), ("Day", x.DayOfWeek.ToString()), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"), ("Year", $"Year {x.YearLevel}"), ("Course", x.Course?.Name ?? "—"), ("Classroom", x.Classroom?.Code ?? "—"), ("Status", x.Status))))
-                .Concat(courses.Where(x => x.TeacherId == teacher.Id).Select(x => (x.UpdatedAtUtc, Create(("Activity", "Course assignment"), ("Course", x.Name), ("Code", x.Code), ("Status", x.IsActive ? "Active" : "Inactive")))))
-                .Concat(completed.Select(x => (x.UpdatedAtUtc, Create(("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term), ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"), ("Year", $"Year {x.YearLevel}"), ("Course", x.CourseName), ("Classroom", x.ClassroomCode), ("Attendance", $"{x.PresentCount} present · {x.LateCount} late · {x.AbsentCount} absent · {x.ExcusedCount} excused"), ("Students", StudentSummary(x.StudentAttendanceJson))))))
+            var events = completed.Select(x => (x.UpdatedAtUtc, Create(("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term), ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"), ("Year", $"Year {x.YearLevel}"), ("Course", x.CourseName), ("Classroom", x.ClassroomCode), ("Attendance", $"{x.PresentCount} present · {x.LateCount} late · {x.AbsentCount} absent · {x.ExcusedCount} permission"), ("Students", StudentSummary(x.StudentAttendanceJson)))))
                 .OrderByDescending(x => x.Item1).ToList();
-            return new OperationalRecordDto(teacher.Id, "Teacher", teacher.FullName, teacher.TeacherNumber, teacher.Status, $"{completed.Count} completed classes · {events.Count(x => x.Item2["Activity"] == "Timetable")} timetable entries · {events.Count(x => x.Item2["Activity"] == "Course assignment")} courses", events.Count == 0 ? null : events[0].Item1, events.Select(x => x.Item2).ToList());
+            return new OperationalRecordDto(teacher.Id, "Teacher", teacher.FullName, teacher.TeacherNumber, teacher.Status, $"{completed.Count} completed timetable classes", events.Count == 0 ? null : events[0].Item1, events.Select(x => x.Item2).ToList());
         }).ToList();
     }
 

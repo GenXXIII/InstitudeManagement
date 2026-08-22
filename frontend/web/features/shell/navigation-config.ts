@@ -1,5 +1,5 @@
-export const operationNavigation = [["dashboard", "Operations dashboard", "dashboard"], ["students", "Students", "users"], ["teachers", "Teachers", "teacher"], ["courses", "Courses", "book"], ["classrooms", "Classrooms", "room"], ["timetable", "Timetable", "calendar"]] as const;
-export const recordNavigation = [["students", "Students", "users"], ["teachers", "Teachers", "teacher"], ["courses", "Courses", "book"], ["classrooms", "Classrooms", "room"]] as const;
-export const managementNavigation = [...operationNavigation.slice(1), ["attendance", "Attendance", "check"], ["grades", "Grades", "grade"], ["departments", "Departments", "building"]] as const;
-export const historyNavigation = [...managementNavigation] as const;
+export const operationNavigation = [["dashboard", "Operations dashboard", "dashboard"], ["students", "Students", "users"], ["teachers", "Teachers", "teacher"], ["courses", "Courses", "book"], ["classrooms", "Classrooms", "room"], ["timetable", "Timetable", "calendar"], ["results", "Result", "grade"]] as const;
+export const recordNavigation = [["sessions", "Class Sessions", "calendar"], ["students", "Students", "users"], ["teachers", "Teachers", "teacher"], ["courses", "Courses", "book"], ["results", "Result", "grade"]] as const;
+export const managementNavigation = [...operationNavigation.slice(1, -1), ["attendance", "Attendance", "check"], ["grades", "Grades", "grade"], ["departments", "Departments", "building"]] as const;
+export const historyNavigation = [...managementNavigation, ["results", "Result", "grade"]] as const;
 export const settingsNavigation = [["institute", "Institute"], ["academic-year", "Academic year"], ["semester", "Semester / term"], ["departments", "Departments"], ["courses", "Courses"], ["classrooms", "Classrooms"], ["attendance-rules", "Attendance rules"], ["grade-rules", "Grade rules"], ["notifications", "Notifications"], ["system", "System"]] as const;

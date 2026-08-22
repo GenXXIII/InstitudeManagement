@@ -24,6 +24,6 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
             new("Courses", "Active academic course delivery", (await courses.CountAsync(cancellationToken)).ToString("N0"), "Weekly timetable available", "Active", "/operation/courses", "green")
         };
         var metrics = summary.Select(x => new MetricDto(x.Module, x.Value, x.Status, x.Tone)).ToList();
-        return new OperationDto(Module, $"Institute operations dashboard · {context.Scope}", "A concise institute-wide summary. Open any operation to review its complete live details.", metrics, context.Activity, context.Attention, Summary: summary);
+        return new OperationDto(Module, $"Institute operations dashboard · {context.Scope}", "One joined live view of students, teachers, classrooms, and courses. See current work without opening four separate pages.", metrics, context.Activity, context.Attention, Summary: summary);
     }
 }

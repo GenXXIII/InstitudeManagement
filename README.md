@@ -6,8 +6,9 @@ The current milestone includes dashboard reporting, module-specific live operati
 
 ## Data behavior
 
-- **Institute operations** starts with a one-page dashboard for Students, Teachers, Classrooms, and Courses; each card links to its complete live workspace.
-- **Record** is a read-only operational log for students, teachers, classrooms, and courses. At each timetable end, the backend freezes the course, teacher, room, cohort, and every related student's attendance state; Student, Teacher, and Course rows expose those completed sessions alongside grades and attendance.
+- **Institute operations** starts with a full-height one-page dashboard for Students, Teachers, Classrooms, and Courses; each section links to its complete live workspace.
+- **Record** contains completed timetable evidence only. Each Class Session is one expandable visual card with time, course, teacher, classroom, student year, totals, and the full Present/Late/Absent/Permission roster. Student Record contains completed-class attendance only; Teacher and Course Record contain only classes that reached their timetable end. Classroom detail is shown inside Course and Class Session cards rather than as a separate Record navigation item.
+- The top bar owns searchable Department and All/Year 1–4 scope controls. Sidebar navigation preserves both filters, the global search selects a feature and suggests first/last-name or word-prefix matches, and large relationship dropdowns support type-to-filter selection.
 - **Management** is the only place for adding, editing, deactivating, or removing current data. Every module can be scoped by department.
 - Attendance management groups all dated statuses and check-in times into one row per student. Grade management groups department-course results into one row per student with total, average, and overall grade.
 - **History** uses a Management-style read-only register for every current and inactive entity. Search and status dropdowns filter the register, and each row expands to its complete append-only snapshot history.
@@ -27,6 +28,16 @@ The current milestone includes dashboard reporting, module-specific live operati
 - Entity Framework Core with SQL Server
 - Redis and Docker Compose infrastructure
 - xUnit tests
+
+## Database migrations
+
+EF Core migrations are stored in `backend/src/InstituteManagement.Infrastructure/Persistence/Migrations`. Startup applies pending migrations automatically. Existing databases created before migrations are upgraded by the compatibility bridge and baseline-marked without deleting their data.
+
+Create a future migration from the repository root with:
+
+```powershell
+dotnet ef migrations add MigrationName --project backend/src/InstituteManagement.Infrastructure --startup-project backend/src/InstituteManagement.API --output-dir Persistence/Migrations -- --environment Production
+```
 
 ## Run locally with Docker
 
