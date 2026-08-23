@@ -36,20 +36,15 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
             .ToList();
     }
 
-    public override async Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
-    {
-        var entity = await BuildAsync(new AttendanceRecord(), values, ct);
-        await EnsureUniqueAsync(
-            Db.AttendanceRecords.Where(record => record.StudentId == entity.StudentId && record.Date == entity.Date),
-            "Attendance for this student and date",
-            ct);
-        return await SaveCreatedAsync(entity, values, ct);
-    }
+    public override Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct) =>
+        throw new InvalidOperationException("Attendance is generated automatically from students and cannot be added manually.");
     public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
         if (!await SettingEnabledAsync("attendance-rules", "allowCorrection", true, ct)) throw new InvalidOperationException("Attendance corrections are disabled by Attendance settings.");
         if (await SettingEnabledAsync("attendance-rules", "requireCorrectionReason", false, ct)) Required(values, "correctionReason");
         var entity = await RequiredEntityAsync(Db.AttendanceRecords, id, ct);
+        values["attendanceCode"] = entity.AttendanceCode;
+        values["studentId"] = entity.StudentId.ToString();
         var period = await CurrentPeriodAsync(ct);
         if (entity.AcademicYear != period.AcademicYear || entity.Term != period.Term) throw new InvalidOperationException("Completed-semester attendance is read-only in Records history.");
         await BuildAsync(entity, values, ct);

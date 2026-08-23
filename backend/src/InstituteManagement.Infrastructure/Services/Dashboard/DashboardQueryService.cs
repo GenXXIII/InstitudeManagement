@@ -14,9 +14,10 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
         var cached = await cache.ReadDashboardAsync<DashboardDto>(ct);
         if (cached is not null) return cached;
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var localNow = await InstituteLocalTime.NowAsync(db, ct);
+        var today = DateOnly.FromDateTime(localNow);
         var trendStart = today.AddDays(-4);
-        var currentDay = DateTime.Today.DayOfWeek;
+        var currentDay = localNow.DayOfWeek;
         var studentCount = await db.Students.AsNoTracking().CountAsync(x => x.Status != "Inactive", ct);
         var teacherCount = await db.Teachers.AsNoTracking().CountAsync(x => x.Status != "Inactive", ct);
         var courseCount = await db.Courses.AsNoTracking().CountAsync(x => x.IsActive, ct);

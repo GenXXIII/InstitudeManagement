@@ -1,8 +1,8 @@
 import type { Field } from "../management-types";
 
 export const attendanceFields: Field[] = [
-  { key: "attendanceCode", label: "AttendanceCode", required: true },
-  { key: "studentId", label: "Student", type: "select", source: "students", required: true },
+  { key: "attendanceCode", label: "AttendanceCode", required: true, readOnly: true },
+  { key: "studentId", label: "Student", type: "select", source: "students", required: true, readOnly: true },
   { key: "date", label: "Attendance date", type: "date", required: true },
   { key: "checkedInAt", label: "Check-in time", type: "time" },
   { key: "status", label: "Status", type: "select", options: ["Present", "Late", "Absent", "Excused"], required: true },

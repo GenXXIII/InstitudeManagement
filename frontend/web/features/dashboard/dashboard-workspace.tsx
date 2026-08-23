@@ -12,7 +12,7 @@ export default function DashboardPage() {
   useEffect(load, [load]);
   if (error) return <ErrorPage retry={load}/>; if (!data) return <LoadingPage/>;
   const now = new Date();
-  return <>
+  return <div className="viewport-data-page dashboard-viewport-page">
     <PageHeading eyebrow="Institute overview" title="Institude of New Khmer" description={now.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} actions={<><span className="live-pill"><i/> System online</span><button className="button secondary" onClick={load}>Refresh</button></>}/>
     <MetricCards metrics={data.metrics}/>
     <section className="dashboard-grid">
@@ -27,7 +27,7 @@ export default function DashboardPage() {
       <article className="panel department-panel"><div className="panel-title"><div><span className="panel-kicker">Across the institute</span><h3>Department status</h3></div><Link href="/management/departments">Analyze</Link></div>{data.departmentStatus.map((item, index) => <div className="progress-row" key={item.label}><div><strong>{item.label}</strong><span>{item.detail}</span></div><div className="progress-track"><i style={{width: `${95 - index * 2}%`}}/></div><b>{item.value}</b></div>)}</article>
       <article className="panel grade-panel"><div className="panel-title"><div><span className="panel-kicker">Academic status</span><h3>Grade distribution</h3></div><strong className="average">{data.averageGrade} <small>avg.</small></strong></div><div className="bars">{data.gradeDistribution.map(item => <div key={item.label}><span>{item.label}</span><i style={{height: `${Math.max(item.value * 2, 24)}px`}}/><b>{item.value}%</b></div>)}</div></article>
     </section>
-  </>;
+  </div>;
 }
 
 function linePath(points: { value: number }[]) { return points.map((point, index) => `${index ? "L" : "M"} ${chartX(index, points.length)} ${chartY(point.value)}`).join(" "); }

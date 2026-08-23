@@ -16,8 +16,8 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
         var settings = await db.SystemSettings.AsNoTracking()
             .Where(x => (x.Section == "academic-year" && x.Key == "currentYear") || (x.Section == "semester" && x.Key == "currentTerm"))
             .ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, cancellationToken);
-        var academicYear = settings.GetValueOrDefault("academic-year:currentYear");
-        var term = settings.GetValueOrDefault("semester:currentTerm");
+        var academicYear = settings.GetValueOrDefault("academic-year:currentYear", "2026\u20132027");
+        var term = settings.GetValueOrDefault("semester:currentTerm", "Semester 1");
         records = FilterPeriod(records, academicYear, term, history);
         if (string.IsNullOrWhiteSpace(search)) return records;
         var searchTerm = search.Trim();
@@ -26,13 +26,14 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
 
     private static IReadOnlyList<OperationalRecordDto> FilterPeriod(IReadOnlyList<OperationalRecordDto> records, string? academicYear, string? term, bool history)
     {
-        if (string.IsNullOrWhiteSpace(academicYear) || string.IsNullOrWhiteSpace(term)) return history ? [] : records.Where(x => x.Activities.Count > 0).ToList();
+        if (history) return records.Where(record => record.Activities.Count > 0).ToList();
+        if (string.IsNullOrWhiteSpace(academicYear) || string.IsNullOrWhiteSpace(term)) return records.Where(record => record.Activities.Count > 0).ToList();
         return records.Select(record =>
         {
             var activities = record.Activities.Where(activity =>
             {
                 var current = activity.GetValueOrDefault("Academic year") == academicYear && activity.GetValueOrDefault("Term") == term;
-                return history ? !current : current;
+                return current;
             }).ToList();
             return activities.Count == 0 ? null : record with { Activities = activities, Summary = $"{activities.Count:N0} recorded activities" };
         }).OfType<OperationalRecordDto>().ToList();

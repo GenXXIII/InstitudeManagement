@@ -60,13 +60,13 @@ export function AnnounceWorkspace({ module }: { module: string }) {
       ? { eyebrow: "Announce", title: "History", description: "Read-only history of every notification and alert lifecycle event." }
       : { eyebrow: "Announce", title: "Notification", description: "Review, edit, mark, or remove current system notifications." };
 
-  return <>
+  return <div className="viewport-data-page announce-viewport-page">
     <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description}/>
     {error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
     {current === "notifications" && <NotificationRegister rows={notifications} editing={editingNotification} draft={notificationDraft} saving={saving} onDraft={setNotificationDraft} onOpen={id => router.push(`/announce/notifications/${id}`)} onEdit={item => { setEditingNotification(item.id); setNotificationDraft({ title: item.title, message: item.message, severity: item.severity, isRead: item.isRead }); }} onSave={saveNotification} onCancel={() => setEditingNotification(undefined)} onRemove={removeNotification}/>} 
     {current === "alerts" && <AlertRegister rows={alerts} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/>} 
     {current === "history" && <HistoryRegister rows={history} onOpen={id => router.push(`/announce/history/${id}`)}/>} 
-  </>;
+  </div>;
 }
 
 function NotificationRegister({ rows, editing, draft, saving, onDraft, onOpen, onEdit, onSave, onCancel, onRemove }: { rows: NotificationItem[]; editing?: string; draft?: NotificationDraft; saving: boolean; onDraft: (value: NotificationDraft) => void; onOpen: (id: string) => void; onEdit: (item: NotificationItem) => void; onSave: () => void; onCancel: () => void; onRemove: (id: string) => void }) {

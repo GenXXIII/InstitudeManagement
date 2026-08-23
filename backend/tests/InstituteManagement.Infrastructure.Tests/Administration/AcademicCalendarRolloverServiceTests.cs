@@ -47,7 +47,9 @@ public sealed class AcademicCalendarRolloverServiceTests
         Assert.Equal(2, first.YearLevel);
         Assert.Equal(4, third.YearLevel);
         Assert.Equal(4, fourth.YearLevel);
-        Assert.Contains(db.AuditLogs, x => x.Action == "Year rollover" && x.Details.Contains("Year 4 students were preserved"));
+        Assert.Equal("Inactive", fourth.Status);
+        Assert.Contains(db.AuditLogs, x => x.ResourceId == fourth.Id && x.Action == "Graduated");
+        Assert.Contains(db.AuditLogs, x => x.Action == "Year rollover" && x.Details.Contains("graduated 1 Year 4 students"));
     }
 
     private static Student Student(int year) => new() { StudentCode = $"S{year}{Guid.NewGuid():N}", FullName = $"Year {year} Student", DepartmentId = Guid.NewGuid(), YearLevel = year };

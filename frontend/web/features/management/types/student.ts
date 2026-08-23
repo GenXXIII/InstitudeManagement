@@ -6,6 +6,7 @@ export type StudentValues = Record<string, string> & {
   departmentId: string;
   department: string;
   year: string;
+  shift: string;
   status: string;
   createAt: string;
 };

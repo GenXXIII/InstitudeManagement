@@ -23,6 +23,7 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ManagementItem[]>([]);
   const [open, setOpen] = useState(false);
+  const availableResources = useMemo(() => pathname.startsWith("/management/") ? resources.filter(option => option.id !== "attendance" && option.id !== "grades") : resources, [pathname]);
 
   useEffect(() => { const timer = window.setTimeout(() => { setResource(resourceFromPath(pathname)); setQuery(""); setItems([]); }, 0); return () => window.clearTimeout(timer); }, [pathname]);
   useEffect(() => {
@@ -66,11 +67,11 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
 
   return <form className="global-search" onSubmit={submit}>
     <select aria-label="Search feature" value={resource} onChange={event => { setResource(event.target.value as ManagementResource); setItems([]); setOpen(true); }}>
-      {resources.map(option => <option value={option.id} key={option.id}>{option.label}</option>)}
+      {availableResources.map(option => <option value={option.id} key={option.id}>{option.label}</option>)}
     </select>
     <span className="global-search-input"><Icon name="search" size={17}/><input ref={input} aria-label={`Search ${resource}`} aria-autocomplete="list" aria-controls={resultsId} aria-expanded={open} role="combobox" placeholder={`Type a first or last name in ${resource}…`} value={query} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 120)} onChange={event => { setQuery(event.target.value); setOpen(true); }}/><kbd>Ctrl K</kbd></span>
     {open && query.trim() && <div className="global-search-results" role="listbox" id={resultsId}>
-      <header><strong>{resources.find(option => option.id === resource)?.label}</strong><span>Matches the beginning of any name or word</span></header>
+      <header><strong>{availableResources.find(option => option.id === resource)?.label}</strong><span>Matches the beginning of any name or word</span></header>
       {suggestions.length ? suggestions.map(item => <button type="button" role="option" aria-selected="false" onMouseDown={event => event.preventDefault()} onClick={() => navigate(item.label)} key={item.id}><span><strong>{item.label}</strong><small>{item.detail}</small></span><b>Open</b></button>) : <p>No {resource} begin with “{query.trim()}”.</p>}
     </div>}
   </form>;
@@ -78,6 +79,7 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
 
 function resourceFromPath(pathname: string): ManagementResource {
   const segment = pathname.split("/")[2] as ManagementResource;
+  if (pathname.startsWith("/management/") && (segment === "attendance" || segment === "grades")) return "students";
   return resources.some(option => option.id === segment) ? segment : "students";
 }
 function startsWithWord(value: string, query: string) { const text = query.trim().toLowerCase(); return !text || value.toLowerCase().split(/\s+/).some(word => word.startsWith(text)); }

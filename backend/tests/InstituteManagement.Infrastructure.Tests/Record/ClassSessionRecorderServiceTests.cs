@@ -60,7 +60,7 @@ public sealed class ClassSessionRecorderServiceTests
 
         var periodRecords = new OperationalRecordQueryService([new ClassSessionOperationalRecordReader(db)], db);
         Assert.Single(await periodRecords.GetAsync("sessions", null, department.Id, false, CancellationToken.None));
-        Assert.Empty(await periodRecords.GetAsync("sessions", null, department.Id, true, CancellationToken.None));
+        Assert.Single(await periodRecords.GetAsync("sessions", null, department.Id, true, CancellationToken.None));
 
         db.SystemSettings.Single(x => x.Section == "semester" && x.Key == "currentTerm").Value = "Semester 2";
         await db.SaveChangesAsync();

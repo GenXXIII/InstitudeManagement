@@ -25,7 +25,7 @@ public sealed class SettingsService : ISettingsService
     public async Task<SettingsDto> GetAsync(string section, CancellationToken ct)
     {
         EnsureSection(section);
-        return new SettingsDto(section, await db.SystemSettings.AsNoTracking().Where(x => x.Section == section && !(section == "courses" && x.Key == "defaultCredits")).ToDictionaryAsync(x => x.Key, x => x.Value, ct));
+        return new SettingsDto(section, await db.SystemSettings.AsNoTracking().Where(x => x.Section == section && !(section == "courses" && x.Key == "defaultCredits") && !(section == "classrooms" && x.Key == "allowSharedRooms")).ToDictionaryAsync(x => x.Key, x => x.Value, ct));
     }
 
     public async Task<SettingsDto> SaveAsync(string section, Dictionary<string, string> values, CancellationToken ct)
@@ -89,7 +89,7 @@ public sealed class SettingsService : ISettingsService
         }
         else if (section == "departments") { Boolean("requireDepartmentHead"); Boolean("allowCrossDepartmentTeaching"); if (Required("defaultStatus") is not ("Active" or "Inactive")) throw new ArgumentException("defaultStatus must be Active or Inactive."); }
         else if (section == "courses") { Integer("defaultCapacity", 1, 10000); Boolean("requireAssignedTeacher"); }
-        else if (section == "classrooms") { Integer("defaultCapacity", 1, 10000); Boolean("attendanceDeviceRequired"); Boolean("allowSharedRooms"); }
+        else if (section == "classrooms") { Integer("defaultCapacity", 1, 10000); Boolean("attendanceDeviceRequired"); }
         else if (section == "attendance-rules") { if (Required("method") is not ("Manual" or "ID Card" or "QR Code" or "Biometric")) throw new ArgumentException("Attendance method is invalid."); Integer("lateThresholdMinutes", 0, 1440); foreach (var key in new[] { "autoAbsent", "autoPercentage", "notifyTeacher", "notifyAdministrator", "allowCorrection", "requireCorrectionReason" }) Boolean(key); }
         else if (section == "grade-rules") { var scale = GradeThresholds.From(values); if (!(scale.A <= 100 && scale.A > scale.B && scale.B > scale.C && scale.C > scale.D && scale.D > scale.E && scale.E >= 0)) throw new ArgumentException("Grade thresholds must descend from A through E; scores below E are F."); }
         else if (section == "notifications") foreach (var key in new[] { "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary" }) Boolean(key);

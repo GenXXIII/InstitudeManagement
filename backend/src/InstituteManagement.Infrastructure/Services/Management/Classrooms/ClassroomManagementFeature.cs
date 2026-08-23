@@ -12,22 +12,22 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
     public override string Resource => "classrooms";
     public override async Task<IReadOnlyList<IManagementItemDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
-        var now = DateTime.Now;
+        var now = await InstituteLocalTime.NowAsync(Db, ct);
         var time = TimeOnly.FromDateTime(now);
         var inStudyRoomIds = (await Db.ScheduleEntries.AsNoTracking()
             .Where(entry => entry.Status != "Cancelled" && entry.DayOfWeek == now.DayOfWeek && entry.StartsAt <= time && entry.EndsAt > time)
             .Select(entry => entry.ClassroomId)
             .ToListAsync(ct)).ToHashSet();
-        var rooms = await Db.Classrooms.AsNoTracking().Include(room => room.Department)
-            .Where(room => room.Status != "Inactive" && (!departmentId.HasValue || room.DepartmentId == departmentId))
+        var rooms = await Db.Classrooms.AsNoTracking()
+            .Where(room => room.Status != "Inactive")
             .ToListAsync(ct);
-        return rooms.Where(room => Matches(search, room.ClassroomCode, room.Building, room.RoomType, room.Status, room.Department?.Name))
+        return rooms.Where(room => Matches(search, room.ClassroomCode, room.Building, room.RoomType, room.Status, "Shared institute"))
             .Select(room => (IManagementItemDto)new ClassroomResponseDto(room.Id, new ClassroomValuesDto(
                 room.ClassroomCode,
                 room.Building,
                 room.RoomType,
-                room.DepartmentId?.ToString() ?? "",
-                room.Department?.Name ?? "Shared",
+                "",
+                "Shared institute",
                 room.Capacity.ToString(),
                 room.Status,
                 inStudyRoomIds.Contains(room.Id) ? "In Study" : room.Status,
@@ -46,7 +46,7 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
             ClassroomCode = classroomCode,
             Building = Required(values, "building"),
             RoomType = RoomType(values),
-            DepartmentId = await RelatedIdAsync<Department>(values, "departmentId", ct),
+            DepartmentId = null,
             Capacity = IntInRange(values, "capacity", 40, 1, 10000),
             Status = status,
             DeviceOnline = deviceOnline
@@ -59,8 +59,6 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
         var entity = await RequiredEntityAsync(Db.Classrooms, id, ct);
         var classroomCode = Required(values, "classroomCode");
         await EnsureUniqueAsync(Db.Classrooms.Where(room => room.Id != id && room.ClassroomCode == classroomCode), "ClassroomCode", ct);
-        var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct);
-        if (entity.DepartmentId != departmentId && await Db.ScheduleEntries.AnyAsync(x => x.ClassroomId == id && x.Course!.DepartmentId != departmentId && x.Status != "Cancelled", ct)) throw new InvalidOperationException("Move this classroom's active timetable entries before changing department.");
         var status = RoomStatus(values);
         var wasOnline = entity.DeviceOnline;
         var deviceOnline = Bool(values, "deviceOnline", true); await ValidateDeviceAsync(status, deviceOnline, ct);
@@ -68,7 +66,7 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
         entity.ClassroomCode = classroomCode;
         entity.Building = Required(values, "building");
         entity.RoomType = RoomType(values);
-        entity.DepartmentId = departmentId;
+        entity.DepartmentId = null;
         entity.Capacity = IntInRange(values, "capacity", 40, 1, 10000);
         entity.Status = status;
         entity.DeviceOnline = deviceOnline;
@@ -84,8 +82,8 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
             Get(values, "classroomCode"),
             Get(values, "building"),
             Get(values, "roomType", "Classroom"),
-            Get(values, "departmentId"),
-            Get(values, "department", "Shared"),
+            "",
+            "Shared institute",
             Get(values, "capacity"),
             Get(values, "status", "Available"),
             Get(values, "studyStatus", Get(values, "status", "Available")),

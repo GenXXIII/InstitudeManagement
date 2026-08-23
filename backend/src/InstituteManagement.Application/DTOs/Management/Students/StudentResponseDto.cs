@@ -13,5 +13,6 @@ public sealed record StudentValuesDto(
     string DepartmentId,
     string Department,
     string Year,
+    string Shift,
     string Status,
     string CreateAt);

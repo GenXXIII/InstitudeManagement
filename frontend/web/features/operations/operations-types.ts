@@ -1,7 +1,7 @@
 import type { Activity, Metric } from "@/lib/types/presentation-types";
 
 export type OperationSummary = { module: string; summary: string; value: string; detail: string; status: string; route: string; tone: string };
-export type StudentOperation = { id: string; student: string; studentCode: string; department: string; year: number; attendanceStatus: string };
+export type StudentOperation = { id: string; student: string; studentCode: string; department: string; year: number; shift: string; attendanceStatus: string };
 export type TeacherOperation = { id: string; teacher: string; teacherCode: string; department: string; status: string };
 export type ClassroomOperation = { id: string; room: string; roomType: string; floor: number; building: string; capacity: number; device: string; status: string };
 export type CourseOperation = { id: string; course: string; courseCode: string; teacher: string; department: string; capacity: number; status: string };

@@ -10,7 +10,7 @@ export function DashboardOperationGrid({ data, departmentId, year }: { data: Ope
   const params = new URLSearchParams(); if (departmentId) params.set("departmentId", departmentId); if (year) params.set("year", String(year));
   const scope = params.size ? `?${params}` : "";
   const areas = [
-    { name: "Students", route: "/operation/students", rows: (data.students ?? []).slice(0, 6).map(row => ({ title: row.student, detail: `Year ${row.year} · ${row.studentCode}`, state: row.attendanceStatus })) },
+    { name: "Students", route: "/operation/students", rows: (data.students ?? []).slice(0, 6).map(row => ({ title: row.student, detail: `Year ${row.year} · ${row.shift} · ${row.studentCode}`, state: row.attendanceStatus })) },
     { name: "Teachers", route: "/operation/teachers", rows: (data.teachers ?? []).slice(0, 6).map(row => ({ title: row.teacher, detail: row.department, state: row.status })) },
     { name: "Classrooms", route: "/operation/classrooms", rows: (data.classrooms ?? []).slice(0, 6).map(row => ({ title: `Room ${row.room}`, detail: `${row.roomType} · ${row.capacity} seats`, state: row.status })) },
     { name: "Courses", route: "/operation/courses", rows: (data.courses ?? []).slice(0, 6).map(row => ({ title: row.course, detail: `${row.courseCode} · ${row.teacher}`, state: row.status })) },

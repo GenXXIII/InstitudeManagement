@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<IOperationModuleReader, CourseOperationReader>();
         services.AddScoped<IOperationModuleReader, TimetableOperationReader>();
         services.AddScoped<IOperationalRecordQueryService, OperationalRecordQueryService>();
+        services.AddScoped<IOperationalRecordEditService, OperationalRecordEditService>();
         services.AddScoped<ClassSessionRecorderService>();
         services.AddHostedService<ClassSessionRecorderHostedService>();
         services.AddScoped<IOperationalRecordReader, StudentOperationalRecordReader>();

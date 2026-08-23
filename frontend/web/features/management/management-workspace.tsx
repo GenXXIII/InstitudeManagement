@@ -22,7 +22,7 @@ import { TimetableEditor } from "./timetable/timetable-editor";
 import type { TimetableItem } from "./types/timetable";
 
 export function ManagementWorkspace({ module: rawModule }: { module: string }) {
-  const currentModule = (rawModule in managementCopy ? rawModule : "overview") as ManagementModule;
+  const currentModule = (managementModules.has(rawModule as ManagementModule) ? rawModule : "overview") as ManagementModule;
   const resource = currentModule === "overview" ? "departments" : currentModule;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,7 +45,7 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
   const selectedDepartment = references.departments.find(x => x.id === departmentId);
   const visibleItems = useMemo(() => sortItemsByYear(filterItemsByYear(items, currentModule, year, references), currentModule, references), [currentModule, items, references, year]);
   const visibleReferences = useMemo(() => sortReferencesByYear(filterReferencesByYear(references, year)), [references, year]);
-  const activeItems = useMemo(() => visibleItems.filter(item => !["Inactive", "Cancelled"].includes(item.values.status)), [visibleItems]);
+  const canCreate = currentModule !== "overview" && currentModule !== "attendance" && currentModule !== "grades";
   if (error) return <ErrorPage retry={() => { setError(false); void loadReferences(); void load(); }}/>;
   if (!ready) return <LoadingPage/>;
 
@@ -56,16 +56,18 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
     catch (reason) { setActionError(reason instanceof Error ? reason.message : "This record is still used by another active record."); }
   }
 
-  return <>
-    <PageHeading eyebrow="Current data management" title={managementCopy[currentModule].title} description={managementCopy[currentModule].description} actions={currentModule !== "overview" ? <button className="button primary" onClick={() => setEditing(null)}><Icon name="plus" size={16}/>Add {managementCopy[currentModule].singular}</button> : undefined}/>
-    <section className="management-toolbar panel management-toolbar-global">{currentModule !== "overview" && <label className="management-search"><Icon name="search" size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${currentModule}…`}/></label>}<div className="management-scope"><span>Current scope</span><strong>{selectedDepartment?.values.name ?? "Whole institute"}{year ? ` · Year ${year}` : ""}</strong></div><div className="management-total"><span>Active records</span><strong>{activeItems.length}</strong></div></section>
+  return <div className="viewport-data-page management-viewport-page">
+    <PageHeading eyebrow="Current data management" title={managementCopy[currentModule].title} description={managementCopy[currentModule].description} actions={canCreate ? <button className="button primary" onClick={() => setEditing(null)}><Icon name="plus" size={16}/>Add {managementCopy[currentModule].singular}</button> : undefined}/>
+    <section className="management-toolbar panel management-toolbar-global">{currentModule !== "overview" && <label className="management-search"><Icon name="search" size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${currentModule}…`}/></label>}<div className="management-scope"><span>Current scope</span><strong>{selectedDepartment?.values.name ?? "Whole institute"}{year ? ` · Year ${year}` : ""}</strong></div></section>
     {actionError && <section className="management-rule-error"><Icon name="bell" size={16}/><div><strong>Relationship protected</strong><span>{actionError}</span></div><button onClick={() => setActionError("")}>Dismiss</button></section>}
     {currentModule === "overview" ? <ManagementOverview references={visibleReferences} onSelect={value => router.push(`/management/students?departmentId=${encodeURIComponent(value)}${year ? `&year=${year}` : ""}`)} selected={departmentId}/> : <ModuleLayout module={currentModule} items={visibleItems} references={visibleReferences} onEdit={setEditing} onDeactivate={deactivate}/>}
     {editing !== undefined && currentModule !== "overview" && (currentModule === "timetable"
       ? <TimetableEditor item={editing as TimetableItem | null} references={references} scopeDepartmentId={departmentId} scopeYear={year} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); void loadReferences(); }}/>
       : <ManagementEditor module={currentModule} item={editing} references={references} scopeDepartmentId={departmentId} scopeYear={year} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); void loadReferences(); }}/>)}
-  </>;
+  </div>;
 }
+
+const managementModules = new Set<ManagementModule>(["overview", "students", "teachers", "classrooms", "courses", "timetable", "departments"]);
 
 function filterItemsByYear(items: ManagementItem[], module: ManagementModule, year: string, references: References) {
   if (!year) return items;

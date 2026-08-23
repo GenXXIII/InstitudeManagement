@@ -35,19 +35,21 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
     .filter(row => !year || JSON.stringify(row).toLowerCase().includes(`year ${year}`))
     .toSorted((left, right) => recordYear(left) - recordYear(right) || Date.parse(right.lastActivityAt ?? "") - Date.parse(left.lastActivityAt ?? "")), [rows, year]);
   const statuses = useMemo(() => [...new Set(yearRows.map(row => row.status))].sort(), [yearRows]);
-  const visible = status === "all" ? yearRows : yearRows.filter(row => row.status === status);
+  const visible = history || status === "all" ? yearRows : yearRows.filter(row => row.status === status);
+  const detailQuery = searchParams.toString();
+  const detailHref = (id: string) => `${history ? "/record-history" : "/record"}/${currentModule}/${encodeURIComponent(id)}${detailQuery ? `?${detailQuery}` : ""}`;
   const activityCount = yearRows.reduce((total, row) => total + row.activities.length, 0);
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
 
-  return <>
+  return <div className="viewport-data-page record-viewport-page">
     <PageHeading eyebrow={history ? "Closed-semester record history" : "Active-semester automatic records"} title={history ? `${config.title} history` : config.title} description={`${history ? "Read-only completed work from semesters before the active institute semester. " : "This page resets to the new active-semester view when the institute semester advances. "}${config.description}${year ? ` Showing Year ${year}.` : ""}`}/>
     <section className="operational-record-summary"><article className="panel"><span>All {config.singular}s</span><strong>{yearRows.length.toLocaleString()}</strong><small>Completed timetable evidence</small></article><article className="panel"><span>Recorded activities</span><strong>{activityCount.toLocaleString()}</strong><small>Completed classes and attendance only</small></article><article className="panel"><span>With activity</span><strong>{yearRows.filter(row => row.activities.length > 0).length.toLocaleString()}</strong><small>Expandable timetable records</small></article></section>
-    <section className="record-toolbar panel"><label className="record-search"><Icon name="search" size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}…`} aria-label={`Search ${config.title}`}/></label><select value={status} onChange={event => setStatus(event.target.value)} aria-label="Operational record status"><option value="all">All statuses</option>{statuses.map(value => <option value={value} key={value}>{value}</option>)}</select><span className="record-count">Showing {visible.length} of {yearRows.length}</span></section>
+    <section className="record-toolbar panel"><label className="record-search"><Icon name="search" size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}…`} aria-label={`Search ${config.title}`}/></label>{!history && <select value={status} onChange={event => setStatus(event.target.value)} aria-label="Operational record status"><option value="all">All statuses</option>{statuses.map(value => <option value={value} key={value}>{value}</option>)}</select>}<span className="record-count">Showing {visible.length} of {yearRows.length}</span></section>
     {visible.length
-      ? <section className="session-record-list">{visible.map(row => <OperationalRecordRow row={row} key={row.id}/>)}</section>
+      ? <section className="session-record-list">{visible.map(row => <OperationalRecordRow row={row} editable={!history} showStatus={!history} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</section>
       : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>{history ? "No closed-semester records found" : "No active-semester records found"}</strong><span>{history ? "Records move here automatically when the configured semester advances." : "Records appear automatically when a scheduled timetable period ends."}</span></section>}
-  </>;
+  </div>;
 }
 
 function recordYear(record: OperationalRecord) {

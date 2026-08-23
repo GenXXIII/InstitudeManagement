@@ -53,7 +53,7 @@ public sealed class DepartmentManagementFeature(InstituteDbContext db, Institute
         Touch(entity);
         return await SaveUpdatedAsync(id, values, ct);
     }
-    protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct) { var id = entity.Id; if (await Db.Students.AnyAsync(x => x.DepartmentId == id && x.Status != "Inactive", ct) || await Db.Teachers.AnyAsync(x => x.DepartmentId == id && x.Status != "Inactive", ct) || await Db.Courses.AnyAsync(x => x.DepartmentId == id && x.IsActive, ct) || await Db.Classrooms.AnyAsync(x => x.DepartmentId == id && x.Status != "Inactive", ct)) throw new InvalidOperationException("Department still contains active students, teachers, courses, or classrooms."); }
+    protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct) { var id = entity.Id; if (await Db.Students.AnyAsync(x => x.DepartmentId == id && x.Status != "Inactive", ct) || await Db.Teachers.AnyAsync(x => x.DepartmentId == id && x.Status != "Inactive", ct) || await Db.Courses.AnyAsync(x => x.DepartmentId == id && x.IsActive, ct)) throw new InvalidOperationException("Department still contains active students, teachers, or courses."); }
     protected override async Task<Entity?> FindAsync(Guid id, CancellationToken ct) => await Db.Departments.FindAsync([id], ct);
     protected override void Deactivate(Entity entity) { ((Department)entity).IsActive = false; Touch(entity); }
     protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>

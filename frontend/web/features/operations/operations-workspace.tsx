@@ -15,8 +15,8 @@ export default function OperationsWorkspace() {
   const { module } = useParams<{ module: string }>();
   const searchParams = useSearchParams();
   const sidebarDepartmentId = searchParams.get("departmentId") ?? "";
-  const year = Number(searchParams.get("year") ?? 0);
   const timetable = module === "timetable";
+  const year = timetable ? 0 : Number(searchParams.get("year") ?? 0);
   const [data, setData] = useState<Operation>();
   const [error, setError] = useState(false);
   const departmentId = sidebarDepartmentId;
@@ -47,7 +47,7 @@ export default function OperationsWorkspace() {
 
   const dashboard = data.module === "dashboard";
   const visual = data.module === "classrooms" || data.module === "timetable";
-  return <div className={`operations-workspace ${visual ? "operations-visual-workspace" : ""}`}>
+  return <div className={`viewport-data-page operations-workspace ${visual ? "operations-visual-workspace" : ""}`}>
     <PageHeading eyebrow={dashboard ? "Institute operations" : "Live operation"} title={data.title} description={`${data.description}${year ? ` Showing Year ${year}.` : ""}`} actions={<>{timetable && <Link className="button secondary" href={`/management/timetable?${scopeQuery(departmentId, year)}`}>Manage timetable</Link>}<span className="live-pill"><i/> {dashboard ? "Institute status current" : "Auto-refresh on"}</span><button className="button primary" onClick={load}><Icon name={dashboard ? "dashboard" : "pulse"} size={16}/>Refresh</button></>}/>
     {!dashboard && !visual && <MetricCards metrics={data.metrics}/>} 
     <OperationPanel data={data} departmentId={departmentId} year={year} className={dashboard ? "operation-dashboard-page" : visual ? "operation-visual-page" : "operation-standard-page"} kicker={dashboard ? "Four core institute operations" : timetable ? "One-page weekly schedule" : visual ? "Whole view · no scrolling" : "Live management-sized data"}/>
@@ -82,13 +82,15 @@ function sortOperationByYear(data: Operation, studentsData: Operation, timetable
   const scheduledYear = (field: "teacher" | "course" | "room", value: string) => schedule.filter(entry => entry[field] === value).reduce((minimum, entry) => Math.min(minimum, entry.yearLevel), 99);
   return {
     ...data,
-    students: data.students?.toSorted((left, right) => left.year - right.year),
-    teachers: data.teachers?.toSorted((left, right) => scheduledYear("teacher", left.teacher) - scheduledYear("teacher", right.teacher)),
-    courses: data.courses?.toSorted((left, right) => scheduledYear("course", left.course) - scheduledYear("course", right.course)),
+    students: data.students?.toSorted((left, right) => attendancePriority(left.attendanceStatus) - attendancePriority(right.attendanceStatus) || left.year - right.year || left.studentCode.localeCompare(right.studentCode, undefined, { numeric: true })),
+    teachers: data.teachers?.toSorted((left, right) => runningPriority(left.status) - runningPriority(right.status) || scheduledYear("teacher", left.teacher) - scheduledYear("teacher", right.teacher) || left.teacherCode.localeCompare(right.teacherCode, undefined, { numeric: true })),
+    courses: data.courses?.toSorted((left, right) => runningPriority(left.status) - runningPriority(right.status) || scheduledYear("course", left.course) - scheduledYear("course", right.course) || left.courseCode.localeCompare(right.courseCode, undefined, { numeric: true })),
     weeklySchedule: data.weeklySchedule?.toSorted((left, right) => left.yearLevel - right.yearLevel),
     attendance: data.attendance?.toSorted((left, right) => (studentYears.get(left.student) ?? 99) - (studentYears.get(right.student) ?? 99)),
     grades: data.grades?.toSorted((left, right) => (studentYears.get(left.student) ?? 99) - (studentYears.get(right.student) ?? 99)),
     departments: data.departments?.toSorted((left, right) => (departmentYears.get(left.department) ?? 99) - (departmentYears.get(right.department) ?? 99)),
   };
 }
+function runningPriority(status: string) { return status === "Running" ? 0 : status === "Available" ? 1 : 2; }
+function attendancePriority(status: string) { return status === "Present" ? 0 : status === "Permission" ? 1 : status === "Absent" ? 2 : 3; }
 function scopeQuery(departmentId: string, year: number) { const params = new URLSearchParams(); if (departmentId) params.set("departmentId", departmentId); if (year) params.set("year", String(year)); return params.toString(); }

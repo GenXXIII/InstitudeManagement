@@ -11,7 +11,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
-        var rooms = await db.Classrooms.AsNoTracking().Where(x => !departmentId.HasValue || x.DepartmentId == departmentId).OrderBy(x => x.ClassroomCode).ToListAsync(cancellationToken);
+        var rooms = await db.Classrooms.AsNoTracking().OrderBy(x => x.ClassroomCode).ToListAsync(cancellationToken);
         var ids = rooms.Select(x => x.Id).ToList();
         var sessions = await db.ClassSessionRecords.AsNoTracking().Where(x => ids.Contains(x.ClassroomId)).ToListAsync(cancellationToken);
         return rooms.Select(room =>

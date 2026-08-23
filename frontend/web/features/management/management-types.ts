@@ -29,4 +29,4 @@ export type References = {
   timetable: TimetableItem[];
   attendance: AttendanceItem[];
 };
-export type Field = { key: string; label: string; type?: "text" | "email" | "number" | "select" | "photo" | "date" | "time" | "checkbox"; source?: keyof References; options?: string[]; required?: boolean };
+export type Field = { key: string; label: string; type?: "text" | "email" | "number" | "select" | "photo" | "date" | "time" | "checkbox"; source?: keyof References; options?: string[]; required?: boolean; readOnly?: boolean };

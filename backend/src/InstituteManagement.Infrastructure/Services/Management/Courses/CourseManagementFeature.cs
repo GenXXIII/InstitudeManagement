@@ -51,7 +51,7 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
         var courseCode = Required(values, "courseCode");
         await EnsureUniqueAsync(Db.Courses.Where(course => course.Id != id && course.CourseCode == courseCode), "CourseCode", ct);
         var departmentId = await RelatedIdAsync<Department>(values, "departmentId", ct);
-        if (entity.DepartmentId != departmentId && (await Db.ScheduleEntries.AnyAsync(x => x.CourseId == id && x.Status != "Cancelled" && (x.Teacher!.DepartmentId != departmentId || x.Classroom!.DepartmentId != departmentId), ct) || await Db.GradeRecords.AnyAsync(x => x.CourseId == id && x.Student!.DepartmentId != departmentId, ct))) throw new InvalidOperationException("Reassign this course's timetable and grade relationships before changing department.");
+        if (entity.DepartmentId != departmentId && (await Db.ScheduleEntries.AnyAsync(x => x.CourseId == id && x.Status != "Cancelled" && x.Teacher!.DepartmentId != departmentId, ct) || await Db.GradeRecords.AnyAsync(x => x.CourseId == id && x.Student!.DepartmentId != departmentId, ct))) throw new InvalidOperationException("Reassign this course's teacher and grade relationships before changing department.");
         var status = CourseStatus(values);
         if (status == "Inactive") await ValidateDeleteAsync(entity, ct);
         var teacherId = await TeacherIdAsync(values, departmentId, ct);

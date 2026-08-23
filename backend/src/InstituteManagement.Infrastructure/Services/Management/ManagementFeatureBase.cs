@@ -168,7 +168,7 @@ public abstract class ManagementFeatureBase(InstituteDbContext db, InstituteCach
     private static string Subject(Entity entity) => entity switch { Student x => x.FullName, Teacher x => x.FullName, Classroom x => x.ClassroomCode, Course x => x.Name, Department x => x.Name, ScheduleEntry x => x.TimetableCode, AttendanceRecord x => x.AttendanceCode, GradeRecord x => x.GradeCode, _ => entity.Id.ToString() };
     private static object Snapshot(Entity entity) => entity switch
     {
-        Student x => new { x.StudentCode, x.FullName, x.Email, x.DepartmentId, x.YearLevel, x.Status },
+        Student x => new { x.StudentCode, x.FullName, x.Email, x.DepartmentId, x.YearLevel, x.Shift, x.Status },
         Teacher x => new { x.TeacherCode, x.FullName, x.Email, x.DepartmentId, x.Status },
         Classroom x => new { x.ClassroomCode, x.Building, x.RoomType, x.DepartmentId, x.Capacity, x.Status, x.DeviceOnline },
         Course x => new { x.CourseCode, x.Name, x.DepartmentId, x.TeacherId, x.Capacity, x.IsActive },

@@ -40,12 +40,22 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
 
             var changed = false;
             var promoted = 0;
+            var graduated = 0;
             var yearsAdvanced = 0;
             while (today > semester2End)
             {
                 var oldYear = values.GetValueOrDefault("academic-year:currentYear", $"{academicStart.Year}\u2013{academicEnd.Year}");
-                var students = await db.Students.Where(x => x.Status != "Inactive" && x.YearLevel >= 1 && x.YearLevel < 4).ToListAsync(cancellationToken);
+                var activeStudents = await db.Students.Where(x => x.Status != "Inactive" && x.YearLevel >= 1).ToListAsync(cancellationToken);
+                var graduates = activeStudents.Where(student => student.YearLevel >= 4).ToList();
+                foreach (var student in graduates)
+                {
+                    student.Status = "Inactive";
+                    student.UpdatedAtUtc = DateTime.UtcNow;
+                    db.AuditLogs.Add(new AuditLog { ResourceId = student.Id, Type = "Student", Subject = student.FullName, Action = "Graduated", Details = $"{student.StudentCode} completed Year 4 and Semester 2 in {oldYear}; removed from current Management and preserved in Record History." });
+                }
+                var students = activeStudents.Where(student => student.YearLevel < 4).ToList();
                 foreach (var student in students) { student.YearLevel++; student.UpdatedAtUtc = DateTime.UtcNow; }
+                graduated += graduates.Count;
                 promoted += students.Count;
                 yearsAdvanced++;
 
@@ -60,7 +70,7 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
                     Type = "Academic calendar",
                     Subject = oldYear,
                     Action = "Year rollover",
-                    Details = $"Closed {oldYear}; promoted {students.Count} active Year 1-3 students. Year 4 students were preserved. Grade and attendance rows remain in history."
+                    Details = $"Closed {oldYear}; promoted {students.Count} active Year 1-3 students and graduated {graduates.Count} Year 4 students. Grade, attendance, and completed-class rows remain in history."
                 });
                 changed = true;
             }
@@ -80,6 +90,8 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
             changed |= Set(settings, "semester", "endsOn", activeEnd.ToString("yyyy-MM-dd"));
 
             if (!changed) return false;
+            var activeYear = $"{academicStart.Year}\u2013{academicEnd.Year}";
+            var (attendanceCreated, gradesCreated) = await CreateActiveStudentLedgersAsync(activeYear, activeTerm, activeStart, cancellationToken);
             if (yearsAdvanced == 0)
             {
                 db.AuditLogs.Add(new AuditLog { Type = "Academic calendar", Subject = activeTerm, Action = "Semester rollover", Details = $"Activated {activeTerm}. Previous grade and attendance rows remain in Records history; Management now uses a new active-period ledger." });
@@ -87,7 +99,7 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
             db.Notifications.Add(new Notification
             {
                 Title = yearsAdvanced > 0 ? "Academic year advanced" : $"{activeTerm} activated",
-                Message = yearsAdvanced > 0 ? $"Advanced {yearsAdvanced} academic year(s) and promoted {promoted} active students. Current ledgers are ready." : $"Grade and attendance Management now use {activeTerm}; the previous semester is available in Records.",
+                Message = yearsAdvanced > 0 ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} students, graduated {graduated} Year 4 students, and created {attendanceCreated} attendance and {gradesCreated} grade rows." : $"{activeTerm} created {attendanceCreated} attendance and {gradesCreated} grade rows; the previous semester is available in Records.",
                 Severity = "Info"
             });
             await db.SaveChangesAsync(cancellationToken);
@@ -98,6 +110,50 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
     }
 
     private static bool TryDate(IReadOnlyDictionary<string, string> values, string key, out DateOnly date) => DateOnly.TryParse(values.GetValueOrDefault(key), out date);
+
+    private async Task<(int Attendance, int Grades)> CreateActiveStudentLedgersAsync(string academicYear, string term, DateOnly startsOn, CancellationToken cancellationToken)
+    {
+        var trackedStudents = db.ChangeTracker.Entries<Student>()
+            .Where(entry => entry.State is not EntityState.Deleted and not EntityState.Detached)
+            .ToDictionary(entry => entry.Entity.Id, entry => entry.Entity);
+        var students = (await db.Students.AsNoTracking().ToListAsync(cancellationToken))
+            .Select(student => trackedStudents.GetValueOrDefault(student.Id, student))
+            .Where(student => student.Status != "Inactive")
+            .ToList();
+        if (students.Count == 0) return (0, 0);
+        var existingAttendance = (await db.AttendanceRecords.AsNoTracking().Where(record => record.AcademicYear == academicYear && record.Term == term).Select(record => record.StudentId).ToListAsync(cancellationToken)).ToHashSet();
+        var existingGrades = (await db.GradeRecords.AsNoTracking().Where(record => record.AcademicYear == academicYear && record.Term == term).Select(record => record.StudentId).ToListAsync(cancellationToken)).ToHashSet();
+        var schedules = await db.ScheduleEntries.AsNoTracking().Include(entry => entry.Course).Where(entry => entry.Status != "Cancelled").OrderBy(entry => entry.TimetableCode).ToListAsync(cancellationToken);
+        var method = await db.SystemSettings.AsNoTracking().Where(setting => setting.Section == "attendance-rules" && setting.Key == "method").Select(setting => setting.Value).FirstOrDefaultAsync(cancellationToken) ?? "ID Card";
+        var termCode = term.EndsWith('2') ? "S2" : "S1";
+        var attendanceCreated = 0;
+        var gradesCreated = 0;
+        foreach (var student in students)
+        {
+            var studentCode = student.StudentCode.StartsWith("STU-", StringComparison.OrdinalIgnoreCase) ? student.StudentCode[4..] : student.StudentCode;
+            if (!existingAttendance.Contains(student.Id))
+            {
+                db.AttendanceRecords.Add(new AttendanceRecord
+                {
+                    AttendanceCode = $"ATT-{studentCode}-{academicYear.Replace("\u2013", "-")}-{termCode}", StudentId = student.Id, Date = startsOn,
+                    CheckedInAt = student.Shift switch { "Afternoon" => new TimeOnly(14, 0), "Evening" => new TimeOnly(17, 30), _ => new TimeOnly(7, 30) },
+                    Status = "Present", Method = method, AcademicYear = academicYear, Term = term
+                });
+                attendanceCreated++;
+            }
+            if (!existingGrades.Contains(student.Id))
+            {
+                var courseId = schedules.FirstOrDefault(entry => entry.YearLevel == student.YearLevel && entry.Course?.DepartmentId == student.DepartmentId && ShiftFor(entry.StartsAt) == student.Shift)?.CourseId
+                    ?? schedules.FirstOrDefault(entry => entry.YearLevel == student.YearLevel && entry.Course?.DepartmentId == student.DepartmentId)?.CourseId;
+                if (!courseId.HasValue) continue;
+                db.GradeRecords.Add(new GradeRecord { GradeCode = $"GRD-{studentCode}-{academicYear.Replace("\u2013", "-")}-{termCode}", StudentId = student.Id, CourseId = courseId.Value, Score = 0, LetterGrade = "F", AcademicYear = academicYear, Term = term });
+                gradesCreated++;
+            }
+        }
+        return (attendanceCreated, gradesCreated);
+    }
+
+    private static string ShiftFor(TimeOnly start) => start < new TimeOnly(13, 0) ? "Morning" : start < new TimeOnly(17, 30) ? "Afternoon" : "Evening";
 
     private bool Set(List<SystemSetting> settings, string section, string key, string value)
     {

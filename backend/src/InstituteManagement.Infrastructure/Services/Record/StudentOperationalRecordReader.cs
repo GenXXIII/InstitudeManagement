@@ -22,7 +22,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
             var completed = studentSessions.Where(x => x.Student.StudentId == student.Id).ToList();
             var events = completed.Select(x => (x.Session.UpdatedAtUtc, Create(("Activity", "Class attendance"), ("Academic year", x.Session.AcademicYear), ("Term", x.Session.Term), ("Date", x.Session.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.Session.StartsAt:HH:mm} – {x.Session.EndsAt:HH:mm}"), ("Year", $"Year {x.Session.YearLevel}"), ("Course", x.Session.CourseName), ("Teacher", x.Session.TeacherName), ("Classroom", x.Session.ClassroomCode), ("Attendance", x.Student.Status), ("Check in", string.IsNullOrWhiteSpace(x.Student.CheckedInAt) ? "No check-in" : x.Student.CheckedInAt))))
                 .OrderByDescending(x => x.Item1).ToList();
-            return new OperationalRecordDto(student.Id, "Student", student.FullName, $"{student.StudentCode} · Year {student.YearLevel}", student.Status, $"{completed.Count} completed-class attendance records", events.Count == 0 ? null : events[0].Item1, events.Select(x => x.Item2).ToList());
+            return new OperationalRecordDto(student.Id, "Student", student.FullName, $"{student.StudentCode} · Year {student.YearLevel} · {student.Shift}", student.Status, $"{completed.Count} completed-class attendance records", events.Count == 0 ? null : events[0].Item1, events.Select(x => x.Item2).ToList());
         }).ToList();
     }
 

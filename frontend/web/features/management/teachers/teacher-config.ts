@@ -5,7 +5,6 @@ export const teacherFields: Field[] = [
   { key: "teacherCode", label: "TeacherCode", required: true },
   { key: "name", label: "Full name", required: true },
   { key: "email", label: "Email", type: "email", required: true },
-  { key: "status", label: "Work status", type: "select", options: ["Available", "Teaching", "Meeting", "On leave", "Inactive"], required: true },
 ];
 
 export const teacherDefaults = () => ({ status: "Available" });

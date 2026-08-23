@@ -12,12 +12,13 @@ export function groupRecords(rows: RecordItem[]): RecordGroup[] {
 }
 
 export function parseDetails(details: string): [string, string][] { try { const value = JSON.parse(details) as Record<string, unknown>; return Object.entries(value).map(([key, item]) => [key, formatValue(item)]); } catch { return [["Details", details]]; } }
-export function displayValue(key: string, value: string) { if (key.toLowerCase().includes("photo")) return value === "false" ? "Not stored" : "4×6 photo stored"; if (value === "true") return "Yes"; if (value === "false") return "No"; return value; }
+export function displayValue(key: string, value: string) { if (key.toLowerCase().includes("photo")) return value === "false" ? "Not stored" : "4×6 photo stored"; if (value === "true") return "Yes"; if (value === "false") return "No"; if (/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value)) return formatDate(value); return value; }
 export function isTechnicalField(key: string) { const value = key.toLowerCase(); return value.endsWith("id") || value.includes("photo") || value.includes("createdat") || value.includes("updatedat"); }
+export function isHistoryFieldVisible(key: string) { const value = key.toLowerCase(); return value !== "id" && !value.endsWith("id") && !value.endsWith("status"); }
 export function isInactive(status: string) { return ["inactive", "deactivated", "removed", "cancelled", "archived"].some(value => status.toLowerCase().includes(value)); }
 export function slug(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, "-"); }
 export function pretty(value: string) { return value.replace(/([A-Z])/g, " $1").replace(/^./, first => first.toUpperCase()); }
-export function formatDate(value: string) { return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); }
+export function formatDate(value: string) { const parsed = new Date(value); if (Number.isNaN(parsed.valueOf())) return value; return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`; }
 export function exportCsv(rows: RecordItem[]) { const csv = ["AuditLogCode,Date,Type,Subject,Action,Details", ...rows.map(row => [row.auditLogCode, row.date, row.type, row.subject, row.action, row.details].map(value => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); link.download = "institute-record-register.csv"; link.click(); URL.revokeObjectURL(link.href); }
 function alias(type: string, value: string) { return `${type}:${value.trim().toLowerCase()}`; }
 function formatValue(value: unknown): string { if (value === null || value === undefined || value === "") return "—"; return typeof value === "object" ? JSON.stringify(value) : String(value); }

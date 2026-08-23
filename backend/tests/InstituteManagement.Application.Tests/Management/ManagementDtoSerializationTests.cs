@@ -14,12 +14,13 @@ public sealed class ManagementDtoSerializationTests
         [
             new StudentResponseDto(
                 Guid.NewGuid(),
-                new StudentValuesDto("photo", "ST-001", "Sok Dara", "sok@example.edu", Guid.NewGuid().ToString(), "IT", "2", "Active", "2026-08-22"))
+                new StudentValuesDto("photo", "ST-001", "Sok Dara", "sok@example.edu", Guid.NewGuid().ToString(), "IT", "2", "Morning", "Active", "2026-08-22"))
         ];
 
         var json = JsonSerializer.Serialize(items);
 
         Assert.Contains("\"StudentCode\":\"ST-001\"", json);
+        Assert.Contains("\"Shift\":\"Morning\"", json);
         Assert.Contains("\"CreateAt\":\"2026-08-22\"", json);
         Assert.Contains("\"Values\"", json);
     }

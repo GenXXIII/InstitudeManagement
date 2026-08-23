@@ -21,13 +21,14 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
         var period = await db.SystemSettings.AsNoTracking().Where(x => (x.Section == "academic-year" && x.Key == "currentYear") || (x.Section == "semester" && x.Key == "currentTerm")).ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, cancellationToken);
         var academicYear = period.GetValueOrDefault("academic-year:currentYear", "2026\u20132027");
         var term = period.GetValueOrDefault("semester:currentTerm", "Semester 1");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
+        var today = DateOnly.FromDateTime(localNow);
         var record = await db.AttendanceRecords.FirstOrDefaultAsync(x => x.StudentId == studentId && x.Date == today, cancellationToken);
         if (record is null) { record = new AttendanceRecord { AttendanceCode = $"ATT-{Guid.NewGuid():N}", StudentId = studentId, Date = today, AcademicYear = academicYear, Term = term }; db.AttendanceRecords.Add(record); }
         else if (record.AcademicYear != academicYear || record.Term != term) throw new InvalidOperationException("Today's attendance belongs to a completed academic period and is read-only.");
         var rules = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "attendance-rules" || x.Section == "notifications").ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, cancellationToken);
         var method = rules.GetValueOrDefault("attendance-rules:method", "ID Card");
-        record.CheckedInAt = TimeOnly.FromDateTime(DateTime.Now); record.Status = status.Trim(); record.Method = method; record.UpdatedAtUtc = DateTime.UtcNow;
+        record.CheckedInAt = TimeOnly.FromDateTime(localNow); record.Status = status.Trim(); record.Method = method; record.UpdatedAtUtc = DateTime.UtcNow;
         db.AuditLogs.Add(new AuditLog { ResourceId = record.Id, Type = "Attendance", Subject = student.FullName, Action = status, Details = $"Attendance recorded for {today:yyyy-MM-dd} · {academicYear} · {term}" });
         if (record.Status is "Late" or "Absent" && Enabled(rules, "notifications:attendanceAlerts", true))
         {

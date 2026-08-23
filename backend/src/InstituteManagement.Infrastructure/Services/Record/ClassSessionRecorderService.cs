@@ -47,7 +47,8 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                 foreach (var schedule in completed)
                 {
                     if (existingKeys.Contains((schedule.Id, date)) || schedule.Course is null || schedule.Teacher is null || schedule.Classroom is null) continue;
-                    var students = await db.Students.AsNoTracking().Where(x => x.Status != "Inactive" && x.DepartmentId == schedule.Course.DepartmentId && x.YearLevel == schedule.YearLevel).OrderBy(x => x.FullName).ToListAsync(cancellationToken);
+                    var shift = ShiftFor(schedule.StartsAt);
+                    var students = await db.Students.AsNoTracking().Where(x => x.Status != "Inactive" && x.DepartmentId == schedule.Course.DepartmentId && x.YearLevel == schedule.YearLevel && x.Shift == shift).OrderBy(x => x.FullName).ToListAsync(cancellationToken);
                     var studentIds = students.Select(x => x.Id).ToList();
                     var attendance = await db.AttendanceRecords.AsNoTracking().Where(x => studentIds.Contains(x.StudentId) && x.Date == date && x.AcademicYear == academicYear && x.Term == term).ToDictionaryAsync(x => x.StudentId, cancellationToken);
                     var snapshots = students.Select(student =>
@@ -108,4 +109,6 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
 
     private static bool Enabled(IReadOnlyDictionary<string, string> values, string key, bool fallback) =>
         bool.TryParse(values.GetValueOrDefault(key), out var enabled) ? enabled : fallback;
+
+    private static string ShiftFor(TimeOnly start) => start < new TimeOnly(13, 0) ? "Morning" : start < new TimeOnly(17, 30) ? "Afternoon" : "Evening";
 }

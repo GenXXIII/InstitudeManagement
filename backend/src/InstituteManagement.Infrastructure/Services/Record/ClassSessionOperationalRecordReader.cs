@@ -26,6 +26,7 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
             };
             activities.AddRange(Deserialize(session.StudentAttendanceJson).Select(student => Create(
                 ("Activity", "Student attendance"),
+                ("StudentId", student.StudentId.ToString()),
                 ("Date", session.SessionDate.ToString("yyyy-MM-dd")),
                 ("Time", time),
                 ("Student", student.StudentName),
