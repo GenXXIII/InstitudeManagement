@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY backend/ ./backend/
-RUN dotnet restore backend/InstituteManagement.slnx
+RUN dotnet restore backend/src/InstituteManagement.API/InstituteManagement.API.csproj
 RUN dotnet publish backend/src/InstituteManagement.API/InstituteManagement.API.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

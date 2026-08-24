@@ -51,7 +51,7 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
             PhotoDataUrl = Required(values, "photoDataUrl"),
             DepartmentId = await RelatedIdAsync<Department>(values, "departmentId", ct),
             YearLevel = IntInRange(values, "year", 1, 1, 12),
-            Shift = OneOf(values, "shift", "Morning", "Morning", "Afternoon", "Evening"),
+            Shift = StudentShift(values),
             Status = OneOf(values, "status", "Active", "Active", "Inactive")
         };
         await AddStudentOwnedRecordsAsync(entity, ct);
@@ -71,7 +71,7 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
         entity.PhotoDataUrl = Required(values, "photoDataUrl");
         entity.DepartmentId = departmentId;
         entity.YearLevel = IntInRange(values, "year", 1, 1, 12);
-        entity.Shift = OneOf(values, "shift", "Morning", "Morning", "Afternoon", "Evening");
+        entity.Shift = StudentShift(values);
         entity.Status = OneOf(values, "status", "Active", "Active", "Inactive");
         Touch(entity);
         return await SaveUpdatedAsync(id, values, ct);
@@ -93,7 +93,7 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
             .Where(entry => entry.Status != "Cancelled" && entry.YearLevel == student.YearLevel && entry.Course!.DepartmentId == student.DepartmentId)
             .OrderBy(entry => entry.TimetableCode)
             .ToListAsync(ct);
-        var courseId = schedule.FirstOrDefault(entry => ShiftFor(entry.StartsAt) == student.Shift)?.CourseId
+        var courseId = schedule.FirstOrDefault(entry => AcademicTimetablePolicy.FindShift(entry.DayOfWeek, entry.StartsAt, entry.EndsAt)?.Name == student.Shift)?.CourseId
             ?? schedule.FirstOrDefault()?.CourseId
             ?? throw new InvalidOperationException("Create a timetable course for this student's department and year before adding the student.");
 
@@ -101,7 +101,7 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
         var attendance = new AttendanceRecord
         {
             AttendanceCode = $"ATT-{codeSuffix}", StudentId = student.Id, Date = attendanceDate,
-            CheckedInAt = student.Shift switch { "Afternoon" => new TimeOnly(14, 0), "Evening" => new TimeOnly(17, 30), _ => new TimeOnly(7, 30) },
+            CheckedInAt = RequiredShift(student.Shift).StartsAt,
             Status = "Present", Method = settings.GetValueOrDefault("attendance-rules:method", "ID Card"), AcademicYear = academicYear, Term = term
         };
         var grade = new GradeRecord
@@ -115,7 +115,11 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
         Db.AuditLogs.Add(new AuditLog { ResourceId = grade.Id, Type = "Grade", Subject = grade.GradeCode, Action = "Created from student", Details = JsonSerializer.Serialize(new { grade.GradeCode, grade.StudentId, grade.CourseId, grade.Score, grade.LetterGrade, grade.AcademicYear, grade.Term }) });
     }
 
-    private static string ShiftFor(TimeOnly start) => start < new TimeOnly(13, 0) ? "Morning" : start < new TimeOnly(17, 30) ? "Afternoon" : "Evening";
+    private static string StudentShift(Dictionary<string, string> values) =>
+        OneOf(values, "shift", AcademicTimetablePolicy.DefaultShiftName, [.. AcademicTimetablePolicy.ShiftNames]);
+
+    private static AcademicShift RequiredShift(string name) =>
+        AcademicTimetablePolicy.FindShift(name) ?? throw new InvalidOperationException("Student shift is not configured in the academic timetable policy.");
 
     protected override async Task<Entity?> FindAsync(Guid id, CancellationToken ct) => await Db.Students.FindAsync([id], ct);
     protected override void Deactivate(Entity entity) { ((Student)entity).Status = "Inactive"; Touch(entity); }
@@ -128,7 +132,7 @@ public sealed class StudentManagementFeature(InstituteDbContext db, InstituteCac
             Get(values, "departmentId"),
             Get(values, "department"),
             Get(values, "year"),
-            Get(values, "shift", "Morning"),
+            Get(values, "shift", AcademicTimetablePolicy.DefaultShiftName),
             Get(values, "status", "Active"),
             Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 }

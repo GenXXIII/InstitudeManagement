@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { RecordMetric } from "./components/record-metric";
 import { RecordRow } from "./components/record-row";
@@ -34,6 +35,7 @@ function RecordRegister() {
     return (!departmentId || group.key.includes(departmentId) || group.entries.some(entry => entry.details.includes(departmentId))) && (!year || !yearValues.length || yearValues.includes(year));
   }), [departmentId, rows, year]);
   const visible = groups;
+  const pagination = useDataPagination(visible, `${resource}-${departmentId}-${year}-${query}`);
   const detailQuery = searchParams.toString();
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
@@ -43,6 +45,6 @@ function RecordRegister() {
     <section className="record-lock-notice"><div><Icon name="archive" size={18}/></div><p><strong>Permanent read-only history</strong><span>Management controls current data. This register preserves every captured snapshot and change.</span></p></section>
     <section className="record-overview-grid"><RecordMetric label="All records" value={groups.length} detail="individual profiles"/><RecordMetric label="History snapshots" value={rows.length} detail="complete captured changes" tone="violet"/></section>
     <section className="record-toolbar panel"><div className="record-search"><Icon name="search" size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search all ${config.title.toLowerCase()}…`} aria-label={`Search ${config.title}`}/></div><span className="record-count">Showing {visible.length} of {groups.length} records</span></section>
-    {visible.length ? <section className="record-register history-management-table panel"><div className="record-register-head history-management-head"><span>Record identity</span><span>Latest management data</span><span>Last updated</span></div><div className="record-register-list">{visible.map(group => <RecordRow group={group} detailHref={`/records/${resource}/${encodeURIComponent(group.key)}${detailQuery ? `?${detailQuery}` : ""}`} key={group.key}/>)}</div></section> : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>No records found</strong><span>Try another search.</span></section>}
+    {visible.length ? <section className="history-paginated-region"><div className="record-register history-management-table panel"><div className="record-register-head history-management-head"><span>Record identity</span><span>Latest management data</span><span>Last updated</span></div><div className="record-register-list">{pagination.pageItems.map(group => <RecordRow group={group} detailHref={`/records/${resource}/${encodeURIComponent(group.key)}${detailQuery ? `?${detailQuery}` : ""}`} key={group.key}/>)}</div></div><DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visible.length} onPage={pagination.setPage}/></section> : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>No records found</strong><span>Try another search.</span></section>}
   </div>;
 }

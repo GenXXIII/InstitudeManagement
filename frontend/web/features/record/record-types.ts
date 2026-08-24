@@ -1,2 +1,4 @@
-export type OperationalRecord = { id: string; module: string; subject: string; identifier: string; status: string; summary: string; lastActivityAt?: string | null; activities: Record<string, string>[]; classSessionRecordCode: string };
+export type OperationalRecordGrade = { courseId: string; courseCode: string; courseName: string; score: number; grade: string };
+export type OperationalRecordInsights = { presentCount: number; permissionCount: number; absentCount: number; grades: OperationalRecordGrade[]; expectedCourses: number; totalScore: number; average: number; result: string; isFinal: boolean };
+export type OperationalRecord = { id: string; module: string; subject: string; identifier: string; status: string; summary: string; lastActivityAt?: string | null; activities: Record<string, string>[]; classSessionRecordCode: string; code: string; photoDataUrl: string; department: string; academicYear: string; term: string; resourceId: string; insights?: OperationalRecordInsights | null };
 export type ClassSessionAttendanceUpdate = { studentId: string; status: string; checkedInAt: string };

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ErrorPage, LoadingPage, MetricCards, PageHeading } from "@/components/page-primitives";
@@ -48,7 +47,7 @@ export default function OperationsWorkspace() {
   const dashboard = data.module === "dashboard";
   const visual = data.module === "classrooms" || data.module === "timetable";
   return <div className={`viewport-data-page operations-workspace ${visual ? "operations-visual-workspace" : ""}`}>
-    <PageHeading eyebrow={dashboard ? "Institute operations" : "Live operation"} title={data.title} description={`${data.description}${year ? ` Showing Year ${year}.` : ""}`} actions={<>{timetable && <Link className="button secondary" href={`/management/timetable?${scopeQuery(departmentId, year)}`}>Manage timetable</Link>}<span className="live-pill"><i/> {dashboard ? "Institute status current" : "Auto-refresh on"}</span><button className="button primary" onClick={load}><Icon name={dashboard ? "dashboard" : "pulse"} size={16}/>Refresh</button></>}/>
+    <PageHeading eyebrow={dashboard ? "Institute operations" : "Live operation"} title={data.title} description={`${data.description}${year ? ` Showing Year ${year}.` : ""}`} actions={<><span className="live-pill"><i/> {dashboard ? "Institute status current" : "Auto-refresh on"}</span><button className="button primary" onClick={load}><Icon name={dashboard ? "dashboard" : "pulse"} size={16}/>Refresh</button></>}/>
     {!dashboard && !visual && <MetricCards metrics={data.metrics}/>} 
     <OperationPanel data={data} departmentId={departmentId} year={year} className={dashboard ? "operation-dashboard-page" : visual ? "operation-visual-page" : "operation-standard-page"} kicker={dashboard ? "Four core institute operations" : timetable ? "One-page weekly schedule" : visual ? "Whole view · no scrolling" : "Live management-sized data"}/>
   </div>;
@@ -93,4 +92,3 @@ function sortOperationByYear(data: Operation, studentsData: Operation, timetable
 }
 function runningPriority(status: string) { return status === "Running" ? 0 : status === "Available" ? 1 : 2; }
 function attendancePriority(status: string) { return status === "Present" ? 0 : status === "Permission" ? 1 : status === "Absent" ? 2 : 3; }
-function scopeQuery(departmentId: string, year: number) { const params = new URLSearchParams(); if (departmentId) params.set("departmentId", departmentId); if (year) params.set("year", String(year)); return params.toString(); }

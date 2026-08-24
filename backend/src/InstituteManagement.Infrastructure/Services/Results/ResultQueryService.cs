@@ -49,12 +49,13 @@ public sealed class ResultQueryService(InstituteDbContext db) : IResultQueryServ
                 var periodGrades = grades.Where(record => record.StudentId == student.Id && record.AcademicYear == period.AcademicYear && record.Term == period.Semester)
                     .OrderBy(record => record.Course!.CourseCode)
                     .Select(record => new CourseResultDto(record.CourseId, record.Course?.CourseCode ?? "—", record.Course?.Name ?? "Course", record.Score, record.LetterGrade))
+                    .Take(SemesterResultRules.ExpectedCourseCount)
                     .ToList();
                 var total = periodGrades.Sum(grade => grade.Score);
-                var average = periodGrades.Count == 0 ? 0 : decimal.Round(total / periodGrades.Count, 2);
+                var average = SemesterResultRules.Average(periodGrades.Select(grade => grade.Score));
                 var statuses = timetableAttendance.Count > 0 ? timetableAttendance.Select(record => record.Status).ToList() : periodAttendance.Select(record => record.Status).ToList();
                 var absent = statuses.Count(status => status == "Absent");
-                var totalGrade = autoPercentage && absent >= 8 ? "Fail" : autoPercentage && absent >= 6 ? "Retake Exam" : periodGrades.Count == 0 ? "Pending" : thresholds.Letter(average);
+                var totalGrade = SemesterResultRules.Outcome(absent, periodGrades.Select(grade => grade.Grade).ToList(), average, thresholds, autoPercentage);
                 if (history && totalGrade == "Pending") continue;
                 results.Add(new SemesterResultDto(
                     student.Id, student.StudentCode, student.FullName, student.DepartmentId, student.Department?.Name ?? "Unassigned", student.YearLevel,

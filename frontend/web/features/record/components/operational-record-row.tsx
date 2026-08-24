@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { recordApi } from "../record-api";
 import type { ClassSessionAttendanceUpdate, OperationalRecord } from "../record-types";
+import { EntitySemesterRecord } from "./entity-semester-record";
+import { StudentSemesterRecord } from "./student-semester-record";
 
 export function OperationalRecordRow({ row, editable = false, showStatus = true, onUpdated, detailHref, detailPage = false }: { row: OperationalRecord; editable?: boolean; showStatus?: boolean; onUpdated?: () => void; detailHref?: string; detailPage?: boolean }) {
   const router = useRouter();
@@ -14,6 +16,8 @@ export function OperationalRecordRow({ row, editable = false, showStatus = true,
   const openFromKeyboard = (event: React.KeyboardEvent) => { if (detailHref && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); router.push(detailHref); } };
   const groups = useMemo(() => groupActivities(row.activities), [row.activities]);
   if (row.module === "Session") return <SessionRecordCard row={row} open={expanded} editable={editable} showStatus={showStatus} detailPage={detailPage} onToggle={openDetails} onUpdated={onUpdated}/>;
+  if (row.module === "Student") return <StudentSemesterRecord row={row} detailHref={detailHref} detailPage={detailPage} editable={editable} onUpdated={onUpdated}/>;
+  if (row.module === "Teacher" || row.module === "Course" || row.module === "Classroom") return <EntitySemesterRecord row={row} detailHref={detailHref} detailPage={detailPage}/>;
   return <article className={`operational-record-row ${expanded ? "open" : ""} ${detailHref ? "record-row-clickable" : ""} ${showStatus ? "" : "without-record-status"}`} role={detailHref ? "link" : undefined} tabIndex={detailHref ? 0 : undefined} onClick={detailHref ? openDetails : undefined} onKeyDown={openFromKeyboard}>
     <div className="operational-record-main">
       <div className="operational-record-identity"><span className="operational-record-icon"><Icon name={recordIcon(row.module)} size={17}/></span><div><strong>{row.subject}</strong><span>{row.identifier}</span></div></div>

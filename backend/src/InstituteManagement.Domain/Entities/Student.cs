@@ -1,3 +1,5 @@
+using InstituteManagement.Domain.Timetables;
+
 namespace InstituteManagement.Domain.Entities;
 
 public sealed class Student : Entity
@@ -9,6 +11,6 @@ public sealed class Student : Entity
     public Guid DepartmentId { get; set; }
     public Department? Department { get; set; }
     public int YearLevel { get; set; }
-    public string Shift { get; set; } = "Morning";
+    public string Shift { get; set; } = AcademicTimetablePolicy.DefaultShiftName;
     public string Status { get; set; } = "Active";
 }

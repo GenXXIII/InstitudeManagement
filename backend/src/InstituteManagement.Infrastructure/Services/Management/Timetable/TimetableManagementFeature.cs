@@ -69,10 +69,9 @@ public sealed class TimetableManagementFeature(InstituteDbContext db, InstituteC
         var course = await Db.Courses.FindAsync([entry.CourseId], ct) ?? throw new KeyNotFoundException("Course not found."); var teacher = await Db.Teachers.FindAsync([entry.TeacherId], ct) ?? throw new KeyNotFoundException("Teacher not found."); var room = await Db.Classrooms.FindAsync([entry.ClassroomId], ct) ?? throw new KeyNotFoundException("Classroom not found.");
         var allowCrossDepartment = await SettingEnabledAsync("departments", "allowCrossDepartmentTeaching", false, ct);
         if (!course.IsActive || teacher.Status == "Inactive" || room.Status is "Inactive" or "Offline" or "Starting" || (!allowCrossDepartment && teacher.DepartmentId.HasValue && teacher.DepartmentId != course.DepartmentId)) throw new InvalidOperationException("Course, teacher, and learning space must be active and comply with Administration teaching rules.");
+        if (room.Capacity < course.Capacity) throw new InvalidOperationException($"Learning space capacity ({room.Capacity}) must be at least the course capacity ({course.Capacity}).");
         teacher.DepartmentId ??= course.DepartmentId;
         entry.YearLevel = IntInRange(values, "yearLevel", 1, 1, 4);
-        if (room.ClassroomCode.Equals("501", StringComparison.OrdinalIgnoreCase) && entry.YearLevel != 1)
-            throw new InvalidOperationException("Classroom 501 is reserved for Year 1 timetable entries only.");
         entry.DayOfWeek = Enum.TryParse<DayOfWeek>(Required(values, "dayOfWeek"), true, out var day)
             ? day
             : throw new ArgumentException("dayOfWeek is invalid.");

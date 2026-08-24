@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
+import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { ManagementEditor } from "./components/management-editor";
 import { ManagementOverview } from "./components/management-overview";
@@ -44,6 +45,7 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
 
   const selectedDepartment = references.departments.find(x => x.id === departmentId);
   const visibleItems = useMemo(() => sortItemsByYear(filterItemsByYear(items, currentModule, year, references), currentModule, references), [currentModule, items, references, year]);
+  const pagination = useDataPagination(visibleItems, `${currentModule}-${departmentId}-${year}-${query}`);
   const visibleReferences = useMemo(() => sortReferencesByYear(filterReferencesByYear(references, year)), [references, year]);
   const canCreate = currentModule !== "overview" && currentModule !== "attendance" && currentModule !== "grades";
   if (error) return <ErrorPage retry={() => { setError(false); void loadReferences(); void load(); }}/>;
@@ -60,7 +62,7 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
     <PageHeading eyebrow="Current data management" title={managementCopy[currentModule].title} description={managementCopy[currentModule].description} actions={canCreate ? <button className="button primary" onClick={() => setEditing(null)}><Icon name="plus" size={16}/>Add {managementCopy[currentModule].singular}</button> : undefined}/>
     <section className="management-toolbar panel management-toolbar-global">{currentModule !== "overview" && <label className="management-search"><Icon name="search" size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${currentModule}…`}/></label>}<div className="management-scope"><span>Current scope</span><strong>{selectedDepartment?.values.name ?? "Whole institute"}{year ? ` · Year ${year}` : ""}</strong></div></section>
     {actionError && <section className="management-rule-error"><Icon name="bell" size={16}/><div><strong>Relationship protected</strong><span>{actionError}</span></div><button onClick={() => setActionError("")}>Dismiss</button></section>}
-    {currentModule === "overview" ? <ManagementOverview references={visibleReferences} onSelect={value => router.push(`/management/students?departmentId=${encodeURIComponent(value)}${year ? `&year=${year}` : ""}`)} selected={departmentId}/> : <ModuleLayout module={currentModule} items={visibleItems} references={visibleReferences} onEdit={setEditing} onDeactivate={deactivate}/>}
+    {currentModule === "overview" ? <ManagementOverview references={visibleReferences} onSelect={value => router.push(`/management/students?departmentId=${encodeURIComponent(value)}${year ? `&year=${year}` : ""}`)} selected={departmentId}/> : <section className="management-paginated-region"><ModuleLayout module={currentModule} items={pagination.pageItems} references={visibleReferences} onEdit={setEditing} onDeactivate={deactivate}/><DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visibleItems.length} onPage={pagination.setPage}/></section>}
     {editing !== undefined && currentModule !== "overview" && (currentModule === "timetable"
       ? <TimetableEditor item={editing as TimetableItem | null} references={references} scopeDepartmentId={departmentId} scopeYear={year} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); void loadReferences(); }}/>
       : <ManagementEditor module={currentModule} item={editing} references={references} scopeDepartmentId={departmentId} scopeYear={year} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); void loadReferences(); }}/>)}

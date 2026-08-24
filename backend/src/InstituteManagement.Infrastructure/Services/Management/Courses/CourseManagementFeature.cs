@@ -9,6 +9,8 @@ namespace InstituteManagement.Infrastructure.Services.Management.Courses;
 
 public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCache cache) : ManagementFeatureBase(db, cache)
 {
+    private const int FixedCourseCapacity = 40;
+
     public override string Resource => "courses";
     public override async Task<IReadOnlyList<IManagementItemDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
@@ -41,7 +43,7 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
             Name = Required(values, "name"),
             DepartmentId = departmentId,
             TeacherId = teacherId,
-            Capacity = IntInRange(values, "capacity", 40, 1, 10000),
+            Capacity = CourseCapacity(values),
             IsActive = CourseStatus(values) == "Active"
         }, values, ct);
     }
@@ -59,7 +61,7 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
         entity.Name = Required(values, "name");
         entity.DepartmentId = departmentId;
         entity.TeacherId = teacherId;
-        entity.Capacity = IntInRange(values, "capacity", 40, 1, 10000);
+        entity.Capacity = CourseCapacity(values);
         entity.IsActive = status == "Active";
         Touch(entity);
         return await SaveUpdatedAsync(id, values, ct);
@@ -75,7 +77,7 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
             Get(values, "department"),
             Get(values, "teacherId"),
             Get(values, "teacher", "Unassigned"),
-            Get(values, "capacity"),
+            FixedCourseCapacity.ToString(),
             Get(values, "status", "Active"),
             Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
@@ -90,6 +92,8 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
     }
     private async Task ValidateTeacherAsync(Guid? teacherId, Guid departmentId, CancellationToken ct) { if (!teacherId.HasValue) return; var teacher = await Db.Teachers.FindAsync([teacherId.Value], ct) ?? throw new KeyNotFoundException("Teacher not found."); var allowCrossDepartment = await SettingEnabledAsync("departments", "allowCrossDepartmentTeaching", false, ct); if (teacher.Status == "Inactive" || (!allowCrossDepartment && teacher.DepartmentId.HasValue && teacher.DepartmentId != departmentId)) throw new InvalidOperationException("Course teacher must be active and comply with Department settings."); teacher.DepartmentId ??= departmentId; }
     private async Task<bool> SettingEnabledAsync(string section, string key, bool fallback, CancellationToken ct) { var value = await Db.SystemSettings.AsNoTracking().Where(x => x.Section == section && x.Key == key).Select(x => x.Value).FirstOrDefaultAsync(ct); return bool.TryParse(value, out var enabled) ? enabled : fallback; }
+    private static int CourseCapacity(Dictionary<string, string> values) =>
+        IntInRange(values, "capacity", FixedCourseCapacity, FixedCourseCapacity, FixedCourseCapacity);
     private static string CourseStatus(Dictionary<string, string> values) =>
         OneOf(values, "status", "Active", "Active", "Inactive");
 }

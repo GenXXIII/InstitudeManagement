@@ -1,4 +1,5 @@
 using InstituteManagement.Domain.Entities;
+using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
@@ -136,14 +137,14 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
                 db.AttendanceRecords.Add(new AttendanceRecord
                 {
                     AttendanceCode = $"ATT-{studentCode}-{academicYear.Replace("\u2013", "-")}-{termCode}", StudentId = student.Id, Date = startsOn,
-                    CheckedInAt = student.Shift switch { "Afternoon" => new TimeOnly(14, 0), "Evening" => new TimeOnly(17, 30), _ => new TimeOnly(7, 30) },
+                    CheckedInAt = RequiredShift(student.Shift).StartsAt,
                     Status = "Present", Method = method, AcademicYear = academicYear, Term = term
                 });
                 attendanceCreated++;
             }
             if (!existingGrades.Contains(student.Id))
             {
-                var courseId = schedules.FirstOrDefault(entry => entry.YearLevel == student.YearLevel && entry.Course?.DepartmentId == student.DepartmentId && ShiftFor(entry.StartsAt) == student.Shift)?.CourseId
+                var courseId = schedules.FirstOrDefault(entry => entry.YearLevel == student.YearLevel && entry.Course?.DepartmentId == student.DepartmentId && AcademicTimetablePolicy.FindShift(entry.DayOfWeek, entry.StartsAt, entry.EndsAt)?.Name == student.Shift)?.CourseId
                     ?? schedules.FirstOrDefault(entry => entry.YearLevel == student.YearLevel && entry.Course?.DepartmentId == student.DepartmentId)?.CourseId;
                 if (!courseId.HasValue) continue;
                 db.GradeRecords.Add(new GradeRecord { GradeCode = $"GRD-{studentCode}-{academicYear.Replace("\u2013", "-")}-{termCode}", StudentId = student.Id, CourseId = courseId.Value, Score = 0, LetterGrade = "F", AcademicYear = academicYear, Term = term });
@@ -153,7 +154,8 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
         return (attendanceCreated, gradesCreated);
     }
 
-    private static string ShiftFor(TimeOnly start) => start < new TimeOnly(13, 0) ? "Morning" : start < new TimeOnly(17, 30) ? "Afternoon" : "Evening";
+    private static AcademicShift RequiredShift(string name) =>
+        AcademicTimetablePolicy.FindShift(name) ?? throw new InvalidOperationException("Student shift is not configured in the academic timetable policy.");
 
     private bool Set(List<SystemSetting> settings, string section, string key, string value)
     {

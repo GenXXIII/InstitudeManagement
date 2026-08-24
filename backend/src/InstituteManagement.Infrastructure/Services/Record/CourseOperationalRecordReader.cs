@@ -1,7 +1,9 @@
 using System.Text.Json;
 using InstituteManagement.Application.DTOs;
 using InstituteManagement.Domain.Entities;
+using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.Record.OperationalRecordFields;
 
@@ -13,15 +15,21 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
-        var courses = await db.Courses.AsNoTracking().Where(x => !departmentId.HasValue || x.DepartmentId == departmentId).OrderBy(x => x.CourseCode).ToListAsync(cancellationToken);
+        var courses = await db.Courses.AsNoTracking().Include(x => x.Department).Where(x => !departmentId.HasValue || x.DepartmentId == departmentId).OrderBy(x => x.CourseCode).ToListAsync(cancellationToken);
         var ids = courses.Select(x => x.Id).ToList();
         var sessions = await db.ClassSessionRecords.AsNoTracking().Where(x => ids.Contains(x.CourseId)).ToListAsync(cancellationToken);
+        var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
+        var selection = AcademicTimetablePolicy.SelectCurrentOrNext(now);
+        var runningIds = selection.IsRunning
+            ? await db.ScheduleEntries.AsNoTracking().Where(x => x.Status != "Cancelled" && x.DayOfWeek == selection.Date.DayOfWeek && x.StartsAt == selection.Period.StartsAt && x.EndsAt == selection.Period.EndsAt).Select(x => x.CourseId).ToHashSetAsync(cancellationToken)
+            : [];
         return courses.Select(course =>
         {
             var completed = sessions.Where(x => x.CourseId == course.Id).ToList();
-            var events = completed.Select(x => (x.UpdatedAtUtc, Create(("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term), ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"), ("Year", $"Year {x.YearLevel}"), ("Teacher", x.TeacherName), ("Classroom", x.ClassroomCode), ("Attendance", $"{x.PresentCount} present · {x.LateCount} late · {x.AbsentCount} absent · {x.ExcusedCount} permission"), ("Students", StudentSummary(x.StudentAttendanceJson)))))
+            var events = completed.Select(x => (x.UpdatedAtUtc, Create(("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term), ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"), ("Year", $"Year {x.YearLevel}"), ("Teacher", x.TeacherName), ("Classroom", x.ClassroomCode), ("Present", (x.PresentCount + x.LateCount).ToString()), ("Permission", x.ExcusedCount.ToString()), ("Absent", x.AbsentCount.ToString()), ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"), ("Students", StudentSummary(x.StudentAttendanceJson)))))
                 .OrderByDescending(x => x.Item1).ToList();
-            return new OperationalRecordDto(course.Id, "Course", course.Name, course.CourseCode, course.IsActive ? "Active" : "Inactive", $"{completed.Count} completed timetable classes", events.Count == 0 ? null : events[0].Item1, events.Select(x => x.Item2).ToList());
+            var status = !course.IsActive ? "Unavailable" : runningIds.Contains(course.Id) ? "In Study" : "Available";
+            return new OperationalRecordDto(course.Id, "Course", course.Name, course.CourseCode, status, $"{completed.Count} completed timetable classes", events.Count == 0 ? null : events[0].Item1, events.Select(x => x.Item2).ToList(), Code: course.CourseCode, Department: course.Department?.Name ?? "Unassigned", ResourceId: course.Id);
         }).ToList();
     }
 

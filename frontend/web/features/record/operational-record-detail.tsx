@@ -35,7 +35,7 @@ export function OperationalRecordDetail({ module, id, history = false }: { modul
   return <div className="viewport-data-page record-detail-viewport-page">
     <PageHeading eyebrow={history ? "Read-only record history" : "Active-semester record"} title={item.subject} description={`${item.identifier} · ${item.summary}`} actions={<Link className="button secondary" href={backHref}>Back to records</Link>}/>
     <section className="record-detail-scroll">
-      <OperationalRecordRow row={item} editable={!history} showStatus={!history} detailPage onUpdated={load}/>
+      <OperationalRecordRow row={item} editable={!history} showStatus={module === "sessions" && !history} detailPage onUpdated={load}/>
     </section>
   </div>;
 }
