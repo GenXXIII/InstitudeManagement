@@ -19,6 +19,10 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<NotificationHistory> NotificationHistory => Set<NotificationHistory>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<StudentEnrollment> StudentEnrollments => Set<StudentEnrollment>();
+    public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
+    public DbSet<CourseAssignment> CourseAssignments => Set<CourseAssignment>();
+    public DbSet<ClassroomAssignment> ClassroomAssignments => Set<ClassroomAssignment>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

@@ -65,7 +65,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                         SessionDate = date,
                         AcademicYear = academicYear,
                         Term = term,
-                        DepartmentId = schedule.Course.DepartmentId,
+                        DepartmentId = schedule.Course.DepartmentId ?? Guid.Empty,
                         CourseId = schedule.CourseId,
                         TeacherId = schedule.TeacherId,
                         ClassroomId = schedule.ClassroomId,

@@ -6,5 +6,4 @@ export const recordTypes: Record<string, { type: string; title: string; descript
   timetable: { type: "Timetable", title: "Timetable records", description: "All scheduled, completed, and cancelled classes with their complete scheduling history." },
   attendance: { type: "Attendance", title: "Attendance records", description: "All attendance entries and corrections, including records belonging to former students." },
   departments: { type: "Department", title: "Department records", description: "All active and inactive departments with leadership and organizational history." },
-  grades: { type: "Grade", title: "Grade records", description: "All academic results and revisions, including results belonging to former students and inactive courses." },
 };

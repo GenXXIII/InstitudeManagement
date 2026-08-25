@@ -343,6 +343,58 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("Classrooms");
                 });
 
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.ClassroomAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcademicYear")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Access")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ClassroomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAtUtc");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Semester")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ClassroomId", "AcademicYear", "Semester")
+                        .IsUnique();
+
+                    b.ToTable("ClassroomAssignments", "Enrollment");
+                });
+
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Course", b =>
                 {
                     b.Property<Guid>("Id")
@@ -361,7 +413,7 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("CreatedAtUtc");
 
-                    b.Property<Guid>("DepartmentId")
+                    b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsActive")
@@ -388,6 +440,61 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("TeacherId");
 
                     b.ToTable("Courses");
+                });
+
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.CourseAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcademicYear")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAtUtc");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Semester")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("TeacherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("YearLevel")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherId");
+
+                    b.HasIndex("DepartmentId", "YearLevel");
+
+                    b.HasIndex("CourseId", "AcademicYear", "Semester")
+                        .IsUnique();
+
+                    b.ToTable("CourseAssignments", "Enrollment");
                 });
 
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Department", b =>
@@ -676,7 +783,7 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("CreatedAtUtc");
 
-                    b.Property<Guid>("DepartmentId")
+                    b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Email")
@@ -722,6 +829,58 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Students");
+                });
+
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.StudentEnrollment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcademicYear")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAtUtc");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Semester")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Shift")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("YearLevel")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId", "YearLevel");
+
+                    b.HasIndex("StudentId", "AcademicYear", "Semester")
+                        .IsUnique();
+
+                    b.ToTable("StudentEnrollments", "Enrollment");
                 });
 
             modelBuilder.Entity("InstituteManagement.Domain.Entities.SystemSetting", b =>
@@ -818,6 +977,50 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("Teachers");
                 });
 
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.TeacherAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcademicYear")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAtUtc");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Semester")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("TeacherId", "AcademicYear", "Semester")
+                        .IsUnique();
+
+                    b.ToTable("TeacherAssignments", "Enrollment");
+                });
+
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Announcement", b =>
                 {
                     b.HasOne("InstituteManagement.Domain.Entities.Notification", "Notification")
@@ -884,8 +1087,49 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Department");
                 });
 
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.ClassroomAssignment", b =>
+                {
+                    b.HasOne("InstituteManagement.Domain.Entities.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("InstituteManagement.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Classroom");
+
+                    b.Navigation("Department");
+                });
+
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Course", b =>
                 {
+                    b.HasOne("InstituteManagement.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("InstituteManagement.Domain.Entities.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.CourseAssignment", b =>
+                {
+                    b.HasOne("InstituteManagement.Domain.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("InstituteManagement.Domain.Entities.Department", "Department")
                         .WithMany()
                         .HasForeignKey("DepartmentId")
@@ -896,6 +1140,8 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("TeacherId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Course");
 
                     b.Navigation("Department");
 
@@ -963,10 +1209,28 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.HasOne("InstituteManagement.Domain.Entities.Department", "Department")
                         .WithMany()
                         .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.StudentEnrollment", b =>
+                {
+                    b.HasOne("InstituteManagement.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("InstituteManagement.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Department");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Teacher", b =>
@@ -977,6 +1241,24 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.TeacherAssignment", b =>
+                {
+                    b.HasOne("InstituteManagement.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("InstituteManagement.Domain.Entities.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Teacher");
                 });
 #pragma warning restore 612, 618
         }

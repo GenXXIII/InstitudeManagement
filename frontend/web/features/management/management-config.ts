@@ -11,10 +11,10 @@ import { timetableDefaults, timetableFields } from "./timetable/timetable-config
 export const emptyReferences: References = { departments: [], teachers: [], students: [], classrooms: [], courses: [], timetable: [], attendance: [] };
 export const managementCopy: Record<ManagementModule, { title: string; description: string; singular: string }> = {
   overview: { title: "Institute management", description: "Manage current institute data through connected department workspaces.", singular: "item" },
-  students: { title: "Student management", description: "Enroll students, maintain 4×6 profile photos, and assign each learner to a department.", singular: "student" },
-  teachers: { title: "Teacher management", description: "Maintain faculty profiles, course assignments, and leadership eligibility.", singular: "teacher" },
+  students: { title: "Student profile management", description: "Maintain each student's identity, profile photo, name, email, and personal record. Academic placement is shown under Academic enrollment.", singular: "student" },
+  teachers: { title: "Teacher profile management", description: "Maintain each teacher's identity, profile photo, name, email, and personal record. Academic assignments are managed under Academic enrollment.", singular: "teacher" },
   classrooms: { title: "Learning-space management", description: "Manage institute-shared classroom and meeting-room information for every department.", singular: "learning space" },
-  courses: { title: "Course management", description: "Connect courses to departments and eligible teachers with capacity rules.", singular: "course" },
+  courses: { title: "Course master management", description: "Maintain course identity and name only. Department, teacher, year, and capacity belong to Academic enrollment.", singular: "course" },
   timetable: { title: "Timetable management", description: "Manage every scheduled class as readable data rows with day, time, course, cohort, teacher, room, student count, and actions.", singular: "class" },
   attendance: { title: "Attendance management", description: "Edit or remove the current student-owned attendance ledger while preserving every change in history.", singular: "attendance entry" },
   departments: { title: "Department management", description: "Organize academic units and appoint an existing teacher as each department head.", singular: "department" },

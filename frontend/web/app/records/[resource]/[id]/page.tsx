@@ -1,9 +1,8 @@
-"use client";
-
-import { useParams } from "next/navigation";
+import { redirect } from "next/navigation";
 import { HistoryDetail } from "@/features/history/history-detail";
 
-export default function HistoryDetailPage() {
-  const { resource, id } = useParams<{ resource: string; id: string }>();
+export default async function HistoryDetailPage({ params }: { params: Promise<{ resource: string; id: string }> }) {
+  const { resource, id } = await params;
+  if (resource === "grades") redirect("/record-history/students");
   return <HistoryDetail resource={resource} id={id}/>;
 }

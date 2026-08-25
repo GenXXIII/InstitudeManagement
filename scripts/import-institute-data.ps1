@@ -3,7 +3,9 @@ param(
     [string]$Server = "INK-SQL-SERVER,1433",
     [string]$Database = "INK_Manangement",
     [string]$User = "sa",
-    [string]$Password = "1234"
+    [string]$Password = "1234",
+    [ValidateSet(1, 2)]
+    [int]$Semester = 1
 )
 
 $ErrorActionPreference = "Stop"
@@ -211,7 +213,7 @@ for ($index = 0; $index -lt $roomCodes.Count; $index++) {
     $classrooms += [pscustomobject]@{
         Id = [Guid]::NewGuid(); Code = $roomCodes[$index]; Building = "INK Academic Building"
         RoomType = if ($roomCodes[$index] -eq "501") { "Meeting Room" } else { "Classroom" }
-        Capacity = if ($roomCodes[$index] -eq "501") { 24 } else { 40 }
+        Capacity = 40
         DepartmentId = $null; Status = "Available"; DeviceOnline = $true
     }
 }
@@ -249,104 +251,149 @@ foreach ($shift in $shifts) {
 }
 
 $timetable = @()
+$activeCourses = @($courses | Where-Object Semester -eq $Semester)
+if ($activeCourses.Count -ne 20) { throw "Expected 20 Semester $Semester courses, found $($activeCourses.Count)." }
 $coursesByYear = @{}
 foreach ($year in 1..4) {
-    $yearCourses = @($courses | Where-Object Year -eq $year)
-    if ($yearCourses.Count -ne 10) { throw "Expected 10 courses for Year $year, found $($yearCourses.Count)." }
+    $yearCourses = @($activeCourses | Where-Object Year -eq $year)
+    if ($yearCourses.Count -ne 5) { throw "Expected 5 Semester $Semester courses for Year $year, found $($yearCourses.Count)." }
     $departmentCourses = @{}
     foreach ($department in $departments) {
         $items = @($yearCourses | Where-Object DepartmentId -eq $department.Id | Sort-Object @{ Expression = { [int]($_.Code -replace "\D", "") } })
-        if ($items.Count -ne 2) { throw "Expected 2 courses for $($department.Code) Year $year, found $($items.Count)." }
-        $departmentCourses[$department.Id.ToString()] = $items
+        if ($items.Count -ne 1) { throw "Expected 1 Semester $Semester course for $($department.Code) Year $year, found $($items.Count)." }
+        $departmentCourses[$department.Id.ToString()] = $items[0]
     }
     $interleaved = @()
-    foreach ($coursePosition in 0..1) {
-        foreach ($department in $departments) {
-            $interleaved += $departmentCourses[$department.Id.ToString()][$coursePosition]
-        }
-    }
-    foreach ($coursePosition in 0..1) {
-        $departmentCount = @($interleaved[($coursePosition * 5)..(($coursePosition * 5) + 4)].DepartmentId | Sort-Object -Unique).Count
-        if ($departmentCount -ne 5) { throw "Year $year course block $($coursePosition + 1) must cover all 5 departments." }
-    }
+    foreach ($department in $departments) { $interleaved += $departmentCourses[$department.Id.ToString()] }
+    if (@($interleaved.DepartmentId | Sort-Object -Unique).Count -ne 5) { throw "Year $year must cover all 5 departments in Semester $Semester." }
     $coursesByYear[$year] = $interleaved
 }
 
-$teachingSlots = @()
-foreach ($shift in $shifts) {
-    $courseIndex = 0
-    foreach ($day in $shift.Days) {
-        foreach ($period in $shift.Periods) {
-            $teachingSlots += [pscustomobject]@{ Shift = $shift.Name; Day = $day; Period = $period; CourseIndex = $courseIndex }
-            $courseIndex++
-        }
-    }
-    if ($courseIndex -ne 10) { throw "$($shift.Name) must have 10 teaching slots, found $courseIndex." }
+$courseOrder = @()
+foreach ($coursePosition in 0..4) {
+    foreach ($year in 1..4) { $courseOrder += $coursesByYear[$year][$coursePosition] }
+}
+if ($courseOrder.Count -ne 20 -or @($courseOrder.Id | Sort-Object -Unique).Count -ne 20) { throw "Semester $Semester must provide 20 distinct courses across Years 1-4." }
+$yearOneCourses = @($coursesByYear[1])
+$olderCourseOrder = @()
+foreach ($coursePosition in 0..4) {
+    foreach ($year in 2..4) { $olderCourseOrder += $coursesByYear[$year][$coursePosition] }
 }
 
-for ($slotIndex = 0; $slotIndex -lt $teachingSlots.Count; $slotIndex++) {
-    $session = $teachingSlots[$slotIndex]
+$desiredTimetable = @()
+foreach ($shift in $shifts) {
+    for ($dayIndex = 0; $dayIndex -lt $shift.Days.Count; $dayIndex++) {
+        $day = $shift.Days[$dayIndex]
+        if ($shift.Name -eq "Weekend") {
+            foreach ($coursePosition in 0..4) {
+                $period = $shift.Periods[$coursePosition]
+                foreach ($year in 1..4) {
+                    $course = $coursesByYear[$year][$coursePosition]
+                    $desiredTimetable += [pscustomobject]@{
+                        CourseId = $course.Id; TeacherId = $course.TeacherId; ClassroomId = $null; Year = $course.Year
+                        DepartmentId = $course.DepartmentId; Day = $day; Session = $shift.Name; PeriodLabel = $period.Session
+                        Start = $period.Start; End = $period.End; Status = "Upcoming"
+                    }
+                }
+            }
+            continue
+        }
+
+        for ($courseIndex = 0; $courseIndex -lt $olderCourseOrder.Count; $courseIndex++) {
+            $course = $olderCourseOrder[$courseIndex]
+            $periodIndex = if ($courseIndex -lt 8) { 0 } else { 1 }
+            $period = $shift.Periods[$periodIndex]
+            $desiredTimetable += [pscustomobject]@{
+                CourseId = $course.Id; TeacherId = $course.TeacherId; ClassroomId = $null; Year = $course.Year
+                DepartmentId = $course.DepartmentId; Day = $day; Session = $shift.Name; PeriodLabel = $period.Session
+                Start = $period.Start; End = $period.End; Status = "Upcoming"
+            }
+        }
+        foreach ($periodIndex in 0..1) {
+            $course = $yearOneCourses[(($dayIndex * 2) + $periodIndex) % $yearOneCourses.Count]
+            $period = $shift.Periods[$periodIndex]
+            $desiredTimetable += [pscustomobject]@{
+                CourseId = $course.Id; TeacherId = $course.TeacherId; ClassroomId = $null; Year = $course.Year
+                DepartmentId = $course.DepartmentId; Day = $day; Session = $shift.Name; PeriodLabel = $period.Session
+                Start = $period.Start; End = $period.End; Status = "Upcoming"
+            }
+        }
+    }
+}
+
+$periodGroupIndex = 0
+foreach ($entryGroup in @($desiredTimetable | Group-Object Session, Day, Start, End)) {
     $usedRoomIds = [System.Collections.Generic.HashSet[Guid]]::new()
-    foreach ($year in 1..4) {
-        $yearCourses = $coursesByYear[$year]
-        $course = $yearCourses[$session.CourseIndex]
-        $eligibleRooms = @($classrooms | Where-Object { $_.Capacity -ge $course.Capacity -and ($year -eq 1 -or $_.Code -ne "501") })
-        if ($eligibleRooms.Count -eq 0) { throw "No classroom has capacity $($course.Capacity) for $($course.Code), Year $year." }
-        $preferredRoomIndex = (($slotIndex * 4) + ($year - 1)) % $eligibleRooms.Count
+    foreach ($item in $entryGroup.Group) {
+        $course = $activeCourses | Where-Object Id -eq $item.CourseId | Select-Object -First 1
+        $eligibleRooms = @($classrooms | Where-Object {
+            $_.Capacity -ge $course.Capacity -and (($item.Year -eq 1 -and $_.Code -eq "501") -or ($item.Year -ne 1 -and $_.Code -ne "501"))
+        } | Sort-Object Code)
+        if ($eligibleRooms.Count -eq 0) { throw "No classroom has capacity $($course.Capacity) for $($course.Code), Year $($item.Year)." }
+        $preferredRoomIndex = ($periodGroupIndex + $item.Year - 1) % $eligibleRooms.Count
         $room = 0..($eligibleRooms.Count - 1) | ForEach-Object { $eligibleRooms[($preferredRoomIndex + $_) % $eligibleRooms.Count] } | Where-Object {
             -not $usedRoomIds.Contains($_.Id)
         } | Select-Object -First 1
-        if ($null -eq $room) { throw "No available classroom for Year $year on day $($session.Day) at $($session.Period.Start)." }
+        if ($null -eq $room) { throw "No available classroom for Year $($item.Year) on day $($item.Day) at $($item.Start)." }
         $null = $usedRoomIds.Add($room.Id)
-        $timetableNumber = $timetable.Count + 1
-        $timetable += [pscustomobject]@{
-            Id = [Guid]::NewGuid(); Code = "TIM-$timetableNumber"; CourseId = $course.Id; TeacherId = $course.TeacherId
-            ClassroomId = $room.Id; Year = $year
-            Day = $session.Day; Session = $session.Shift; PeriodLabel = $session.Period.Session
-            Start = $session.Period.Start; End = $session.Period.End; Status = "Upcoming"
-        }
+        $item.ClassroomId = $room.Id
+    }
+    $periodGroupIndex++
+}
+for ($index = 0; $index -lt $desiredTimetable.Count; $index++) {
+    $item = $desiredTimetable[$index]
+    $timetable += [pscustomobject]@{
+        Id = [Guid]::NewGuid(); Code = "TIM-$($index + 1)"; CourseId = $item.CourseId; TeacherId = $item.TeacherId
+        ClassroomId = $item.ClassroomId; Year = $item.Year; DepartmentId = $item.DepartmentId
+        Day = $item.Day; Session = $item.Session; PeriodLabel = $item.PeriodLabel
+        Start = $item.Start; End = $item.End; Status = $item.Status
     }
 }
-if ($timetable.Count -ne 160) { throw "Expected 160 timetable entries, found $($timetable.Count)." }
+if ($timetable.Count -ne 295) { throw "Expected 295 timetable entries, found $($timetable.Count)." }
 foreach ($shift in $shifts) {
     $shiftEntries = @($timetable | Where-Object Session -eq $shift.Name)
-    if ($shiftEntries.Count -ne 40 -or @($shiftEntries.CourseId | Sort-Object -Unique).Count -ne 40) {
-        throw "$($shift.Name) must schedule all 40 course IDs exactly once."
-    }
-    foreach ($year in 1..4) {
-        if (@($shiftEntries | Where-Object Year -eq $year).Count -ne 10) { throw "$($shift.Name) must schedule 10 Year $year courses." }
-    }
+    $expectedPerDay = if ($shift.Name -eq "Weekend") { 20 } else { 17 }
+    $expectedShiftEntries = $shift.Days.Count * $expectedPerDay
+    if ($shiftEntries.Count -ne $expectedShiftEntries -or @($shiftEntries.CourseId | Sort-Object -Unique).Count -ne 20) { throw "$($shift.Name) must cover all 20 Semester $Semester courses across its scheduled days." }
     foreach ($day in $shift.Days) {
         $shiftDayEntries = @($shiftEntries | Where-Object Day -eq $day)
-        $expectedClasses = $shift.Periods.Count * 4
-        if ($shiftDayEntries.Count -ne $expectedClasses -or @($shiftDayEntries | Group-Object Start, End).Count -ne $shift.Periods.Count) {
-            throw "$($shift.Name), day $day must contain $($shift.Periods.Count) periods with four classes each."
+        if ($shiftDayEntries.Count -ne $expectedPerDay -or @($shiftDayEntries | Group-Object Start, End).Count -ne $shift.Periods.Count) { throw "$($shift.Name), day $day must schedule $expectedPerDay current-semester classes." }
+        foreach ($year in 1..4) {
+            $expectedYearCount = if ($year -eq 1 -and $shift.Name -ne "Weekend") { 2 } else { 5 }
+            if (@($shiftDayEntries | Where-Object Year -eq $year).Count -ne $expectedYearCount) { throw "$($shift.Name), day $day must schedule $expectedYearCount Year $year courses." }
         }
-        $dayDepartments = @($shiftDayEntries | ForEach-Object { ($courses | Where-Object Id -eq $_.CourseId | Select-Object -First 1).DepartmentId } | Sort-Object -Unique)
-        if ($dayDepartments.Count -ne $shift.Periods.Count) { throw "$($shift.Name), day $day must schedule a distinct department in every period." }
+        $periodCounts = @($shiftDayEntries | Group-Object Start, End | Select-Object -ExpandProperty Count | Sort-Object)
+        $expectedPeriodCounts = if ($shift.Name -eq "Weekend") { @(4, 4, 4, 4, 4) } else { @(8, 9) }
+        if (($periodCounts -join ",") -ne ($expectedPeriodCounts -join ",")) { throw "$($shift.Name), day $day has an invalid period distribution: $($periodCounts -join ',')." }
     }
 }
 $exactPeriodStudentCounts = @()
 foreach ($entryGroup in @($timetable | Group-Object Day, Start, End)) {
-    if ($entryGroup.Count -ne 4 -or @($entryGroup.Group.Year | Sort-Object -Unique).Count -ne 4 -or @($entryGroup.Group.ClassroomId | Sort-Object -Unique).Count -ne 4) {
-        throw "Every exact weekday period must have one class for each of Years 1-4 in four distinct rooms."
-    }
-    $periodDepartments = @($entryGroup.Group | ForEach-Object { ($courses | Where-Object Id -eq $_.CourseId | Select-Object -First 1).DepartmentId } | Sort-Object -Unique)
-    if ($periodDepartments.Count -ne 1) { throw "Every exact period must serve one department across Years 1-4 (40 students)." }
+    $weekendPeriod = $entryGroup.Group[0].Session -eq "Weekend"
+    $periodStart = [TimeSpan]$entryGroup.Group[0].Start
+    $firstWeekdayPeriod = $periodStart -in @([TimeSpan]::Parse("07:30:00"), [TimeSpan]::Parse("14:00:00"), [TimeSpan]::Parse("17:30:00"))
+    $expectedClasses = if ($weekendPeriod) { 4 } elseif ($firstWeekdayPeriod) { 9 } else { 8 }
+    if ($entryGroup.Count -ne $expectedClasses -or @($entryGroup.Group.ClassroomId | Sort-Object -Unique).Count -ne $expectedClasses -or @($entryGroup.Group.TeacherId | Sort-Object -Unique).Count -ne $expectedClasses) { throw "Every exact period must use distinct teachers and rooms for all $expectedClasses classes." }
     $periodShift = $entryGroup.Group[0].Session
-    $periodStudentIds = @($students | Where-Object { $_.DepartmentId -eq $periodDepartments[0] -and $_.Shift -eq $periodShift } | Select-Object -ExpandProperty Id -Unique)
-    if ($periodStudentIds.Count -ne 40) { throw "Every exact period must serve 40 unique students, found $($periodStudentIds.Count)." }
+    $periodStudentIds = @($entryGroup.Group | ForEach-Object {
+        $entry = $_
+        $students | Where-Object { $_.DepartmentId -eq $entry.DepartmentId -and $_.Year -eq $entry.Year -and $_.Shift -eq $periodShift } | Select-Object -ExpandProperty Id
+    } | Sort-Object -Unique)
+    $expectedStudents = $expectedClasses * 10
+    if ($periodStudentIds.Count -ne $expectedStudents) { throw "Every exact period must serve $expectedStudents unique students, found $($periodStudentIds.Count)." }
     $exactPeriodStudentCounts += $periodStudentIds.Count
 }
-foreach ($course in $courses) {
+foreach ($course in $activeCourses) {
     $copies = @($timetable | Where-Object CourseId -eq $course.Id)
-    if ($copies.Count -ne 4 -or @($copies.Session | Sort-Object -Unique).Count -ne 4) { throw "$($course.Code) must appear exactly once in each shift." }
+    $expectedCopies = if ($course.Year -eq 1) { 8 } else { 17 }
+    if ($copies.Count -ne $expectedCopies -or @($copies.Session | Sort-Object -Unique).Count -ne 4) { throw "$($course.Code) must appear in all four shifts ($expectedCopies copies)." }
     $courseStudentIds = @($copies | ForEach-Object {
         $copy = $_
         $students | Where-Object { $_.DepartmentId -eq $course.DepartmentId -and $_.Year -eq $course.Year -and $_.Shift -eq $copy.Session } | Select-Object -ExpandProperty Id
     } | Sort-Object -Unique)
-    if ($courseStudentIds.Count -ne 40) { throw "$($course.Code) must cover 40 unique students across its four shift copies, found $($courseStudentIds.Count)." }
+    if ($courseStudentIds.Count -ne 40) { throw "$($course.Code) must cover 40 unique students across its four shifts, found $($courseStudentIds.Count)." }
 }
+if (@($courses | Where-Object Semester -ne $Semester | Where-Object { $_.Id -in $timetable.CourseId }).Count -gt 0) { throw "The timetable contains a course outside Semester $Semester." }
 $shiftDayStudentCounts = @($shifts | ForEach-Object {
     $shift = $_
     foreach ($day in $shift.Days) {
@@ -355,6 +402,8 @@ $shiftDayStudentCounts = @($shifts | ForEach-Object {
             $course = $courses | Where-Object Id -eq $entry.CourseId | Select-Object -First 1
             $students | Where-Object { $_.DepartmentId -eq $course.DepartmentId -and $_.Year -eq $entry.Year -and $_.Shift -eq $shift.Name } | Select-Object -ExpandProperty Id
         } | Sort-Object -Unique)
+        $expectedStudents = if ($shift.Name -eq "Weekend") { 200 } else { 170 }
+        if ($studentIds.Count -ne $expectedStudents) { throw "$($shift.Name), day $day must serve $expectedStudents students, found $($studentIds.Count)." }
         [pscustomobject]@{ Shift = $shift.Name; Day = $day; Students = $studentIds.Count }
     }
 })
@@ -368,7 +417,12 @@ $transaction = $connection.BeginTransaction()
 try {
     Invoke-Statement $connection $transaction @"
 SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET ARITHABORT ON; SET CONCAT_NULL_YIELDS_NULL ON; SET NUMERIC_ROUNDABORT OFF;
-DELETE FROM [ClassSessionRecords]; DELETE FROM [AttendanceRecords]; DELETE FROM [GradeRecords]; DELETE FROM [ScheduleEntries]; DELETE FROM [Courses]; DELETE FROM [Students]; DELETE FROM [Classrooms];
+DELETE FROM [ClassSessionRecords]; DELETE FROM [AttendanceRecords]; DELETE FROM [GradeRecords]; DELETE FROM [ScheduleEntries];
+IF OBJECT_ID(N'[Enrollment].[StudentEnrollments]', N'U') IS NOT NULL DELETE FROM [Enrollment].[StudentEnrollments];
+IF OBJECT_ID(N'[Enrollment].[CourseAssignments]', N'U') IS NOT NULL DELETE FROM [Enrollment].[CourseAssignments];
+IF OBJECT_ID(N'[Enrollment].[ClassroomAssignments]', N'U') IS NOT NULL DELETE FROM [Enrollment].[ClassroomAssignments];
+IF OBJECT_ID(N'[Enrollment].[TeacherAssignments]', N'U') IS NOT NULL DELETE FROM [Enrollment].[TeacherAssignments];
+DELETE FROM [Courses]; DELETE FROM [Students]; DELETE FROM [Classrooms];
 UPDATE [Departments] SET [HeadTeacherId] = NULL; DELETE FROM [Teachers]; DELETE FROM [Departments]; DELETE FROM [AuditLogs];
 "@
 
@@ -381,6 +435,7 @@ UPDATE [Departments] SET [HeadTeacherId] = NULL; DELETE FROM [Teachers]; DELETE 
     $dMinimum = [decimal](Get-Setting $connection $transaction "grade-rules" "dMinimum" "60")
     $eMinimum = [decimal](Get-Setting $connection $transaction "grade-rules" "eMinimum" "50")
     $termSemester = if ($term -match "2") { 2 } else { 1 }
+    if ($termSemester -ne $Semester) { throw "The importer was prepared for Semester $Semester, but Administration currentTerm is $term. Run with -Semester $termSemester." }
     $attendanceDate = $now.Date.AddDays(-((([int]$now.DayOfWeek + 6) % 7)))
     $shiftStarts = @{
         Morning = [TimeSpan]::Parse("07:30:00")
@@ -423,6 +478,18 @@ UPDATE [Departments] SET [HeadTeacherId] = NULL; DELETE FROM [Teachers]; DELETE 
     }
     foreach ($room in $classrooms) {
         Invoke-Statement $connection $transaction "INSERT INTO [Classrooms] ([Id],[ClassroomCode],[Building],[RoomType],[Capacity],[DepartmentId],[Status],[DeviceOnline],[CreatedAtUtc],[UpdatedAtUtc]) VALUES (@Id,@Code,@Building,@RoomType,@Capacity,NULL,@Status,@DeviceOnline,@CreatedAt,@CreatedAt);" @{ Id=$room.Id; Code=$room.Code; Building=$room.Building; RoomType=$room.RoomType; Capacity=$room.Capacity; Status=$room.Status; DeviceOnline=$room.DeviceOnline; CreatedAt=$now }
+    }
+    foreach ($teacher in $teachers) {
+        Invoke-Statement $connection $transaction "INSERT INTO [Enrollment].[TeacherAssignments] ([Id],[TeacherId],[DepartmentId],[AcademicYear],[Semester],[Status],[CreatedAtUtc],[UpdatedAtUtc]) VALUES (NEWID(),@TeacherId,@DepartmentId,@AcademicYear,@Semester,'Assigned',@CreatedAt,@CreatedAt);" @{ TeacherId=$teacher.Id; DepartmentId=$teacher.DepartmentId; AcademicYear=$academicYear; Semester=$term; CreatedAt=$now }
+    }
+    foreach ($student in $students) {
+        Invoke-Statement $connection $transaction "INSERT INTO [Enrollment].[StudentEnrollments] ([Id],[StudentId],[DepartmentId],[YearLevel],[Shift],[AcademicYear],[Semester],[Status],[CreatedAtUtc],[UpdatedAtUtc]) VALUES (NEWID(),@StudentId,@DepartmentId,@Year,@Shift,@AcademicYear,@Semester,'Active',@CreatedAt,@CreatedAt);" @{ StudentId=$student.Id; DepartmentId=$student.DepartmentId; Year=$student.Year; Shift=$student.Shift; AcademicYear=$academicYear; Semester=$term; CreatedAt=$now }
+    }
+    foreach ($course in $courses | Where-Object Semester -eq $termSemester) {
+        Invoke-Statement $connection $transaction "INSERT INTO [Enrollment].[CourseAssignments] ([Id],[CourseId],[DepartmentId],[TeacherId],[YearLevel],[Capacity],[AcademicYear],[Semester],[Status],[CreatedAtUtc],[UpdatedAtUtc]) VALUES (NEWID(),@CourseId,@DepartmentId,@TeacherId,@Year,@Capacity,@AcademicYear,@Semester,'Active',@CreatedAt,@CreatedAt);" @{ CourseId=$course.Id; DepartmentId=$course.DepartmentId; TeacherId=$course.TeacherId; Year=$course.Year; Capacity=$course.Capacity; AcademicYear=$academicYear; Semester=$term; CreatedAt=$now }
+    }
+    foreach ($room in $classrooms) {
+        Invoke-Statement $connection $transaction "INSERT INTO [Enrollment].[ClassroomAssignments] ([Id],[ClassroomId],[DepartmentId],[Capacity],[Access],[AcademicYear],[Semester],[Status],[CreatedAtUtc],[UpdatedAtUtc]) VALUES (NEWID(),@ClassroomId,NULL,@Capacity,'Shared institute',@AcademicYear,@Semester,'Available',@CreatedAt,@CreatedAt);" @{ ClassroomId=$room.Id; Capacity=$room.Capacity; AcademicYear=$academicYear; Semester=$term; CreatedAt=$now }
     }
     foreach ($entry in $timetable) {
         Invoke-Statement $connection $transaction "INSERT INTO [ScheduleEntries] ([Id],[TimetableCode],[CourseId],[ClassroomId],[TeacherId],[YearLevel],[DayOfWeek],[StartsAt],[EndsAt],[Status],[CreatedAtUtc],[UpdatedAtUtc]) VALUES (@Id,@Code,@CourseId,@ClassroomId,@TeacherId,@Year,@Day,@Start,@End,@Status,@CreatedAt,@CreatedAt);" @{ Id=$entry.Id; Code=$entry.Code; CourseId=$entry.CourseId; ClassroomId=$entry.ClassroomId; TeacherId=$entry.TeacherId; Year=$entry.Year; Day=$entry.Day; Start=$entry.Start; End=$entry.End; Status=$entry.Status; CreatedAt=$now }
@@ -467,10 +534,14 @@ finally {
     ShiftWindows = ($shifts | ForEach-Object { "$($_.Name) $($_.StartsAt.ToString('hh\:mm'))-$($_.EndsAt.ToString('hh\:mm'))" }) -join "; "
     DaysByShift = ($shifts | ForEach-Object { "$($_.Name)=$($_.Days -join ',')" }) -join "; "
     PeriodsPerShift = ($shifts | ForEach-Object { "$($_.Name)=$($_.Periods.Count)" }) -join "; "
-    ExactPeriods = $teachingSlots.Count
-    ClassesPerExactPeriod = 4
-    CoursesPerShift = 40
-    CopiesPerCourse = 4
+    Semester = $Semester
+    ExactPeriods = @($timetable | Group-Object Day, Start, End).Count
+    ClassesPerExactPeriod = "Weekday=8-9; Weekend=4"
+    CoursesPerWeekdayShiftDay = 17
+    CoursesPerWeekendDay = 20
+    CurrentSemesterCourses = $activeCourses.Count
+    Year1CopiesPerCourse = 8
+    Year2To4CopiesPerCourse = 17
     CourseCapacity = 40
     StudentsPerDepartmentYear = 40
     StudentsPerShiftDepartmentYear = 10

@@ -73,7 +73,7 @@ public sealed class GradeManagementFeature(InstituteDbContext db, InstituteCache
             throw new InvalidOperationException("Student and course must be active and belong to the same department.");
         values["student"] = student.FullName;
         values["course"] = course.Name;
-        values["departmentId"] = student.DepartmentId.ToString();
+        values["departmentId"] = student.DepartmentId?.ToString() ?? "";
         values["department"] = student.Department?.Name ?? "";
         entity.Score = DecimalInRange(values, "score", 0, 100);
         entity.LetterGrade = await LetterAsync(entity.Score, ct);

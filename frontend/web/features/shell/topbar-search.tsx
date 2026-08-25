@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { enrollmentApi, type EnrollmentResource } from "@/features/enrollment/enrollment-api";
 import { managementApis } from "@/features/management/management-apis";
 import { managementCode } from "@/features/management/management-id";
 import type { ManagementItem, ManagementResource } from "@/features/management/management-types";
@@ -11,7 +12,7 @@ const resources: { id: ManagementResource; label: string }[] = [
   { id: "students", label: "Students" }, { id: "teachers", label: "Teachers" },
   { id: "courses", label: "Courses" }, { id: "classrooms", label: "Learning rooms" },
   { id: "timetable", label: "Timetable" }, { id: "attendance", label: "Attendance" },
-  { id: "grades", label: "Grades" }, { id: "departments", label: "Departments" },
+  { id: "departments", label: "Departments" },
 ];
 
 export function TopbarSearch({ departmentId, year }: { departmentId: string; year: string }) {
@@ -23,7 +24,11 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ManagementItem[]>([]);
   const [open, setOpen] = useState(false);
-  const availableResources = useMemo(() => pathname.startsWith("/management/") ? resources.filter(option => option.id !== "attendance" && option.id !== "grades") : resources, [pathname]);
+  const availableResources = useMemo(() => pathname.startsWith("/enrollment/")
+    ? resources.filter(option => ["students", "teachers", "courses", "classrooms", "timetable", "departments"].includes(option.id))
+    : pathname.startsWith("/management/")
+      ? resources.filter(option => ["students", "teachers", "courses", "classrooms", "timetable", "departments"].includes(option.id))
+      : resources, [pathname]);
 
   useEffect(() => { const timer = window.setTimeout(() => { setResource(resourceFromPath(pathname)); setQuery(""); setItems([]); }, 0); return () => window.clearTimeout(timer); }, [pathname]);
   useEffect(() => {
@@ -35,11 +40,13 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     const text = query.trim();
     if (!text) { const timer = window.setTimeout(() => setItems([]), 0); return () => window.clearTimeout(timer); }
     const timer = window.setTimeout(() => {
-      const api = managementApis[resource] as { get: (search?: string, departmentId?: string) => Promise<ManagementItem[]> };
-      api.get(text, departmentId).then(result => setItems(result.filter(item => matchesYear(item, year)))).catch(() => setItems([]));
+      const promise = pathname.startsWith("/enrollment/")
+        ? enrollmentApi.get(resource as EnrollmentResource, text, departmentId, year)
+        : (managementApis[resource] as { get: (search?: string, departmentId?: string) => Promise<ManagementItem[]> }).get(text, departmentId);
+      promise.then(result => setItems((result as ManagementItem[]).filter(item => matchesYear(item, year)))).catch(() => setItems([]));
     }, 160);
     return () => window.clearTimeout(timer);
-  }, [departmentId, query, resource, year]);
+  }, [departmentId, pathname, query, resource, year]);
 
   const suggestions = useMemo(() => items.map(item => suggestion(item, resource)).filter(item => startsWithWord(item.label, query) || startsWithWord(item.detail, query)).slice(0, 9), [items, query, resource]);
 
@@ -52,7 +59,9 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     if (year) params.set("year", year);
     const section = pathname.split("/")[1];
     const operationalRecord = ["students", "teachers", "courses", "classrooms"].includes(resource);
-    const target = section === "records"
+    const target = section === "enrollment" && ["students", "teachers", "courses", "classrooms", "timetable", "departments"].includes(resource)
+      ? `/enrollment/${resource}`
+      : section === "records"
       ? `/records/${resource}`
       : section === "record-history" && operationalRecord
         ? `/record-history/${resource}`

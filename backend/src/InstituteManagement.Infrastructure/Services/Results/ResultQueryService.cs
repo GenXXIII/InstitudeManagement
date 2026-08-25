@@ -58,7 +58,7 @@ public sealed class ResultQueryService(InstituteDbContext db) : IResultQueryServ
                 var totalGrade = SemesterResultRules.Outcome(absent, periodGrades.Select(grade => grade.Grade).ToList(), average, thresholds, autoPercentage);
                 if (history && totalGrade == "Pending") continue;
                 results.Add(new SemesterResultDto(
-                    student.Id, student.StudentCode, student.FullName, student.DepartmentId, student.Department?.Name ?? "Unassigned", student.YearLevel,
+                    student.Id, student.StudentCode, student.FullName, student.DepartmentId ?? Guid.Empty, student.Department?.Name ?? "Unassigned", student.YearLevel,
                     period.AcademicYear, period.Semester,
                     statuses.Count(status => status is "Present" or "Late"), absent,
                     statuses.Count(status => status is "Excused" or "Permission"),

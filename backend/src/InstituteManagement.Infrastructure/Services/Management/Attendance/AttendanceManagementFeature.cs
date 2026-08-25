@@ -89,7 +89,7 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
         var student = await Db.Students.AsNoTracking().FirstAsync(x => x.Id == entity.StudentId, ct);
         values["student"] = student.FullName;
         values["studentCode"] = student.StudentCode;
-        values["departmentId"] = student.DepartmentId.ToString();
+        values["departmentId"] = student.DepartmentId?.ToString() ?? "";
         entity.Date = DateOnly.TryParse(Required(values, "date"), out var date)
             ? date
             : throw new ArgumentException("date must be a valid date.");

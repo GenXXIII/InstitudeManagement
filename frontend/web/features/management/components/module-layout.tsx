@@ -18,7 +18,7 @@ import { TimetableBoard } from "./timetable-board";
 
 export function ModuleLayout({ module, items, references, onEdit, onDeactivate }: { module: Exclude<ManagementModule, "overview">; items: ManagementItem[]; references: References; onEdit: (item: ManagementItem) => void; onDeactivate: (item: ManagementItem) => void }) {
   if (module === "students") return <StudentRoster items={items as StudentItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
-  if (module === "teachers") return <TeacherRoster items={items as TeacherItem[]} references={references} onEdit={onEdit} onDeactivate={onDeactivate}/>;
+  if (module === "teachers") return <TeacherRoster items={items as TeacherItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
   if (module === "classrooms") return <RoomBoard items={items as ClassroomItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
   if (module === "courses") return <CourseBoard items={items as CourseItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
   if (module === "timetable") return <TimetableBoard items={items as TimetableItem[]} references={references} onEdit={onEdit} onDeactivate={onDeactivate}/>;

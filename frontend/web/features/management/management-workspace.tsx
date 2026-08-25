@@ -44,8 +44,8 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
   useEffect(() => { const timer = window.setTimeout(() => setQuery(searchParams.get("q") ?? ""), 0); return () => window.clearTimeout(timer); }, [searchParams]);
 
   const selectedDepartment = references.departments.find(x => x.id === departmentId);
-  const visibleItems = useMemo(() => sortItemsByYear(filterItemsByYear(items, currentModule, year, references), currentModule, references), [currentModule, items, references, year]);
-  const pagination = useDataPagination(visibleItems, `${currentModule}-${departmentId}-${year}-${query}`);
+  const visibleItems = useMemo(() => sortItemsByYear(filterItemsByYear(items, currentModule, year), currentModule, references), [currentModule, items, references, year]);
+  const pagination = useDataPagination(visibleItems, `${currentModule}-${departmentId}-${year}-${query}`, currentModule === "teachers" ? 5 : undefined);
   const visibleReferences = useMemo(() => sortReferencesByYear(filterReferencesByYear(references, year)), [references, year]);
   const canCreate = currentModule !== "overview" && currentModule !== "attendance" && currentModule !== "grades";
   if (error) return <ErrorPage retry={() => { setError(false); void loadReferences(); void load(); }}/>;
@@ -62,31 +62,18 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
     <PageHeading eyebrow="Current data management" title={managementCopy[currentModule].title} description={managementCopy[currentModule].description} actions={canCreate ? <button className="button primary" onClick={() => setEditing(null)}><Icon name="plus" size={16}/>Add {managementCopy[currentModule].singular}</button> : undefined}/>
     <section className="management-toolbar panel management-toolbar-global">{currentModule !== "overview" && <label className="management-search"><Icon name="search" size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${currentModule}…`}/></label>}<div className="management-scope"><span>Current scope</span><strong>{selectedDepartment?.values.name ?? "Whole institute"}{year ? ` · Year ${year}` : ""}</strong></div></section>
     {actionError && <section className="management-rule-error"><Icon name="bell" size={16}/><div><strong>Relationship protected</strong><span>{actionError}</span></div><button onClick={() => setActionError("")}>Dismiss</button></section>}
-    {currentModule === "overview" ? <ManagementOverview references={visibleReferences} onSelect={value => router.push(`/management/students?departmentId=${encodeURIComponent(value)}${year ? `&year=${year}` : ""}`)} selected={departmentId}/> : <section className="management-paginated-region"><ModuleLayout module={currentModule} items={pagination.pageItems} references={visibleReferences} onEdit={setEditing} onDeactivate={deactivate}/><DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visibleItems.length} onPage={pagination.setPage}/></section>}
+    {currentModule === "overview" ? <ManagementOverview references={visibleReferences} onSelect={value => router.push(`/management/students?departmentId=${encodeURIComponent(value)}${year ? `&year=${year}` : ""}`)} selected={departmentId}/> : <section className="management-paginated-region"><ModuleLayout module={currentModule} items={pagination.pageItems} references={visibleReferences} onEdit={setEditing} onDeactivate={deactivate}/><DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visibleItems.length} pageSize={pagination.pageSize} onPage={pagination.setPage}/></section>}
     {editing !== undefined && currentModule !== "overview" && (currentModule === "timetable"
       ? <TimetableEditor item={editing as TimetableItem | null} references={references} scopeDepartmentId={departmentId} scopeYear={year} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); void loadReferences(); }}/>
-      : <ManagementEditor module={currentModule} item={editing} references={references} scopeDepartmentId={departmentId} scopeYear={year} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); void loadReferences(); }}/>)}
+      : <ManagementEditor module={currentModule} item={editing} references={references} scopeDepartmentId={departmentId} scopeYear={year} studentMode={currentModule === "students" && editing ? "profile" : "full"} teacherMode={currentModule === "teachers" && editing ? "profile" : "full"} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); void loadReferences(); }}/>)}
   </div>;
 }
 
 const managementModules = new Set<ManagementModule>(["overview", "students", "teachers", "classrooms", "courses", "timetable", "departments"]);
 
-function filterItemsByYear(items: ManagementItem[], module: ManagementModule, year: string, references: References) {
+function filterItemsByYear(items: ManagementItem[], module: ManagementModule, year: string) {
   if (!year) return items;
-  const students = references.students.filter(student => student.values.year === year);
-  const studentIds = new Set(students.map(student => student.id));
-  const departmentIds = new Set(students.map(student => student.values.departmentId));
-  const timetable = references.timetable.filter(entry => entry.values.yearLevel === year && entry.values.status !== "Cancelled");
-  const teacherIds = new Set(timetable.map(entry => entry.values.teacherId));
-  const courseIds = new Set(timetable.map(entry => entry.values.courseId));
-  const classroomIds = new Set(timetable.map(entry => entry.values.classroomId));
-  if (module === "students") return items.filter(item => item.values.year === year);
   if (module === "timetable") return items.filter(item => item.values.yearLevel === year);
-  if (module === "attendance" || module === "grades") return items.filter(item => studentIds.has(item.values.studentId));
-  if (module === "teachers") return items.filter(item => teacherIds.has(item.id));
-  if (module === "courses") return items.filter(item => courseIds.has(item.id));
-  if (module === "classrooms") return items.filter(item => classroomIds.has(item.id));
-  if (module === "departments" || module === "overview") return items.filter(item => departmentIds.has(item.id));
   return items;
 }
 

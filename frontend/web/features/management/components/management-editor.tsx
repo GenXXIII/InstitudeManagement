@@ -12,7 +12,13 @@ import { validateManagementFields, validationMessages, type FieldErrors } from "
 import { relationshipCreateTarget } from "../relationship-create";
 import { EditorField } from "./editor-field";
 
-export function ManagementEditor({ module, item, references, scopeDepartmentId, scopeYear, onClose, onSaved }: { module: Exclude<ManagementModule, "overview">; item: ManagementItem | null; references: References; scopeDepartmentId: string; scopeYear: string; onClose: () => void; onSaved: () => void }) {
+type PersonEditorMode = "full" | "profile" | "enrollment";
+const studentProfileFields = new Set(["photoDataUrl", "studentCode", "name", "email"]);
+const studentEnrollmentFields = new Set(["departmentId", "year", "shift"]);
+const teacherProfileFields = new Set(["photoDataUrl", "teacherCode", "name", "email"]);
+const teacherEnrollmentFields = new Set(["departmentId"]);
+
+export function ManagementEditor({ module, item, references, scopeDepartmentId, scopeYear, studentMode = "full", teacherMode = "full", onClose, onSaved }: { module: Exclude<ManagementModule, "overview">; item: ManagementItem | null; references: References; scopeDepartmentId: string; scopeYear: string; studentMode?: PersonEditorMode; teacherMode?: PersonEditorMode; onClose: () => void; onSaved: () => void }) {
   const router = useRouter();
   const { settings } = useInstituteSettings();
   const defaults = moduleDefaults(module, scopeDepartmentId);
@@ -27,7 +33,10 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const saveController = useRef<AbortController | null>(null);
-  const configuredFields = managementFields[module].map(field => field.key === "teacherId" && module === "courses"
+  const configuredFields = managementFields[module].filter(field =>
+    (module !== "students" || studentMode === "full" || (studentMode === "profile" ? studentProfileFields : studentEnrollmentFields).has(field.key)) &&
+    (module !== "teachers" || teacherMode === "full" || (teacherMode === "profile" ? teacherProfileFields : teacherEnrollmentFields).has(field.key))
+  ).map(field => field.key === "teacherId" && module === "courses"
     ? { ...field, required: settings.courses.requireAssignedTeacher === "true" }
     : field.key === "headTeacherId" && module === "departments"
       ? { ...field, required: settings.departments.requireDepartmentHead === "true" }
@@ -94,5 +103,13 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
   }
 
   const problems = validationMessages(fieldErrors, error);
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) cancel(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{item ? "Edit current data" : "New current data"}</span><h2>{item ? `Edit ${managementCopy[module].singular}` : `Add ${managementCopy[module].singular}`}</h2><p>Required relationships and Administration rules are validated before saving.</p></div><button type="button" className="icon-button" onClick={cancel}><Icon name="close"/></button></div><div className="management-form-grid">{fields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} onChange={value => change(field, value)}/>)}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>{saving ? "Cancel request" : "Cancel"}</button><button className="button primary" disabled={saving}>{saving ? "Saving relationships..." : item ? "Save changes" : `Add ${managementCopy[module].singular}`}</button></div></form></div>;
+  const personMode = module === "students" ? studentMode : module === "teachers" ? teacherMode : "full";
+  const personName = module === "teachers" ? "teacher" : "student";
+  const editTitle = personMode === "enrollment" ? `Edit ${personName} enrollment` : personMode === "profile" ? `Edit ${personName} profile` : `Edit ${managementCopy[module].singular}`;
+  const editorEyebrow = personMode === "enrollment" ? "Academic enrollment" : item ? "Personal data management" : "New current data";
+  const editorDescription = personMode === "enrollment"
+    ? module === "teachers" ? "Change the teacher's assigned department. Active course and department-head relationships must remain consistent." : "Change only the student's department, year level, and learning shift. A department or year change reassigns the current course ledger."
+    : "Required profile data and Administration rules are validated before saving.";
+  const saveLabel = personMode === "enrollment" ? "Save enrollment" : personMode === "profile" ? "Save profile" : item ? "Save changes" : `Add ${managementCopy[module].singular}`;
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) cancel(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{editorEyebrow}</span><h2>{item ? editTitle : `Add ${managementCopy[module].singular}`}</h2><p>{editorDescription}</p></div><button type="button" className="icon-button" onClick={cancel}><Icon name="close"/></button></div><div className="management-form-grid">{fields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} onChange={value => change(field, value)}/>)}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>{saving ? "Cancel request" : "Cancel"}</button><button className="button primary" disabled={saving}>{saving ? "Saving relationships..." : saveLabel}</button></div></form></div>;
 }

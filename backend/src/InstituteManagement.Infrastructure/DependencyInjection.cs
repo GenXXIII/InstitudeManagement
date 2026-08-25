@@ -4,6 +4,7 @@ using InstituteManagement.Infrastructure.Services.Administration;
 using InstituteManagement.Infrastructure.Services.Attendance;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Dashboard;
+using InstituteManagement.Infrastructure.Services.Enrollment;
 using InstituteManagement.Infrastructure.Services.History;
 using InstituteManagement.Infrastructure.Services.Grades;
 using InstituteManagement.Infrastructure.Services.Management;
@@ -42,6 +43,7 @@ public static class DependencyInjection
 
         services.AddScoped<InstituteCache>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
+        services.AddScoped<IEnrollmentService, EnrollmentService>();
         services.AddScoped<IOperationQueryService, OperationQueryService>();
         services.AddScoped<OperationContextService>();
         services.AddScoped<IOperationModuleReader, DashboardOperationReader>();
