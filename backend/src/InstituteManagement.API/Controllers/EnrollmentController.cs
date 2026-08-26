@@ -14,4 +14,8 @@ public sealed class EnrollmentController(IEnrollmentService service) : Controlle
     [HttpPut("{resourceId:guid}")]
     public async Task<IActionResult> Update(string resource, Guid resourceId, Dictionary<string, string> values, CancellationToken cancellationToken) =>
         Ok(await service.UpdateAsync(resource, resourceId, values, cancellationToken));
+
+    [HttpDelete("{resourceId:guid}")]
+    public async Task<IActionResult> Remove(string resource, Guid resourceId, CancellationToken cancellationToken) =>
+        await service.RemoveAsync(resource, resourceId, cancellationToken) ? NoContent() : NotFound();
 }

@@ -6,4 +6,5 @@ public interface IEnrollmentService
 {
     Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(string resource, string? search, Guid? departmentId, int? year, CancellationToken cancellationToken);
     Task<EnrollmentItemDto> UpdateAsync(string resource, Guid resourceId, Dictionary<string, string> values, CancellationToken cancellationToken);
+    Task<bool> RemoveAsync(string resource, Guid resourceId, CancellationToken cancellationToken);
 }

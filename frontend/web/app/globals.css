@@ -313,9 +313,15 @@ a { color:inherit; text-decoration:none; }
 .enrollment-horizontal{grid-template-columns:minmax(125px,.75fr) minmax(185px,1.1fr) minmax(190px,1.15fr) 105px 130px 120px 125px}.enrollment-foundation-note{color:#7d8da2;font-size:8px}
 .teacher-enrollment-horizontal{grid-template-columns:minmax(125px,.75fr) minmax(185px,1fr) minmax(170px,.9fr) minmax(220px,1.25fr) 130px 120px minmax(160px,.9fr) 125px}
 .course-master-horizontal{grid-template-columns:minmax(150px,.8fr) minmax(260px,1.4fr) 140px 150px}
-.enrollment-service-horizontal{grid-template-columns:repeat(8,minmax(145px,1fr));min-width:1160px}
-.enrollment-service-horizontal.enrollment-students{grid-template-columns:repeat(7,minmax(145px,1fr));min-width:1015px}
-.enrollment-service-horizontal.enrollment-departments{grid-template-columns:repeat(9,minmax(145px,1fr));min-width:1305px}
+.enrollment-service-horizontal{grid-template-columns:repeat(7,minmax(145px,1fr));min-width:1015px}
+.enrollment-service-horizontal.enrollment-students{grid-template-columns:repeat(6,minmax(145px,1fr));min-width:870px}
+.enrollment-service-horizontal.enrollment-courses{grid-template-columns:repeat(6,minmax(145px,1fr));min-width:870px}
+.enrollment-service-horizontal.enrollment-teachers{grid-template-columns:120px minmax(190px,1fr) minmax(170px,.9fr) minmax(260px,1.35fr) 150px 120px 145px;min-width:1155px}
+.enrollment-service-horizontal.enrollment-classrooms{grid-template-columns:120px minmax(220px,1fr) 160px minmax(360px,1.6fr) 120px 145px;min-width:1125px}
+.enrollment-service-horizontal.enrollment-timetable{grid-template-columns:repeat(6,minmax(145px,1fr));min-width:870px}
+.enrollment-service-horizontal.enrollment-departments{grid-template-columns:repeat(8,minmax(145px,1fr));min-width:1160px}
+.enrollment-service-horizontal>.horizontal-management-row>*{min-height:92px}.enrollment-relationship-cell{overflow:hidden}.enrollment-service-horizontal .enrollment-relationship-value{display:-webkit-box;max-height:4.5em;overflow:hidden!important;line-height:1.5;white-space:normal!important;text-overflow:ellipsis;-webkit-box-orient:vertical;-webkit-line-clamp:3}.enrollment-candidate-field{grid-column:1/-1}.enrollment-candidate-note{color:#7d8ca1;font-size:8px;line-height:1.45}
+@media(min-width:1100px){.enrollment-service-horizontal>.horizontal-management-row>*{min-height:110px}}
 .operational-record-head,.operational-record-main,.record-register-head,.record-row-main,.history-management-head,.history-management-row .record-row-main{grid-template-columns:repeat(5,minmax(175px,1fr));min-width:875px}.operational-record-main,.record-row-main,.history-management-row .record-row-main{min-height:0;align-items:start}.operational-record-identity strong,.record-identity strong,.record-latest-details span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .semester-result-head,.semester-result-row{grid-template-columns:repeat(7,minmax(160px,1fr));min-width:1120px}.semester-result-row{min-height:0;align-items:start}.result-student strong,.result-period strong{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .student-presence-head,.student-presence-board .student-presence-row,.teacher-operation-head,.teacher-operation-row,.operation-standard-page .student-presence-head,.operation-standard-page .student-presence-board .student-presence-row,.operation-standard-page .teacher-operation-head,.operation-standard-page .teacher-operation-row{grid-template-columns:repeat(4,minmax(130px,1fr))}
