@@ -23,7 +23,7 @@ public sealed class OperationalRecordEditService(InstituteDbContext db, Institut
         var academicYear = period.GetValueOrDefault("academic-year:currentYear", "2026\u20132027");
         var term = period.GetValueOrDefault("semester:currentTerm", "Semester 1");
         if (session.AcademicYear != academicYear || session.Term != term)
-            throw new InvalidOperationException("Closed-semester records are permanent read-only Record History and cannot be edited.");
+            throw new InvalidOperationException("Closed-semester records are permanent read-only History and cannot be edited.");
 
         var existing = Deserialize(session.StudentAttendanceJson);
         if (update.Students is null || update.Students.Count != existing.Count || update.Students.Select(student => student.StudentId).Distinct().Count() != update.Students.Count)

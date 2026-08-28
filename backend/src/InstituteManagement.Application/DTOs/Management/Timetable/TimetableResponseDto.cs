@@ -8,8 +8,10 @@ public sealed record TimetableResponseDto(Guid Id, TimetableValuesDto Values) : 
 public sealed record TimetableValuesDto(
     string TimetableCode,
     string CourseId,
+    string CourseCode,
     string Course,
     string TeacherId,
+    string TeacherCode,
     string Teacher,
     string ClassroomId,
     string Classroom,

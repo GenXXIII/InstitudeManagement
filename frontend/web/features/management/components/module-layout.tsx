@@ -20,8 +20,8 @@ export function ModuleLayout({ module, items, references, onEdit, onDeactivate }
   if (module === "students") return <StudentRoster items={items as StudentItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
   if (module === "teachers") return <TeacherRoster items={items as TeacherItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
   if (module === "classrooms") return <RoomBoard items={items as ClassroomItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
-  if (module === "courses") return <CourseBoard items={items as CourseItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
-  if (module === "timetable") return <TimetableBoard items={items as TimetableItem[]} references={references} onEdit={onEdit} onDeactivate={onDeactivate}/>;
+  if (module === "courses") return <CourseBoard items={items as CourseItem[]} timetable={references.timetable} onEdit={onEdit} onDeactivate={onDeactivate}/>;
+  if (module === "timetable") return <TimetableBoard items={items as TimetableItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
   if (module === "attendance") return <AttendanceDesk items={items as AttendanceItem[]} onEdit={onEdit} onDeactivate={onDeactivate}/>;
   if (module === "departments") return <DepartmentDirectory items={items as DepartmentItem[]} references={references} onEdit={onEdit} onDeactivate={onDeactivate}/>;
   return <Gradebook items={items as GradeItem[]} courses={references.courses} students={references.students} onEdit={onEdit} onDeactivate={onDeactivate}/>;

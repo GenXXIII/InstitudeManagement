@@ -52,7 +52,7 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
                 {
                     student.Status = "Inactive";
                     student.UpdatedAtUtc = DateTime.UtcNow;
-                    db.AuditLogs.Add(new AuditLog { ResourceId = student.Id, Type = "Student", Subject = student.FullName, Action = "Graduated", Details = $"{student.StudentCode} completed Year 4 and Semester 2 in {oldYear}; removed from current Management and preserved in Record History." });
+                    db.AuditLogs.Add(new AuditLog { ResourceId = student.Id, Type = "Student", Subject = student.FullName, Action = "Graduated", Details = $"{student.StudentCode} completed Year 4 and Semester 2 in {oldYear}; removed from current Management and preserved in History." });
                 }
                 var students = activeStudents.Where(student => student.YearLevel < 4).ToList();
                 foreach (var student in students) { student.YearLevel++; student.UpdatedAtUtc = DateTime.UtcNow; }
@@ -95,7 +95,7 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
             var (attendanceCreated, gradesCreated) = await CreateActiveStudentLedgersAsync(activeYear, activeTerm, activeStart, cancellationToken);
             if (yearsAdvanced == 0)
             {
-                db.AuditLogs.Add(new AuditLog { Type = "Academic calendar", Subject = activeTerm, Action = "Semester rollover", Details = $"Activated {activeTerm}. Previous grade and attendance rows remain in Records history; Management now uses a new active-period ledger." });
+                db.AuditLogs.Add(new AuditLog { Type = "Academic calendar", Subject = activeTerm, Action = "Semester rollover", Details = $"Activated {activeTerm}. Previous grade and attendance rows remain in History; Management now uses a new active-period ledger." });
             }
             db.Notifications.Add(new Notification
             {

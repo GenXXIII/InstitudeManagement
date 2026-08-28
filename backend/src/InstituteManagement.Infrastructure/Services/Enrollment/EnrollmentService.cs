@@ -52,7 +52,7 @@ public sealed class EnrollmentService(InstituteDbContext db, InstituteCache cach
             "teachers" => await RemoveTeacherAsync(resourceId, period, ct),
             "courses" => await RemoveCourseAsync(resourceId, period, ct),
             "classrooms" => await RemoveClassroomAsync(resourceId, period, ct),
-            "timetable" => await RemoveTimetableAsync(resourceId, ct),
+            "timetable" => await RemoveTimetableAsync(resourceId, period, ct),
             _ => throw new KeyNotFoundException($"Enrollment resource '{resource}' is not supported.")
         };
         if (!removed) return false;
@@ -117,12 +117,13 @@ public sealed class EnrollmentService(InstituteDbContext db, InstituteCache cach
         return true;
     }
 
-    private async Task<bool> RemoveTimetableAsync(Guid id, CancellationToken ct)
+    private async Task<bool> RemoveTimetableAsync(Guid id, Period period, CancellationToken ct)
     {
-        var entry = await db.ScheduleEntries.FindAsync([id], ct);
-        if (entry is null || entry.Status == "Cancelled") return false;
-        var values = AssignmentValues(("timetableCode", entry.TimetableCode), ("courseId", entry.CourseId.ToString()), ("teacherId", entry.TeacherId.ToString()), ("classroomId", entry.ClassroomId.ToString()), ("yearLevel", entry.YearLevel.ToString()), ("dayOfWeek", entry.DayOfWeek.ToString()), ("startsAt", entry.StartsAt.ToString("HH:mm")), ("endsAt", entry.EndsAt.ToString("HH:mm")), ("status", entry.Status));
-        entry.Status = "Cancelled"; entry.UpdatedAtUtc = DateTime.UtcNow;
+        var enrollment = await db.TimetableEnrollments.Include(x => x.ScheduleEntry).FirstOrDefaultAsync(x => x.ScheduleEntryId == id && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester, ct);
+        if (enrollment is null || enrollment.Status == "Removed" || enrollment.ScheduleEntry is null) return false;
+        var entry = enrollment.ScheduleEntry;
+        var values = AssignmentValues(("timetableCode", entry.TimetableCode), ("courseId", entry.CourseId.ToString()), ("teacherId", entry.TeacherId.ToString()), ("classroomId", entry.ClassroomId.ToString()), ("yearLevel", entry.YearLevel.ToString()), ("dayOfWeek", entry.DayOfWeek.ToString()), ("startsAt", entry.StartsAt.ToString("HH:mm")), ("endsAt", entry.EndsAt.ToString("HH:mm")), ("academicYear", enrollment.AcademicYear), ("semester", enrollment.Semester));
+        enrollment.Status = "Removed"; enrollment.UpdatedAtUtc = DateTime.UtcNow;
         db.AuditLogs.Add(Audit(id, "Timetable", entry.TimetableCode, "Assignment removed", values));
         return true;
     }
@@ -186,16 +187,19 @@ public sealed class EnrollmentService(InstituteDbContext db, InstituteCache cach
         var assignments = await db.CourseAssignments.AsNoTracking().Include(x => x.Department)
             .Where(x => x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status == "Active")
             .ToDictionaryAsync(x => x.CourseId, ct);
+        var enrolledIds = await db.TimetableEnrollments.AsNoTracking()
+            .Where(x => x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status == "Active")
+            .Select(x => x.ScheduleEntryId).ToListAsync(ct);
         var entries = await db.ScheduleEntries.AsNoTracking().Include(x => x.Course).Include(x => x.Teacher).Include(x => x.Classroom)
-            .Where(x => x.Status != "Cancelled").ToListAsync(ct);
+            .Where(x => x.Status != "Cancelled" && enrolledIds.Contains(x.Id)).ToListAsync(ct);
         return entries.Where(entry => assignments.TryGetValue(entry.CourseId, out var assignment)
                 && (!departmentId.HasValue || assignment.DepartmentId == departmentId)
                 && (!year.HasValue || entry.YearLevel == year)
-                && Matches(search, entry.TimetableCode, entry.Course?.Name, entry.Teacher?.FullName, entry.Classroom?.ClassroomCode, assignment.Department?.Name))
+                && Matches(search, entry.TimetableCode, entry.Course?.CourseCode, entry.Course?.Name, entry.Teacher?.TeacherCode, entry.Teacher?.FullName, entry.Classroom?.ClassroomCode, assignment.Department?.Name))
             .Select(entry =>
             {
                 var assignment = assignments[entry.CourseId];
-                return Item(entry.Id, ("timetableCode", entry.TimetableCode), ("courseId", entry.CourseId.ToString()), ("course", entry.Course?.Name ?? "Unassigned"), ("teacherId", entry.TeacherId.ToString()), ("teacher", entry.Teacher?.FullName ?? "Unassigned"), ("classroomId", entry.ClassroomId.ToString()), ("classroom", entry.Classroom?.ClassroomCode ?? "Unassigned"), ("classroomType", entry.Classroom?.RoomType ?? "Classroom"), ("departmentId", assignment.DepartmentId.ToString()), ("department", assignment.Department?.Name ?? "Unassigned"), ("yearLevel", entry.YearLevel.ToString()), ("dayOfWeek", entry.DayOfWeek.ToString()), ("startsAt", entry.StartsAt.ToString("HH:mm")), ("endsAt", entry.EndsAt.ToString("HH:mm")), ("status", entry.Status), ("createAt", entry.CreateAt.ToString("yyyy-MM-dd")));
+                return Item(entry.Id, ("timetableCode", entry.TimetableCode), ("courseId", entry.CourseId.ToString()), ("courseCode", entry.Course?.CourseCode ?? "Unassigned"), ("course", entry.Course?.Name ?? "Unassigned"), ("teacherId", entry.TeacherId.ToString()), ("teacherCode", entry.Teacher?.TeacherCode ?? "Unassigned"), ("teacher", entry.Teacher?.FullName ?? "Unassigned"), ("classroomId", entry.ClassroomId.ToString()), ("classroom", entry.Classroom?.ClassroomCode ?? "Unassigned"), ("classroomType", entry.Classroom?.RoomType ?? "Classroom"), ("departmentId", assignment.DepartmentId.ToString()), ("department", assignment.Department?.Name ?? "Unassigned"), ("yearLevel", entry.YearLevel.ToString()), ("dayOfWeek", entry.DayOfWeek.ToString()), ("startsAt", entry.StartsAt.ToString("HH:mm")), ("endsAt", entry.EndsAt.ToString("HH:mm")), ("status", entry.Status), ("createAt", entry.CreateAt.ToString("yyyy-MM-dd")));
             }).ToList();
     }
 
@@ -279,27 +283,21 @@ public sealed class EnrollmentService(InstituteDbContext db, InstituteCache cach
 
     private async Task<EnrollmentItemDto> UpdateTimetableAsync(Guid id, Dictionary<string, string> values, Period period, CancellationToken ct)
     {
-        var entry = await db.ScheduleEntries.FindAsync([id], ct) ?? throw new KeyNotFoundException("Timetable entry not found.");
-        var code = Required(values, "timetableCode");
-        if (await db.ScheduleEntries.AnyAsync(x => x.Id != id && x.TimetableCode == code, ct)) throw new ArgumentException("TimetableCode already exists.");
-        var courseId = GuidValue(values, "courseId", true)!.Value; var teacherId = GuidValue(values, "teacherId", true)!.Value; var classroomId = GuidValue(values, "classroomId", true)!.Value; var year = Integer(values, "yearLevel", 1, 4);
-        var course = await db.CourseAssignments.AsNoTracking().Include(x => x.Course).FirstOrDefaultAsync(x => x.CourseId == courseId && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status == "Active", ct) ?? throw new InvalidOperationException("Assign this course in Course enrollment first.");
-        if (course.YearLevel != year || course.TeacherId != teacherId) throw new InvalidOperationException("Timetable year and teacher must match the current course assignment.");
-        var teacher = await db.TeacherAssignments.AsNoTracking().FirstOrDefaultAsync(x => x.TeacherId == teacherId && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status == "Assigned", ct) ?? throw new InvalidOperationException("Assign this teacher in Teacher enrollment first.");
+        var entry = await db.ScheduleEntries.Include(x => x.Course).Include(x => x.Teacher).Include(x => x.Classroom).FirstOrDefaultAsync(x => x.Id == id && x.Status != "Cancelled", ct) ?? throw new KeyNotFoundException("Management schedule not found.");
+        var course = await db.CourseAssignments.AsNoTracking().Include(x => x.Course).Include(x => x.Department).FirstOrDefaultAsync(x => x.CourseId == entry.CourseId && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status == "Active", ct) ?? throw new InvalidOperationException("Assign this course in Course Assign first.");
+        if (course.YearLevel != entry.YearLevel || course.TeacherId != entry.TeacherId) throw new InvalidOperationException("The Management schedule must match the current course year and teacher assignment.");
+        var teacher = await db.TeacherAssignments.AsNoTracking().FirstOrDefaultAsync(x => x.TeacherId == entry.TeacherId && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status == "Assigned", ct) ?? throw new InvalidOperationException("Assign this teacher in Teacher Assign first.");
         if (teacher.DepartmentId.HasValue && teacher.DepartmentId != course.DepartmentId) throw new InvalidOperationException("Teacher and course must belong to the same enrollment department.");
-        var classroom = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Classroom).FirstOrDefaultAsync(x => x.ClassroomId == classroomId && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status != "Unavailable" && x.Status != "Removed", ct) ?? throw new InvalidOperationException("Assign this classroom in Classroom enrollment first.");
+        var classroom = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Classroom).FirstOrDefaultAsync(x => x.ClassroomId == entry.ClassroomId && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status != "Unavailable" && x.Status != "Removed", ct) ?? throw new InvalidOperationException("Assign this classroom in Classroom Assign first.");
         if (classroom.DepartmentId.HasValue && classroom.DepartmentId != course.DepartmentId) throw new InvalidOperationException("This classroom is assigned to another department.");
         if (classroom.Capacity < course.Capacity) throw new InvalidOperationException("Classroom assignment capacity must cover the course capacity.");
-        if (year == 1 && classroom.Classroom?.ClassroomCode != "501") throw new InvalidOperationException("Year 1 must use Classroom 501.");
-        if (year >= 2 && classroom.Classroom?.ClassroomCode == "501") throw new InvalidOperationException("Classroom 501 is reserved for Year 1.");
-        var day = Enum.TryParse<DayOfWeek>(Required(values, "dayOfWeek"), true, out var parsedDay) ? parsedDay : throw new ArgumentException("dayOfWeek is invalid.");
-        var startsAt = TimeOnly.TryParse(Required(values, "startsAt"), out var parsedStart) ? parsedStart : throw new ArgumentException("startsAt is invalid.");
-        var endsAt = TimeOnly.TryParse(Required(values, "endsAt"), out var parsedEnd) ? parsedEnd : throw new ArgumentException("endsAt is invalid.");
-        if (endsAt <= startsAt || AcademicTimetablePolicy.Find(day, startsAt, endsAt) is null) throw new ArgumentException("Select a configured teaching period.");
-        if (await db.ScheduleEntries.AnyAsync(x => x.Id != id && x.Status != "Cancelled" && x.DayOfWeek == day && x.StartsAt < endsAt && startsAt < x.EndsAt && (x.TeacherId == teacherId || x.ClassroomId == classroomId), ct)) throw new InvalidOperationException("Teacher or classroom is already scheduled during this time.");
-        entry.TimetableCode = code; entry.CourseId = courseId; entry.TeacherId = teacherId; entry.ClassroomId = classroomId; entry.YearLevel = year; entry.DayOfWeek = day; entry.StartsAt = startsAt; entry.EndsAt = endsAt; entry.Status = Choice(values, "status", ["Upcoming", "Running", "Completed", "Cancelled"], "Upcoming"); entry.UpdatedAtUtc = DateTime.UtcNow;
-        db.AuditLogs.Add(Audit(id, "Timetable", code, "Assignment updated", values));
-        return Item(id, ("timetableCode", code), ("courseId", courseId.ToString()), ("teacherId", teacherId.ToString()), ("classroomId", classroomId.ToString()), ("departmentId", course.DepartmentId.ToString()), ("yearLevel", year.ToString()), ("dayOfWeek", day.ToString()), ("startsAt", startsAt.ToString("HH:mm")), ("endsAt", endsAt.ToString("HH:mm")), ("status", entry.Status));
+        if (entry.YearLevel == 1 && classroom.Classroom?.ClassroomCode != "501") throw new InvalidOperationException("Year 1 must use Classroom 501.");
+        if (entry.YearLevel >= 2 && classroom.Classroom?.ClassroomCode == "501") throw new InvalidOperationException("Classroom 501 is reserved for Year 1.");
+        var enrollment = await db.TimetableEnrollments.FirstOrDefaultAsync(x => x.ScheduleEntryId == id && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester, ct);
+        if (enrollment is null) { enrollment = new TimetableEnrollment { ScheduleEntryId = id, AcademicYear = period.AcademicYear, Semester = period.Semester }; db.TimetableEnrollments.Add(enrollment); }
+        enrollment.Status = "Active"; enrollment.UpdatedAtUtc = DateTime.UtcNow;
+        db.AuditLogs.Add(Audit(id, "Timetable", entry.TimetableCode, "Enrollment added", AssignmentValues(("timetableCode", entry.TimetableCode), ("academicYear", period.AcademicYear), ("semester", period.Semester))));
+        return Item(id, ("timetableCode", entry.TimetableCode), ("courseId", entry.CourseId.ToString()), ("courseCode", entry.Course?.CourseCode ?? "Unassigned"), ("course", entry.Course?.Name ?? "Unassigned"), ("teacherId", entry.TeacherId.ToString()), ("teacherCode", entry.Teacher?.TeacherCode ?? "Unassigned"), ("teacher", entry.Teacher?.FullName ?? "Unassigned"), ("classroomId", entry.ClassroomId.ToString()), ("classroom", entry.Classroom?.ClassroomCode ?? "Unassigned"), ("classroomType", entry.Classroom?.RoomType ?? "Classroom"), ("departmentId", course.DepartmentId.ToString()), ("department", course.Department?.Name ?? "Unassigned"), ("yearLevel", entry.YearLevel.ToString()), ("dayOfWeek", entry.DayOfWeek.ToString()), ("startsAt", entry.StartsAt.ToString("HH:mm")), ("endsAt", entry.EndsAt.ToString("HH:mm")), ("status", enrollment.Status), ("createAt", entry.CreateAt.ToString("yyyy-MM-dd")));
     }
 
     private async Task ReassignStudentRecordsAsync(Student student, Guid departmentId, int year, string shift, Period period, CancellationToken ct)

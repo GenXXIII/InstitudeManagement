@@ -120,7 +120,7 @@ public sealed class NotificationCenterService(InstituteDbContext db, InstituteCa
     {
         var type = Choice(request.Type, AnnouncementTypes, "Alert type");
         if (type == "Result" && !await db.GradeRecords.AnyAsync(cancellationToken) && !await db.AuditLogs.AnyAsync(item => item.Type == "Grade", cancellationToken))
-            throw new InvalidOperationException("Result alerts require semester result data in Record History.");
+            throw new InvalidOperationException("Result alerts require semester result data in History.");
         return type;
     }
 

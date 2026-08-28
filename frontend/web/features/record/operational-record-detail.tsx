@@ -33,7 +33,7 @@ export function OperationalRecordDetail({ module, id, history = false }: { modul
   const query = searchParams.toString();
   const backHref = `${history ? "/record-history" : "/record"}/${module}${query ? `?${query}` : ""}`;
   return <div className="viewport-data-page record-detail-viewport-page">
-    <PageHeading eyebrow={history ? "Read-only record history" : "Active-semester record"} title={item.subject} description={`${item.identifier} · ${item.summary}`} actions={<Link className="button secondary" href={backHref}>Back to records</Link>}/>
+    <PageHeading eyebrow={history ? "Read-only history" : "Active-semester record"} title={item.subject} description={`${item.identifier} · ${item.summary}`} actions={<Link className="button secondary" href={backHref}>Back to History</Link>}/>
     <section className="record-detail-scroll">
       <OperationalRecordRow row={item} editable={!history} showStatus={module === "sessions" && !history} detailPage onUpdated={load}/>
     </section>

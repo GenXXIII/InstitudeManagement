@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icon";
-import { announceNavigation, enrollmentNavigation, historyNavigation, managementNavigation, operationNavigation, recordHistoryNavigation, recordNavigation, settingsNavigation } from "./navigation-config";
+import { announceNavigation, enrollmentNavigation, historyNavigation, managementNavigation, operationNavigation, settingsNavigation } from "./navigation-config";
 import { NavGroup } from "./nav-group";
 
 export function Sidebar({ open, live, instituteName, shortName, departmentScope, yearScope, onClose }: { open: boolean; live: boolean; instituteName: string; shortName: string; departmentScope: string; yearScope: string; onClose: () => void }) {
@@ -16,8 +16,6 @@ export function Sidebar({ open, live, instituteName, shortName, departmentScope,
       <NavGroup label="Institute operations" base="operation" items={operationNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="Academic enrollment" base="enrollment" items={enrollmentNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="Academic management" base="management" items={managementNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
-      <NavGroup label="Record" base="record" items={recordNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
-      <NavGroup label="Record history" base="record-history" items={recordHistoryNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="History" base="records" items={historyNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="Announce" base="announce" items={announceNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="Administration" base="settings" items={settingsNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>

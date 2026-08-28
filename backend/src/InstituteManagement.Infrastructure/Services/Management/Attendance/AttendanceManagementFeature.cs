@@ -46,7 +46,7 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
         values["attendanceCode"] = entity.AttendanceCode;
         values["studentId"] = entity.StudentId.ToString();
         var period = await CurrentPeriodAsync(ct);
-        if (entity.AcademicYear != period.AcademicYear || entity.Term != period.Term) throw new InvalidOperationException("Completed-semester attendance is read-only in Records history.");
+        if (entity.AcademicYear != period.AcademicYear || entity.Term != period.Term) throw new InvalidOperationException("Completed-semester attendance is read-only in History.");
         await BuildAsync(entity, values, ct);
         await EnsureUniqueAsync(
             Db.AttendanceRecords.Where(record => record.Id != id && record.StudentId == entity.StudentId && record.Date == entity.Date),
@@ -60,7 +60,7 @@ public sealed class AttendanceManagementFeature(InstituteDbContext db, Institute
         if (!await SettingEnabledAsync("attendance-rules", "allowCorrection", true, ct)) throw new InvalidOperationException("Attendance removal is disabled by Attendance settings.");
         var attendance = (AttendanceRecord)entity;
         var period = await CurrentPeriodAsync(ct);
-        if (attendance.AcademicYear != period.AcademicYear || attendance.Term != period.Term) throw new InvalidOperationException("Completed-semester attendance is permanent Records history and cannot be removed.");
+        if (attendance.AcademicYear != period.AcademicYear || attendance.Term != period.Term) throw new InvalidOperationException("Completed-semester attendance is permanent History and cannot be removed.");
     }
     protected override async Task<Entity?> FindAsync(Guid id, CancellationToken ct) => await Db.AttendanceRecords.FindAsync([id], ct);
     protected override void Deactivate(Entity entity) => Db.Remove(entity);

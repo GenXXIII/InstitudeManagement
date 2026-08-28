@@ -1,4 +1,6 @@
 export const recordTypes: Record<string, { type: string; title: string; description: string }> = {
+  all: { type: "all", title: "All History", description: "One permanent register for every change and snapshot created by Enrollment, Management, and institute operations." },
+  "class-sessions": { type: "Class session", title: "Class session history", description: "Every completed class session and attendance correction recorded by institute operations." },
   students: { type: "Student", title: "Student records", description: "Every current and former student, with complete enrollment, profile, department, and status snapshots." },
   teachers: { type: "Teacher", title: "Teacher records", description: "Every current and former faculty member, with profile, assignment, and employment-status history." },
   classrooms: { type: "Classroom", title: "Classroom records", description: "All active and inactive rooms, including ownership, capacity, device, and status history." },

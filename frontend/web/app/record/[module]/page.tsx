@@ -1,9 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { historyHref, type HistorySearchParams } from "@/features/history/history-route";
 
-import { useParams } from "next/navigation";
-import { OperationalRecordWorkspace } from "@/features/record/operational-record-workspace";
-
-export default function RecordPage() {
-  const { module } = useParams<{ module: string }>();
-  return <OperationalRecordWorkspace module={module}/>;
+export default async function RecordPage({ params, searchParams }: { params: Promise<{ module: string }>; searchParams: Promise<HistorySearchParams> }) {
+  const [{ module }, query] = await Promise.all([params, searchParams]);
+  redirect(historyHref(module, query));
 }

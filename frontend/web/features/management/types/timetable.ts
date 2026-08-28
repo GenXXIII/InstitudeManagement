@@ -1,8 +1,10 @@
 export type TimetableValues = Record<string, string> & {
   timetableCode: string;
   courseId: string;
+  courseCode: string;
   course: string;
   teacherId: string;
+  teacherCode: string;
   teacher: string;
   classroomId: string;
   classroom: string;

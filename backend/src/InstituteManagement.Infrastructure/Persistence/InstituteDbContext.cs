@@ -23,6 +23,7 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
     public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
     public DbSet<CourseAssignment> CourseAssignments => Set<CourseAssignment>();
     public DbSet<ClassroomAssignment> ClassroomAssignments => Set<ClassroomAssignment>();
+    public DbSet<TimetableEnrollment> TimetableEnrollments => Set<TimetableEnrollment>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

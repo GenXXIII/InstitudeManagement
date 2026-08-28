@@ -24,11 +24,15 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ManagementItem[]>([]);
   const [open, setOpen] = useState(false);
-  const availableResources = useMemo(() => pathname.startsWith("/enrollment/")
-    ? resources.filter(option => ["students", "teachers", "courses", "classrooms", "timetable", "departments"].includes(option.id))
-    : pathname.startsWith("/management/")
+  const availableResources = useMemo(() => {
+    const filtered = pathname.startsWith("/enrollment/")
       ? resources.filter(option => ["students", "teachers", "courses", "classrooms", "timetable", "departments"].includes(option.id))
-      : resources, [pathname]);
+      : pathname.startsWith("/management/")
+        ? resources.filter(option => ["students", "teachers", "courses", "classrooms", "timetable", "departments"].includes(option.id))
+        : resources;
+    return pathname.startsWith("/management/") ? filtered.map(option => option.id === "timetable" ? { ...option, label: "Schedule" } : option) : filtered;
+  }, [pathname]);
+  const resourceLabel = availableResources.find(option => option.id === resource)?.label ?? resource;
 
   useEffect(() => { const timer = window.setTimeout(() => { setResource(resourceFromPath(pathname)); setQuery(""); setItems([]); }, 0); return () => window.clearTimeout(timer); }, [pathname]);
   useEffect(() => {
@@ -78,9 +82,9 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     <select aria-label="Search feature" value={resource} onChange={event => { setResource(event.target.value as ManagementResource); setItems([]); setOpen(true); }}>
       {availableResources.map(option => <option value={option.id} key={option.id}>{option.label}</option>)}
     </select>
-    <span className="global-search-input"><Icon name="search" size={17}/><input ref={input} aria-label={`Search ${resource}`} aria-autocomplete="list" aria-controls={resultsId} aria-expanded={open} role="combobox" placeholder={`Type a first or last name in ${resource}…`} value={query} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 120)} onChange={event => { setQuery(event.target.value); setOpen(true); }}/><kbd>Ctrl K</kbd></span>
+    <span className="global-search-input"><Icon name="search" size={17}/><input ref={input} aria-label={`Search ${resourceLabel}`} aria-autocomplete="list" aria-controls={resultsId} aria-expanded={open} role="combobox" placeholder={`Search in ${resourceLabel.toLowerCase()}…`} value={query} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 120)} onChange={event => { setQuery(event.target.value); setOpen(true); }}/><kbd>Ctrl K</kbd></span>
     {open && query.trim() && <div className="global-search-results" role="listbox" id={resultsId}>
-      <header><strong>{availableResources.find(option => option.id === resource)?.label}</strong><span>Matches the beginning of any name or word</span></header>
+      <header><strong>{resourceLabel}</strong><span>Matches the beginning of any name or word</span></header>
       {suggestions.length ? suggestions.map(item => <button type="button" role="option" aria-selected="false" onMouseDown={event => event.preventDefault()} onClick={() => navigate(item.label)} key={item.id}><span><strong>{item.label}</strong><small>{item.detail}</small></span><b>Open</b></button>) : <p>No {resource} begin with “{query.trim()}”.</p>}
     </div>}
   </form>;

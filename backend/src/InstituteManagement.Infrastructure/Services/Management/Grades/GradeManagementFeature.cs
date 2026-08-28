@@ -36,14 +36,14 @@ public sealed class GradeManagementFeature(InstituteDbContext db, InstituteCache
 
     public override Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct) =>
         throw new InvalidOperationException("Grades are generated automatically from students and cannot be added manually.");
-    public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct) { var entity = await RequiredEntityAsync(Db.GradeRecords, id, ct); values["gradeCode"] = entity.GradeCode; values["studentId"] = entity.StudentId.ToString(); values["courseId"] = entity.CourseId.ToString(); var period = await CurrentPeriodAsync(ct); if (entity.AcademicYear != period.AcademicYear || entity.Term != period.Term) throw new InvalidOperationException("Completed-semester grades are read-only in Records history."); await BuildAsync(entity, values, ct); Touch(entity); return await SaveUpdatedAsync(id, values, ct); }
+    public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct) { var entity = await RequiredEntityAsync(Db.GradeRecords, id, ct); values["gradeCode"] = entity.GradeCode; values["studentId"] = entity.StudentId.ToString(); values["courseId"] = entity.CourseId.ToString(); var period = await CurrentPeriodAsync(ct); if (entity.AcademicYear != period.AcademicYear || entity.Term != period.Term) throw new InvalidOperationException("Completed-semester grades are read-only in History."); await BuildAsync(entity, values, ct); Touch(entity); return await SaveUpdatedAsync(id, values, ct); }
     protected override async Task<Entity?> FindAsync(Guid id, CancellationToken ct) => await Db.GradeRecords.FindAsync([id], ct);
     protected override void Deactivate(Entity entity) => Db.Remove(entity);
     protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct)
     {
         var grade = (GradeRecord)entity;
         var period = await CurrentPeriodAsync(ct);
-        if (grade.AcademicYear != period.AcademicYear || grade.Term != period.Term) throw new InvalidOperationException("Completed-semester grades are permanent Records history and cannot be removed.");
+        if (grade.AcademicYear != period.AcademicYear || grade.Term != period.Term) throw new InvalidOperationException("Completed-semester grades are permanent History and cannot be removed.");
     }
     protected override IManagementItemDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
         new GradeResponseDto(id, new GradeValuesDto(

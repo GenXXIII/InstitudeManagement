@@ -16,12 +16,14 @@ public sealed class TimetableManagementFeature(InstituteDbContext db, InstituteC
         var entries = await Db.ScheduleEntries.AsNoTracking().Include(entry => entry.Course).ThenInclude(course => course!.Department).Include(entry => entry.Teacher).Include(entry => entry.Classroom)
             .Where(entry => entry.Status != "Cancelled" && (!departmentId.HasValue || entry.Course!.DepartmentId == departmentId))
             .ToListAsync(ct);
-        return entries.Where(entry => Matches(search, entry.TimetableCode, entry.Course?.Name, entry.Teacher?.FullName, entry.Classroom?.ClassroomCode, entry.Status))
+        return entries.Where(entry => Matches(search, entry.TimetableCode, entry.Course?.CourseCode, entry.Course?.Name, entry.Teacher?.TeacherCode, entry.Teacher?.FullName, entry.Classroom?.ClassroomCode, entry.Status))
             .Select(entry => (IManagementItemDto)new TimetableResponseDto(entry.Id, new TimetableValuesDto(
                 entry.TimetableCode,
                 entry.CourseId.ToString(),
+                entry.Course?.CourseCode ?? "—",
                 entry.Course?.Name ?? "—",
                 entry.TeacherId.ToString(),
+                entry.Teacher?.TeacherCode ?? "—",
                 entry.Teacher?.FullName ?? "—",
                 entry.ClassroomId.ToString(),
                 entry.Classroom?.ClassroomCode ?? "—",
@@ -45,8 +47,10 @@ public sealed class TimetableManagementFeature(InstituteDbContext db, InstituteC
         new TimetableResponseDto(id, new TimetableValuesDto(
             Get(values, "timetableCode"),
             Get(values, "courseId"),
+            Get(values, "courseCode"),
             Get(values, "course"),
             Get(values, "teacherId"),
+            Get(values, "teacherCode"),
             Get(values, "teacher"),
             Get(values, "classroomId"),
             Get(values, "classroom"),

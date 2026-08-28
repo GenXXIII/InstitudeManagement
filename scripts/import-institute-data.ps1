@@ -417,7 +417,9 @@ $transaction = $connection.BeginTransaction()
 try {
     Invoke-Statement $connection $transaction @"
 SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET ARITHABORT ON; SET CONCAT_NULL_YIELDS_NULL ON; SET NUMERIC_ROUNDABORT OFF;
-DELETE FROM [ClassSessionRecords]; DELETE FROM [AttendanceRecords]; DELETE FROM [GradeRecords]; DELETE FROM [ScheduleEntries];
+DELETE FROM [ClassSessionRecords]; DELETE FROM [AttendanceRecords]; DELETE FROM [GradeRecords];
+IF OBJECT_ID(N'[Enrollment].[TimetableEnrollments]', N'U') IS NOT NULL DELETE FROM [Enrollment].[TimetableEnrollments];
+DELETE FROM [ScheduleEntries];
 IF OBJECT_ID(N'[Enrollment].[StudentEnrollments]', N'U') IS NOT NULL DELETE FROM [Enrollment].[StudentEnrollments];
 IF OBJECT_ID(N'[Enrollment].[CourseAssignments]', N'U') IS NOT NULL DELETE FROM [Enrollment].[CourseAssignments];
 IF OBJECT_ID(N'[Enrollment].[ClassroomAssignments]', N'U') IS NOT NULL DELETE FROM [Enrollment].[ClassroomAssignments];
@@ -494,6 +496,7 @@ UPDATE [Departments] SET [HeadTeacherId] = NULL; DELETE FROM [Teachers]; DELETE 
     foreach ($entry in $timetable) {
         Invoke-Statement $connection $transaction "INSERT INTO [ScheduleEntries] ([Id],[TimetableCode],[CourseId],[ClassroomId],[TeacherId],[YearLevel],[DayOfWeek],[StartsAt],[EndsAt],[Status],[CreatedAtUtc],[UpdatedAtUtc]) VALUES (@Id,@Code,@CourseId,@ClassroomId,@TeacherId,@Year,@Day,@Start,@End,@Status,@CreatedAt,@CreatedAt);" @{ Id=$entry.Id; Code=$entry.Code; CourseId=$entry.CourseId; ClassroomId=$entry.ClassroomId; TeacherId=$entry.TeacherId; Year=$entry.Year; Day=$entry.Day; Start=$entry.Start; End=$entry.End; Status=$entry.Status; CreatedAt=$now }
     }
+    Invoke-Statement $connection $transaction "IF OBJECT_ID(N'[Enrollment].[TimetableEnrollments]', N'U') IS NOT NULL INSERT INTO [Enrollment].[TimetableEnrollments] ([Id],[ScheduleEntryId],[AcademicYear],[Semester],[Status],[CreatedAtUtc],[UpdatedAtUtc]) SELECT NEWID(),[Id],@AcademicYear,@Semester,'Active',@CreatedAt,@CreatedAt FROM [ScheduleEntries] WHERE [Status] <> 'Cancelled';" @{ AcademicYear=$academicYear; Semester=$term; CreatedAt=$now }
     foreach ($record in $attendance) {
         Invoke-Statement $connection $transaction "INSERT INTO [AttendanceRecords] ([Id],[AttendanceCode],[StudentId],[Date],[CheckedInAt],[Status],[Method],[AcademicYear],[Term],[CreatedAtUtc],[UpdatedAtUtc]) VALUES (@Id,@Code,@StudentId,@Date,@CheckedInAt,@Status,@Method,@AcademicYear,@Term,@CreatedAt,@CreatedAt);" @{ Id=$record.Id; Code=$record.Code; StudentId=$record.StudentId; Date=$record.Date; CheckedInAt=$record.CheckedInAt; Status=$record.Status; Method=$record.Method; AcademicYear=$record.AcademicYear; Term=$record.Term; CreatedAt=$now }
     }

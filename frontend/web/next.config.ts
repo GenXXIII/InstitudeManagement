@@ -5,9 +5,9 @@ const nextConfig: NextConfig = {
   turbopack: { root: process.cwd() },
   async redirects() {
     return [
-      { source: "/operation/results", destination: "/record-history/results", permanent: true },
-      { source: "/record/results", destination: "/record-history/results", permanent: true },
-      { source: "/records/results", destination: "/record-history/results", permanent: true },
+      { source: "/operation/results", destination: "/records/result-semester", permanent: true },
+      { source: "/record/results", destination: "/records/result-semester", permanent: true },
+      { source: "/records/results", destination: "/records/result-semester", permanent: true },
     ];
   },
 };

@@ -5,25 +5,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
-import { classroomApi } from "@/features/management/classrooms/classroom-api";
 import { ManagementDataCell } from "@/features/management/components/management-data-cell";
-import { courseApi } from "@/features/management/courses/course-api";
 import { departmentApi } from "@/features/management/departments/department-api";
 import { studentApi } from "@/features/management/students/student-api";
-import { teacherApi } from "@/features/management/teachers/teacher-api";
+import { timetableApi } from "@/features/management/timetable/timetable-api";
 import type { DepartmentItem } from "@/features/management/types/department";
 import { enrollmentApi, type EnrollmentItem, type EnrollmentResource } from "./enrollment-api";
 import { EnrollmentEditor } from "./enrollment-editor";
 
 type AssignableEnrollmentResource = "students" | "teachers" | "courses" | "classrooms";
+type SelectableEnrollmentResource = "students" | "timetable";
+type EnrollmentDisplayItem = EnrollmentItem & { rowKey: string; assignedCourse?: string };
 
 const copy: Record<EnrollmentResource, { title: string; description: string; columns: string[] }> = {
-  students: { title: "Student enrollment", description: "Place student profiles into a department, year level, learning shift, and current enrollment state.", columns: ["StudentCode", "Student", "Department / Program", "Year", "Shift", "Actions"] },
-  teachers: { title: "Teacher assignment", description: "Assign teacher profiles to departments and view their linked teaching workload.", columns: ["TeacherCode", "Teacher", "Department", "Courses", "Year levels", "Weekly classes", "Actions"] },
-  courses: { title: "Course assignment", description: "Place course master records into departments, years, teachers, and seat capacities.", columns: ["CourseCode", "Course", "Department", "Year", "Teacher", "Actions"] },
-  classrooms: { title: "Classroom assignment", description: "Control which academic scope may use each learning space and view its scheduled relationships.", columns: ["ClassroomCode", "Classroom", "Access", "Courses", "Capacity", "Actions"] },
-  timetable: { title: "Timetable assignment", description: "Schedule the assigned course, teacher, classroom, department, and Year 1-4 relationships.", columns: ["TimetableCode", "Day and time", "Course", "Department / year", "Teacher", "Actions"] },
-  departments: { title: "Department enrollment", description: "View every department's students, teachers, courses, classrooms, and weekly classes for the selected year.", columns: ["DepartmentCode", "Department", "Year", "Students", "Teachers", "Courses", "Classrooms", "Weekly classes"] },
+  students: { title: "Student Enrollment", description: "Select a student added in Management, then enroll their code and name into a department, year, and learning shift.", columns: ["Code", "Name", "Year", "Shift", "Department", "Actions"] },
+  timetable: { title: "Timetable Enrollment", description: "Add and manage enrolled schedules by timetable, course, and teacher code with their department, year, classroom, day and time, and creation date.", columns: ["Code", "Course", "Teacher", "Department", "Year", "Classroom", "Day / time", "Create At", "Actions"] },
+  "student-assignments": { title: "Student Assign", description: "View each enrolled student's department, year, shift, assigned courses, classrooms, and weekly classes.", columns: ["Code", "Student", "Department", "Year / shift", "Assigned courses", "Assigned classrooms", "Weekly classes", "Actions"] },
+  teachers: { title: "Teacher Assign", description: "View and manage what each teacher is assigned to across departments, courses, year levels, and weekly classes.", columns: ["Code", "Teacher", "Department", "Assigned courses", "Year levels", "Weekly classes", "Actions"] },
+  courses: { title: "Course Assign", description: "View and manage the department and year assigned to each course.", columns: ["Code", "Course", "Department", "Year", "Actions"] },
+  classrooms: { title: "Classroom Assign", description: "View each classroom-course assignment as its own row with classroom access and seat capacity.", columns: ["Code", "Classroom", "Access", "Assigned course", "Capacity", "Actions"] },
+  departments: { title: "Department Assign", description: "View what is assigned to each department for the selected year.", columns: ["Code", "Department", "Year", "Students", "Teachers", "Courses", "Classrooms", "Weekly classes"] },
 };
 
 export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource }) {
@@ -34,8 +35,7 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
   const [items, setItems] = useState<EnrollmentItem[]>([]);
   const [candidates, setCandidates] = useState<EnrollmentItem[]>([]);
   const [teachers, setTeachers] = useState<EnrollmentItem[]>([]);
-  const [courses, setCourses] = useState<EnrollmentItem[]>([]);
-  const [classrooms, setClassrooms] = useState<EnrollmentItem[]>([]);
+  const [studentSchedules, setStudentSchedules] = useState<EnrollmentItem[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [editing, setEditing] = useState<EnrollmentItem | null | undefined>();
   const [ready, setReady] = useState(false);
@@ -43,9 +43,15 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
   const [actionError, setActionError] = useState("");
 
   const load = useCallback(() => {
-    const candidateRequest: Promise<EnrollmentItem[]> = canAddEnrollment(resource)
-      ? Promise.all([getCatalogCandidates(resource), enrollmentApi.get(resource)]).then(([catalogItems, enrollmentItems]) => {
+    const candidateRequest: Promise<EnrollmentItem[]> = isSelectableEnrollment(resource)
+      ? Promise.all([getCatalogCandidates(resource, departmentId, year), enrollmentApi.get(resource)]).then(([catalogItems, enrollmentItems]) => {
           const assignedIds = new Set(enrollmentItems.filter(item => item.values.status !== "Unassigned").map(item => item.id));
+          if (resource === "timetable") {
+            return catalogItems.map(item => ({
+              ...item,
+              values: { ...item.values, enrollmentStatus: assignedIds.has(item.id) ? "Already enrolled" : "Available to enroll" },
+            }));
+          }
           return catalogItems.filter(item => !assignedIds.has(item.id));
         })
       : Promise.resolve([]);
@@ -53,17 +59,15 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     return Promise.all([
       enrollmentApi.get(resource, query, departmentId, year),
       departmentApi.get(),
-      resource === "courses" || resource === "timetable" ? enrollmentApi.get("teachers", "", departmentId) : Promise.resolve([]),
-      resource === "timetable" ? enrollmentApi.get("courses", "", departmentId, year) : Promise.resolve([]),
-      resource === "timetable" ? enrollmentApi.get("classrooms", "", departmentId, year) : Promise.resolve([]),
+      resource === "courses" ? enrollmentApi.get("teachers", "", departmentId) : Promise.resolve([]),
       candidateRequest,
-    ]).then(([rows, departmentRows, teacherRows, courseRows, classroomRows, candidateRows]) => {
+      resource === "student-assignments" ? enrollmentApi.get("timetable", "", departmentId, year) : Promise.resolve([]),
+    ]).then(([rows, departmentRows, teacherRows, candidateRows, scheduleRows]) => {
       setItems(rows);
       setDepartments(departmentRows);
       setTeachers(teacherRows);
-      setCourses(courseRows);
-      setClassrooms(classroomRows);
       setCandidates(candidateRows);
+      setStudentSchedules(scheduleRows);
       setReady(true);
       setError(false);
     }).catch(() => setError(true));
@@ -74,8 +78,14 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const assignedItems = useMemo(() => canAddEnrollment(resource) ? items.filter(item => item.values.status !== "Unassigned") : items, [items, resource]);
-  const sortedItems = useMemo(() => sortEnrollmentItems(assignedItems, resource), [assignedItems, resource]);
+  const assignedItems = useMemo(() => isAssignableEnrollment(resource) || resource === "student-assignments" ? items.filter(item => item.values.status !== "Unassigned") : items, [items, resource]);
+  const displayItems = useMemo<EnrollmentDisplayItem[]>(() => resource === "classrooms"
+    ? assignedItems.flatMap(item => {
+        const assignedCourses = item.values.courses?.split(",").map(course => course.trim()).filter(Boolean) ?? [];
+        return (assignedCourses.length ? assignedCourses : ["Not scheduled"]).map((assignedCourse, index) => ({ ...item, assignedCourse, rowKey: `${item.id}-${index}-${assignedCourse}` }));
+      })
+    : assignedItems.map(item => ({ ...item, rowKey: item.id })), [assignedItems, resource]);
+  const sortedItems = useMemo(() => sortEnrollmentItems(displayItems, resource), [displayItems, resource]);
   const pagination = useDataPagination(sortedItems, `${resource}-enrollment-${departmentId}-${year}-${query}`);
   const details = copy[resource];
   const selectedDepartment = departments.find(department => department.id === departmentId)?.values.name ?? "All departments";
@@ -99,7 +109,7 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
       eyebrow="Academic enrollment service"
       title={details.title}
       description={details.description}
-      actions={canAddEnrollment(resource) ? <button type="button" className="button primary" onClick={() => setEditing(null)}><Icon name="plus" size={16}/>Add enrollment</button> : undefined}
+      actions={resource === "students" || resource === "timetable" ? <button type="button" className="button primary" onClick={() => setEditing(null)}><Icon name="plus" size={16}/>{resource === "timetable" ? "Add timetable" : "Add student enrollment"}</button> : undefined}
     />
     <section className="management-toolbar panel management-toolbar-global">
       <label className="management-search"><Icon name="search" size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${resource}...`}/></label>
@@ -109,18 +119,16 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     <section className="management-paginated-region">
       <section className={`panel horizontal-management-table enrollment-service-horizontal enrollment-${resource}`}>
         <div className="horizontal-management-head">{details.columns.map(column => <span key={column}>{column}</span>)}</div>
-        {pagination.pageItems.map(item => <EnrollmentRow resource={resource} item={item} onEdit={() => setEditing(item)} onRemove={() => { void remove(item); }} key={item.id}/>)}
+        {pagination.pageItems.map(item => <EnrollmentRow resource={resource} item={item} studentSchedules={studentSchedules} onEdit={() => setEditing(item)} onRemove={() => { void remove(item); }} key={item.rowKey}/>)}
       </section>
       <DataPagination page={pagination.page} pageCount={pagination.pageCount} total={sortedItems.length} onPage={pagination.setPage}/>
     </section>
     {editing !== undefined && resource !== "departments" && <EnrollmentEditor
-      resource={resource}
+      resource={resource === "student-assignments" ? "students" : resource}
       item={editing}
       candidates={candidates}
       departments={departments}
       teachers={teachers}
-      courses={courses}
-      classrooms={classrooms}
       scopeDepartmentId={departmentId}
       scopeYear={year}
       onClose={() => setEditing(undefined)}
@@ -129,18 +137,20 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
   </div>;
 }
 
-function EnrollmentRow({ resource, item, onEdit, onRemove }: { resource: EnrollmentResource; item: EnrollmentItem; onEdit: () => void; onRemove: () => void }) {
+function EnrollmentRow({ resource, item, studentSchedules, onEdit, onRemove }: { resource: EnrollmentResource; item: EnrollmentDisplayItem; studentSchedules: EnrollmentItem[]; onEdit: () => void; onRemove: () => void }) {
   const value = item.values;
-  const cells = resource === "students" ? [value.studentCode, value.name, value.year === "1" ? "General foundation" : value.department, value.year ? `Year ${value.year}` : "Unassigned", value.shift || "Unassigned"]
+  const relatedSchedules = resource === "student-assignments" ? studentSchedules.filter(schedule => schedule.values.departmentId === value.departmentId && schedule.values.yearLevel === value.year && scheduleMatchesShift(schedule, value.shift)) : [];
+  const cells = resource === "students" ? [value.studentCode, value.name, value.year ? `Year ${value.year}` : "Unassigned", value.shift || "Unassigned", value.year === "1" ? "General foundation" : value.department]
+    : resource === "student-assignments" ? [value.studentCode, value.name, value.year === "1" ? "General foundation" : value.department, [value.year ? `Year ${value.year}` : "Unassigned", value.shift].filter(Boolean).join(" / "), uniqueValues(relatedSchedules, "course"), uniqueValues(relatedSchedules, "classroom"), relatedSchedules.length.toString()]
     : resource === "teachers" ? [value.teacherCode, value.name, value.department, value.courses || `${value.courseCount || 0} assigned`, value.yearLevels || "Not scheduled", value.weeklyClasses || "0"]
-    : resource === "courses" ? [value.courseCode, value.name, value.department, value.year ? `Year ${value.year}` : "Unassigned", value.teacher]
-    : resource === "classrooms" ? [value.classroomCode, `${value.building} - ${value.roomType}`, value.access, value.courses || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned"]
-    : resource === "timetable" ? [value.timetableCode, `${value.dayOfWeek} ${value.startsAt}-${value.endsAt}`, value.course, `${value.department} - Year ${value.yearLevel}`, value.teacher]
+    : resource === "courses" ? [value.courseCode, value.name, value.department, value.year ? `Year ${value.year}` : "Unassigned"]
+    : resource === "classrooms" ? [value.classroomCode, `${value.building} - ${value.roomType}`, value.access, item.assignedCourse || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned"]
+    : resource === "timetable" ? [value.timetableCode, [value.courseCode, value.course].filter(Boolean).join(" - "), [value.teacherCode, value.teacher].filter(Boolean).join(" - "), value.department, value.yearLevel ? `Year ${value.yearLevel}` : "Unassigned", value.classroom, `${value.dayOfWeek} ${value.startsAt}-${value.endsAt}`, value.createAt]
     : [value.departmentCode, value.name, value.year === "All" ? "All years" : `Year ${value.year}`, value.students, value.teachers, value.courses, value.classrooms, value.weeklyClasses];
 
   return <article className="horizontal-management-row">
     {cells.map((cell, index) => {
-      const relationship = (resource === "classrooms" && index === 3) || (resource === "teachers" && index === 3);
+      const relationship = (resource === "classrooms" && index === 3) || (resource === "teachers" && index === 3) || (resource === "student-assignments" && (index === 4 || index === 5));
       const className = [index === 1 ? "horizontal-primary" : "horizontal-detail", relationship ? "enrollment-relationship-cell" : ""].filter(Boolean).join(" ");
       return <ManagementDataCell label={copy[resource].columns[index]} className={className} key={`${item.id}-${index}`}>
         <strong className={relationship ? "enrollment-relationship-value" : undefined} title={relationship ? cell : undefined}>{cell || "Unassigned"}</strong>
@@ -150,22 +160,26 @@ function EnrollmentRow({ resource, item, onEdit, onRemove }: { resource: Enrollm
   </article>;
 }
 
-function canAddEnrollment(resource: EnrollmentResource): resource is AssignableEnrollmentResource {
+function isAssignableEnrollment(resource: EnrollmentResource): resource is AssignableEnrollmentResource {
   return resource === "students" || resource === "teachers" || resource === "courses" || resource === "classrooms";
 }
 
-function getCatalogCandidates(resource: AssignableEnrollmentResource): Promise<EnrollmentItem[]> {
+function getCatalogCandidates(resource: SelectableEnrollmentResource, departmentId: string, year: string): Promise<EnrollmentItem[]> {
   if (resource === "students") return studentApi.get();
-  if (resource === "teachers") return teacherApi.get();
-  if (resource === "courses") return courseApi.get();
-  return classroomApi.get();
+  return timetableApi.get("", departmentId).then(items => items.filter(item => !year || item.values.yearLevel === year));
 }
 
-function sortEnrollmentItems(items: EnrollmentItem[], resource: EnrollmentResource) {
+function isSelectableEnrollment(resource: EnrollmentResource): resource is SelectableEnrollmentResource {
+  return resource === "students" || resource === "timetable";
+}
+
+function sortEnrollmentItems<T extends EnrollmentItem>(items: T[], resource: EnrollmentResource) {
   return items.toSorted((left, right) => {
     const yearDifference = enrollmentYear(left, resource) - enrollmentYear(right, resource);
     if (yearDifference) return yearDifference;
-    return enrollmentCode(left).localeCompare(enrollmentCode(right), undefined, { numeric: true, sensitivity: "base" });
+    const codeDifference = enrollmentCode(left).localeCompare(enrollmentCode(right), undefined, { numeric: true, sensitivity: "base" });
+    if (codeDifference) return codeDifference;
+    return assignedCourseName(left).localeCompare(assignedCourseName(right), undefined, { numeric: true, sensitivity: "base" });
   });
 }
 
@@ -181,9 +195,24 @@ function enrollmentCode(item: EnrollmentItem) {
 }
 
 function enrollmentSubject(resource: EnrollmentResource) {
-  if (resource === "students") return "student enrollment";
+  if (resource === "students" || resource === "student-assignments") return "student enrollment";
   if (resource === "teachers") return "teacher";
   if (resource === "courses") return "course";
   if (resource === "classrooms") return "classroom";
   return "timetable";
+}
+
+function assignedCourseName(item: EnrollmentItem) {
+  return "assignedCourse" in item && typeof item.assignedCourse === "string" ? item.assignedCourse : "";
+}
+
+function scheduleMatchesShift(schedule: EnrollmentItem, shift: string | undefined) {
+  if (!shift) return true;
+  if (shift === "Weekend") return schedule.values.dayOfWeek === "Saturday" || schedule.values.dayOfWeek === "Sunday";
+  const hour = Number(schedule.values.startsAt?.slice(0, 2));
+  return shift === "Morning" ? hour < 13 : shift === "Afternoon" ? hour >= 13 && hour < 17 : hour >= 17;
+}
+
+function uniqueValues(items: EnrollmentItem[], key: string) {
+  return [...new Set(items.map(item => item.values[key]).filter(Boolean))].join(", ") || "Not scheduled";
 }
