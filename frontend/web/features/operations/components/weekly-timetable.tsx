@@ -26,7 +26,7 @@ export function WeeklyTimetable({ rows, periods, rooms, globalYear }: { rows: We
     const scheduled = visibleRows.filter(row => row.room === room.room && row.startsAt === period.startsAt && row.endsAt === period.endsAt);
     return <div className="room-period-cell" key={period.startsAt}>{scheduled.length ? scheduled.map(row => {
       const current = selectedDay === today && isCurrentTime(row, now);
-      return <article className={current ? "current-course" : ""} key={row.id}><div><b>Y{row.yearLevel}</b><strong>{row.course}</strong>{current && <i>Live</i>}</div><span>{row.teacher}</span></article>;
+      return <article className={current ? "current-course" : ""} key={row.id}><div><b>{row.timetableCode}</b><strong>{row.course}</strong>{current && <i>Live</i>}</div><span>{row.teacher} · Year {row.yearLevel}</span></article>;
     }) : <span className="room-period-empty">Available</span>}</div>;
   })}</div>)}</div></section>{customCount > 0 && <section className="custom-timetable-warning"><strong>Needs rescheduling</strong><span>{customCount} older timetable entries are outside the configured teaching periods.</span></section>}</div>;
 }

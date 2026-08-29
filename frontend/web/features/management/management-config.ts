@@ -10,7 +10,7 @@ import { timetableDefaults, timetableFields } from "./timetable/timetable-config
 
 export const emptyReferences: References = { departments: [], teachers: [], students: [], classrooms: [], courses: [], timetable: [], attendance: [] };
 export const managementCopy: Record<ManagementModule, { title: string; description: string; singular: string }> = {
-  overview: { title: "Institute management", description: "Manage current institute data through connected department workspaces.", singular: "item" },
+  overview: { title: "Management Overview", description: "Review current coded institute data through connected department workspaces.", singular: "item" },
   students: { title: "Student profile management", description: "Maintain each student's identity, profile photo, name, email, and personal record. Academic placement is shown under Academic enrollment.", singular: "student" },
   teachers: { title: "Teacher profile management", description: "Maintain each teacher's identity, profile photo, name, email, and personal record. Academic assignments are managed under Academic enrollment.", singular: "teacher" },
   classrooms: { title: "Learning-space management", description: "Manage institute-shared classroom and meeting-room information for every department.", singular: "learning space" },

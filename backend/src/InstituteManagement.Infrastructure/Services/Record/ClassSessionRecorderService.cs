@@ -37,7 +37,20 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
             var firstDate = lastRecorded ?? today;
             if (firstDate < termStart) firstDate = termStart;
 
-            var schedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Course).Include(x => x.Teacher).Include(x => x.Classroom).Where(x => x.Status != "Cancelled").ToListAsync(cancellationToken);
+            var courseAssignments = await db.CourseAssignments.AsNoTracking()
+                .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status == "Active")
+                .ToDictionaryAsync(x => x.CourseId, cancellationToken);
+            var teacherAssignments = await db.TeacherAssignments.AsNoTracking()
+                .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status != "Removed" && x.Status != "Unassigned")
+                .ToListAsync(cancellationToken);
+            var courseIds = courseAssignments.Keys.ToList();
+            var enrolledScheduleIds = await db.TimetableEnrollments.AsNoTracking()
+                .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status == "Active")
+                .Select(x => x.ScheduleEntryId)
+                .ToListAsync(cancellationToken);
+            var schedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Course).Include(x => x.Teacher).Include(x => x.Classroom)
+                .Where(x => x.Status != "Cancelled" && enrolledScheduleIds.Contains(x.Id) && courseIds.Contains(x.CourseId))
+                .ToListAsync(cancellationToken);
             var existing = await db.ClassSessionRecords.AsNoTracking().Where(x => x.SessionDate >= firstDate && x.SessionDate <= today).Select(x => new { x.ScheduleEntryId, x.SessionDate }).ToListAsync(cancellationToken);
             var existingKeys = existing.Select(x => (x.ScheduleEntryId, x.SessionDate)).ToHashSet();
             var recorded = 0;
@@ -50,7 +63,14 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                     if (existingKeys.Contains((schedule.Id, date)) || schedule.Course is null || schedule.Teacher is null || schedule.Classroom is null) continue;
                     var shift = AcademicTimetablePolicy.FindShift(schedule.DayOfWeek, schedule.StartsAt, schedule.EndsAt);
                     if (shift is null) continue;
-                    var students = await db.Students.AsNoTracking().Where(x => x.Status != "Inactive" && x.DepartmentId == schedule.Course.DepartmentId && x.YearLevel == schedule.YearLevel && x.Shift == shift.Name).OrderBy(x => x.FullName).ToListAsync(cancellationToken);
+                    var courseAssignment = courseAssignments[schedule.CourseId];
+                    var teacherAssignment = teacherAssignments.FirstOrDefault(x => x.TeacherId == schedule.TeacherId && (x.DepartmentId == courseAssignment.DepartmentId || x.DepartmentId == null));
+                    var studentEnrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student)
+                        .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status == "Active"
+                            && x.DepartmentId == courseAssignment.DepartmentId && x.YearLevel == schedule.YearLevel && x.Shift == shift.Name)
+                        .OrderBy(x => x.Student!.FullName)
+                        .ToListAsync(cancellationToken);
+                    var students = studentEnrollments.Where(x => x.Student is not null && x.Student.Status != "Inactive").Select(x => x.Student!).ToList();
                     var studentIds = students.Select(x => x.Id).ToList();
                     var attendance = await db.AttendanceRecords.AsNoTracking().Where(x => studentIds.Contains(x.StudentId) && x.Date == date && x.AcademicYear == academicYear && x.Term == term).ToDictionaryAsync(x => x.StudentId, cancellationToken);
                     var snapshots = students.Select(student =>
@@ -65,7 +85,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                         SessionDate = date,
                         AcademicYear = academicYear,
                         Term = term,
-                        DepartmentId = schedule.Course.DepartmentId ?? Guid.Empty,
+                        DepartmentId = courseAssignment.DepartmentId,
                         CourseId = schedule.CourseId,
                         TeacherId = schedule.TeacherId,
                         ClassroomId = schedule.ClassroomId,
@@ -74,6 +94,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                         EndsAt = schedule.EndsAt,
                         CourseName = schedule.Course.Name,
                         TeacherName = schedule.Teacher.FullName,
+                        TeacherAttendanceStatus = TeacherAttendance(teacherAssignment?.Status ?? schedule.Teacher.Status),
                         ClassroomCode = schedule.Classroom.ClassroomCode,
                         StudentCount = snapshots.Count,
                         PresentCount = snapshots.Count(x => x.Status == "Present"),
@@ -111,5 +132,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
 
     private static bool Enabled(IReadOnlyDictionary<string, string> values, string key, bool fallback) =>
         bool.TryParse(values.GetValueOrDefault(key), out var enabled) ? enabled : fallback;
+
+    private static string TeacherAttendance(string status) => status switch { "On leave" => "Permission", "Inactive" => "Absent", _ => "Present" };
 
 }

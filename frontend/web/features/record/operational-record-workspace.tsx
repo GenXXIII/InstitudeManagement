@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
@@ -22,9 +22,11 @@ const modules: Record<string, { title: string; description: string; singular: st
 export function OperationalRecordWorkspace({ module: rawModule, history = false }: { module: string; history?: boolean }) {
   const currentModule = rawModule in modules ? rawModule : "students";
   const config = modules[currentModule];
+  const router = useRouter();
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
+  const selectedPeriod = searchParams.get("period") ?? "all";
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [rows, setRows] = useState<OperationalRecord[]>([]);
   const [ready, setReady] = useState(false);
@@ -33,19 +35,24 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
   useEffect(() => { const timer = window.setTimeout(load, 180); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => { const timer = window.setTimeout(() => setQuery(searchParams.get("q") ?? ""), 0); return () => window.clearTimeout(timer); }, [searchParams]);
 
+  const periods = useMemo(() => [...new Map(rows.filter(row => row.academicYear && row.term).map(row => [`${row.academicYear}|${row.term}`, { key: `${row.academicYear}|${row.term}`, label: `${row.academicYear} · ${row.term}` }])).values()]
+    .toSorted((left, right) => right.key.localeCompare(left.key, undefined, { numeric: true })), [rows]);
   const yearRows = useMemo(() => rows
+    .filter(row => selectedPeriod === "all" || `${row.academicYear}|${row.term}` === selectedPeriod)
     .filter(row => !year || JSON.stringify(row).toLowerCase().includes(`year ${year}`))
-    .toSorted((left, right) => recordYear(left) - recordYear(right) || Date.parse(right.lastActivityAt ?? "") - Date.parse(left.lastActivityAt ?? "")), [rows, year]);
+    .toSorted((left, right) => recordYear(left) - recordYear(right) || Date.parse(right.lastActivityAt ?? "") - Date.parse(left.lastActivityAt ?? "")), [rows, selectedPeriod, year]);
   const visible = yearRows;
   const pagination = useDataPagination(visible, `${currentModule}-${history}-${departmentId}-${year}-${query}`);
   const detailQuery = searchParams.toString();
-  const detailHref = (id: string) => `${history ? "/record-history" : "/record"}/${currentModule}/${encodeURIComponent(id)}${detailQuery ? `?${detailQuery}` : ""}`;
+  const routeModule = history && currentModule === "sessions" ? "class-sessions" : currentModule;
+  const detailHref = (id: string) => `${history ? "/records" : "/record"}/${routeModule}/${encodeURIComponent(id)}${detailQuery ? `?${detailQuery}` : ""}`;
   const activityCount = yearRows.reduce((total, row) => total + row.activities.length, 0);
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
 
   return <div className="viewport-data-page record-viewport-page">
     <PageHeading eyebrow={history ? "Read-only semester history" : "Active-semester records"} title={history ? `${config.title} history` : config.title} description={`${history ? "Closed semesters remain permanent and read-only in History. " : "When the semester advances, this view resets while its old data remains in History. "}${config.description}${year ? ` Showing Year ${year}.` : ""}`}/>
+    {history && <section className="record-semester-switcher panel"><div><span>Semester view</span><strong>{selectedPeriod === "all" ? "All semesters" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><nav><button type="button" className={selectedPeriod === "all" ? "active" : ""} onClick={() => changePeriod("all")}>All semesters</button>{periods.map(period => <button type="button" className={selectedPeriod === period.key ? "active" : ""} onClick={() => changePeriod(period.key)} key={period.key}>{period.label}</button>)}</nav></section>}
     <section className="operational-record-summary"><article className="panel"><span>All {config.singular}s</span><strong>{yearRows.length.toLocaleString()}</strong><small>Completed timetable evidence</small></article><article className="panel"><span>Recorded activities</span><strong>{activityCount.toLocaleString()}</strong><small>Completed classes and attendance only</small></article><article className="panel"><span>With activity</span><strong>{yearRows.filter(row => row.activities.length > 0).length.toLocaleString()}</strong><small>Expandable timetable records</small></article></section>
     <section className="record-toolbar panel"><label className="record-search"><Icon name="search" size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}…`} aria-label={`Search ${config.title}`}/></label><span className="record-count">Showing {visible.length} of {yearRows.length}</span></section>
     {visible.length
@@ -56,6 +63,12 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
           : <div className="session-record-list">{pagination.pageItems.map(row => <OperationalRecordRow row={row} editable={!history} showStatus={!history} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div>}<DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visible.length} onPage={pagination.setPage}/></section>
       : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>{history ? "No semester records found" : "No active-semester records found"}</strong><span>{history ? "Current records appear here read-only and remain permanently after semester rollover." : "Records appear automatically when a scheduled timetable period ends or a grade is assigned."}</span></section>}
   </div>;
+
+  function changePeriod(period: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (period === "all") params.delete("period"); else params.set("period", period);
+    router.replace(`/records/${routeModule}${params.size ? `?${params}` : ""}`, { scroll: false });
+  }
 }
 
 function recordYear(record: OperationalRecord) {

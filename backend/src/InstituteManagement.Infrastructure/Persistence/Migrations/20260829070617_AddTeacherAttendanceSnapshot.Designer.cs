@@ -4,6 +4,7 @@ using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InstituteManagement.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(InstituteDbContext))]
-    partial class InstituteDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260829070617_AddTeacherAttendanceSnapshot")]
+    partial class AddTeacherAttendanceSnapshot
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

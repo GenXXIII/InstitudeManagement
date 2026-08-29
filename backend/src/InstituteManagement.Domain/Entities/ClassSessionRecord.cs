@@ -20,6 +20,7 @@ public sealed class ClassSessionRecord : Entity
     public TimeOnly EndsAt { get; set; }
     public string CourseName { get; set; } = string.Empty;
     public string TeacherName { get; set; } = string.Empty;
+    public string TeacherAttendanceStatus { get; set; } = "Present";
     public string ClassroomCode { get; set; } = string.Empty;
     public int StudentCount { get; set; }
     public int PresentCount { get; set; }

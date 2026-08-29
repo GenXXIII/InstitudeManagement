@@ -12,6 +12,7 @@ import { timetableApi } from "@/features/management/timetable/timetable-api";
 import type { DepartmentItem } from "@/features/management/types/department";
 import { enrollmentApi, type EnrollmentItem, type EnrollmentResource } from "./enrollment-api";
 import { EnrollmentEditor } from "./enrollment-editor";
+import { scheduleMatchesShift } from "./enrollment-relationships";
 
 type AssignableEnrollmentResource = "students" | "teachers" | "courses" | "classrooms";
 type SelectableEnrollmentResource = "students" | "timetable";
@@ -204,13 +205,6 @@ function enrollmentSubject(resource: EnrollmentResource) {
 
 function assignedCourseName(item: EnrollmentItem) {
   return "assignedCourse" in item && typeof item.assignedCourse === "string" ? item.assignedCourse : "";
-}
-
-function scheduleMatchesShift(schedule: EnrollmentItem, shift: string | undefined) {
-  if (!shift) return true;
-  if (shift === "Weekend") return schedule.values.dayOfWeek === "Saturday" || schedule.values.dayOfWeek === "Sunday";
-  const hour = Number(schedule.values.startsAt?.slice(0, 2));
-  return shift === "Morning" ? hour < 13 : shift === "Afternoon" ? hour >= 13 && hour < 17 : hour >= 17;
 }
 
 function uniqueValues(items: EnrollmentItem[], key: string) {

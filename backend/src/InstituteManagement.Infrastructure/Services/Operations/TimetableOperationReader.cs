@@ -6,23 +6,36 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
-public sealed class TimetableOperationReader(InstituteDbContext db, OperationContextService contextService) : IOperationModuleReader
+public sealed class TimetableOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentPeriodService periodService) : IOperationModuleReader
 {
     public string Module => "timetable";
 
     public async Task<OperationDto> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
+        var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
+        var courseAssignments = await db.CourseAssignments.AsNoTracking()
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
+                && (!departmentId.HasValue || x.DepartmentId == departmentId))
+            .Select(x => x.CourseId)
+            .ToListAsync(cancellationToken);
+        var enrolledTimetableIds = await db.TimetableEnrollments.AsNoTracking()
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
+            .Select(x => x.ScheduleEntryId)
+            .ToListAsync(cancellationToken);
         var query = db.ScheduleEntries.AsNoTracking()
             .Include(x => x.Course)
             .Include(x => x.Teacher)
             .Include(x => x.Classroom)
-            .Where(x => x.Status != "Cancelled" && (!departmentId.HasValue || x.Course!.DepartmentId == departmentId));
+            .Where(x => x.Status != "Cancelled" && enrolledTimetableIds.Contains(x.Id) && courseAssignments.Contains(x.CourseId));
         var schedules = await query.OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartsAt).ToListAsync(cancellationToken);
-        var learningSpaces = await db.Classrooms.AsNoTracking()
-            .Where(room => room.Status != "Inactive")
-            .OrderBy(room => room.ClassroomCode)
+        var classroomAssignments = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Classroom)
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
+                && x.Status != "Removed" && x.Status != "Unassigned"
+                && (!departmentId.HasValue || x.DepartmentId == null || x.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
+        var learningSpaces = classroomAssignments.Where(x => x.Classroom is not null).Select(x => x.Classroom!).DistinctBy(x => x.Id).OrderBy(x => x.ClassroomCode).ToList();
+        var assignmentByRoom = classroomAssignments.GroupBy(x => x.ClassroomId).ToDictionary(x => x.Key, x => x.First());
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var time = TimeOnly.FromDateTime(now);
         var running = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time);
@@ -38,6 +51,7 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
                 : "Upcoming";
             return new WeeklyTimetableSlotDto(
                 x.Id,
+                x.TimetableCode,
                 x.DayOfWeek.ToString(),
                 period?.Session ?? "Custom",
                 x.StartsAt.ToString("HH:mm"),
@@ -57,14 +71,14 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
                 room.Id,
                 room.ClassroomCode,
                 room.RoomType,
-                inStudyRoomIds.Contains(room.Id) && room.Status is not ("Offline" or "Starting") ? "In Study" : room.Status))
+                inStudyRoomIds.Contains(room.Id) && assignmentByRoom[room.Id].Status != "Unavailable" ? "In Study" : assignmentByRoom[room.Id].Status))
             .ToList();
         var metrics = new List<MetricDto>
         {
             new("Running", running.ToString(), "Classes right now", "green"),
             new("Shifts", AcademicTimetablePolicy.Shifts.Count.ToString(), "Morning, afternoon, evening, weekend"),
             new("Concurrent", "4", "One class for each year"),
-            new("Rooms", learningSpaces.Count.ToString(), "Available learning spaces", "violet")
+            new("Rooms", learningSpaces.Count.ToString(), "Enrollment-assigned learning spaces", "violet")
         };
         return new OperationDto(
             Module,

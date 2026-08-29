@@ -24,6 +24,7 @@ function historyKey(resource: string, id: string) {
 
 function historyResource(module: string) {
   if (module === "sessions" || module === "class-sessions") return "class-sessions";
+  if (module === "attendance") return "students";
   if (module === "results" || module === "grades" || module === "result-semester") return "result-semester";
-  return ["students", "teachers", "courses", "classrooms", "timetable", "attendance", "departments"].includes(module) ? module : "students";
+  return ["students", "teachers", "courses", "classrooms", "timetable", "departments"].includes(module) ? module : "students";
 }

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
-public sealed class StudentOperationReader(InstituteDbContext db, OperationContextService contextService) : IOperationModuleReader
+public sealed class StudentOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentPeriodService periodService) : IOperationModuleReader
 {
     public string Module => "students";
 
@@ -17,41 +17,49 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(localNow);
         var shift = selection.Shift;
         var period = selection.Period;
-        var selectedSchedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Course)
+        var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
+        var courseAssignments = await db.CourseAssignments.AsNoTracking().Include(x => x.Department)
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
+                && (!departmentId.HasValue || x.DepartmentId == departmentId))
+            .ToDictionaryAsync(x => x.CourseId, cancellationToken);
+        var courseIds = courseAssignments.Keys.ToList();
+        var enrolledTimetableIds = await db.TimetableEnrollments.AsNoTracking()
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
+            .Select(x => x.ScheduleEntryId)
+            .ToListAsync(cancellationToken);
+        var selectedSchedules = await db.ScheduleEntries.AsNoTracking()
             .Where(x => x.Status != "Cancelled"
+                && enrolledTimetableIds.Contains(x.Id)
+                && courseIds.Contains(x.CourseId)
                 && x.DayOfWeek == selection.Date.DayOfWeek
-                && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt
-                && (!departmentId.HasValue || x.Course!.DepartmentId == departmentId))
+                && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt)
             .ToListAsync(cancellationToken);
         if (!selection.IsRunning) selectedSchedules.Clear();
-        var departmentIds = selectedSchedules.Select(x => x.Course!.DepartmentId).Distinct().ToList();
-        var students = await db.Students.AsNoTracking().Include(x => x.Department)
-            .Where(x => x.Status != "Inactive"
+        var currentCohorts = selectedSchedules.Select(x => (courseAssignments[x.CourseId].DepartmentId, x.YearLevel)).ToHashSet();
+        var enrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student).Include(x => x.Department)
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
                 && x.Shift == shift.Name
-                && departmentIds.Contains(x.DepartmentId)
                 && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .OrderBy(x => x.StudentCode)
             .ToListAsync(cancellationToken);
-        var currentCohorts = selectedSchedules.Select(x => (x.Course!.DepartmentId, x.YearLevel)).ToHashSet();
-        students = students.Where(x => currentCohorts.Contains((x.DepartmentId, x.YearLevel))).ToList();
-        var ids = students.Select(x => x.Id).ToList();
+        enrollments = enrollments.Where(x => x.Student is not null && x.Student.Status != "Inactive" && currentCohorts.Contains((x.DepartmentId, x.YearLevel))).OrderBy(x => x.Student!.StudentCode).ToList();
+        var ids = enrollments.Select(x => x.StudentId).ToList();
         var attendance = selection.IsRunning
             ? await db.AttendanceRecords.AsNoTracking()
-                .Where(x => ids.Contains(x.StudentId) && x.Date == selection.Date)
+                .Where(x => ids.Contains(x.StudentId) && x.AcademicYear == enrollmentPeriod.AcademicYear && x.Term == enrollmentPeriod.Semester && x.Date == selection.Date)
                 .OrderByDescending(x => x.UpdatedAtUtc)
                 .ToListAsync(cancellationToken)
             : [];
         var status = attendance.GroupBy(x => x.StudentId)
             .ToDictionary(x => x.Key, x => NormalizeAttendance(x.First().Status));
         var defaultStatus = selection.IsRunning ? "Absent" : "Scheduled";
-        var rows = students.Select(x => new StudentOperationDto(
-                x.Id,
-                x.FullName,
-                x.StudentCode,
+        var rows = enrollments.Select(x => new StudentOperationDto(
+                x.StudentId,
+                x.Student!.FullName,
+                x.Student.StudentCode,
                 x.Department?.Name ?? "—",
                 x.YearLevel,
                 x.Shift,
-                status.GetValueOrDefault(x.Id, defaultStatus)))
+                status.GetValueOrDefault(x.StudentId, defaultStatus)))
             .OrderBy(x => AttendancePriority(x.AttendanceStatus))
             .ThenBy(x => x.StudentCode)
             .ToList();

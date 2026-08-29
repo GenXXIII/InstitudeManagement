@@ -53,6 +53,7 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
                     Id = record.Module == "Session" ? record.Id : PeriodId(record.Id, group.Key.AcademicYear, group.Key.Term),
                     Activities = activities,
                     Summary = $"{activities.Count:N0} recorded activities",
+                    Status = record.Module == "Teacher" ? activities.Select(activity => activity.GetValueOrDefault("Teacher attendance")).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? record.Status : record.Status,
                     AcademicYear = group.Key.AcademicYear,
                     Term = group.Key.Term,
                     Insights = null

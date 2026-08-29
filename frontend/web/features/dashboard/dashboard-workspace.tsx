@@ -13,7 +13,7 @@ export default function DashboardPage() {
   if (error) return <ErrorPage retry={load}/>; if (!data) return <LoadingPage/>;
   const now = new Date();
   return <div className="viewport-data-page dashboard-viewport-page">
-    <PageHeading eyebrow="Institute overview" title="Institude of New Khmer" description={now.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} actions={<><span className="live-pill"><i/> System online</span><button className="button secondary" onClick={load}>Refresh</button></>}/>
+    <PageHeading eyebrow="Institude Dashboard" title="Institude of New Khmer" description={now.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} actions={<><span className="live-pill"><i/> System online</span><button className="button secondary" onClick={load}>Refresh</button></>}/>
     <MetricCards metrics={data.metrics}/>
     <section className="dashboard-grid">
       <article className="panel attendance-panel">

@@ -18,6 +18,7 @@ public sealed class ClassSessionRecordConfiguration : IEntityTypeConfiguration<C
         builder.Property(x => x.Term).HasMaxLength(32).IsRequired();
         builder.Property(x => x.CourseName).HasMaxLength(256).IsRequired();
         builder.Property(x => x.TeacherName).HasMaxLength(256).IsRequired();
+        builder.Property(x => x.TeacherAttendanceStatus).HasMaxLength(32).IsRequired();
         builder.Property(x => x.ClassroomCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.StudentAttendanceJson).IsRequired();
         builder.HasOne(x => x.ScheduleEntry).WithMany().HasForeignKey(x => x.ScheduleEntryId).OnDelete(DeleteBehavior.Restrict);

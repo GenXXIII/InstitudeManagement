@@ -12,7 +12,7 @@ export function Sidebar({ open, live, instituteName, shortName, departmentScope,
   return <aside className={`sidebar ${open ? "open" : ""}`}>
     <div className="brand"><Image className="brand-logo" src="/branding/ink-logo.png" width={44} height={52} alt={`${instituteName} logo`} preload/><div><strong>{instituteName}</strong><span>{shortName} · Management System</span></div></div>
     <nav>
-      <Link className={`nav-item nav-home ${pathname === "/" ? "active" : ""}`} href={scopedHref("/", departmentScope, yearScope)} onClick={onClose}><Icon name="dashboard" size={17}/><span>Institute overview</span></Link>
+      <Link className={`nav-item nav-home ${pathname === "/" ? "active" : ""}`} href={scopedHref("/", departmentScope, yearScope)} onClick={onClose}><Icon name="dashboard" size={17}/><span>Institude Dashboard</span></Link>
       <NavGroup label="Institute operations" base="operation" items={operationNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="Academic enrollment" base="enrollment" items={enrollmentNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="Academic management" base="management" items={managementNavigation} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>

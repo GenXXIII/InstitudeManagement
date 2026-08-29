@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IEnrollmentService, EnrollmentService>();
         services.AddScoped<IOperationQueryService, OperationQueryService>();
         services.AddScoped<OperationContextService>();
+        services.AddScoped<OperationEnrollmentPeriodService>();
         services.AddScoped<IOperationModuleReader, DashboardOperationReader>();
         services.AddScoped<IOperationModuleReader, StudentOperationReader>();
         services.AddScoped<IOperationModuleReader, TeacherOperationReader>();

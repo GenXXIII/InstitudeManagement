@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
-public sealed class TeacherOperationReader(InstituteDbContext db, OperationContextService contextService) : IOperationModuleReader
+public sealed class TeacherOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentPeriodService periodService) : IOperationModuleReader
 {
     public string Module => "teachers";
 
@@ -17,16 +17,33 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(now);
         var shift = selection.Shift;
         var period = selection.Period;
+        var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
+        var courseAssignments = await db.CourseAssignments.AsNoTracking()
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
+                && (!departmentId.HasValue || x.DepartmentId == departmentId))
+            .Select(x => x.CourseId)
+            .ToListAsync(cancellationToken);
+        var enrolledTimetableIds = await db.TimetableEnrollments.AsNoTracking()
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
+            .Select(x => x.ScheduleEntryId)
+            .ToListAsync(cancellationToken);
         var currentTeacherIds = await db.ScheduleEntries.AsNoTracking()
             .Where(x => x.Status != "Cancelled"
+                && enrolledTimetableIds.Contains(x.Id)
+                && courseAssignments.Contains(x.CourseId)
                 && x.DayOfWeek == selection.Date.DayOfWeek
-                && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt
-                && (!departmentId.HasValue || x.Course!.DepartmentId == departmentId))
+                && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt)
             .Select(x => x.TeacherId)
             .ToHashSetAsync(cancellationToken);
         if (!selection.IsRunning) currentTeacherIds.Clear();
-        var teachers = await db.Teachers.AsNoTracking().Include(x => x.Department).Where(x => currentTeacherIds.Contains(x.Id)).OrderBy(x => x.TeacherCode).ToListAsync(cancellationToken);
-        var rows = teachers.Select(x => new TeacherOperationDto(x.Id, x.FullName, x.TeacherCode, x.Department?.Name ?? "—", TeacherAttendance(x.Status)))
+        var teachers = await db.TeacherAssignments.AsNoTracking().Include(x => x.Teacher).Include(x => x.Department)
+            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
+                && x.Status != "Removed" && x.Status != "Unassigned"
+                && currentTeacherIds.Contains(x.TeacherId)
+                && (!departmentId.HasValue || x.DepartmentId == departmentId))
+            .OrderBy(x => x.Teacher!.TeacherCode)
+            .ToListAsync(cancellationToken);
+        var rows = teachers.Where(x => x.Teacher is not null).Select(x => new TeacherOperationDto(x.TeacherId, x.Teacher!.FullName, x.Teacher.TeacherCode, x.Department?.Name ?? "—", TeacherAttendance(x.Status == "On leave" ? x.Status : x.Teacher.Status)))
             .OrderBy(x => AttendancePriority(x.Status))
             .ThenBy(x => x.TeacherCode)
             .ToList();

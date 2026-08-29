@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { administrationApi } from "./administration-api";
 import type { Settings } from "./administration-types";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
@@ -14,10 +15,27 @@ const descriptions: Record<string, string> = { institute: "Control the institute
 const timeZones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : ["UTC", "Asia/Bangkok", "Asia/Phnom_Penh"];
 const calendarYear = new Date().getFullYear();
 const academicYears = Array.from({ length: 11 }, (_, index) => `${calendarYear - 5 + index}\u2013${calendarYear - 4 + index}`);
+const administrationSections = [
+  { section: "institute", title: "Institute profile", icon: "building" as const },
+  { section: "academic-year", title: "Academic year", icon: "calendar" as const },
+  { section: "semester", title: "Semester / term", icon: "calendar" as const },
+  { section: "departments", title: "Department settings", icon: "building" as const },
+  { section: "courses", title: "Course settings", icon: "book" as const },
+  { section: "classrooms", title: "Classroom settings", icon: "room" as const },
+  { section: "attendance-rules", title: "Attendance rules", icon: "check" as const },
+  { section: "grade-rules", title: "Grade rules", icon: "grade" as const },
+  { section: "notifications", title: "Notification preferences", icon: "bell" as const },
+  { section: "system", title: "System preferences", icon: "settings" as const },
+];
 
 export default function SettingsPage() {
+  const { section } = useParams<{ section: string }>();
+  return section === "overview" ? <AdministrationOverview/> : <SettingsSection section={section}/>;
+}
+
+function SettingsSection({ section }: { section: string }) {
   const { refresh } = useInstituteSettings();
-  const { section } = useParams<{ section: string }>(); const [data, setData] = useState<Settings>(); const [values, setValues] = useState<Record<string, string>>({}); const [configured, setConfigured] = useState(false); const [error, setError] = useState(false); const [saveError, setSaveError] = useState(""); const [validationErrors, setValidationErrors] = useState<string[]>([]); const [saved, setSaved] = useState(false); const [saving, setSaving] = useState(false);
+  const [data, setData] = useState<Settings>(); const [values, setValues] = useState<Record<string, string>>({}); const [configured, setConfigured] = useState(false); const [error, setError] = useState(false); const [saveError, setSaveError] = useState(""); const [validationErrors, setValidationErrors] = useState<string[]>([]); const [saved, setSaved] = useState(false); const [saving, setSaving] = useState(false);
   const template = settingsTemplates[section as SettingSection] ?? {};
   const load = useCallback(() => { administrationApi.get(section).then(result => { setError(false); setSaveError(""); setValidationErrors([]); setData(result); setConfigured(Object.keys(result.values).length > 0); setValues({ ...(settingsTemplates[result.section as SettingSection] ?? {}), ...result.values }); }).catch(() => setError(true)); }, [section]); useEffect(load, [load]);
   if (error) return <ErrorPage retry={load}/>; if (!data) return <LoadingPage/>;
@@ -40,6 +58,30 @@ export default function SettingsPage() {
       </article>
       <aside className={`panel settings-preview settings-preview-${section}`}><SettingsPreview section={section} values={values}/><div className="settings-impact"><Icon name="archive" size={15}/><div><strong>Immediate and recorded</strong><span>Saving updates live behavior and writes an immutable audit entry.</span></div></div></aside>
     </section>
+  </div>;
+}
+
+function AdministrationOverview() {
+  const [data, setData] = useState<Record<string, Settings>>();
+  const [error, setError] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      const rows = await Promise.all(administrationSections.map(item => administrationApi.get(item.section)));
+      setData(Object.fromEntries(rows.map(row => [row.section, row])));
+      setError(false);
+    } catch { setError(true); }
+  }, []);
+  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
+  if (error) return <ErrorPage retry={load}/>;
+  if (!data) return <LoadingPage/>;
+  const configured = administrationSections.filter(item => Object.keys(data[item.section]?.values ?? {}).length > 0).length;
+  return <div className="viewport-data-page administration-viewport-page administration-overview-page">
+    <PageHeading eyebrow="System administration" title="Administration Overview" description="Open every settings feature by its stable section code and see which configurations are stored in the institute database."/>
+    <section className="administration-overview-summary panel"><div><span>Configured features</span><strong>{configured} / {administrationSections.length}</strong></div><p>Each settings feature has its own section code. Saving a section records its changes in permanent History.</p></section>
+    <section className="administration-overview-grid">{administrationSections.map(item => {
+      const keyCount = Object.keys(data[item.section]?.values ?? {}).length;
+      return <Link className="panel administration-overview-card" href={`/settings/${item.section}`} key={item.section}><span><Icon name={item.icon} size={18}/></span><div><small>SectionCode</small><strong>{item.section}</strong><h2>{item.title}</h2><p>{descriptions[item.section]}</p></div><aside><b className={`table-status ${keyCount ? "" : "watch"}`}>{keyCount ? "Configured" : "Not configured"}</b><small>{keyCount} stored fields</small><Icon name="arrow" size={14}/></aside></Link>;
+    })}</section>
   </div>;
 }
 
