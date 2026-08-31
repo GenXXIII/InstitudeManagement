@@ -6,7 +6,7 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
   const { resource, id } = await params;
   if (resource === "grades" || resource === "results" || resource === "result-semester") redirect("/records/result-semester");
   if (resource === "attendance") redirect("/records/students");
-  if (resource === "students" || resource === "teachers" || resource === "courses" || resource === "classrooms") return <OperationalRecordDetail module={resource} id={id} history/>;
+  if (resource === "students" || resource === "teachers" || resource === "courses" || resource === "classrooms" || resource === "departments" || resource === "timetable") return <OperationalRecordDetail module={resource} id={id} history/>;
   if (resource === "class-sessions") return <OperationalRecordDetail module="sessions" id={id} history/>;
   return <HistoryDetail resource={resource} id={id}/>;
 }

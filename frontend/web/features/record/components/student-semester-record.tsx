@@ -4,36 +4,41 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useState } from "react";
 import { Icon } from "@/components/icon";
+import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
+import { workflowCode, type WorkflowCodeStage } from "@/lib/workflow-code";
 import { recordApi } from "../record-api";
 import type { OperationalRecord, OperationalRecordGrade, OperationalRecordInsights } from "../record-types";
 
 const emptyInsights: OperationalRecordInsights = { presentCount: 0, permissionCount: 0, absentCount: 0, grades: [], expectedCourses: 5, totalScore: 0, average: 0, result: "In progress", isFinal: false };
 
 export function StudentSemesterRecordHeader() {
-  return <div className="student-semester-record-head"><span>Code</span><span>Photo</span><span>Name</span><span>Department</span><span>Attendance</span><span>Five course grades</span><span>Semester result</span></div>;
+  return <div className="student-semester-record-head"><span>Code</span><span>Photo</span><span>Name</span><span>Department</span><span>Year</span><span>Attendance</span><span>Five course grades</span><span>Semester result</span></div>;
 }
 
-export function StudentSemesterRecord({ row, detailHref, detailPage = false, editable = false, onUpdated }: { row: OperationalRecord; detailHref?: string; detailPage?: boolean; editable?: boolean; onUpdated?: () => void }) {
+export function StudentSemesterRecord({ row, stage = "record", detailHref, detailPage = false, editable = false, onUpdated }: { row: OperationalRecord; stage?: WorkflowCodeStage; detailHref?: string; detailPage?: boolean; editable?: boolean; onUpdated?: () => void }) {
   const router = useRouter();
   const insights = row.insights ?? emptyInsights;
   const gradeSlots = slots(insights);
-  if (detailPage) return <StudentSemesterDetail row={row} insights={insights} gradeSlots={gradeSlots} editable={editable} onUpdated={onUpdated}/>;
+  if (detailPage) return <StudentSemesterDetail row={row} stage={stage} insights={insights} gradeSlots={gradeSlots} editable={editable} onUpdated={onUpdated}/>;
   const open = () => { if (detailHref) router.push(detailHref); };
   return <article className="student-semester-record-row record-row-clickable" role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
-    <strong className="student-record-code">{row.code || row.identifier.split(" · ")[0]}</strong>
+    <div className="workflow-ledger-code"><strong className="student-record-code">{workflowCode(row.code || row.identifier.split(" · ")[0], "student", stage)}</strong><small>Source {workflowCode(row.code, "student", "management")}</small></div>
     <StudentPhoto row={row}/>
     <div className="student-record-name"><strong>{row.subject}</strong><span>{identityDetail(row.identifier)}</span></div>
     <div className="student-record-department"><strong>{row.department || "Unassigned"}</strong><span>{row.academicYear} · {row.term}</span></div>
+    <div className="student-record-year"><strong>{recordYear(row)}</strong><span>{recordShift(row)}</span></div>
     <AttendanceCards insights={insights}/>
     <GradeCards grades={gradeSlots}/>
     <ResultCard insights={insights}/>
   </article>;
 }
 
-function StudentSemesterDetail({ row, insights, gradeSlots, editable, onUpdated }: { row: OperationalRecord; insights: OperationalRecordInsights; gradeSlots: Array<OperationalRecordGrade | null>; editable: boolean; onUpdated?: () => void }) {
+function StudentSemesterDetail({ row, stage, insights, gradeSlots, editable, onUpdated }: { row: OperationalRecord; stage: WorkflowCodeStage; insights: OperationalRecordInsights; gradeSlots: Array<OperationalRecordGrade | null>; editable: boolean; onUpdated?: () => void }) {
   const sessions = row.activities.filter(activity => activity.Activity === "Class attendance");
   return <article className="student-semester-detail">
-    <header><StudentPhoto row={row}/><div><span className="eyebrow">{row.academicYear} · {row.term}</span><h2>{row.subject}</h2><p>{row.code} · {row.department} · {identityDetail(row.identifier)}</p></div></header>
+    <header><StudentPhoto row={row}/><div><span className="eyebrow">{row.academicYear} · {row.term}</span><h2>{row.subject}</h2><p>{workflowCode(row.code, "student", stage)} · {row.department} · {identityDetail(row.identifier)}</p></div></header>
+    <WorkflowCodeFlow sourceCode={row.code} resource="student" currentStage={stage}/>
+    <section className="semester-record-information" aria-label="Student semester information"><Information label={`${stage === "history" ? "History" : "Record"} code`} value={workflowCode(row.code, "student", stage)}/><Information label="Management source" value={workflowCode(row.code, "student", "management")}/><Information label="Department" value={row.department}/><Information label="Year" value={recordYear(row)}/><Information label="Shift" value={recordShift(row)}/><Information label="Academic year" value={row.academicYear}/><Information label="Semester" value={row.term}/><Information label="Enrollment" value={enrollmentValue(row, "Enrollment status")}/></section>
     <div className="student-detail-insights"><AttendanceCards insights={insights}/><GradeCards grades={gradeSlots}/><ResultCard insights={insights}/></div>
     <section className="student-record-detail-section"><header><div><strong>Class-session attendance</strong><span>Every completed timetable session recorded for this semester</span></div><b>{sessions.length} sessions</b></header><div className="student-session-detail-list">{sessions.length ? sessions.map((session, index) => <AttendanceDetailRow session={session} studentId={row.resourceId} editable={editable} onUpdated={onUpdated} key={`${session.Date}-${session.Time}-${index}`}/>) : <p className="student-record-detail-empty">No completed class sessions in this semester.</p>}</div></section>
     <section className="student-record-detail-section"><header><div><strong>Course grades</strong><span>Five department-course results for this semester</span></div><b>{insights.grades.length}/5 assigned</b></header><div className="student-grade-detail-grid">{gradeSlots.map((grade, index) => <GradeDetailCard grade={grade} index={index} studentId={row.resourceId} editable={editable} onUpdated={onUpdated} key={grade?.courseCode ?? index}/>)}</div><footer className={`student-final-result result-${toneKey(insights.result)}`}><div><span>Total score</span><strong>{insights.totalScore.toFixed(1)} ÷ 5 = {insights.average.toFixed(2)}</strong></div><b>{insights.result}</b></footer></section>
@@ -80,7 +85,11 @@ function StudentPhoto({ row }: { row: OperationalRecord }) {
 function AttendanceCards({ insights }: { insights: OperationalRecordInsights }) { return <div className="student-attendance-cards"><span className="present"><b>{insights.presentCount}</b><small>Present</small></span><span className="permission"><b>{insights.permissionCount}</b><small>Permission</small></span><span className="absent"><b>{insights.absentCount}</b><small>Absent</small></span></div>; }
 function GradeCards({ grades }: { grades: Array<OperationalRecordGrade | null> }) { return <div className="student-grade-cards">{grades.map((grade, index) => <span className={`grade-${toneKey(grade?.grade ?? "pending")}`} title={grade?.courseName ?? "Grade pending"} key={grade?.courseCode ?? index}><b>{grade?.grade ?? "—"}</b><small>{grade?.courseCode ?? `C${index + 1}`}</small></span>)}</div>; }
 function ResultCard({ insights }: { insights: OperationalRecordInsights }) { return <div className={`student-result-card result-${toneKey(insights.result)}`}><strong>{insights.result}</strong><span>{insights.totalScore.toFixed(1)} ÷ 5</span><b>{insights.average.toFixed(2)}</b></div>; }
+function Information({ label, value }: { label: string; value: string }) { return <div><span>{label}</span><strong>{value || "Not recorded"}</strong></div>; }
 function slots(insights: OperationalRecordInsights) { return Array.from({ length: insights.expectedCourses || 5 }, (_, index) => insights.grades[index] ?? null); }
+function enrollmentValue(row: OperationalRecord, key: string) { return row.activities.find(activity => activity.Activity === "Student enrollment")?.[key] ?? "Not recorded"; }
+function recordYear(row: OperationalRecord) { const value = enrollmentValue(row, "Year"); return value !== "Not recorded" ? value : row.identifier.match(/Year\s+[1-4]/i)?.[0] ?? "Not recorded"; }
+function recordShift(row: OperationalRecord) { const value = enrollmentValue(row, "Shift"); return value !== "Not recorded" ? value : row.identifier.split(" · ").at(-1) ?? "Not recorded"; }
 function identityDetail(identifier: string) { return identifier.split(" · ").slice(1).join(" · "); }
 function initials(value: string) { return value.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase(); }
 function attendanceLabel(value?: string) { return value === "Excused" ? "Permission" : value || "Not recorded"; }

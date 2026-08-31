@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
+import { workflowSourceSearch } from "@/lib/workflow-code";
 import { ManagementEditor } from "./components/management-editor";
 import { ManagementOverview } from "./components/management-overview";
 import { ModuleLayout } from "./components/module-layout";
@@ -38,7 +39,7 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
   const [editing, setEditing] = useState<ManagementItem | null | undefined>();
 
   const loadReferences = useCallback(() => Promise.all([departmentApi.get(), teacherApi.get(), studentApi.get(), classroomApi.get(), courseApi.get(), timetableApi.get(), attendanceApi.get()]).then(([departments, teachers, students, classrooms, courses, timetable, attendance]) => setReferences({ departments, teachers, students, classrooms, courses, timetable, attendance })).catch(() => setError(true)), []);
-  const load = useCallback(() => managementApis[resource].get(query, departmentId).then(result => { setItems(result); setReady(true); }).catch(() => setError(true)), [resource, query, departmentId]);
+  const load = useCallback(() => managementApis[resource].get(workflowSourceSearch(query), departmentId).then(result => { setItems(result); setReady(true); }).catch(() => setError(true)), [resource, query, departmentId]);
   useEffect(() => { void loadReferences(); }, [loadReferences]);
   useEffect(() => { const timer = window.setTimeout(load, 180); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => { const timer = window.setTimeout(() => setQuery(searchParams.get("q") ?? ""), 0); return () => window.clearTimeout(timer); }, [searchParams]);

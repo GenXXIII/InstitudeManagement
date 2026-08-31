@@ -46,7 +46,7 @@ export function NotificationCenter({ open, events, onToggle, onClose }: { open: 
         ? preview.map(item => <NotificationPreview item={item} key={item.id}/>)
         : <p>No notifications.</p>}
       </div>
-      <Link className="topbar-popover-link notification-see-more" href="/announce/notifications" onClick={onClose}>See more</Link>
+      <Link className="topbar-popover-link notification-see-more" href="/announce/notifications" onClick={onClose}>View all</Link>
     </aside>}
   </div>;
 }

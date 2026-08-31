@@ -24,6 +24,7 @@ export function AnnounceWorkspace({ module }: { module: string }) {
   const [editingAlert, setEditingAlert] = useState<string>();
   const [alertDraft, setAlertDraft] = useState<AnnouncementDraft>(emptyAlert);
   const [saving, setSaving] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -45,6 +46,12 @@ export function AnnounceWorkspace({ module }: { module: string }) {
     if (!confirm("Remove this notification? Its history will remain read-only.")) return;
     try { await notificationApi.removeNotification(id); notifyBell(); await load(); } catch (reason) { setError(message(reason)); }
   }
+  async function markAllNotificationsAsRead() {
+    if (!notifications.length || markingAll) return;
+    setMarkingAll(true); setError("");
+    try { await notificationApi.readAllNotifications(); notifyBell(); await load(); }
+    catch (reason) { setError(message(reason)); } finally { setMarkingAll(false); }
+  }
   async function saveAlert() {
     setSaving(true); setError("");
     try { if (editingAlert) await notificationApi.updateAlert(editingAlert, alertDraft); else await notificationApi.createAlert(alertDraft); notifyBell(); setEditingAlert(undefined); setAlertDraft(emptyAlert); await load(); }
@@ -64,7 +71,7 @@ export function AnnounceWorkspace({ module }: { module: string }) {
       : { eyebrow: "Announce", title: "Notification", description: "Review, edit, mark, or remove current system notifications." };
 
   return <div className="viewport-data-page announce-viewport-page">
-    <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description}/>
+    <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={current === "notifications" ? <button className="button secondary notification-mark-all-button" disabled={!notifications.length || markingAll} onClick={() => void markAllNotificationsAsRead()}>{markingAll ? "Marking all as read..." : "Mark all as read"}</button> : undefined}/>
     {error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
     {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts} history={history}/>}
     {current === "notifications" && <NotificationRegister rows={notifications} editing={editingNotification} draft={notificationDraft} saving={saving} onDraft={setNotificationDraft} onOpen={id => router.push(`/announce/notifications/${id}`)} onEdit={item => { setEditingNotification(item.id); setNotificationDraft({ title: item.title, message: item.message, severity: item.severity, isRead: item.isRead }); }} onSave={saveNotification} onCancel={() => setEditingNotification(undefined)} onRemove={removeNotification}/>} 

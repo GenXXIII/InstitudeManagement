@@ -7,6 +7,7 @@ import { enrollmentApi, type EnrollmentResource } from "@/features/enrollment/en
 import { managementApis } from "@/features/management/management-apis";
 import { managementCode } from "@/features/management/management-id";
 import type { ManagementItem, ManagementResource } from "@/features/management/management-types";
+import { workflowSourceSearch } from "@/lib/workflow-code";
 
 const resources: { id: ManagementResource; label: string }[] = [
   { id: "students", label: "Students" }, { id: "teachers", label: "Teachers" },
@@ -41,7 +42,7 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     return () => window.removeEventListener("keydown", focusSearch);
   }, []);
   useEffect(() => {
-    const text = query.trim();
+    const text = workflowSourceSearch(query);
     if (!text) { const timer = window.setTimeout(() => setItems([]), 0); return () => window.clearTimeout(timer); }
     const timer = window.setTimeout(() => {
       const promise = pathname.startsWith("/enrollment/")
@@ -52,7 +53,7 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     return () => window.clearTimeout(timer);
   }, [departmentId, pathname, query, resource, year]);
 
-  const suggestions = useMemo(() => items.map(item => suggestion(item, resource)).filter(item => startsWithWord(item.label, query) || startsWithWord(item.detail, query)).slice(0, 9), [items, query, resource]);
+  const suggestions = useMemo(() => items.map(item => suggestion(item, resource)).filter(item => startsWithWord(item.label, workflowSourceSearch(query)) || startsWithWord(item.detail, workflowSourceSearch(query))).slice(0, 9), [items, query, resource]);
 
   function navigate(value: string) {
     const text = value.trim();

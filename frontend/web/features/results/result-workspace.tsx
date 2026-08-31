@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
+import { workflowCode, workflowSourceSearch } from "@/lib/workflow-code";
 import { resultApi } from "./result-api";
 import type { SemesterResult } from "./result-types";
 
@@ -29,7 +30,7 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
   const semesters = useMemo(() => [...new Set(rows.map(row => row.semester))].sort(), [rows]);
   const academicYears = useMemo(() => [...new Set(rows.map(row => row.academicYear))].sort().reverse(), [rows]);
   const visible = useMemo(() => rows.filter(row => {
-    const text = query.trim().toLowerCase();
+    const text = workflowSourceSearch(query).toLowerCase();
     const matchesOutcome = outcome === "all" || outcome === "final" && row.totalGrade !== "Pending" || row.totalGrade.toLowerCase().replaceAll(" ", "-") === outcome;
     return matchesOutcome && (semester === "all" || row.semester === semester) && (academicYear === "all" || row.academicYear === academicYear) && (!text || [row.fullName, row.studentCode, row.department, row.semester, ...row.grades.flatMap(grade => [grade.courseCode, grade.name])].some(value => value.toLowerCase().includes(text)));
   }).toSorted((left, right) => mode === "history" ? right.academicYear.localeCompare(left.academicYear) || semesterNumber(right.semester) - semesterNumber(left.semester) || left.fullName.localeCompare(right.fullName) : left.year - right.year || left.fullName.localeCompare(right.fullName)), [academicYear, mode, outcome, query, rows, semester]);
@@ -49,7 +50,7 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
 }
 
 function ResultRow({ row }: { row: SemesterResult }) {
-  return <article className="semester-result-row"><div className="result-student"><span>{initials(row.fullName)}</span><div><strong>{row.fullName}</strong><small>{row.studentCode} · {row.department}</small></div></div><div className="result-period"><strong>Year {row.year}</strong><span>{row.semester}</span><small>{row.academicYear}</small></div><div className="result-attendance"><span className="present"><b>{row.presentCount}</b> Present</span><span className="absent"><b>{row.absentCount}</b> Absent</span><span className="permission"><b>{row.permissionCount}</b> Permission</span></div><div className="result-course-grades">{row.grades.length ? row.grades.map(grade => <span key={grade.courseId}><strong>{grade.courseCode} {grade.score.toFixed(1)}/{grade.grade}</strong><small>{grade.name}</small></span>) : <i>No course grades yet</i>}</div><div className="result-total"><strong>{row.totalScore.toFixed(1)}</strong><span>{row.totalCourses}/5 courses</span></div><div className="result-average"><strong>{row.average.toFixed(2)}%</strong><span>Total ÷ 5</span></div><span className={`result-final result-${row.totalGrade.toLowerCase().replaceAll(" ", "-")}`}>{row.totalGrade}</span></article>;
+  return <article className="semester-result-row"><div className="result-student"><span>{initials(row.fullName)}</span><div><strong>{row.fullName}</strong><small>{workflowCode(row.studentCode, "student", "history")} · source {workflowCode(row.studentCode, "student", "management")} · {row.department}</small></div></div><div className="result-period"><strong>Year {row.year}</strong><span>{row.semester}</span><small>{row.academicYear}</small></div><div className="result-attendance"><span className="present"><b>{row.presentCount}</b> Present</span><span className="absent"><b>{row.absentCount}</b> Absent</span><span className="permission"><b>{row.permissionCount}</b> Permission</span></div><div className="result-course-grades">{row.grades.length ? row.grades.map(grade => <span key={grade.courseId}><strong>{workflowCode(grade.courseCode, "course", "history")} {grade.score.toFixed(1)}/{grade.grade}</strong><small>{grade.name} · source {workflowCode(grade.courseCode, "course", "management")}</small></span>) : <i>No course grades yet</i>}</div><div className="result-total"><strong>{row.totalScore.toFixed(1)}</strong><span>{row.totalCourses}/5 courses</span></div><div className="result-average"><strong>{row.average.toFixed(2)}%</strong><span>Total ÷ 5</span></div><span className={`result-final result-${row.totalGrade.toLowerCase().replaceAll(" ", "-")}`}>{row.totalGrade}</span></article>;
 }
 function initials(value: string) { return value.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase(); }
 function semesterNumber(value: string) { return Number(value.match(/\d+/)?.[0] ?? 0); }

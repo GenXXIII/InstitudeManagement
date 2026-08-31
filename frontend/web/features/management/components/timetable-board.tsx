@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { workflowCode } from "@/lib/workflow-code";
 import type { TimetableItem } from "../types/timetable";
 import { ManagementActions } from "./management-actions";
 import { ManagementDataCell } from "./management-data-cell";
@@ -24,7 +25,7 @@ export function TimetableBoard({ items, onEdit, onDeactivate }: { items: Timetab
       <div className="timetable-data-head"><span>Code</span><span>Time</span><span>Day</span><span>Create At</span><span>Actions</span></div>
       <div className="timetable-data-body">{visible.map(item => {
         return <article className="timetable-data-row" key={item.id}>
-          <ManagementDataCell label="Code"><strong className="management-code-value">{item.values.timetableCode}</strong></ManagementDataCell>
+          <ManagementDataCell label="Code"><strong className="management-code-value">{workflowCode(item.values.timetableCode, "timetable", "management")}</strong></ManagementDataCell>
           <ManagementDataCell label="Time" className="timetable-time-data"><time>{item.values.startsAt} - {item.values.endsAt}</time></ManagementDataCell>
           <ManagementDataCell label="Day" className="timetable-detail-data"><strong>{item.values.dayOfWeek}</strong></ManagementDataCell>
           <ManagementDataCell label="Create At" className="timetable-detail-data"><strong>{item.values.createAt}</strong></ManagementDataCell>

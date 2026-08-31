@@ -3,21 +3,25 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
+import { workflowCode, type WorkflowCodeStage } from "@/lib/workflow-code";
 import { recordApi } from "../record-api";
 import type { ClassSessionAttendanceUpdate, OperationalRecord } from "../record-types";
 import { EntitySemesterRecord } from "./entity-semester-record";
 import { StudentSemesterRecord } from "./student-semester-record";
+import { StructureSemesterRecord } from "./structure-semester-record";
 
-export function OperationalRecordRow({ row, editable = false, showStatus = true, onUpdated, detailHref, detailPage = false }: { row: OperationalRecord; editable?: boolean; showStatus?: boolean; onUpdated?: () => void; detailHref?: string; detailPage?: boolean }) {
+export function OperationalRecordRow({ row, stage = "record", editable = false, showStatus = true, onUpdated, detailHref, detailPage = false }: { row: OperationalRecord; stage?: WorkflowCodeStage; editable?: boolean; showStatus?: boolean; onUpdated?: () => void; detailHref?: string; detailPage?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(detailPage);
   const expanded = detailPage || open;
   const openDetails = () => detailHref ? router.push(detailHref) : setOpen(value => !value);
   const openFromKeyboard = (event: React.KeyboardEvent) => { if (detailHref && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); router.push(detailHref); } };
   const groups = useMemo(() => groupActivities(row.activities), [row.activities]);
-  if (row.module === "Session") return <SessionRecordCard row={row} open={expanded} editable={editable} showStatus={showStatus} detailPage={detailPage} onToggle={openDetails} onUpdated={onUpdated}/>;
-  if (row.module === "Student") return <StudentSemesterRecord row={row} detailHref={detailHref} detailPage={detailPage} editable={editable} onUpdated={onUpdated}/>;
-  if (row.module === "Teacher" || row.module === "Course" || row.module === "Classroom") return <EntitySemesterRecord row={row} detailHref={detailHref} detailPage={detailPage}/>;
+  if (row.module === "Session") return <SessionRecordCard row={row} stage={stage} open={expanded} editable={editable} showStatus={showStatus} detailPage={detailPage} onToggle={openDetails} onUpdated={onUpdated}/>;
+  if (row.module === "Student") return <StudentSemesterRecord row={row} stage={stage} detailHref={detailHref} detailPage={detailPage} editable={editable} onUpdated={onUpdated}/>;
+  if (row.module === "Teacher" || row.module === "Course" || row.module === "Classroom") return <EntitySemesterRecord row={row} stage={stage} detailHref={detailHref} detailPage={detailPage}/>;
+  if (row.module === "Department" || row.module === "Timetable") return <StructureSemesterRecord row={row} stage={stage} detailHref={detailHref} detailPage={detailPage}/>;
   return <article className={`operational-record-row ${expanded ? "open" : ""} ${detailHref ? "record-row-clickable" : ""} ${showStatus ? "" : "without-record-status"}`} role={detailHref ? "link" : undefined} tabIndex={detailHref ? 0 : undefined} onClick={detailHref ? openDetails : undefined} onKeyDown={openFromKeyboard}>
     <div className="operational-record-main">
       <div className="operational-record-identity"><span className="operational-record-icon"><Icon name={recordIcon(row.module)} size={17}/></span><div><strong>{row.subject}</strong><span>{row.identifier}</span></div></div>
@@ -28,7 +32,7 @@ export function OperationalRecordRow({ row, editable = false, showStatus = true,
   </article>;
 }
 
-function SessionRecordCard({ row, open, editable, showStatus, detailPage, onToggle, onUpdated }: { row: OperationalRecord; open: boolean; editable: boolean; showStatus: boolean; detailPage: boolean; onToggle: () => void; onUpdated?: () => void }) {
+function SessionRecordCard({ row, stage, open, editable, showStatus, detailPage, onToggle, onUpdated }: { row: OperationalRecord; stage: WorkflowCodeStage; open: boolean; editable: boolean; showStatus: boolean; detailPage: boolean; onToggle: () => void; onUpdated?: () => void }) {
   const [editing, setEditing] = useState(false);
   const summary = row.activities.find(activity => activity.Activity === "Completed class");
   const students = row.activities.filter(activity => activity.Activity === "Student attendance");
@@ -38,7 +42,7 @@ function SessionRecordCard({ row, open, editable, showStatus, detailPage, onTogg
   const absent = students.filter(student => student.Attendance === "Absent").length;
   const permission = students.filter(student => student.Attendance === "Excused" || student.Attendance === "Permission").length;
   const trigger = <>
-      <div className="session-card-time"><span>{row.classSessionRecordCode || "Class session"}</span><strong>{time}</strong><small>{sessionName(time)} session</small></div>
+      <div className="session-card-time"><span>{workflowCode(row.classSessionRecordCode, "session", stage)}</span><strong>{time}</strong><small>{sessionName(time)} session · source {row.classSessionRecordCode}</small></div>
       <div className="session-card-date"><span className="session-card-calendar"><Icon name="calendar" size={17}/></span><div><small>Class date</small><strong>{displayNumericDate(date)}</strong></div></div>
       <div className="session-card-course"><small>Timetable cohort</small><strong>{summary?.Year ?? "Year unavailable"}</strong><span>Room {summary?.Classroom ?? "—"}</span></div>
       <div className="session-card-class"><small>Scheduled teaching</small><strong>{summary?.Teacher ?? "Teacher unavailable"}</strong><span>{summary?.Course ?? "Course unavailable"}</span></div>
@@ -46,7 +50,7 @@ function SessionRecordCard({ row, open, editable, showStatus, detailPage, onTogg
     </>;
   return <article className={`session-timetable-card ${open ? "open" : ""}`}>
     {detailPage ? <div className="session-timetable-trigger session-timetable-static">{trigger}</div> : <div className="session-timetable-trigger" role="link" tabIndex={0} onClick={onToggle} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onToggle(); } }}>{trigger}</div>}
-    {open && <div className="session-timetable-details"><header><div><strong>Timetable attendance record</strong><span>{displayDate(date)} · {time} · Room {summary?.Classroom ?? "—"} · {students.length} students</span></div>{(showStatus || editable) && <div className="session-record-actions">{showStatus && <span className="table-status completed">Completed</span>}{editable && <button className="button secondary" type="button" onClick={() => setEditing(true)}><Icon name="edit" size={14}/>Edit record</button>}</div>}</header><ActivitiesAtTime items={row.activities} time={time}/></div>}
+    {open && <div className="session-timetable-details"><header><div><strong>Timetable attendance record</strong><span>{displayDate(date)} · {time} · Room {summary?.Classroom ?? "—"} · {students.length} students</span></div>{(showStatus || editable) && <div className="session-record-actions">{showStatus && <span className="table-status completed">Completed</span>}{editable && <button className="button secondary" type="button" onClick={() => setEditing(true)}><Icon name="edit" size={14}/>Edit record</button>}</div>}</header>{detailPage && <WorkflowCodeFlow sourceCode={row.classSessionRecordCode} resource="session" currentStage={stage}/>}<ActivitiesAtTime items={row.activities} time={time}/></div>}
     {editing && <SessionRecordEditor row={row} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onUpdated?.(); }}/>}
   </article>;
 }

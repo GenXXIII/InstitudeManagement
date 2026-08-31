@@ -5,18 +5,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
+import { workflowSourceSearch } from "@/lib/workflow-code";
 import { OperationalRecordRow } from "./components/operational-record-row";
 import { EntitySemesterRecordHeader } from "./components/entity-semester-record";
 import { StudentSemesterRecordHeader } from "./components/student-semester-record";
+import { StructureSemesterRecordHeader } from "./components/structure-semester-record";
 import { recordApi } from "./record-api";
 import type { OperationalRecord } from "./record-types";
 
 const modules: Record<string, { title: string; description: string; singular: string }> = {
-  sessions: { title: "Completed timetable sessions", description: "One card per completed timetable occurrence, identified by its date, scheduled time, and room. Expand a card to see the course, teacher, cohort, and frozen attendance.", singular: "session" },
-  students: { title: "Student semester records", description: "Attendance, five course grades, and the semester result for every student. Open a row for full class-session and grade details.", singular: "student" },
-  teachers: { title: "Teacher semester records", description: "Teacher identity, attendance state, and student attendance from every completed class. Open a row for full session details.", singular: "teacher" },
-  courses: { title: "Course semester records", description: "Course identity, department, live In Study or Available state, and completed-class attendance evidence.", singular: "course" },
-  classrooms: { title: "Classroom semester records", description: "Classroom identity, building, live In Study or Available state, and every completed class held in the room.", singular: "classroom" },
+  sessions: { title: "Completed timetable sessions", description: "One visual card per completed timetable occurrence with course, teacher, room, and frozen attendance.", singular: "session" },
+  students: { title: "Student semester records", description: "Student information, attendance, five course grades, and semester result remain together.", singular: "student" },
+  teachers: { title: "Teacher semester records", description: "Teacher information, year levels, attendance, assigned courses, and completed classes remain together.", singular: "teacher" },
+  courses: { title: "Course semester records", description: "Course information, assigned year, enrolled student total, state, and class details.", singular: "course" },
+  classrooms: { title: "Classroom semester records", description: "Classroom information, assigned course total, year levels, state, and full course details.", singular: "classroom" },
+  departments: { title: "Department semester records", description: "A visual semester view of students, teachers, courses, classrooms, and completed classes by department.", singular: "department" },
+  timetable: { title: "Timetable semester records", description: "A visual semester view of enrolled schedule code, course, year, day, time, teacher, classroom, and students.", singular: "timetable" },
 };
 
 export function OperationalRecordWorkspace({ module: rawModule, history = false }: { module: string; history?: boolean }) {
@@ -31,37 +35,30 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
   const [rows, setRows] = useState<OperationalRecord[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
-  const load = useCallback(() => recordApi.get(currentModule, query, departmentId, history).then(data => { setRows(data); setReady(true); setError(false); }).catch(() => setError(true)), [currentModule, departmentId, history, query]);
+  const load = useCallback(() => recordApi.get(currentModule, workflowSourceSearch(query), departmentId, history).then(data => { setRows(data); setReady(true); setError(false); }).catch(() => setError(true)), [currentModule, departmentId, history, query]);
   useEffect(() => { const timer = window.setTimeout(load, 180); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => { const timer = window.setTimeout(() => setQuery(searchParams.get("q") ?? ""), 0); return () => window.clearTimeout(timer); }, [searchParams]);
 
   const periods = useMemo(() => [...new Map(rows.filter(row => row.academicYear && row.term).map(row => [`${row.academicYear}|${row.term}`, { key: `${row.academicYear}|${row.term}`, label: `${row.academicYear} · ${row.term}` }])).values()]
-    .toSorted((left, right) => right.key.localeCompare(left.key, undefined, { numeric: true })), [rows]);
-  const yearRows = useMemo(() => rows
+    .toSorted((left, right) => comparePeriod(right.key, left.key)), [rows]);
+  const visibleRows = useMemo(() => rows
     .filter(row => selectedPeriod === "all" || `${row.academicYear}|${row.term}` === selectedPeriod)
     .filter(row => !year || JSON.stringify(row).toLowerCase().includes(`year ${year}`))
-    .toSorted((left, right) => recordYear(left) - recordYear(right) || Date.parse(right.lastActivityAt ?? "") - Date.parse(left.lastActivityAt ?? "")), [rows, selectedPeriod, year]);
-  const visible = yearRows;
-  const pagination = useDataPagination(visible, `${currentModule}-${history}-${departmentId}-${year}-${query}`);
-  const detailQuery = searchParams.toString();
+    .toSorted((left, right) => comparePeriod(`${right.academicYear}|${right.term}`, `${left.academicYear}|${left.term}`) || recordYear(left) - recordYear(right) || (left.code || left.subject).localeCompare(right.code || right.subject, undefined, { numeric: true })), [rows, selectedPeriod, year]);
   const routeModule = history && currentModule === "sessions" ? "class-sessions" : currentModule;
+  const detailQuery = searchParams.toString();
   const detailHref = (id: string) => `${history ? "/records" : "/record"}/${routeModule}/${encodeURIComponent(id)}${detailQuery ? `?${detailQuery}` : ""}`;
-  const activityCount = yearRows.reduce((total, row) => total + row.activities.length, 0);
+  const activityCount = visibleRows.reduce((total, row) => total + row.activities.length, 0);
+  const periodGroups = groupRowsByPeriod(visibleRows);
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
 
   return <div className="viewport-data-page record-viewport-page">
-    <PageHeading eyebrow={history ? "Read-only semester history" : "Active-semester records"} title={history ? `${config.title} history` : config.title} description={`${history ? "Closed semesters remain permanent and read-only in History. " : "When the semester advances, this view resets while its old data remains in History. "}${config.description}${year ? ` Showing Year ${year}.` : ""}`}/>
-    {history && <section className="record-semester-switcher panel"><div><span>Semester view</span><strong>{selectedPeriod === "all" ? "All semesters" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><nav><button type="button" className={selectedPeriod === "all" ? "active" : ""} onClick={() => changePeriod("all")}>All semesters</button>{periods.map(period => <button type="button" className={selectedPeriod === period.key ? "active" : ""} onClick={() => changePeriod(period.key)} key={period.key}>{period.label}</button>)}</nav></section>}
-    <section className="operational-record-summary"><article className="panel"><span>All {config.singular}s</span><strong>{yearRows.length.toLocaleString()}</strong><small>Completed timetable evidence</small></article><article className="panel"><span>Recorded activities</span><strong>{activityCount.toLocaleString()}</strong><small>Completed classes and attendance only</small></article><article className="panel"><span>With activity</span><strong>{yearRows.filter(row => row.activities.length > 0).length.toLocaleString()}</strong><small>Expandable timetable records</small></article></section>
-    <section className="record-toolbar panel"><label className="record-search"><Icon name="search" size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}…`} aria-label={`Search ${config.title}`}/></label><span className="record-count">Showing {visible.length} of {yearRows.length}</span></section>
-    {visible.length
-      ? <section className="record-paginated-region">{currentModule === "students"
-        ? <div className="student-semester-record-ledger panel"><StudentSemesterRecordHeader/><div>{pagination.pageItems.map(row => <OperationalRecordRow row={row} editable={!history} showStatus={false} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>
-        : currentModule !== "sessions"
-          ? <div className="entity-semester-record-ledger panel"><EntitySemesterRecordHeader module={moduleName(currentModule)}/><div>{pagination.pageItems.map(row => <OperationalRecordRow row={row} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>
-          : <div className="session-record-list">{pagination.pageItems.map(row => <OperationalRecordRow row={row} editable={!history} showStatus={!history} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div>}<DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visible.length} onPage={pagination.setPage}/></section>
-      : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>{history ? "No semester records found" : "No active-semester records found"}</strong><span>{history ? "Current records appear here read-only and remain permanently after semester rollover." : "Records appear automatically when a scheduled timetable period ends or a grade is assigned."}</span></section>}
+    <PageHeading eyebrow={history ? "Read-only semester history" : "Active-semester records"} title={history ? `${config.title} history` : config.title} description={`${history ? "Each academic year and semester has its own section. " : "When the semester advances, this view resets while its old data remains in History. "}${config.description}${year ? ` Showing Year ${year}.` : ""}`}/>
+    {history && <section className="record-semester-switcher panel"><div><span>History data</span><strong>{selectedPeriod === "all" ? "All academic years and semesters" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Choose academic year / semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">All semesters</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>}
+    <section className="operational-record-summary"><article className="panel"><span>All {config.singular}s</span><strong>{visibleRows.length.toLocaleString()}</strong><small>Semester-linked records</small></article><article className="panel"><span>Recorded activities</span><strong>{activityCount.toLocaleString()}</strong><small>Enrollment and completed class evidence</small></article><article className="panel"><span>Semester groups</span><strong>{new Set(visibleRows.map(row => `${row.academicYear}|${row.term}`)).size}</strong><small>Academic year / semester sections</small></article></section>
+    <section className="record-toolbar panel"><label className="record-search"><Icon name="search" size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}…`} aria-label={`Search ${config.title}`}/></label><span className="record-count">Showing {visibleRows.length} records</span></section>
+    {visibleRows.length ? <section className="record-paginated-region"><div className="semester-history-scroll">{periodGroups.map(group => <SemesterHistoryGroup module={currentModule} group={group} history={history} load={load} detailHref={detailHref} key={group.key}/>)}</div></section> : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>{history ? "No semester records found" : "No active-semester records found"}</strong><span>{history ? "Enrollment and completed-class data will appear under its academic year and semester header." : "Records appear automatically from Enrollment and completed timetable periods."}</span></section>}
   </div>;
 
   function changePeriod(period: string) {
@@ -71,9 +68,24 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
   }
 }
 
-function recordYear(record: OperationalRecord) {
-  const match = JSON.stringify(record).match(/Year\s+([1-4])/i);
-  return match ? Number(match[1]) : 99;
+function SemesterHistoryGroup({ module, group, history, load, detailHref }: { module: string; group: ReturnType<typeof groupRowsByPeriod>[number]; history: boolean; load: () => void; detailHref: (id: string) => string }) {
+  const pagination = useDataPagination(group.rows, `${module}-${history}-${group.key}`);
+  return <section className="semester-history-group"><header><div><span>Academic history</span><h2>{group.academicYear}</h2></div><strong>{group.term}</strong><small>{group.rows.length} record{group.rows.length === 1 ? "" : "s"}</small></header>{renderLedger(module, pagination.pageItems, history, load, detailHref)}<DataPagination page={pagination.page} pageCount={pagination.pageCount} total={group.rows.length} onPage={pagination.setPage}/></section>;
 }
 
-function moduleName(module: string): "Teacher" | "Course" | "Classroom" { return module === "teachers" ? "Teacher" : module === "courses" ? "Course" : "Classroom"; }
+function renderLedger(module: string, rows: OperationalRecord[], history: boolean, load: () => void, detailHref: (id: string) => string) {
+  const stage = history ? "history" : "record";
+  if (module === "students") return <div className="student-semester-record-ledger panel"><StudentSemesterRecordHeader/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history} showStatus={false} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
+  if (module === "teachers" || module === "courses" || module === "classrooms") return <div className="entity-semester-record-ledger panel"><EntitySemesterRecordHeader module={entityModuleName(module)}/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
+  if (module === "departments" || module === "timetable") return <div className="structure-semester-record-ledger panel"><StructureSemesterRecordHeader module={module === "departments" ? "Department" : "Timetable"}/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
+  return <div className="session-record-list">{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history} showStatus={!history} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div>;
+}
+
+function groupRowsByPeriod(rows: OperationalRecord[]) {
+  const groups = new Map<string, OperationalRecord[]>();
+  for (const row of rows) { const key = `${row.academicYear}|${row.term}`; groups.set(key, [...(groups.get(key) ?? []), row]); }
+  return [...groups].map(([key, periodRows]) => ({ key, academicYear: periodRows[0]?.academicYear ?? "Academic year unavailable", term: periodRows[0]?.term ?? "Semester unavailable", rows: periodRows }));
+}
+function comparePeriod(left: string, right: string) { return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }); }
+function recordYear(record: OperationalRecord) { const match = JSON.stringify(record).match(/Year\s+([1-4])/i); return match ? Number(match[1]) : 99; }
+function entityModuleName(module: string): "Teacher" | "Course" | "Classroom" { return module === "teachers" ? "Teacher" : module === "courses" ? "Course" : "Classroom"; }

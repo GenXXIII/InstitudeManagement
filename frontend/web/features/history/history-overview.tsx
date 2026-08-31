@@ -11,14 +11,14 @@ import { historyApi } from "./history-api";
 import type { RecordItem } from "./history-types";
 
 const historyAreas = [
-  { icon: "users", code: "StudentCode", title: "Student History", detail: "Attendance, course grades, and semester result together", path: "/records/students" },
-  { icon: "teacher", code: "TeacherCode", title: "Teacher History", detail: "Teacher attendance and completed-class evidence together", path: "/records/teachers" },
-  { icon: "calendar", code: "ClassSessionRecordCode", title: "Class Sessions", detail: "Frozen attendance for every completed enrolled timetable", path: "/records/class-sessions" },
-  { icon: "book", code: "CourseCode", title: "Course History", detail: "Course lifecycle and assignment snapshots", path: "/records/courses" },
-  { icon: "room", code: "ClassroomCode", title: "Classroom History", detail: "Learning-space lifecycle and capacity snapshots", path: "/records/classrooms" },
-  { icon: "calendar", code: "TimetableCode", title: "Timetable History", detail: "Enrolled schedule lifecycle and time snapshots", path: "/records/timetable" },
-  { icon: "building", code: "DepartmentCode", title: "Department History", detail: "Department leadership and organization snapshots", path: "/records/departments" },
-  { icon: "grade", code: "StudentCode", title: "Result Semester", detail: "Final student semester outcome across five courses", path: "/records/result-semester" },
+  { icon: "users", code: "HSTU-XX", title: "Student History", detail: "Attendance, course grades, and semester result together", path: "/records/students" },
+  { icon: "teacher", code: "HTEA-XX", title: "Teacher History", detail: "Teacher attendance and completed-class evidence together", path: "/records/teachers" },
+  { icon: "calendar", code: "HSES-XX", title: "Class Sessions", detail: "Frozen attendance for every completed enrolled timetable", path: "/records/class-sessions" },
+  { icon: "book", code: "HCOU-XX", title: "Course History", detail: "Course lifecycle and assignment snapshots", path: "/records/courses" },
+  { icon: "room", code: "HCLA-XX", title: "Classroom History", detail: "Learning-space lifecycle and capacity snapshots", path: "/records/classrooms" },
+  { icon: "calendar", code: "HTIM-XX", title: "Timetable History", detail: "Enrolled schedule lifecycle and time snapshots", path: "/records/timetable" },
+  { icon: "building", code: "HDEP-XX", title: "Department History", detail: "Department leadership and organization snapshots", path: "/records/departments" },
+  { icon: "grade", code: "HSTU-XX", title: "Result Semester", detail: "Final student semester outcome across five courses", path: "/records/result-semester" },
 ] as const;
 
 export function HistoryOverview() {
@@ -57,7 +57,7 @@ export function HistoryOverview() {
 
   return <div className="viewport-data-page history-control-overview-page">
     <PageHeading eyebrow="Semester history control center" title="History Overview" description="Choose a semester, then open visual Student or Teacher History where attendance and grades are kept with the person they belong to."/>
-    <section className="record-semester-switcher panel"><div><span>Semester view</span><strong>{selectedPeriod === "all" ? "All semesters" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><nav><button type="button" className={selectedPeriod === "all" ? "active" : ""} onClick={() => changePeriod("all")}>All semesters</button>{periods.map(period => <button type="button" className={selectedPeriod === period.key ? "active" : ""} onClick={() => changePeriod(period.key)} key={period.key}>{period.label}</button>)}</nav></section>
+    <section className="record-semester-switcher panel"><div><span>History data</span><strong>{selectedPeriod === "all" ? "All academic years and semesters" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Choose academic year / semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">All semesters</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>
     <div className="history-control-overview-scroll">
       <section className="enrollment-overview-metrics">
         <HistoryMetric icon="users" label="Student semester records" value={visibleStudents.length} detail={`${attendanceCount} attendance events`} href={scopedHref("/records/students", departmentId, year, selectedPeriod)}/>

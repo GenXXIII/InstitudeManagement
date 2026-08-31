@@ -17,6 +17,10 @@ public sealed class NotificationCenterController(INotificationCenterService serv
     [HttpPut("notifications/{id:guid}/read")]
     public async Task<IActionResult> MarkNotificationRead(Guid id, CancellationToken cancellationToken) => Ok(await service.MarkNotificationReadAsync(id, cancellationToken));
 
+    [HttpPut("notifications/read-all")]
+    public async Task<IActionResult> MarkAllNotificationsRead(CancellationToken cancellationToken) =>
+        Ok(new { markedRead = await service.MarkAllNotificationsReadAsync(cancellationToken) });
+
     [HttpPut("notifications/{id:guid}")]
     public async Task<IActionResult> UpdateNotification(Guid id, UpdateNotificationRequestDto request, CancellationToken cancellationToken) => Ok(await service.UpdateNotificationAsync(id, request, cancellationToken));
 

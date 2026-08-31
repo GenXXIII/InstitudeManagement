@@ -50,7 +50,7 @@ export default function OperationsWorkspace() {
   return <div className={`viewport-data-page operations-workspace ${visual ? "operations-visual-workspace" : ""}`}>
     <PageHeading eyebrow={dashboard ? "Institute operations" : "Live operation"} title={dashboard ? "Operation Overview" : data.title} description={`${data.description}${year ? ` Showing Year ${year}.` : ""}`} actions={<><span className="live-pill"><i/> {dashboard ? "Institute status current" : "Auto-refresh on"}</span><button className="button primary" onClick={load}><Icon name={dashboard ? "dashboard" : "pulse"} size={16}/>Refresh</button></>}/>
     {!dashboard && !visual && <MetricCards metrics={data.metrics}/>} 
-    <OperationPanel data={data} departmentId={departmentId} year={year} className={dashboard ? "operation-dashboard-page" : visual ? "operation-visual-page" : "operation-standard-page"} kicker={dashboard ? "Four core institute operations" : timetable ? "One-page weekly schedule" : visual ? "Whole view · no scrolling" : "Live management-sized data"}/>
+    <OperationPanel data={data} departmentId={departmentId} year={year} className={dashboard ? "operation-dashboard-page" : visual ? "operation-visual-page" : "operation-standard-page"} kicker={dashboard ? "Enrollment-powered institute operations" : timetable ? "Enrolled weekly schedule" : visual ? "Enrollment-derived whole view" : "Live enrollment-derived data"}/>
   </div>;
 }
 

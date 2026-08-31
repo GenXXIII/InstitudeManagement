@@ -5,6 +5,7 @@ export const notificationApi = {
   notifications: () => request<NotificationItem[]>("/api/notification-center/notifications"),
   notification: (id: string) => request<NotificationItem>(`/api/notification-center/notifications/${id}`),
   readNotification: (id: string) => request<NotificationItem>(`/api/notification-center/notifications/${id}/read`, { method: "PUT" }),
+  readAllNotifications: () => request<{ markedRead: number }>("/api/notification-center/notifications/read-all", { method: "PUT" }),
   updateNotification: (id: string, values: NotificationDraft) => request<NotificationItem>(`/api/notification-center/notifications/${id}`, { method: "PUT", body: JSON.stringify(values) }),
   removeNotification: (id: string) => request<void>(`/api/notification-center/notifications/${id}`, { method: "DELETE" }),
   alerts: () => request<AnnouncementItem[]>("/api/notification-center/alerts"),

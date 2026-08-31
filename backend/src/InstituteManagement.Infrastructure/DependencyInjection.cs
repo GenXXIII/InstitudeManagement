@@ -62,6 +62,8 @@ public static class DependencyInjection
         services.AddScoped<IOperationalRecordReader, ClassroomOperationalRecordReader>();
         services.AddScoped<IOperationalRecordReader, CourseOperationalRecordReader>();
         services.AddScoped<IOperationalRecordReader, ClassSessionOperationalRecordReader>();
+        services.AddScoped<IOperationalRecordReader, DepartmentOperationalRecordReader>();
+        services.AddScoped<IOperationalRecordReader, TimetableOperationalRecordReader>();
         services.AddScoped<IHistoryQueryService, HistoryQueryService>();
         services.AddScoped<IResultQueryService, ResultQueryService>();
         services.AddScoped<IHistorySnapshotProvider, StudentHistorySnapshotProvider>();

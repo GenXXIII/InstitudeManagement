@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
+import { workflowSourceSearch } from "@/lib/workflow-code";
 import { RecordMetric } from "./components/record-metric";
 import { RecordRow } from "./components/record-row";
 import { historyApi } from "./history-api";
@@ -26,7 +27,7 @@ function RecordRegister() {
   const [rows, setRows] = useState<RecordItem[]>([]);
   const [error, setError] = useState(false);
   const [ready, setReady] = useState(false);
-  const load = useCallback(() => historyApi.get(query, config.type).then(data => { setRows(data); setReady(true); setError(false); }).catch(() => setError(true)), [config.type, query]);
+  const load = useCallback(() => historyApi.get(workflowSourceSearch(query), config.type).then(data => { setRows(data); setReady(true); setError(false); }).catch(() => setError(true)), [config.type, query]);
   useEffect(() => { const timer = window.setTimeout(load, 180); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => { const timer = window.setTimeout(() => setQuery(searchParams.get("q") ?? ""), 0); return () => window.clearTimeout(timer); }, [searchParams]);
 

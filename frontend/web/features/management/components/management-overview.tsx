@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
+import { workflowCode } from "@/lib/workflow-code";
 import type { References } from "../management-types";
 
 const lifecycle = [
@@ -22,6 +24,7 @@ export function ManagementOverview({ references, onSelect, selected, year }: { r
   ] as const;
 
   return <div className="management-control-overview">
+    <WorkflowCodeFlow sourceCode="STU-XX" resource="student" currentStage="history"/>
     <section className="enrollment-overview-metrics" aria-label="Management source data">
       {metrics.map(metric => <Link className="panel enrollment-overview-metric" href={scopedHref(`/management/${metric.module}`, selected, year)} key={metric.module}>
         <span className="complete"><Icon name={metric.icon} size={17}/></span>
@@ -52,7 +55,7 @@ export function ManagementOverview({ references, onSelect, selected, year }: { r
           const teachers = references.teachers.filter(teacher => teacher.values.departmentId === department.id).length;
           const courses = references.courses.filter(course => course.values.departmentId === department.id).length;
           return <article className="management-department-row" key={department.id}>
-            <strong>{department.values.departmentCode}</strong><span>{department.values.name}</span><span>{department.values.head || "Not appointed"}</span><b>{students}</b><b>{teachers}</b><b>{courses}</b><button type="button" onClick={() => onSelect(department.id)}>View <Icon name="arrow" size={12}/></button>
+            <strong>{workflowCode(department.values.departmentCode, "department", "management")}</strong><span>{department.values.name}</span><span>{department.values.head || "Not appointed"}</span><b>{students}</b><b>{teachers}</b><b>{courses}</b><button type="button" onClick={() => onSelect(department.id)}>View <Icon name="arrow" size={12}/></button>
           </article>;
         })}
         {!departments.length && <div className="empty-state"><strong>No departments in this scope</strong><span>Add a DepartmentCode before linking other management records.</span></div>}

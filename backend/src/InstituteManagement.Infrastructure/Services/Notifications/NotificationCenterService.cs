@@ -36,6 +36,23 @@ public sealed class NotificationCenterService(InstituteDbContext db, InstituteCa
         return Notification(entity);
     }
 
+    public async Task<int> MarkAllNotificationsReadAsync(CancellationToken cancellationToken)
+    {
+        var unread = await db.Notifications.Where(item => !item.IsRead).ToListAsync(cancellationToken);
+        if (unread.Count == 0) return 0;
+
+        var changedAt = DateTime.UtcNow;
+        foreach (var entity in unread)
+        {
+            entity.IsRead = true;
+            entity.UpdatedAtUtc = changedAt;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await cache.InvalidateDashboardAsync(cancellationToken);
+        return unread.Count;
+    }
+
     public async Task<NotificationItemDto> UpdateNotificationAsync(Guid id, UpdateNotificationRequestDto request, CancellationToken cancellationToken)
     {
         var entity = await db.Notifications.FindAsync([id], cancellationToken) ?? throw new KeyNotFoundException("Notification not found.");

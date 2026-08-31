@@ -7,6 +7,7 @@ public interface INotificationCenterService
     Task<IReadOnlyList<NotificationItemDto>> GetNotificationsAsync(CancellationToken cancellationToken);
     Task<NotificationItemDto> GetNotificationAsync(Guid id, CancellationToken cancellationToken);
     Task<NotificationItemDto> MarkNotificationReadAsync(Guid id, CancellationToken cancellationToken);
+    Task<int> MarkAllNotificationsReadAsync(CancellationToken cancellationToken);
     Task<NotificationItemDto> UpdateNotificationAsync(Guid id, UpdateNotificationRequestDto request, CancellationToken cancellationToken);
     Task DeleteNotificationAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<AnnouncementItemDto>> GetAnnouncementsAsync(CancellationToken cancellationToken);
