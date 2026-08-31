@@ -1,6 +1,6 @@
 namespace InstituteManagement.Application.DTOs;
 
-public sealed record OperationalRecordGradeDto(Guid CourseId, string CourseCode, string CourseName, decimal Score, string Grade);
+public sealed record OperationalRecordGradeDto(Guid CourseId, string GradeCode, string CourseCode, string CourseName, decimal Score, string Grade);
 
 public sealed record OperationalRecordInsightsDto(
     int PresentCount,

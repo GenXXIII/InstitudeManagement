@@ -14,7 +14,7 @@ import { recordApi } from "./record-api";
 import type { OperationalRecord } from "./record-types";
 
 const modules: Record<string, { title: string; description: string; singular: string }> = {
-  sessions: { title: "Completed timetable sessions", description: "One visual card per completed timetable occurrence with course, teacher, room, and frozen attendance.", singular: "session" },
+  sessions: { title: "Recorded timetable sessions", description: "One visual card per held or not-held timetable occurrence with course, teacher, room, and frozen evidence.", singular: "session" },
   students: { title: "Student semester records", description: "Student information, attendance, five course grades, and semester result remain together.", singular: "student" },
   teachers: { title: "Teacher semester records", description: "Teacher information, year levels, attendance, assigned courses, and completed classes remain together.", singular: "teacher" },
   courses: { title: "Course semester records", description: "Course information, assigned year, enrolled student total, state, and class details.", singular: "course" },
@@ -39,13 +39,15 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
   useEffect(() => { const timer = window.setTimeout(load, 180); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => { const timer = window.setTimeout(() => setQuery(searchParams.get("q") ?? ""), 0); return () => window.clearTimeout(timer); }, [searchParams]);
 
-  const periods = useMemo(() => [...new Map(rows.filter(row => row.academicYear && row.term).map(row => [`${row.academicYear}|${row.term}`, { key: `${row.academicYear}|${row.term}`, label: `${row.academicYear} · ${row.term}` }])).values()]
+  const periods = useMemo(() => [...new Map(rows.flatMap(row => row.activities
+    .filter(activity => activity["Academic year"] && activity.Term)
+    .map(activity => [`${activity["Academic year"]}|${activity.Term}`, { key: `${activity["Academic year"]}|${activity.Term}`, label: `${activity["Academic year"]} · ${activity.Term}` }] as const))).values()]
     .toSorted((left, right) => comparePeriod(right.key, left.key)), [rows]);
   const visibleRows = useMemo(() => rows
-    .filter(row => selectedPeriod === "all" || `${row.academicYear}|${row.term}` === selectedPeriod)
+    .filter(row => selectedPeriod === "all" || row.activities.some(activity => `${activity["Academic year"]}|${activity.Term}` === selectedPeriod))
     .filter(row => !year || JSON.stringify(row).toLowerCase().includes(`year ${year}`))
     .toSorted((left, right) => comparePeriod(`${right.academicYear}|${right.term}`, `${left.academicYear}|${left.term}`) || recordYear(left) - recordYear(right) || (left.code || left.subject).localeCompare(right.code || right.subject, undefined, { numeric: true })), [rows, selectedPeriod, year]);
-  const routeModule = history && currentModule === "sessions" ? "class-sessions" : currentModule;
+  const routeModule = currentModule === "sessions" ? "class-sessions" : currentModule;
   const detailQuery = searchParams.toString();
   const detailHref = (id: string) => `${history ? "/records" : "/record"}/${routeModule}/${encodeURIComponent(id)}${detailQuery ? `?${detailQuery}` : ""}`;
   const activityCount = visibleRows.reduce((total, row) => total + row.activities.length, 0);
@@ -54,11 +56,11 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
   if (!ready) return <LoadingPage/>;
 
   return <div className="viewport-data-page record-viewport-page">
-    <PageHeading eyebrow={history ? "Read-only semester history" : "Active-semester records"} title={history ? `${config.title} history` : config.title} description={`${history ? "Each academic year and semester has its own section. " : "When the semester advances, this view resets while its old data remains in History. "}${config.description}${year ? ` Showing Year ${year}.` : ""}`}/>
-    {history && <section className="record-semester-switcher panel"><div><span>History data</span><strong>{selectedPeriod === "all" ? "All academic years and semesters" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Choose academic year / semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">All semesters</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>}
+    <PageHeading eyebrow={history ? "Permanent graduate history" : "Accumulating student-cycle records"} title={history ? `${config.title} history` : config.title} description={`${history ? "History is created only after Year 4 Semester 2 and remains read-only. " : "Each new semester is added above the earlier semesters; nothing leaves Record until the student completes Year 4 Semester 2. "}${config.description}${year ? ` Showing Year ${year}.` : ""}`}/>
+    {history && <section className="record-semester-switcher panel"><div><span>Graduate archive</span><strong>{selectedPeriod === "all" ? "Complete Year 1–4 history" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Filter archived semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">Full four-year archive</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>}
     <section className="operational-record-summary"><article className="panel"><span>All {config.singular}s</span><strong>{visibleRows.length.toLocaleString()}</strong><small>Semester-linked records</small></article><article className="panel"><span>Recorded activities</span><strong>{activityCount.toLocaleString()}</strong><small>Enrollment and completed class evidence</small></article><article className="panel"><span>Semester groups</span><strong>{new Set(visibleRows.map(row => `${row.academicYear}|${row.term}`)).size}</strong><small>Academic year / semester sections</small></article></section>
     <section className="record-toolbar panel"><label className="record-search"><Icon name="search" size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}…`} aria-label={`Search ${config.title}`}/></label><span className="record-count">Showing {visibleRows.length} records</span></section>
-    {visibleRows.length ? <section className="record-paginated-region"><div className="semester-history-scroll">{periodGroups.map(group => <SemesterHistoryGroup module={currentModule} group={group} history={history} load={load} detailHref={detailHref} key={group.key}/>)}</div></section> : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>{history ? "No semester records found" : "No active-semester records found"}</strong><span>{history ? "Enrollment and completed-class data will appear under its academic year and semester header." : "Records appear automatically from Enrollment and completed timetable periods."}</span></section>}
+    {visibleRows.length ? <section className="record-paginated-region"><div className="semester-history-scroll">{periodGroups.map(group => <SemesterHistoryGroup module={currentModule} group={group} history={history} load={load} detailHref={detailHref} key={group.key}/>)}</div></section> : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>{history ? "No completed four-year archive yet" : "No accumulated records found"}</strong><span>{history ? "A student moves here only after completing Year 4 Semester 2." : "Records appear automatically from Enrollment and recorded timetable periods, then remain through the student cycle."}</span></section>}
   </div>;
 
   function changePeriod(period: string) {
@@ -75,10 +77,10 @@ function SemesterHistoryGroup({ module, group, history, load, detailHref }: { mo
 
 function renderLedger(module: string, rows: OperationalRecord[], history: boolean, load: () => void, detailHref: (id: string) => string) {
   const stage = history ? "history" : "record";
-  if (module === "students") return <div className="student-semester-record-ledger panel"><StudentSemesterRecordHeader/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history} showStatus={false} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
+  if (module === "students") return <div className="student-semester-record-ledger panel"><StudentSemesterRecordHeader history={history}/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history && row.insights?.isFinal !== true && row.status !== "Closed"} showStatus={false} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
   if (module === "teachers" || module === "courses" || module === "classrooms") return <div className="entity-semester-record-ledger panel"><EntitySemesterRecordHeader module={entityModuleName(module)}/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
   if (module === "departments" || module === "timetable") return <div className="structure-semester-record-ledger panel"><StructureSemesterRecordHeader module={module === "departments" ? "Department" : "Timetable"}/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
-  return <div className="session-record-list">{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history} showStatus={!history} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div>;
+  return <div className="session-record-list">{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history && row.status !== "Closed"} showStatus={!history} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div>;
 }
 
 function groupRowsByPeriod(rows: OperationalRecord[]) {

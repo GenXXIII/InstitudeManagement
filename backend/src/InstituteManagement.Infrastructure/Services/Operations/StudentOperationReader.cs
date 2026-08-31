@@ -27,7 +27,7 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
             .Select(x => x.ScheduleEntryId)
             .ToListAsync(cancellationToken);
-        var selectedSchedules = await db.ScheduleEntries.AsNoTracking()
+        var selectedSchedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Teacher)
             .Where(x => x.Status != "Cancelled"
                 && enrolledTimetableIds.Contains(x.Id)
                 && courseIds.Contains(x.CourseId)
@@ -36,6 +36,20 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
             .ToListAsync(cancellationToken);
         if (!selection.IsRunning) selectedSchedules.Clear();
         var currentCohorts = selectedSchedules.Select(x => (courseAssignments[x.CourseId].DepartmentId, x.YearLevel)).ToHashSet();
+        var teacherIds = selectedSchedules.Select(x => x.TeacherId).Distinct().ToList();
+        var teacherAssignments = await db.TeacherAssignments.AsNoTracking()
+            .Where(x => teacherIds.Contains(x.TeacherId) && x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
+                && x.Status != "Removed" && x.Status != "Unassigned")
+            .ToListAsync(cancellationToken);
+        var runningCohorts = selectedSchedules.Where(schedule =>
+        {
+            var courseAssignment = courseAssignments[schedule.CourseId];
+            var teacherAssignment = teacherAssignments
+                .Where(item => item.TeacherId == schedule.TeacherId && (item.DepartmentId == courseAssignment.DepartmentId || item.DepartmentId == null))
+                .OrderByDescending(item => item.DepartmentId == courseAssignment.DepartmentId)
+                .FirstOrDefault();
+            return TeacherPresence.IsPresent(TeacherPresence.Attendance(schedule.Teacher?.Status, teacherAssignment?.Status));
+        }).Select(x => (courseAssignments[x.CourseId].DepartmentId, x.YearLevel)).ToHashSet();
         var enrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student).Include(x => x.Department)
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
                 && x.Shift == shift.Name
@@ -59,7 +73,7 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
                 x.Department?.Name ?? "—",
                 x.YearLevel,
                 x.Shift,
-                status.GetValueOrDefault(x.StudentId, defaultStatus)))
+                runningCohorts.Contains((x.DepartmentId, x.YearLevel)) ? status.GetValueOrDefault(x.StudentId, defaultStatus) : "Class not running"))
             .OrderBy(x => AttendancePriority(x.AttendanceStatus))
             .ThenBy(x => x.StudentCode)
             .ToList();
@@ -68,7 +82,8 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
             new("Scheduled", rows.Count.ToString(), $"{shift.Name} · {selection.Date:dddd}"),
             new("Present", rows.Count(x => x.AttendanceStatus == "Present").ToString(), selection.IsRunning ? "Real-time" : "Not started", "green"),
             new("Permission", rows.Count(x => x.AttendanceStatus == "Permission").ToString(), selection.IsRunning ? "Real-time" : "Not started", "amber"),
-            new("Absent", rows.Count(x => x.AttendanceStatus == "Absent").ToString(), selection.IsRunning ? "Real-time" : "Not started", "red")
+            new("Absent", rows.Count(x => x.AttendanceStatus == "Absent").ToString(), selection.IsRunning ? "Real-time" : "Not started", "red"),
+            new("Class not running", rows.Count(x => x.AttendanceStatus == "Class not running").ToString(), "Teacher absent or permission", "red")
         };
         var state = selection.IsRunning ? "currently in progress" : "next";
         return new OperationDto(
@@ -93,7 +108,8 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
         "Present" => 0,
         "Permission" => 1,
         "Absent" => 2,
-        "Scheduled" => 3,
-        _ => 4
+        "Class not running" => 3,
+        "Scheduled" => 4,
+        _ => 5
     };
 }

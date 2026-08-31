@@ -1,7 +1,10 @@
-import { redirect } from "next/navigation";
-import { historyHref, type HistorySearchParams } from "@/features/history/history-route";
+import { OperationalRecordWorkspace } from "@/features/record/operational-record-workspace";
+import { RecordOverview } from "@/features/record/record-overview";
 
-export default async function RecordPage({ params, searchParams }: { params: Promise<{ module: string }>; searchParams: Promise<HistorySearchParams> }) {
-  const [{ module }, query] = await Promise.all([params, searchParams]);
-  redirect(historyHref(module, query));
+export default async function RecordPage({ params }: { params: Promise<{ module: string }> }) {
+  const { module } = await params;
+  if (module === "overview") return <RecordOverview/>;
+  if (module === "class-sessions") return <OperationalRecordWorkspace module="sessions"/>;
+  if (["students", "teachers", "courses", "classrooms", "departments", "timetable"].includes(module)) return <OperationalRecordWorkspace module={module}/>;
+  return <RecordOverview/>;
 }

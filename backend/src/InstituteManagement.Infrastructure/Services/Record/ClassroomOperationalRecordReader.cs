@@ -54,7 +54,8 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
                 ("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term),
                 ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"),
                 ("Year", $"Year {x.YearLevel}"), ("Course", x.CourseName), ("Teacher", x.TeacherName),
-                ("Teacher attendance", x.TeacherAttendanceStatus),
+                ("Teacher attendance", x.TeacherAttendanceStatus), ("Session status", TeacherPresence.SessionStatus(x.TeacherAttendanceStatus)),
+                ("Reason", TeacherPresence.Reason(x.TeacherAttendanceStatus)),
                 ("Classroom", room.ClassroomCode), ("Present", (x.PresentCount + x.LateCount).ToString()),
                 ("Permission", x.ExcusedCount.ToString()), ("Absent", x.AbsentCount.ToString()),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"),
@@ -62,7 +63,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var status = room.Status is "Inactive" or "Offline" || !room.DeviceOnline ? "Unavailable" : runningIds.Contains(room.Id) ? "In Study" : "Available";
             return new OperationalRecordDto(room.Id, "Classroom", room.ClassroomCode, $"{room.RoomType} · {room.Building}", status,
-                $"{completed.Count} completed timetable classes", events.Count == 0 ? null : events[0].Item1,
+                $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
                 events.Select(x => x.Item2).ToList(), Code: room.ClassroomCode, Department: room.Building, ResourceId: room.Id);
         }).ToList();
     }

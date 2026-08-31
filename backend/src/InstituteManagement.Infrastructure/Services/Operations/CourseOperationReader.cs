@@ -28,24 +28,49 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
             .Select(x => x.ScheduleEntryId)
             .ToListAsync(cancellationToken);
-        var currentCourseIds = await db.ScheduleEntries.AsNoTracking()
+        var currentSchedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Teacher)
             .Where(x => x.Status != "Cancelled"
                 && enrolledTimetableIds.Contains(x.Id)
                 && assignmentCourseIds.Contains(x.CourseId)
                 && x.DayOfWeek == selection.Date.DayOfWeek
                 && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt)
-            .Select(x => x.CourseId)
-            .ToHashSetAsync(cancellationToken);
-        if (!selection.IsRunning) currentCourseIds.Clear();
+            .ToListAsync(cancellationToken);
+        if (!selection.IsRunning) currentSchedules.Clear();
+
+        var currentCourseIds = currentSchedules.Select(x => x.CourseId).ToHashSet();
+        var teacherIds = currentSchedules.Select(x => x.TeacherId).Distinct().ToList();
+        var teacherAssignments = await db.TeacherAssignments.AsNoTracking()
+            .Where(x => teacherIds.Contains(x.TeacherId) && x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
+                && x.Status != "Removed" && x.Status != "Unassigned")
+            .ToListAsync(cancellationToken);
         var courses = assignments.Where(x => currentCourseIds.Contains(x.CourseId) && x.Course is not null).ToList();
-        var state = selection.IsRunning ? "Running" : "Scheduled";
-        var rows = courses.Select(x => new CourseOperationDto(x.CourseId, x.Course!.Name, x.Course.CourseCode, x.Teacher?.FullName ?? "—", x.Department?.Name ?? "—", x.Capacity, state))
+        var rows = courses.Select(x =>
+        {
+            var schedule = currentSchedules.First(item => item.CourseId == x.CourseId);
+            var teacher = schedule.Teacher ?? x.Teacher;
+            var teacherAssignment = teacherAssignments
+                .Where(item => item.TeacherId == schedule.TeacherId && (item.DepartmentId == x.DepartmentId || item.DepartmentId == null))
+                .OrderByDescending(item => item.DepartmentId == x.DepartmentId)
+                .FirstOrDefault();
+            var attendance = TeacherPresence.Attendance(teacher?.Status, teacherAssignment?.Status);
+            var status = TeacherPresence.IsPresent(attendance) ? "Running" : "Not running";
+            return new CourseOperationDto(x.CourseId, x.Course!.Name, x.Course.CourseCode, teacher?.FullName ?? "—", x.Department?.Name ?? "—", x.Capacity, status, attendance, TeacherPresence.Reason(attendance));
+        })
             .OrderBy(x => x.Status == "Running" ? 0 : 1)
             .ThenBy(x => x.CourseCode)
             .ToList();
+
         var catalogCount = assignments.Count;
         var timing = selection.IsRunning ? "Current" : "Next";
-        var metrics = new List<MetricDto> { new(state, rows.Count.ToString(), $"{timing} timetable period", "green"), new("Teachers", rows.Select(x => x.Teacher).Distinct().Count().ToString(), selection.IsRunning ? "Assigned right now" : "Assigned next"), new("Catalog", catalogCount.ToString(), "All active courses"), new("Available", (catalogCount - rows.Count).ToString(), "Not in this period", "violet") };
-        return new OperationDto(Module, $"Course operations · {context.Scope}", $"Courses and assigned teachers from the {timing.ToLowerInvariant()} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}).", metrics, context.Activity, context.Attention, Courses: rows);
+        var running = rows.Count(x => x.Status == "Running");
+        var notRunning = rows.Count - running;
+        var metrics = new List<MetricDto>
+        {
+            new("Running", running.ToString(), "Teacher present", "green"),
+            new("Not running", notRunning.ToString(), "Teacher absent or permission", "red"),
+            new("Teachers", rows.Select(x => x.Teacher).Distinct().Count().ToString(), selection.IsRunning ? "Assigned right now" : "Assigned next"),
+            new("Available", (catalogCount - rows.Count).ToString(), "Not in this period", "violet")
+        };
+        return new OperationDto(Module, $"Course operations · {context.Scope}", $"Courses from the {timing.ToLowerInvariant()} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). A course runs only when its assigned teacher is present.", metrics, context.Activity, context.Attention, Courses: rows);
     }
 }

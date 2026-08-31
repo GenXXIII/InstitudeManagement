@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
-import { historyHref, type HistorySearchParams } from "@/features/history/history-route";
+import { OperationalRecordDetail } from "@/features/record/operational-record-detail";
 
-export default async function RecordDetailPage({ params, searchParams }: { params: Promise<{ module: string; id: string }>; searchParams: Promise<HistorySearchParams> }) {
-  const [{ module, id }, query] = await Promise.all([params, searchParams]);
-  redirect(historyHref(module, query, id));
+export default async function RecordDetailPage({ params }: { params: Promise<{ module: string; id: string }> }) {
+  const { module, id } = await params;
+  return <OperationalRecordDetail module={module === "class-sessions" ? "sessions" : module} id={id}/>;
 }

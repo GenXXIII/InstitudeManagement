@@ -2,6 +2,7 @@ using System.Text.Json;
 using InstituteManagement.Application.DTOs;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.Record.OperationalRecordFields;
 
@@ -32,7 +33,7 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
             {
                 var relatedCourses = courseAssignments.Where(x => x.TeacherId == teacher.Id && x.AcademicYear == assignment.AcademicYear && x.Semester == assignment.Semester && (!assignment.DepartmentId.HasValue || x.DepartmentId == assignment.DepartmentId)).ToList();
                 var years = string.Join(", ", relatedCourses.Select(x => $"Year {x.YearLevel}").Distinct().OrderBy(x => x));
-                var status = TeacherAttendance(assignment.Status == "Assigned" ? teacher.Status : assignment.Status);
+                var status = TeacherPresence.Attendance(teacher.Status, assignment.Status);
                 return (assignment.UpdatedAtUtc, Create(
                     ("Activity", "Teacher assignment"), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
@@ -44,14 +45,14 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
                 ("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term),
                 ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"),
                 ("Year", $"Year {x.YearLevel}"), ("Course", x.CourseName), ("Classroom", x.ClassroomCode),
-                ("Teacher attendance", x.TeacherAttendanceStatus), ("Present", (x.PresentCount + x.LateCount).ToString()),
+                ("Teacher attendance", x.TeacherAttendanceStatus), ("Session status", TeacherPresence.SessionStatus(x.TeacherAttendanceStatus)), ("Reason", TeacherPresence.Reason(x.TeacherAttendanceStatus)), ("Present", (x.PresentCount + x.LateCount).ToString()),
                 ("Permission", x.ExcusedCount.ToString()), ("Absent", x.AbsentCount.ToString()),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"),
                 ("Students", StudentSummary(x.StudentAttendanceJson)))));
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
-            var attendanceStatus = TeacherAttendance(teacher.Status);
+            var attendanceStatus = TeacherPresence.Attendance(teacher.Status);
             return new OperationalRecordDto(teacher.Id, "Teacher", teacher.FullName, teacher.TeacherCode, attendanceStatus,
-                $"{completed.Count} completed timetable classes", events.Count == 0 ? null : events[0].Item1,
+                $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
                 events.Select(x => x.Item2).ToList(), Code: teacher.TeacherCode, PhotoDataUrl: teacher.PhotoDataUrl,
                 Department: teacher.Department?.Name ?? "Institute-wide", ResourceId: teacher.Id);
         }).ToList();
@@ -63,5 +64,4 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
         catch (JsonException) { return "Attendance snapshot unavailable"; }
     }
 
-    private static string TeacherAttendance(string status) => status switch { "On leave" => "Permission", "Inactive" => "Absent", _ => "Present" };
 }

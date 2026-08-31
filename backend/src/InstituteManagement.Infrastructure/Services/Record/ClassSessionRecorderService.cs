@@ -65,6 +65,8 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                     if (shift is null) continue;
                     var courseAssignment = courseAssignments[schedule.CourseId];
                     var teacherAssignment = teacherAssignments.FirstOrDefault(x => x.TeacherId == schedule.TeacherId && (x.DepartmentId == courseAssignment.DepartmentId || x.DepartmentId == null));
+                    var teacherAttendance = TeacherPresence.Attendance(schedule.Teacher.Status, teacherAssignment?.Status);
+                    var classHeld = TeacherPresence.IsPresent(teacherAttendance);
                     var studentEnrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student)
                         .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status == "Active"
                             && x.DepartmentId == courseAssignment.DepartmentId && x.YearLevel == schedule.YearLevel && x.Shift == shift.Name)
@@ -75,12 +77,15 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                     var attendance = await db.AttendanceRecords.AsNoTracking().Where(x => studentIds.Contains(x.StudentId) && x.Date == date && x.AcademicYear == academicYear && x.Term == term).ToDictionaryAsync(x => x.StudentId, cancellationToken);
                     var snapshots = students.Select(student =>
                     {
+                        if (!classHeld)
+                            return new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, "Class not held", "");
                         var entry = attendance.GetValueOrDefault(student.Id);
                         return new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, entry?.Status ?? (autoAbsent ? "Absent" : "Not recorded"), entry?.CheckedInAt?.ToString("HH:mm") ?? "");
                     }).ToList();
                     var endedAtUtc = TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(schedule.EndsAt), timeZone);
                     var entity = new ClassSessionRecord
                     {
+                        ClassSessionRecordCode = SessionCode(date, schedule.TimetableCode),
                         ScheduleEntryId = schedule.Id,
                         SessionDate = date,
                         AcademicYear = academicYear,
@@ -94,7 +99,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                         EndsAt = schedule.EndsAt,
                         CourseName = schedule.Course.Name,
                         TeacherName = schedule.Teacher.FullName,
-                        TeacherAttendanceStatus = TeacherAttendance(teacherAssignment?.Status ?? schedule.Teacher.Status),
+                        TeacherAttendanceStatus = teacherAttendance,
                         ClassroomCode = schedule.Classroom.ClassroomCode,
                         StudentCount = snapshots.Count,
                         PresentCount = snapshots.Count(x => x.Status == "Present"),
@@ -111,8 +116,8 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                         ResourceId = entity.Id,
                         Type = "Class session",
                         Subject = $"{schedule.Course.Name} · Year {schedule.YearLevel}",
-                        Action = "Session completed",
-                        Details = $"{date:yyyy-MM-dd} {schedule.StartsAt:HH:mm}-{schedule.EndsAt:HH:mm} · {schedule.Teacher.FullName} · Room {schedule.Classroom.ClassroomCode} · {snapshots.Count} students · {entity.PresentCount} present · {entity.LateCount} late · {entity.AbsentCount} absent · {entity.ExcusedCount} excused",
+                        Action = classHeld ? "Session completed" : "Class not held",
+                        Details = $"{date:yyyy-MM-dd} {schedule.StartsAt:HH:mm}-{schedule.EndsAt:HH:mm} · {schedule.Teacher.FullName} · Teacher {teacherAttendance} · {TeacherPresence.SessionStatus(teacherAttendance)} · Room {schedule.Classroom.ClassroomCode} · {snapshots.Count} students · {entity.PresentCount} present · {entity.LateCount} late · {entity.AbsentCount} absent · {entity.ExcusedCount} excused",
                         CreateAt = endedAtUtc,
                         UpdatedAtUtc = endedAtUtc
                     });
@@ -122,7 +127,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
             }
 
             if (recorded == 0) return 0;
-            if (dailySummary) db.Notifications.Add(new Notification { Title = "Daily class summary", Message = $"{recorded:N0} completed class session{(recorded == 1 ? "" : "s")} recorded for {today:yyyy-MM-dd}.", Severity = "Info" });
+            if (dailySummary) db.Notifications.Add(new Notification { Title = "Daily class summary", Message = $"{recorded:N0} timetable period{(recorded == 1 ? "" : "s")} recorded for {today:yyyy-MM-dd}.", Severity = "Info" });
             await db.SaveChangesAsync(cancellationToken);
             await cache.InvalidateDashboardAsync(cancellationToken);
             return recorded;
@@ -133,6 +138,10 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
     private static bool Enabled(IReadOnlyDictionary<string, string> values, string key, bool fallback) =>
         bool.TryParse(values.GetValueOrDefault(key), out var enabled) ? enabled : fallback;
 
-    private static string TeacherAttendance(string status) => status switch { "On leave" => "Permission", "Inactive" => "Absent", _ => "Present" };
+    private static string SessionCode(DateOnly date, string timetableCode)
+    {
+        var suffix = timetableCode.Contains('-') ? timetableCode[(timetableCode.IndexOf('-') + 1)..] : timetableCode;
+        return $"SES-{date:yyyyMMdd}-{suffix}".ToUpperInvariant();
+    }
 
 }

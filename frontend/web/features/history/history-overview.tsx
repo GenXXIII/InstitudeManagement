@@ -11,7 +11,7 @@ import { historyApi } from "./history-api";
 import type { RecordItem } from "./history-types";
 
 const historyAreas = [
-  { icon: "users", code: "HSTU-XX", title: "Student History", detail: "Attendance, course grades, and semester result together", path: "/records/students" },
+  { icon: "users", code: "HSTU-XX", title: "Student History", detail: "Graduates only: complete Year 1–4 attendance, grades, and results", path: "/records/students" },
   { icon: "teacher", code: "HTEA-XX", title: "Teacher History", detail: "Teacher attendance and completed-class evidence together", path: "/records/teachers" },
   { icon: "calendar", code: "HSES-XX", title: "Class Sessions", detail: "Frozen attendance for every completed enrolled timetable", path: "/records/class-sessions" },
   { icon: "book", code: "HCOU-XX", title: "Course History", detail: "Course lifecycle and assignment snapshots", path: "/records/courses" },
@@ -48,7 +48,7 @@ export function HistoryOverview() {
   if (error) return <ErrorPage retry={load}/>;
   if (!students || !teachers || !audit) return <LoadingPage/>;
 
-  const inPeriod = (row: OperationalRecord) => selectedPeriod === "all" || `${row.academicYear}|${row.term}` === selectedPeriod;
+  const inPeriod = (row: OperationalRecord) => selectedPeriod === "all" || row.activities.some(activity => `${activity["Academic year"]}|${activity.Term}` === selectedPeriod);
   const inYear = (row: OperationalRecord) => !year || JSON.stringify(row.activities).toLowerCase().includes(`year ${year}`) || row.identifier.toLowerCase().includes(`year ${year}`);
   const visibleStudents = students.filter(row => inPeriod(row) && inYear(row));
   const visibleTeachers = teachers.filter(row => inPeriod(row) && inYear(row));
@@ -56,13 +56,13 @@ export function HistoryOverview() {
   const gradeCount = visibleStudents.reduce((total, row) => total + row.activities.filter(activity => activity.Activity === "Course grade").length, 0);
 
   return <div className="viewport-data-page history-control-overview-page">
-    <PageHeading eyebrow="Semester history control center" title="History Overview" description="Choose a semester, then open visual Student or Teacher History where attendance and grades are kept with the person they belong to."/>
-    <section className="record-semester-switcher panel"><div><span>History data</span><strong>{selectedPeriod === "all" ? "All academic years and semesters" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Choose academic year / semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">All semesters</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>
+    <PageHeading eyebrow="Permanent graduate archive" title="History Overview" description="Students enter History only after completing Year 4 Semester 2. Their graduation academic year is the outside header, and the full eight-semester journey remains inside."/>
+    <section className="record-semester-switcher panel"><div><span>Archived graduate data</span><strong>{selectedPeriod === "all" ? "Complete Year 1–4 histories" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Inspect an archived semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">Full graduate histories</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>
     <div className="history-control-overview-scroll">
       <section className="enrollment-overview-metrics">
-        <HistoryMetric icon="users" label="Student semester records" value={visibleStudents.length} detail={`${attendanceCount} attendance events`} href={scopedHref("/records/students", departmentId, year, selectedPeriod)}/>
+        <HistoryMetric icon="users" label="Graduated student histories" value={visibleStudents.length} detail={`${attendanceCount} attendance events across Year 1–4`} href={scopedHref("/records/students", departmentId, year, selectedPeriod)}/>
         <HistoryMetric icon="teacher" label="Teacher semester records" value={visibleTeachers.length} detail="Attendance and completed classes" href={scopedHref("/records/teachers", departmentId, year, selectedPeriod)}/>
-        <HistoryMetric icon="grade" label="Student course grades" value={gradeCount} detail="Stored inside Student History" href={scopedHref("/records/students", departmentId, year, selectedPeriod)}/>
+        <HistoryMetric icon="grade" label="Archived course grades" value={gradeCount} detail="Grouped by all completed semesters" href={scopedHref("/records/students", departmentId, year, selectedPeriod)}/>
         <HistoryMetric icon="archive" label="Permanent snapshots" value={audit.length} detail="Management and enrollment lifecycle" href={scopedHref("/records/class-sessions", departmentId, year, selectedPeriod)}/>
       </section>
 
@@ -72,7 +72,7 @@ export function HistoryOverview() {
       </section>
 
       <section className="panel history-semester-coverage">
-        <header><div><span>Semester comparison</span><h2>Recorded data by semester</h2></div></header>
+        <header><div><span>Archived journey comparison</span><h2>Graduate data by completed semester</h2></div></header>
         <div className="history-semester-table"><div className="history-semester-head"><span>Academic year</span><span>Semester</span><span>Students</span><span>Teachers</span><span>Attendance</span><span>Grades</span><span>Open</span></div>{periods.map(period => <article className="history-semester-row" key={period.key}><strong>{period.academicYear}</strong><span>{period.term}</span><b>{period.students}</b><b>{period.teachers}</b><span>{period.attendance}</span><span>{period.grades}</span><button type="button" onClick={() => changePeriod(period.key)}>View <Icon name="arrow" size={12}/></button></article>)}{!periods.length && <div className="empty-state"><strong>No semester history yet</strong><span>Completed enrolled classes and grades will create the first semester view.</span></div>}</div>
       </section>
     </div>
@@ -90,17 +90,17 @@ function HistoryMetric({ icon, label, value, detail, href }: { icon: Parameters<
 }
 
 function buildPeriods(students: OperationalRecord[], teachers: OperationalRecord[]) {
-  const keys = new Set([...students, ...teachers].filter(row => row.academicYear && row.term).map(row => `${row.academicYear}|${row.term}`));
+  const keys = new Set([...students, ...teachers].flatMap(row => row.activities.filter(activity => activity["Academic year"] && activity.Term).map(activity => `${activity["Academic year"]}|${activity.Term}`)));
   return [...keys].map(key => {
     const [academicYear, term] = key.split("|");
-    const studentRows = students.filter(row => row.academicYear === academicYear && row.term === term);
-    const teacherRows = teachers.filter(row => row.academicYear === academicYear && row.term === term);
+    const studentRows = students.filter(row => row.activities.some(activity => activity["Academic year"] === academicYear && activity.Term === term));
+    const teacherRows = teachers.filter(row => row.activities.some(activity => activity["Academic year"] === academicYear && activity.Term === term));
     return {
       key, academicYear, term, label: `${academicYear} · ${term}`,
       students: studentRows.length,
       teachers: teacherRows.length,
-      attendance: studentRows.reduce((total, row) => total + row.activities.filter(activity => activity.Activity === "Class attendance").length, 0),
-      grades: studentRows.reduce((total, row) => total + row.activities.filter(activity => activity.Activity === "Course grade").length, 0),
+      attendance: studentRows.reduce((total, row) => total + row.activities.filter(activity => activity.Activity === "Class attendance" && activity["Academic year"] === academicYear && activity.Term === term).length, 0),
+      grades: studentRows.reduce((total, row) => total + row.activities.filter(activity => activity.Activity === "Course grade" && activity["Academic year"] === academicYear && activity.Term === term).length, 0),
     };
   }).toSorted((left, right) => right.key.localeCompare(left.key, undefined, { numeric: true }));
 }

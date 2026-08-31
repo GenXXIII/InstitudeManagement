@@ -1,5 +1,6 @@
 using InstituteManagement.Application.DTOs;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.Record.OperationalRecordFields;
 
@@ -52,7 +53,9 @@ public sealed class DepartmentOperationalRecordReader(InstituteDbContext db) : I
                     ("Teachers", periodTeachers.Select(x => x.TeacherId).Distinct().Count().ToString()),
                     ("Courses", periodCourses.Select(x => x.CourseId).Distinct().Count().ToString()),
                     ("Classrooms", periodRooms.Select(x => x.ClassroomId).Distinct().Count().ToString()),
-                    ("Completed classes", periodSessions.Count.ToString()),
+                    ("Recorded periods", periodSessions.Count.ToString()),
+                    ("Running classes", periodSessions.Count(x => TeacherPresence.IsPresent(x.TeacherAttendanceStatus)).ToString()),
+                    ("Classes not held", periodSessions.Count(x => !TeacherPresence.IsPresent(x.TeacherAttendanceStatus)).ToString()),
                     ("Course names", string.Join("; ", periodCourses.Select(x => x.Course?.Name ?? "Course").Distinct().OrderBy(x => x)))));
             });
             var sessionEvents = completed.Select(x => (x.UpdatedAtUtc, Create(
@@ -60,6 +63,8 @@ public sealed class DepartmentOperationalRecordReader(InstituteDbContext db) : I
                 ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"),
                 ("Year", $"Year {x.YearLevel}"), ("Course", x.CourseName), ("Teacher", x.TeacherName),
                 ("Classroom", x.ClassroomCode), ("Students", x.StudentCount.ToString()),
+                ("Teacher attendance", x.TeacherAttendanceStatus), ("Session status", TeacherPresence.SessionStatus(x.TeacherAttendanceStatus)),
+                ("Reason", TeacherPresence.Reason(x.TeacherAttendanceStatus)),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"))));
             var events = overviewEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             return new OperationalRecordDto(department.Id, "Department", department.Name,

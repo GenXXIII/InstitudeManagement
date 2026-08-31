@@ -14,11 +14,11 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
         var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
-        var courseAssignments = await db.CourseAssignments.AsNoTracking()
+        var enrolledCourseAssignments = await db.CourseAssignments.AsNoTracking()
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
                 && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .Select(x => x.CourseId)
             .ToListAsync(cancellationToken);
+        var courseAssignments = enrolledCourseAssignments.Select(x => x.CourseId).ToList();
         var enrolledTimetableIds = await db.TimetableEnrollments.AsNoTracking()
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
             .Select(x => x.ScheduleEntryId)
@@ -29,6 +29,20 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
             .Include(x => x.Classroom)
             .Where(x => x.Status != "Cancelled" && enrolledTimetableIds.Contains(x.Id) && courseAssignments.Contains(x.CourseId));
         var schedules = await query.OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartsAt).ToListAsync(cancellationToken);
+        var teacherIds = schedules.Select(x => x.TeacherId).Distinct().ToList();
+        var teacherAssignments = await db.TeacherAssignments.AsNoTracking()
+            .Where(x => teacherIds.Contains(x.TeacherId) && x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
+                && x.Status != "Removed" && x.Status != "Unassigned")
+            .ToListAsync(cancellationToken);
+        var teacherAttendance = schedules.ToDictionary(schedule => schedule.Id, schedule =>
+        {
+            var department = enrolledCourseAssignments.First(item => item.CourseId == schedule.CourseId).DepartmentId;
+            var assignment = teacherAssignments
+                .Where(item => item.TeacherId == schedule.TeacherId && (item.DepartmentId == department || item.DepartmentId == null))
+                .OrderByDescending(item => item.DepartmentId == department)
+                .FirstOrDefault();
+            return TeacherPresence.Attendance(schedule.Teacher?.Status, assignment?.Status);
+        });
         var classroomAssignments = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Classroom)
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
                 && x.Status != "Removed" && x.Status != "Unassigned"
@@ -38,16 +52,22 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
         var assignmentByRoom = classroomAssignments.GroupBy(x => x.ClassroomId).ToDictionary(x => x.Key, x => x.First());
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var time = TimeOnly.FromDateTime(now);
-        var running = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time);
+        var running = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
+            && TeacherPresence.IsPresent(teacherAttendance[x.Id]));
+        var notRunning = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
+            && !TeacherPresence.IsPresent(teacherAttendance[x.Id]));
         var inStudyRoomIds = schedules
-            .Where(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time)
+            .Where(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
+                && TeacherPresence.IsPresent(teacherAttendance[x.Id]))
             .Select(x => x.ClassroomId)
             .ToHashSet();
         var rows = schedules.Select(x =>
         {
             var period = AcademicTimetablePolicy.Find(x.DayOfWeek, x.StartsAt, x.EndsAt);
+            var isCurrent = x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time;
+            var attendance = teacherAttendance[x.Id];
             var liveStatus = x.DayOfWeek == now.DayOfWeek
-                ? x.StartsAt <= time && x.EndsAt > time ? "Running" : x.EndsAt <= time ? "Ended" : "Upcoming"
+                ? isCurrent ? TeacherPresence.SessionStatus(attendance) : x.EndsAt <= time ? "Ended" : "Upcoming"
                 : "Upcoming";
             return new WeeklyTimetableSlotDto(
                 x.Id,
@@ -61,7 +81,9 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
                 x.YearLevel,
                 x.Classroom?.ClassroomCode ?? "—",
                 x.Classroom?.RoomType ?? "Classroom",
-                liveStatus);
+                liveStatus,
+                attendance,
+                isCurrent ? TeacherPresence.Reason(attendance) : "Scheduled timetable period.");
         }).ToList();
         var periods = AcademicTimetablePolicy.All
             .Select(x => new TimetablePeriodDto(x.DayGroup, x.Session, x.StartsAt.ToString("HH:mm"), x.EndsAt.ToString("HH:mm")))
@@ -76,6 +98,7 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
         var metrics = new List<MetricDto>
         {
             new("Running", running.ToString(), "Classes right now", "green"),
+            new("Not running", notRunning.ToString(), "Teacher absent or on permission", "red"),
             new("Shifts", AcademicTimetablePolicy.Shifts.Count.ToString(), "Morning, afternoon, evening, weekend"),
             new("Concurrent", "4", "One class for each year"),
             new("Rooms", learningSpaces.Count.ToString(), "Enrollment-assigned learning spaces", "violet")
@@ -83,7 +106,7 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
         return new OperationDto(
             Module,
             $"Weekly timetable · {context.Scope}",
-            "Morning, Afternoon, and Evening run Monday through Friday with two periods per day; Weekend runs five periods on Saturday and Sunday.",
+            "A timetable period runs only when its assigned teacher is present. If the teacher is absent, the course is not running and its classroom remains available.",
             metrics,
             context.Activity,
             context.Attention,

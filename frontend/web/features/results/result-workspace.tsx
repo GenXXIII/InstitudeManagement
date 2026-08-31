@@ -11,7 +11,7 @@ import type { SemesterResult } from "./result-types";
 
 type ResultMode = "history";
 const copy: Record<ResultMode, { eyebrow: string; title: string; description: string }> = {
-  history: { eyebrow: "Permanent academic history", title: "Result Semester", description: "Every completed semester outcome remains available here after the active semester ledger advances." },
+  history: { eyebrow: "Permanent graduate history", title: "Result Semester", description: "After Year 4 Semester 2 graduation, every semester result from Year 1 through Year 4 remains here as read-only history." },
 };
 
 export function ResultWorkspace({ mode }: { mode: ResultMode }) {

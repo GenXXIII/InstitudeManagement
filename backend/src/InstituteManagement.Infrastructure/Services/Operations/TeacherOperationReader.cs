@@ -43,7 +43,7 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
                 && (!departmentId.HasValue || x.DepartmentId == departmentId))
             .OrderBy(x => x.Teacher!.TeacherCode)
             .ToListAsync(cancellationToken);
-        var rows = teachers.Where(x => x.Teacher is not null).Select(x => new TeacherOperationDto(x.TeacherId, x.Teacher!.FullName, x.Teacher.TeacherCode, x.Department?.Name ?? "—", TeacherAttendance(x.Status == "On leave" ? x.Status : x.Teacher.Status)))
+        var rows = teachers.Where(x => x.Teacher is not null).Select(x => new TeacherOperationDto(x.TeacherId, x.Teacher!.FullName, x.Teacher.TeacherCode, x.Department?.Name ?? "—", TeacherPresence.Attendance(x.Teacher.Status, x.Status)))
             .OrderBy(x => AttendancePriority(x.Status))
             .ThenBy(x => x.TeacherCode)
             .ToList();
@@ -52,6 +52,5 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
         return new OperationDto(Module, $"Teacher operations · {context.Scope}", $"Teachers assigned to the {timing.ToLowerInvariant()} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}), ordered by attendance.", metrics, context.Activity, context.Attention, Teachers: rows);
     }
 
-    private static string TeacherAttendance(string status) => status switch { "On leave" => "Permission", "Inactive" => "Absent", _ => "Present" };
     private static int AttendancePriority(string status) => status switch { "Present" => 0, "Permission" => 1, "Absent" => 2, _ => 3 };
 }

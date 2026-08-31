@@ -29,27 +29,59 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
             .Select(x => x.ScheduleEntryId)
             .ToListAsync(cancellationToken);
-        var enrolledCourseIds = await db.CourseAssignments.AsNoTracking()
+        var courseAssignments = await db.CourseAssignments.AsNoTracking()
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
                 && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .Select(x => x.CourseId)
             .ToListAsync(cancellationToken);
-        var timetableRoomIds = (await db.ScheduleEntries.AsNoTracking()
+        var enrolledCourseIds = courseAssignments.Select(x => x.CourseId).ToList();
+        var currentSchedules = await db.ScheduleEntries.AsNoTracking().Include(entry => entry.Course).Include(entry => entry.Teacher)
             .Where(entry => roomIds.Contains(entry.ClassroomId)
                 && enrolledTimetableIds.Contains(entry.Id)
                 && enrolledCourseIds.Contains(entry.CourseId)
                 && entry.Status != "Cancelled"
                 && entry.DayOfWeek == selection.Date.DayOfWeek
                 && entry.StartsAt == period.StartsAt && entry.EndsAt == period.EndsAt)
-            .Select(entry => entry.ClassroomId)
-            .ToListAsync(cancellationToken)).ToHashSet();
-        if (!selection.IsRunning) timetableRoomIds.Clear();
-        var rows = classrooms.Where(x => x.Classroom is not null)
-            .Select(x => new ClassroomOperationDto(x.ClassroomId, x.Classroom!.ClassroomCode, x.Classroom.RoomType, char.IsDigit(x.Classroom.ClassroomCode.FirstOrDefault()) ? x.Classroom.ClassroomCode[0] - '0' : 1, x.Classroom.Building, x.Capacity, x.Classroom.DeviceOnline ? "Online" : "Offline", timetableRoomIds.Contains(x.ClassroomId) && x.Status != "Unavailable" ? "In Study" : x.Status))
-            .OrderBy(x => x.Room)
-            .ToList();
-        var metrics = new List<MetricDto> { new("Enrolled", classrooms.Count.ToString(), "Assigned classrooms and meeting rooms"), new("In Study", timetableRoomIds.Count.ToString(), "Learning now", "green"), new("Available", classrooms.Count(x => x.Status == "Available" && !timetableRoomIds.Contains(x.ClassroomId)).ToString(), "Ready"), new("Unavailable", classrooms.Count(x => x.Status == "Unavailable" || x.Classroom?.DeviceOnline == false).ToString(), "Needs attention", "red") };
+            .ToListAsync(cancellationToken);
+        if (!selection.IsRunning) currentSchedules.Clear();
+        var teacherIds = currentSchedules.Select(x => x.TeacherId).Distinct().ToList();
+        var teacherAssignments = await db.TeacherAssignments.AsNoTracking()
+            .Where(x => teacherIds.Contains(x.TeacherId) && x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
+                && x.Status != "Removed" && x.Status != "Unassigned")
+            .ToListAsync(cancellationToken);
+
+        var rows = classrooms.Where(x => x.Classroom is not null).Select(x =>
+        {
+            var room = x.Classroom!;
+            var schedule = currentSchedules.FirstOrDefault(item => item.ClassroomId == x.ClassroomId);
+            if (schedule is null)
+                return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", "Available", "No course in this period", "—", "Not scheduled", "Available for an assigned course.");
+
+            var department = courseAssignments.First(item => item.CourseId == schedule.CourseId).DepartmentId;
+            var teacherAssignment = teacherAssignments
+                .Where(item => item.TeacherId == schedule.TeacherId && (item.DepartmentId == department || item.DepartmentId == null))
+                .OrderByDescending(item => item.DepartmentId == department)
+                .FirstOrDefault();
+            var attendance = TeacherPresence.Attendance(schedule.Teacher?.Status, teacherAssignment?.Status);
+            var running = TeacherPresence.IsPresent(attendance) && x.Status != "Unavailable" && room.DeviceOnline;
+            var detail = running
+                ? $"{schedule.Course?.Name ?? "Course"} is running with {schedule.Teacher?.FullName ?? "the assigned teacher"}."
+                : !TeacherPresence.IsPresent(attendance)
+                    ? $"{schedule.Course?.Name ?? "Course"} is assigned, but {schedule.Teacher?.FullName ?? "the teacher"} is {attendance.ToLowerInvariant()}; the course is not running."
+                    : $"{schedule.Course?.Name ?? "Course"} is assigned and the teacher is present, but the classroom or attendance device is unavailable.";
+            return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", running ? "In Study" : "Available", schedule.Course?.Name ?? "Course", schedule.Teacher?.FullName ?? "—", attendance, detail);
+        }).OrderBy(x => x.Room).ToList();
+
+        var runningCount = rows.Count(x => x.Status == "In Study");
+        var teacherAbsentCount = rows.Count(x => x.TeacherAttendance is "Absent" or "Permission");
+        var metrics = new List<MetricDto>
+        {
+            new("Running", runningCount.ToString(), "Teacher present", "green"),
+            new("Available", (rows.Count - runningCount).ToString(), "Not running", "red"),
+            new("Teacher absent", teacherAbsentCount.ToString(), "Assigned course not held", "red")
+        };
         var timing = selection.IsRunning ? "current" : "next";
-        return new OperationDto(Module, $"Learning-space operations · {context.Scope}", $"Room status for the {timing} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}).", metrics, context.Activity, context.Attention, Classrooms: rows);
+        return new OperationDto(Module, $"Learning-space operations · {context.Scope}", $"Room status for the {timing} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). A room runs only when its assigned course has a present teacher.", metrics, context.Activity, context.Attention, Classrooms: rows);
     }
+
+    private static int Floor(string code) => char.IsDigit(code.FirstOrDefault()) ? code[0] - '0' : 1;
 }

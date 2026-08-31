@@ -31,12 +31,12 @@ export function OperationalRecordDetail({ module, id, history = false }: { modul
   if (!item) return <LoadingPage/>;
 
   const query = searchParams.toString();
-  const routeModule = history && module === "sessions" ? "class-sessions" : module;
+  const routeModule = module === "sessions" ? "class-sessions" : module;
   const backHref = `${history ? "/records" : "/record"}/${routeModule}${query ? `?${query}` : ""}`;
   return <div className="viewport-data-page record-detail-viewport-page">
-    <PageHeading eyebrow={history ? "Read-only history" : "Active-semester record"} title={item.subject} description={`${item.identifier} · ${item.summary}`} actions={<Link className="button secondary" href={backHref}>Back to History</Link>}/>
+    <PageHeading eyebrow={history ? "Read-only history" : "Active-semester record"} title={item.subject} description={`${item.identifier} · ${item.summary}`} actions={<Link className="button secondary" href={backHref}>{history ? "Back to History" : "Back to Record"}</Link>}/>
     <section className="record-detail-scroll">
-      <OperationalRecordRow row={item} stage={history ? "history" : "record"} editable={!history} showStatus={module === "sessions" && !history} detailPage onUpdated={load}/>
+      <OperationalRecordRow row={item} stage={history ? "history" : "record"} editable={!history && item.status !== "Closed" && item.insights?.isFinal !== true} showStatus={module === "sessions" && !history} detailPage onUpdated={load}/>
     </section>
   </div>;
 }

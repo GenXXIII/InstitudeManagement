@@ -41,16 +41,18 @@ function SessionRecordCard({ row, stage, open, editable, showStatus, detailPage,
   const present = students.filter(student => student.Attendance === "Present" || student.Attendance === "Late").length;
   const absent = students.filter(student => student.Attendance === "Absent").length;
   const permission = students.filter(student => student.Attendance === "Excused" || student.Attendance === "Permission").length;
+  const sessionStatus = summary?.["Session status"] ?? (row.status === "Not held" ? "Not running" : "Running");
+  const classHeld = sessionStatus === "Running";
   const trigger = <>
-      <div className="session-card-time"><span>{workflowCode(row.classSessionRecordCode, "session", stage)}</span><strong>{time}</strong><small>{sessionName(time)} session · source {row.classSessionRecordCode}</small></div>
+      <div className="session-card-time"><span>{workflowCode(row.classSessionRecordCode, "session", stage)}</span><strong>{time}</strong><small>{sessionName(time)} · class session {row.classSessionRecordCode}</small></div>
       <div className="session-card-date"><span className="session-card-calendar"><Icon name="calendar" size={17}/></span><div><small>Class date</small><strong>{displayNumericDate(date)}</strong></div></div>
-      <div className="session-card-course"><small>Timetable cohort</small><strong>{summary?.Year ?? "Year unavailable"}</strong><span>Room {summary?.Classroom ?? "—"}</span></div>
-      <div className="session-card-class"><small>Scheduled teaching</small><strong>{summary?.Teacher ?? "Teacher unavailable"}</strong><span>{summary?.Course ?? "Course unavailable"}</span></div>
+      <div className="session-card-course"><small>{summary?.["Timetable code"] ?? "Timetable cohort"}</small><strong>{summary?.Year ?? "Year unavailable"}</strong><span>{summary?.["Classroom code"] ?? `Room ${summary?.Classroom ?? "—"}`}</span></div>
+      <div className="session-card-class"><small>{summary?.["Teacher code"] ?? "Scheduled teacher"}</small><strong>{summary?.Teacher ?? "Teacher unavailable"}</strong><span>{summary?.["Course code"] ?? summary?.Course ?? "Course unavailable"} · {summary?.Course ?? "Course unavailable"}</span></div>
       <div className="session-card-attendance"><span className="present"><b>{present}</b> came</span><span className="absent"><b>{absent}</b> absent</span>{permission > 0 && <span className="permission"><b>{permission}</b> permission</span>}</div>
     </>;
   return <article className={`session-timetable-card ${open ? "open" : ""}`}>
     {detailPage ? <div className="session-timetable-trigger session-timetable-static">{trigger}</div> : <div className="session-timetable-trigger" role="link" tabIndex={0} onClick={onToggle} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onToggle(); } }}>{trigger}</div>}
-    {open && <div className="session-timetable-details"><header><div><strong>Timetable attendance record</strong><span>{displayDate(date)} · {time} · Room {summary?.Classroom ?? "—"} · {students.length} students</span></div>{(showStatus || editable) && <div className="session-record-actions">{showStatus && <span className="table-status completed">Completed</span>}{editable && <button className="button secondary" type="button" onClick={() => setEditing(true)}><Icon name="edit" size={14}/>Edit record</button>}</div>}</header>{detailPage && <WorkflowCodeFlow sourceCode={row.classSessionRecordCode} resource="session" currentStage={stage}/>}<ActivitiesAtTime items={row.activities} time={time}/></div>}
+    {open && <div className="session-timetable-details"><header><div><strong>{classHeld ? "Timetable attendance record" : "Class not held record"}</strong><span>{displayDate(date)} · {time} · Room {summary?.Classroom ?? "—"} · {students.length} students · {summary?.Reason ?? sessionStatus}</span></div>{(showStatus || editable) && <div className="session-record-actions">{showStatus && <span className={`table-status ${classHeld ? "completed" : "not-held"}`}>{classHeld ? "Completed" : "Not held"}</span>}{editable && classHeld && <button className="button secondary" type="button" onClick={() => setEditing(true)}><Icon name="edit" size={14}/>Edit record</button>}</div>}</header>{detailPage && <WorkflowCodeFlow sourceCode={row.classSessionRecordCode} resource="session" currentStage={stage}/>}<ActivitiesAtTime items={row.activities} time={time}/></div>}
     {editing && <SessionRecordEditor row={row} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onUpdated?.(); }}/>}
   </article>;
 }
@@ -76,8 +78,10 @@ function ActivitiesAtTime({ items, time }: { items: Record<string, string>[]; ti
   const students = items.filter(item => item.Activity === "Student attendance");
   const summary = items.find(item => item.Activity === "Completed class");
   if (!students.length) return <>{items.map((activity, index) => <ActivityAtTime activity={activity} key={`${time}-${index}`}/>)}</>;
-  return <article className="session-attendance-visual">
-    <div className="session-attendance-head"><div className="operational-time-block"><time>{time}</time><span>{sessionName(time)}</span></div><div><span className="operational-action-kind">Completed class</span><strong>{summary?.Course ?? "Scheduled class"}</strong><small>{[summary?.Year, summary?.Teacher, summary?.Classroom].filter(Boolean).join(" · ")}</small></div><b>{summary?.Attendance}</b></div>
+  const sessionStatus = summary?.["Session status"] ?? "Running";
+  const classHeld = sessionStatus === "Running";
+  return <article className={`session-attendance-visual ${classHeld ? "" : "class-not-held"}`}>
+    <div className="session-attendance-head"><div className="operational-time-block"><time>{time}</time><span>{sessionName(time)}</span></div><div><span className="operational-action-kind">{classHeld ? "Completed class" : "Class not held"}</span><strong>{summary?.Course ?? "Scheduled class"}</strong><small>{[summary?.["Class session code"], summary?.["Course code"], summary?.["Teacher code"], summary?.["Classroom code"]].filter(Boolean).join(" · ")}</small><small>{summary?.Reason}</small></div><b>{classHeld ? summary?.Attendance : sessionStatus}</b></div>
     <div className="session-student-status-grid">{students.map((student, index) => <div className={`session-student-status attendance-${student.Attendance.toLowerCase()}`} key={`${student.StudentCode}-${index}`}><span>{student.Student.split(" ").map(value => value[0]).join("").slice(0, 2)}</span><div><strong>{student.Student}</strong><small>{student.StudentCode} · {student["Check in"]}</small></div><b>{attendanceLabel(student.Attendance)}</b></div>)}</div>
   </article>;
 }
@@ -87,7 +91,7 @@ function ActivityAtTime({ activity }: { activity: Record<string, string> }) {
   const time = activity.Time || "No class time";
   const subject = activity.Course || activity.Student || activity.Teacher || activity.Classroom || activity.Status || "Institute activity";
   const state = activity.Attendance || activity.Grade || activity.Status;
-  const detailKeys = Object.keys(activity).filter(key => !["Activity", "StudentId", "Date", "Time", "Attendance", "Grade", "Status"].includes(key));
+  const detailKeys = Object.keys(activity).filter(key => !["Activity", "StudentId", "ClassSessionId", "CourseId", "Date", "Time", "Attendance", "Grade", "Status"].includes(key));
   return <article className={`operational-time-entry ${title === "Completed class" ? "completed-class" : ""}`}>
     <div className="operational-time-block"><time>{time}</time><span>{sessionName(time)}</span></div>
     <div className="operational-action-block"><div><span className="operational-action-kind">{title}</span>{state && <b className={`operational-action-state state-${state.toLowerCase().replaceAll(" ", "-")}`}>{attendanceLabel(state)}</b>}</div><strong>{subject}</strong><div className="operational-action-details">{detailKeys.map(key => <span key={key}><small>{key}</small><b>{activity[key]}</b></span>)}</div></div>

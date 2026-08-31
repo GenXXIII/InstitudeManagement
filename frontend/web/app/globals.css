@@ -377,6 +377,42 @@ a { color:inherit; text-decoration:none; }
 .operations-workspace .data-panel>.panel-title{flex:none}
 .operations-workspace .data-panel>:last-child{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .operation-standard-page .student-presence-board,.operation-standard-page .teacher-operation-board,.operation-standard-page .live-course-list{max-height:none}
+
+/* Operation is live state: lead with its Enrollment source code, then persist evidence in Record. */
+.student-presence-head,.student-presence-board .student-presence-row{grid-template-columns:130px 54px minmax(220px,1fr) 130px 155px!important}
+.teacher-operation-head,.teacher-operation-row{grid-template-columns:145px 54px minmax(240px,1fr) 165px!important}
+.operation-row-code{display:flex;min-width:0;flex-direction:column;gap:4px}
+.operation-row-code strong{overflow:hidden;color:#2f65b2;font-size:12px!important;text-overflow:ellipsis;white-space:nowrap}
+.operation-row-code small{color:#8391a4;font-size:9px!important}
+.course-operation-state{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:5px}
+.course-operation-state small{display:-webkit-box!important;overflow:hidden;color:#7a899d!important;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.floor-rooms article .classroom-live-detail{display:-webkit-box;overflow:hidden;white-space:normal;color:#64758c;font-size:8px;line-height:1.3;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.floor-rooms article.teacher-missing-classroom .classroom-live-detail{color:#b24752;font-weight:700}
+.room-period-cell article.teacher-missing-course{border-color:#e9aeb5;background:#fff0f2;color:#9f3340}
+.room-period-cell article.teacher-missing-course b,.room-period-cell article.teacher-missing-course i{color:#b33e4b}
+.room-period-cell article.teacher-missing-course span{color:#a7525b}
+
+.table-status.not-held{background:#ffe7ea;color:#b63e4b}
+.session-attendance-visual.class-not-held,.entity-session-card.class-not-held,.student-session-detail.class-not-held,.structure-session-register article.class-not-held{border-color:#efb5bc;background:#fff4f5}
+.session-attendance-visual.class-not-held .session-attendance-head{background:#fff0f2}
+.student-session-detail.class-not-held b,.entity-session-card.class-not-held .entity-session-not-held strong,.structure-session-register article.class-not-held>div strong{color:#b23d49}
+.student-session-detail small,.entity-session-main small,.structure-session-register article small{color:#7c899b;font-size:8px;line-height:1.35}
+.entity-session-not-held{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:9px 11px;border-radius:9px;background:#ffe7ea}
+.entity-session-not-held strong{font-size:10px}.entity-session-not-held span{color:#a9535c;font-size:8px}
+
+.program-grade-totals{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.program-grade-totals>span{min-height:27px;border:1px solid #d7e4f2;background:#eef5ff;color:#3267af}
+.program-grade-totals b{font-size:10px}.program-grade-totals small{font-size:6.5px}
+.student-program-history-detail{gap:16px}.program-history-insights{grid-template-columns:330px minmax(360px,1fr) 150px}
+.program-history-insights>.program-grade-totals{align-self:stretch}
+.student-program-timeline{display:flex;flex-direction:column;gap:12px}
+.student-program-timeline>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid #d8e4f1;border-radius:12px;background:linear-gradient(105deg,#eaf3ff,#f8fbff 64%,#edf8f4)}
+.student-program-timeline>header>div{display:flex;flex-direction:column;gap:4px}.student-program-timeline>header strong{font-size:13px}.student-program-timeline>header span{color:#74869d;font-size:9px}.student-program-timeline>header>b{padding:7px 10px;border-radius:8px;background:#3472ca;color:white;font-size:9px}
+.student-program-period{overflow:hidden;border:1px solid #dce6f1;border-radius:13px;background:white}
+.student-program-period>header{min-height:66px;display:grid;grid-template-columns:minmax(210px,1fr) auto auto;align-items:center;gap:14px;padding:10px 15px;border-bottom:1px solid #dfe8f2;background:#f4f8fd}
+.student-program-period>header>div{display:flex;align-items:center;gap:10px}.student-program-period>header span{padding:6px 8px;border-radius:7px;background:#e3efff;color:#2f67b4;font-size:9px;font-weight:800}.student-program-period>header h3{margin:0;color:#2f557f;font-size:14px}.student-program-period>header>strong{color:#356bc0;font-size:10px}.student-program-period>header>small{color:#78899f;font-size:8px}
+.student-program-period>section{padding:14px 15px;border-bottom:1px solid #e5ecf4}.student-program-period>section:last-child{border-bottom:0}.student-program-period>section>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.student-program-period>section>div:first-child strong{font-size:11px}.student-program-period>section>div:first-child span{color:#7b8b9f;font-size:8px}
+.program-period-grade-grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:8px}.program-period-grade-grid>.student-record-detail-empty{grid-column:1/-1}.student-program-period section>footer{display:flex;align-items:center;justify-content:flex-end;gap:14px;margin-top:10px;padding:9px 11px;border-radius:8px;background:#eef5ff;color:#3467ad}.student-program-period section>footer span{font-size:8px}.student-program-period section>footer strong{font-size:14px}.student-program-period section>footer b{font-size:9px}
 .viewport-data-page.operations-visual-workspace:has(.operation-timetable){height:100%;min-height:0;overflow:hidden}
 .viewport-data-page .operation-visual-page:has(.operation-timetable){min-height:0}
 .history-viewport-page .record-register-head,.result-viewport-page .semester-result-head,.announce-viewport-page .notification-inbox-head,.announce-viewport-page .announce-table-head{position:sticky;top:0;z-index:3}

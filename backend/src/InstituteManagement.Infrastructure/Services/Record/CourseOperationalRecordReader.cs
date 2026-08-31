@@ -51,7 +51,8 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
                 ("Activity", "Completed class"), ("Academic year", x.AcademicYear), ("Term", x.Term),
                 ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"),
                 ("Year", $"Year {x.YearLevel}"), ("Teacher", x.TeacherName), ("Classroom", x.ClassroomCode),
-                ("Teacher attendance", x.TeacherAttendanceStatus),
+                ("Teacher attendance", x.TeacherAttendanceStatus), ("Session status", TeacherPresence.SessionStatus(x.TeacherAttendanceStatus)),
+                ("Reason", TeacherPresence.Reason(x.TeacherAttendanceStatus)),
                 ("Present", (x.PresentCount + x.LateCount).ToString()), ("Permission", x.ExcusedCount.ToString()),
                 ("Absent", x.AbsentCount.ToString()),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"),
@@ -59,7 +60,7 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var status = !course.IsActive ? "Unavailable" : runningIds.Contains(course.Id) ? "In Study" : "Available";
             return new OperationalRecordDto(course.Id, "Course", course.Name, course.CourseCode, status,
-                $"{completed.Count} completed timetable classes", events.Count == 0 ? null : events[0].Item1,
+                $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
                 events.Select(x => x.Item2).ToList(), Code: course.CourseCode,
                 Department: course.Department?.Name ?? "Unassigned", ResourceId: course.Id);
         }).ToList();

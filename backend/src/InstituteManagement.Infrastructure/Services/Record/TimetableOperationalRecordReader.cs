@@ -1,6 +1,7 @@
 using InstituteManagement.Application.DTOs;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.Record.OperationalRecordFields;
 
@@ -51,13 +52,15 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
                 ("Date", x.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.StartsAt:HH:mm} – {x.EndsAt:HH:mm}"),
                 ("Day", x.SessionDate.DayOfWeek.ToString()), ("Year", $"Year {x.YearLevel}"),
                 ("Course", x.CourseName), ("Teacher", x.TeacherName), ("Classroom", x.ClassroomCode),
+                ("Teacher attendance", x.TeacherAttendanceStatus), ("Session status", TeacherPresence.SessionStatus(x.TeacherAttendanceStatus)),
+                ("Reason", TeacherPresence.Reason(x.TeacherAttendanceStatus)),
                 ("Student count", x.StudentCount.ToString()),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"))));
             var events = enrollmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var status = schedule.Status == "Cancelled" ? "Cancelled" : scheduleEnrollments.Any(x => x.Status == "Active") ? "Enrolled" : schedule.Status;
             return new OperationalRecordDto(schedule.Id, "Timetable", schedule.Course?.Name ?? "Scheduled course",
                 $"{schedule.DayOfWeek} · {schedule.StartsAt:HH:mm}–{schedule.EndsAt:HH:mm}", status,
-                $"{completed.Count} completed classes", events.Count == 0 ? null : events[0].Item1,
+                $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
                 events.Select(x => x.Item2).ToList(), Code: schedule.TimetableCode,
                 Department: schedule.Course?.Department?.Name ?? "Unassigned", ResourceId: schedule.Id);
         }).ToList();
