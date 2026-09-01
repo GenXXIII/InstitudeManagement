@@ -28,10 +28,12 @@ public sealed class DepartmentManagementFeature(InstituteDbContext db, Institute
 
     public override async Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var departmentCode = Required(values, "departmentCode");
+        var departmentCode = await ConfiguredRecordCodeAsync(values, "departmentCode", "departments", "DEP", Db.Departments.AsNoTracking().Select(department => department.DepartmentCode), ct);
+        values["departmentCode"] = departmentCode;
         await EnsureUniqueAsync(Db.Departments.Where(department => department.DepartmentCode == departmentCode), "DepartmentCode", ct);
         var (headId, teacher) = await HeadAsync(values, ct);
-        var department = new Department { DepartmentCode = departmentCode, Name = Required(values, "name"), HeadTeacherId = headId, Head = teacher?.FullName ?? "Not appointed", IsActive = DepartmentStatus(values) == "Active" };
+        var status = await DepartmentStatusAsync(values, null, ct);
+        var department = new Department { DepartmentCode = departmentCode, Name = Required(values, "name"), HeadTeacherId = headId, Head = teacher?.FullName ?? "Not appointed", IsActive = status == "Active" };
         Db.Departments.Add(department); Db.AuditLogs.Add(Audit(department.Id, values, "Created")); await Db.SaveChangesAsync(ct); if (teacher is not null) { teacher.DepartmentId = department.Id; await Db.SaveChangesAsync(ct); }
         await Cache.InvalidateDashboardAsync(ct); return Response(department.Id, values);
     }
@@ -40,7 +42,7 @@ public sealed class DepartmentManagementFeature(InstituteDbContext db, Institute
         var entity = await RequiredEntityAsync(Db.Departments, id, ct);
         var departmentCode = Required(values, "departmentCode");
         await EnsureUniqueAsync(Db.Departments.Where(department => department.Id != id && department.DepartmentCode == departmentCode), "DepartmentCode", ct);
-        var status = DepartmentStatus(values);
+        var status = await DepartmentStatusAsync(values, entity.IsActive ? "Active" : "Inactive", ct);
         if (status == "Inactive") await ValidateDeleteAsync(entity, ct);
         var (headId, head) = await HeadAsync(values, ct);
         if (head is not null && head.DepartmentId != id && (await Db.Courses.AnyAsync(x => x.TeacherId == head.Id && x.DepartmentId != id, ct) || await Db.ScheduleEntries.AnyAsync(x => x.TeacherId == head.Id && x.Course!.DepartmentId != id, ct))) throw new InvalidOperationException("Move the selected head teacher's course and timetable relationships first.");
@@ -65,8 +67,14 @@ public sealed class DepartmentManagementFeature(InstituteDbContext db, Institute
             Get(values, "status", "Active"),
             Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
-    private static string DepartmentStatus(Dictionary<string, string> values) =>
-        OneOf(values, "status", "Active", "Active", "Inactive");
+    private async Task<string> DepartmentStatusAsync(Dictionary<string, string> values, string? fallback, CancellationToken ct)
+    {
+        var configured = fallback ?? await Db.SystemSettings.AsNoTracking()
+            .Where(x => x.Section == "departments" && x.Key == "defaultStatus")
+            .Select(x => x.Value)
+            .FirstOrDefaultAsync(ct) ?? "Active";
+        return OneOf(values, "status", configured, "Active", "Inactive");
+    }
 
     private async Task<(Guid? Id, Teacher? Teacher)> HeadAsync(Dictionary<string, string> values, CancellationToken ct)
     {

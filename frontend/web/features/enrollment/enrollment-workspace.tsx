@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
+import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import { workflowCode, workflowSourceSearch, type WorkflowCodeResource } from "@/lib/workflow-code";
 import { ManagementDataCell } from "@/features/management/components/management-data-cell";
 import { departmentApi } from "@/features/management/departments/department-api";
@@ -30,6 +31,7 @@ const copy: Record<EnrollmentResource, { title: string; description: string; col
 };
 
 export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource }) {
+  const { settings } = useInstituteSettings();
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
@@ -61,7 +63,7 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     return Promise.all([
       enrollmentApi.get(resource, workflowSourceSearch(query), departmentId, year),
       departmentApi.get(),
-      resource === "courses" ? enrollmentApi.get("teachers", "", departmentId) : Promise.resolve([]),
+      resource === "courses" ? enrollmentApi.get("teachers", "", settings.departments.allowCrossDepartmentTeaching === "true" ? "" : departmentId) : Promise.resolve([]),
       candidateRequest,
       resource === "student-assignments" ? enrollmentApi.get("timetable", "", departmentId, year) : Promise.resolve([]),
     ]).then(([rows, departmentRows, teacherRows, candidateRows, scheduleRows]) => {
@@ -73,7 +75,7 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
       setReady(true);
       setError(false);
     }).catch(() => setError(true));
-  }, [departmentId, query, resource, year]);
+  }, [departmentId, query, resource, settings.departments.allowCrossDepartmentTeaching, year]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 180);

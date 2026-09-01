@@ -10,6 +10,7 @@ public static class DatabaseInitializer
         if (!db.Database.IsRelational())
         {
             await db.Database.EnsureCreatedAsync(cancellationToken);
+            await SettingsCatalogSeeder.SeedMissingAsync(db, cancellationToken);
             return;
         }
 
@@ -23,6 +24,7 @@ public static class DatabaseInitializer
 
         await db.Database.MigrateAsync(cancellationToken);
         await DatabaseSchemaUpdater.EnsureAsync(db, cancellationToken);
+        await SettingsCatalogSeeder.SeedMissingAsync(db, cancellationToken);
     }
 
     private static async Task<bool> HasExistingInstituteSchemaAsync(InstituteDbContext db, CancellationToken cancellationToken)

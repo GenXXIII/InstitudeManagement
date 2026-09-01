@@ -76,6 +76,8 @@ services:
       Cors__Origins__0: http://localhost:${WEB_PORT:-3000}
     ports:
       - "${API_PORT:-5080}:8080"
+    volumes:
+      - ink_uploads:/app/uploads
     depends_on:
       sql-init:
         condition: service_completed_successfully
@@ -117,6 +119,8 @@ volumes:
     name: INK-SQL-DATA
   ink_redis_data:
     name: INK-REDIS-DATA
+  ink_uploads:
+    name: INK-UPLOADS
 
 networks:
   default:

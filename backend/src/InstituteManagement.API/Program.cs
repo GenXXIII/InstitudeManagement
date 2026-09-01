@@ -4,6 +4,7 @@ using InstituteManagement.Application;
 using InstituteManagement.Application.Abstractions;
 using InstituteManagement.Infrastructure;
 using InstituteManagement.Infrastructure.Persistence;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,14 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseCors();
+
+var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
+Directory.CreateDirectory(uploadsPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads",
+});
 
 if (app.Environment.IsDevelopment())
 {

@@ -17,7 +17,9 @@ public sealed class CourseManagementFeature(InstituteDbContext db, InstituteCach
     }
     public override async Task<IManagementItemDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var code = Required(values, "courseCode"); await EnsureUniqueAsync(Db.Courses.Where(course => course.CourseCode == code), "CourseCode", ct);
+        var code = await ConfiguredRecordCodeAsync(values, "courseCode", "courses", "CRS", Db.Courses.AsNoTracking().Select(course => course.CourseCode), ct);
+        values["courseCode"] = code;
+        await EnsureUniqueAsync(Db.Courses.Where(course => course.CourseCode == code), "CourseCode", ct);
         return await SaveCreatedAsync(new Course { CourseCode = code, Name = Required(values, "name"), DepartmentId = null, TeacherId = null, Capacity = 0, IsActive = true }, values, ct);
     }
     public override async Task<IManagementItemDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)

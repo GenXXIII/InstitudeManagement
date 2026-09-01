@@ -28,6 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const academicYear = settings["academic-year"];
   const semester = settings.semester;
   const system = settings.system;
+  const settingsRoute = pathname.startsWith("/settings");
 
   useEffect(() => { departmentApi.get().then(setDepartments).catch(() => setDepartments([])); }, []);
   useEffect(() => {
@@ -57,16 +58,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return <div className="app-frame">
     <div className="ambient ambient-one"/><div className="ambient ambient-two"/>
-    <Sidebar open={open} live={live} instituteName={institute.name || "Institude of New Khmer"} shortName={institute.shortName || "INK"} departmentScope={departmentScope} yearScope={yearScope} onClose={() => setOpen(false)}/>
+    <Sidebar open={open} live={live} instituteName={institute.name || "Institude of New Khmer"} shortName={institute.shortName || "INK"} logoUrl={institute.logoUrl || "/branding/ink-logo.png"} departmentScope={departmentScope} yearScope={yearScope} onClose={() => setOpen(false)}/>
     {open && <button className="backdrop" onClick={() => setOpen(false)} aria-label="Close navigation"/>}
     <div className="workspace">
       <header className="topbar">
         <button className="icon-button menu-button" onClick={() => setOpen(true)} aria-label="Open menu"><Icon name="menu"/></button>
         <TopbarSearch departmentId={departmentScope} year={yearScope}/>
-        <div className="topbar-scopes">
+        {!settingsRoute && <div className="topbar-scopes">
           <label><SearchableSelect value={departmentScope} options={departmentOptions} placeholder="Find department…" ariaLabel="Filter by department" onChange={value => changeScope("departmentId", value)}/></label>
           <label><select aria-label="Filter by student year" value={yearScope} onChange={event => changeScope("year", event.target.value)}><option value="">All years</option><option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option><option value="4">Year 4</option></select></label>
-        </div>
+        </div>}
         <div className="top-actions">
           <button className="term-chip topbar-term-button" onClick={() => router.push("/settings/academic-year")}><span>{semester.currentTerm || "Current term"} · {currentTime}</span><strong>{academicYear.currentYear || "2026–2027"}</strong></button>
           <NotificationCenter open={notificationOpen} events={events} onToggle={() => { setNotificationOpen(value => !value); setProfileOpen(false); }} onClose={() => setNotificationOpen(false)}/>

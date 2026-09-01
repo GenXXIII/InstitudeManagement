@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { SearchableSelect, type SearchableOption } from "@/components/searchable-select";
+import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import type { DepartmentItem } from "@/features/management/types/department";
 import { enrollmentApi, type EnrollmentItem, type EnrollmentResource } from "./enrollment-api";
 
@@ -21,14 +22,18 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { settings } = useInstituteSettings();
   const [resourceId, setResourceId] = useState(item?.id ?? "");
-  const [values, setValues] = useState<Record<string, string>>(() => item ? { ...item.values } : enrollmentDefaults(resource, scopeDepartmentId, scopeYear));
+  const [values, setValues] = useState<Record<string, string>>(() => item ? { ...item.values } : enrollmentDefaults(resource, scopeDepartmentId, scopeYear, settings.courses.defaultCapacity));
   const [selectedCourseId, setSelectedCourseId] = useState(item?.values.courseId ?? "");
   const [selectedTeacherId, setSelectedTeacherId] = useState(item?.values.teacherId ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const creating = item === null;
   const departmentOptions = departments.map(department => ({ id: department.id, label: department.values.name }));
+  const teacherRequired = settings.courses.requireAssignedTeacher === "true";
+  const allowCrossDepartment = settings.departments.allowCrossDepartmentTeaching === "true";
+  const availableTeachers = teachers.filter(teacher => teacher.values.status === "Assigned" && (allowCrossDepartment || !values.departmentId || !teacher.values.departmentId || teacher.values.departmentId === values.departmentId));
   const fields: Field[] = resource === "students" ? [
     { key: "departmentId", label: "Department selected for Year 2-4", type: "select", options: departmentOptions, required: true },
     { key: "year", label: "Year level", type: "select", options: ["1", "2", "3", "4"].map(id => ({ id, label: `Year ${id}` })), required: true },
@@ -38,7 +43,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     { key: "status", label: "Assignment status", type: "select", options: ["Assigned", "On leave", "Unassigned"].map(id => ({ id, label: id })), required: true },
   ] : resource === "courses" ? [
     { key: "departmentId", label: "Department", type: "select", options: departmentOptions, required: true },
-    { key: "teacherId", label: "Assigned teacher", type: "select", options: teachers.filter(teacher => teacher.values.status === "Assigned").map(teacher => ({ id: teacher.id, label: `${teacher.values.teacherCode} - ${teacher.values.name}` })), required: true },
+    { key: "teacherId", label: "Assigned teacher", type: "select", options: [...(teacherRequired ? [] : [{ id: "", label: "Assign later" }]), ...availableTeachers.map(teacher => ({ id: teacher.id, label: `${teacher.values.teacherCode} - ${teacher.values.name}` }))], required: teacherRequired },
     { key: "year", label: "Year level", type: "select", options: ["1", "2", "3", "4"].map(id => ({ id, label: `Year ${id}` })), required: true },
     { key: "capacity", label: "Student capacity", type: "number", required: true },
     { key: "status", label: "Assignment status", type: "select", options: ["Active", "Paused"].map(id => ({ id, label: id })), required: true },
@@ -96,7 +101,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     const selectedSchedule = candidates.find(candidate => candidate.id === resourceId);
     if (selectedSchedule?.values.courseId !== id) {
       setResourceId("");
-      setValues(enrollmentDefaults(resource, scopeDepartmentId, scopeYear));
+      setValues(enrollmentDefaults(resource, scopeDepartmentId, scopeYear, settings.courses.defaultCapacity));
     }
     if (!candidates.some(candidate => candidate.values.courseId === id && candidate.values.teacherId === selectedTeacherId)) setSelectedTeacherId("");
   }
@@ -107,13 +112,20 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     const selectedSchedule = candidates.find(candidate => candidate.id === resourceId);
     if (selectedSchedule?.values.teacherId !== id) {
       setResourceId("");
-      setValues(enrollmentDefaults(resource, scopeDepartmentId, scopeYear));
+      setValues(enrollmentDefaults(resource, scopeDepartmentId, scopeYear, settings.courses.defaultCapacity));
     }
   }
 
   function changeField(field: Field, value: string) {
     setError("");
-    setValues(current => ({ ...current, [field.key]: value }));
+    setValues(current => {
+      const next = { ...current, [field.key]: value };
+      if (resource === "courses" && field.key === "departmentId" && !allowCrossDepartment) {
+        const selectedTeacher = teachers.find(teacher => teacher.id === current.teacherId);
+        if (selectedTeacher?.values.departmentId && selectedTeacher.values.departmentId !== value) next.teacherId = "";
+      }
+      return next;
+    });
   }
 
   const subject = resource === "timetable" ? "timetable" : resource.slice(0, -1);
@@ -143,10 +155,10 @@ function isSelectableEnrollment(resource: EnrollmentResource): resource is Selec
   return resource === "students" || resource === "timetable";
 }
 
-function enrollmentDefaults(resource: EnrollmentResource, departmentId: string, year: string): Record<string, string> {
+function enrollmentDefaults(resource: EnrollmentResource, departmentId: string, year: string, courseCapacity = "40"): Record<string, string> {
   if (resource === "students") return { departmentId, year: year || "1", shift: "Morning", status: "Active" };
   if (resource === "teachers") return { departmentId, status: departmentId ? "Assigned" : "Unassigned" };
-  if (resource === "courses") return { departmentId, teacherId: "", year: year || "1", capacity: "", status: "Active" };
+  if (resource === "courses") return { departmentId, teacherId: "", year: year || "1", capacity: courseCapacity || "40", status: "Active" };
   if (resource === "classrooms") return { departmentId, access: departmentId ? "Department only" : "Shared institute", capacity: "", status: "Available" };
   if (resource === "timetable") return { yearLevel: year || "1", dayOfWeek: "Monday", startsAt: "07:30", endsAt: "09:00", status: "Upcoming" };
   return {};

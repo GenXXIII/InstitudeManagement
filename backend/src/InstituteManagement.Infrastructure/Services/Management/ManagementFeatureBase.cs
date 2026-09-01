@@ -135,6 +135,61 @@ public abstract class ManagementFeatureBase(InstituteDbContext db, InstituteCach
         return id;
     }
 
+    protected Task<string> ConfiguredRecordCodeAsync(
+        Dictionary<string, string> values,
+        string inputKey,
+        string settingsSection,
+        string fallbackPrefix,
+        IQueryable<string> existingCodes,
+        CancellationToken ct) =>
+        ConfiguredCodeAsync(values, inputKey, settingsSection, fallbackPrefix, existingCodes, "codePrefix", "codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", ct);
+
+    protected Task<string> ConfiguredIdentityCodeAsync(
+        Dictionary<string, string> values,
+        string inputKey,
+        string settingsSection,
+        string fallbackPrefix,
+        IQueryable<string> existingCodes,
+        CancellationToken ct) =>
+        ConfiguredCodeAsync(values, inputKey, settingsSection, fallbackPrefix, existingCodes, "idPrefix", "includeYear", "startingNumber", "paddingWidth", "separator", ct);
+
+    private async Task<string> ConfiguredCodeAsync(
+        Dictionary<string, string> values,
+        string inputKey,
+        string settingsSection,
+        string fallbackPrefix,
+        IQueryable<string> existingCodes,
+        string prefixKey,
+        string includeYearKey,
+        string startingNumberKey,
+        string paddingWidthKey,
+        string separatorKey,
+        CancellationToken ct)
+    {
+        var supplied = Get(values, inputKey);
+        if (!string.IsNullOrWhiteSpace(supplied)) return supplied;
+
+        var format = await Db.SystemSettings.AsNoTracking()
+            .Where(setting => setting.Section == settingsSection)
+            .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, ct);
+        var prefix = format.GetValueOrDefault(prefixKey, fallbackPrefix).Trim().ToUpperInvariant();
+        var includeYear = bool.TryParse(format.GetValueOrDefault(includeYearKey), out var configuredIncludeYear) && configuredIncludeYear;
+        var separator = format.GetValueOrDefault(separatorKey, "-");
+        var paddingWidth = int.TryParse(format.GetValueOrDefault(paddingWidthKey), out var configuredWidth) ? Math.Clamp(configuredWidth, 1, 12) : 4;
+        var startingNumber = long.TryParse(format.GetValueOrDefault(startingNumberKey), out var configuredStart) && configuredStart >= 0 ? configuredStart : 1;
+        var localYear = includeYear ? (await InstituteLocalTime.NowAsync(Db, ct)).Year.ToString() : "";
+        var codeStem = includeYear ? $"{prefix}{separator}{localYear}{separator}" : $"{prefix}{separator}";
+        var existing = (await existingCodes.ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        for (var sequence = startingNumber; sequence < long.MaxValue; sequence++)
+        {
+            var candidate = $"{codeStem}{sequence.ToString().PadLeft(paddingWidth, '0')}";
+            if (!existing.Contains(candidate)) return candidate;
+        }
+
+        throw new InvalidOperationException($"No available {FieldName(inputKey)} remains for the configured format.");
+    }
+
     private static string FieldName(string key) => key switch
     {
         "photoDataUrl" => "Photo",

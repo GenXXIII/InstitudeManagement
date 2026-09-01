@@ -35,15 +35,22 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
             if (!TryDate(values, "academic-year:startsOn", out var academicStart)
                 || !TryDate(values, "academic-year:endsOn", out var academicEnd)
                 || !TryDate(values, "semester:semester1StartsOn", out var semester1Start)
-                || !TryDate(values, "semester:semester1EndsOn", out var semester1End)
-                || !TryDate(values, "semester:semester2StartsOn", out var semester2Start)
-                || !TryDate(values, "semester:semester2EndsOn", out var semester2End)) return false;
+                 || !TryDate(values, "semester:semester1EndsOn", out var semester1End)
+                 || !TryDate(values, "semester:semester2StartsOn", out var semester2Start)
+                 || !TryDate(values, "semester:semester2EndsOn", out var semester2End)) return false;
+            var hasSummerStart = TryDate(values, "semester:summerStartsOn", out var summerStart);
+            var hasSummerEnd = TryDate(values, "semester:summerEndsOn", out var summerEnd);
+            var hasSummer = hasSummerStart
+                && hasSummerEnd
+                && summerStart > semester2End
+                && summerEnd >= summerStart;
+            var yearRolloverEnd = hasSummer ? summerEnd : academicEnd;
 
             var changed = false;
             var promoted = 0;
             var graduated = 0;
             var yearsAdvanced = 0;
-            while (today > semester2End)
+            while (today > yearRolloverEnd)
             {
                 var oldYear = values.GetValueOrDefault("academic-year:currentYear", $"{academicStart.Year}\u2013{academicEnd.Year}");
                 var activeStudents = await db.Students.Where(x => x.Status != "Inactive" && x.YearLevel >= 1).ToListAsync(cancellationToken);
@@ -66,6 +73,12 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
                 semester1End = semester1End.AddYears(1);
                 semester2Start = semester2Start.AddYears(1);
                 semester2End = semester2End.AddYears(1);
+                if (hasSummer)
+                {
+                    summerStart = summerStart.AddYears(1);
+                    summerEnd = summerEnd.AddYears(1);
+                }
+                yearRolloverEnd = hasSummer ? summerEnd : academicEnd;
                 db.AuditLogs.Add(new AuditLog
                 {
                     Type = "Academic calendar",
@@ -76,9 +89,17 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
                 changed = true;
             }
 
-            var activeTerm = today > semester1End ? "Semester 2" : "Semester 1";
-            var activeStart = activeTerm == "Semester 1" ? semester1Start : semester2Start;
-            var activeEnd = activeTerm == "Semester 1" ? semester1End : semester2End;
+            var activeTerm = today <= semester1End
+                ? "Semester 1"
+                : today <= semester2End || !hasSummer
+                    ? "Semester 2"
+                    : "Summer Term";
+            var (activeStart, activeEnd) = activeTerm switch
+            {
+                "Semester 1" => (semester1Start, semester1End),
+                "Semester 2" => (semester2Start, semester2End),
+                _ => (summerStart, summerEnd)
+            };
             changed |= Set(settings, "academic-year", "currentYear", $"{academicStart.Year}\u2013{academicEnd.Year}");
             changed |= Set(settings, "academic-year", "startsOn", academicStart.ToString("yyyy-MM-dd"));
             changed |= Set(settings, "academic-year", "endsOn", academicEnd.ToString("yyyy-MM-dd"));
@@ -86,6 +107,14 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
             changed |= Set(settings, "semester", "semester1EndsOn", semester1End.ToString("yyyy-MM-dd"));
             changed |= Set(settings, "semester", "semester2StartsOn", semester2Start.ToString("yyyy-MM-dd"));
             changed |= Set(settings, "semester", "semester2EndsOn", semester2End.ToString("yyyy-MM-dd"));
+            if (hasSummer)
+            {
+                changed |= Set(settings, "semester", "summerStartsOn", summerStart.ToString("yyyy-MM-dd"));
+                changed |= Set(settings, "semester", "summerEndsOn", summerEnd.ToString("yyyy-MM-dd"));
+            }
+            changed |= Set(settings, "semester", "semester1Status", TermStatus(today, semester1End, activeTerm == "Semester 1"));
+            changed |= Set(settings, "semester", "semester2Status", TermStatus(today, semester2End, activeTerm == "Semester 2"));
+            if (hasSummer) changed |= Set(settings, "semester", "summerStatus", TermStatus(today, summerEnd, activeTerm == "Summer Term"));
             changed |= Set(settings, "semester", "currentTerm", activeTerm);
             changed |= Set(settings, "semester", "startsOn", activeStart.ToString("yyyy-MM-dd"));
             changed |= Set(settings, "semester", "endsOn", activeEnd.ToString("yyyy-MM-dd"));
@@ -126,7 +155,7 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
         var existingGrades = (await db.GradeRecords.AsNoTracking().Where(record => record.AcademicYear == academicYear && record.Term == term).Select(record => record.StudentId).ToListAsync(cancellationToken)).ToHashSet();
         var schedules = await db.ScheduleEntries.AsNoTracking().Include(entry => entry.Course).Where(entry => entry.Status != "Cancelled").OrderBy(entry => entry.TimetableCode).ToListAsync(cancellationToken);
         var method = await db.SystemSettings.AsNoTracking().Where(setting => setting.Section == "attendance-rules" && setting.Key == "method").Select(setting => setting.Value).FirstOrDefaultAsync(cancellationToken) ?? "ID Card";
-        var termCode = term.EndsWith('2') ? "S2" : "S1";
+        var termCode = term switch { "Semester 2" => "S2", "Summer Term" => "SUM", _ => "S1" };
         var attendanceCreated = 0;
         var gradesCreated = 0;
         foreach (var student in students)
@@ -156,6 +185,8 @@ public sealed class AcademicCalendarRolloverService(InstituteDbContext db, Insti
 
     private static AcademicShift RequiredShift(string name) =>
         AcademicTimetablePolicy.FindShift(name) ?? throw new InvalidOperationException("Student shift is not configured in the academic timetable policy.");
+
+    private static string TermStatus(DateOnly today, DateOnly endsOn, bool active) => active ? "Active" : today > endsOn ? "Completed" : "Upcoming";
 
     private bool Set(List<SystemSetting> settings, string section, string key, string value)
     {

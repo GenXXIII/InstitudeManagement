@@ -57,7 +57,7 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
             activity,
             departments,
             averageGrade,
-            [new("A", Percentage(grades, gradeScale.A, 101)), new("B", Percentage(grades, gradeScale.B, gradeScale.A)), new("C", Percentage(grades, gradeScale.C, gradeScale.B)), new("D", Percentage(grades, gradeScale.D, gradeScale.C)), new("E", Percentage(grades, gradeScale.E, gradeScale.D)), new("F", Percentage(grades, 0, gradeScale.E))]);
+            [new("A+", Percentage(grades, gradeScale.APlus, 101)), new("A", Percentage(grades, gradeScale.A, gradeScale.APlus)), new("B+", Percentage(grades, gradeScale.BPlus, gradeScale.A)), new("B", Percentage(grades, gradeScale.B, gradeScale.BPlus)), new("C+", Percentage(grades, gradeScale.CPlus, gradeScale.B)), new("C", Percentage(grades, gradeScale.C, gradeScale.CPlus)), new("D", Percentage(grades, gradeScale.D, gradeScale.C)), new("F", Percentage(grades, 0, gradeScale.D))]);
 
         await cache.WriteDashboardAsync(result, ct);
         return result;

@@ -9,7 +9,8 @@ type ApiProblem = {
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, { ...init, headers: { "Content-Type": "application/json", ...init?.headers }, cache: "no-store" });
+    const contentHeaders = init?.body instanceof FormData ? {} : { "Content-Type": "application/json" };
+    response = await fetch(`${API_URL}${path}`, { ...init, headers: { ...contentHeaders, ...init?.headers }, cache: "no-store" });
   } catch (reason) {
     if (init?.signal?.aborted) throw reason;
     throw new Error("Cannot connect to the INK API. Check that INK-API is running, then try again.");

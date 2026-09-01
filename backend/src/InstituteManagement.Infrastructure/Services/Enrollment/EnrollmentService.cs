@@ -257,16 +257,23 @@ public sealed class EnrollmentService(InstituteDbContext db, InstituteCache cach
     {
         var course = await db.Courses.FindAsync([id], ct) ?? throw new KeyNotFoundException("Course not found.");
         var departmentId = await RequiredDepartmentAsync(values, ct);
-        var teacherId = GuidValue(values, "teacherId", true)!.Value;
-        var teacherAssignment = await db.TeacherAssignments.AsNoTracking().FirstOrDefaultAsync(x => x.TeacherId == teacherId && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status == "Assigned", ct) ?? throw new InvalidOperationException("Assign this teacher in Teacher enrollment first.");
-        if (teacherAssignment.DepartmentId.HasValue && teacherAssignment.DepartmentId != departmentId) throw new InvalidOperationException("Course and teacher must belong to the same enrollment department.");
-        var year = Integer(values, "year", 1, 4); var capacity = Integer(values, "capacity", 1, 10000);
+        var teacherRequired = await SettingEnabledAsync("courses", "requireAssignedTeacher", true, ct);
+        var teacherId = GuidValue(values, "teacherId", teacherRequired);
+        if (teacherId.HasValue)
+        {
+            var teacherAssignment = await db.TeacherAssignments.AsNoTracking().FirstOrDefaultAsync(x => x.TeacherId == teacherId.Value && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester && x.Status == "Assigned", ct) ?? throw new InvalidOperationException("Assign this teacher in Teacher enrollment first.");
+            var allowCrossDepartment = await SettingEnabledAsync("departments", "allowCrossDepartmentTeaching", false, ct);
+            if (!allowCrossDepartment && teacherAssignment.DepartmentId.HasValue && teacherAssignment.DepartmentId != departmentId) throw new InvalidOperationException("Course and teacher must belong to the same enrollment department unless cross-department teaching is enabled in Administration.");
+        }
+        var year = Integer(values, "year", 1, 4);
+        var configuredCapacity = await SettingIntegerAsync("courses", "defaultCapacity", 40, 1, 10000, ct);
+        var capacity = string.IsNullOrWhiteSpace(values.GetValueOrDefault("capacity")) ? configuredCapacity : Integer(values, "capacity", 1, 10000);
         var assignment = await db.CourseAssignments.FirstOrDefaultAsync(x => x.CourseId == id && x.AcademicYear == period.AcademicYear && x.Semester == period.Semester, ct);
         if (assignment is null) { assignment = new CourseAssignment { CourseId = id, AcademicYear = period.AcademicYear, Semester = period.Semester }; db.CourseAssignments.Add(assignment); }
         assignment.DepartmentId = departmentId; assignment.TeacherId = teacherId; assignment.YearLevel = year; assignment.Capacity = capacity; assignment.Status = Choice(values, "status", ["Active", "Paused"], "Active"); assignment.UpdatedAtUtc = DateTime.UtcNow;
         course.DepartmentId = departmentId; course.TeacherId = teacherId; course.Capacity = capacity;
         db.AuditLogs.Add(Audit(id, "Course", course.CourseCode, "Assignment updated", values));
-        return Item(id, ("courseCode", course.CourseCode), ("name", course.Name), ("departmentId", departmentId.ToString()), ("teacherId", teacherId.ToString()), ("year", year.ToString()), ("capacity", capacity.ToString()), ("status", assignment.Status));
+        return Item(id, ("courseCode", course.CourseCode), ("name", course.Name), ("departmentId", departmentId.ToString()), ("teacherId", teacherId?.ToString() ?? ""), ("year", year.ToString()), ("capacity", capacity.ToString()), ("status", assignment.Status));
     }
 
     private async Task<EnrollmentItemDto> UpdateClassroomAsync(Guid id, Dictionary<string, string> values, Period period, CancellationToken ct)
@@ -319,6 +326,8 @@ public sealed class EnrollmentService(InstituteDbContext db, InstituteCache cach
 
     private async Task<Guid> RequiredDepartmentAsync(Dictionary<string, string> values, CancellationToken ct) => await OptionalDepartmentAsync(values, ct) ?? throw new ArgumentException("Department is required.");
     private async Task<Guid?> OptionalDepartmentAsync(Dictionary<string, string> values, CancellationToken ct) { var id = GuidValue(values, "departmentId", false); if (!id.HasValue) return null; if (!await db.Departments.AnyAsync(x => x.Id == id && x.IsActive, ct)) throw new ArgumentException("Department must reference an active department."); return id; }
+    private async Task<bool> SettingEnabledAsync(string section, string key, bool fallback, CancellationToken ct) { var value = await db.SystemSettings.AsNoTracking().Where(x => x.Section == section && x.Key == key).Select(x => x.Value).FirstOrDefaultAsync(ct); return bool.TryParse(value, out var enabled) ? enabled : fallback; }
+    private async Task<int> SettingIntegerAsync(string section, string key, int fallback, int minimum, int maximum, CancellationToken ct) { var value = await db.SystemSettings.AsNoTracking().Where(x => x.Section == section && x.Key == key).Select(x => x.Value).FirstOrDefaultAsync(ct); return int.TryParse(value, out var configured) && configured >= minimum && configured <= maximum ? configured : fallback; }
     private static Guid? GuidValue(IReadOnlyDictionary<string, string> values, string key, bool required) { var raw = values.GetValueOrDefault(key); if (string.IsNullOrWhiteSpace(raw)) { if (required) throw new ArgumentException($"{key} is required."); return null; } return Guid.TryParse(raw, out var value) ? value : throw new ArgumentException($"{key} is invalid."); }
     private static string Required(IReadOnlyDictionary<string, string> values, string key) => !string.IsNullOrWhiteSpace(values.GetValueOrDefault(key)) ? values[key].Trim() : throw new ArgumentException($"{key} is required.");
     private static int Integer(IReadOnlyDictionary<string, string> values, string key, int minimum, int maximum) => int.TryParse(values.GetValueOrDefault(key), out var value) && value >= minimum && value <= maximum ? value : throw new ArgumentException($"{key} must be between {minimum} and {maximum}.");
