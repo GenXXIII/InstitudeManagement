@@ -18,6 +18,9 @@ public static class SettingsCatalogSeeder
         var hadGradeRules = existing.Any(setting => setting.Section.Equals("grade-rules", StringComparison.OrdinalIgnoreCase));
         var now = DateTime.UtcNow;
         var missing = new List<SystemSetting>();
+        var obsoleteInstituteRegionalSettings = await db.SystemSettings
+            .Where(setting => setting.Section == "institute" && (setting.Key == "timeZone" || setting.Key == "dateFormat"))
+            .ToListAsync(cancellationToken);
 
         foreach (var section in SettingsCatalog.Sections)
         foreach (var setting in section.Settings)
@@ -33,8 +36,9 @@ public static class SettingsCatalogSeeder
             });
         }
 
-        if (missing.Count == 0) return;
-        db.SystemSettings.AddRange(missing);
+        if (missing.Count == 0 && obsoleteInstituteRegionalSettings.Count == 0) return;
+        if (missing.Count > 0) db.SystemSettings.AddRange(missing);
+        if (obsoleteInstituteRegionalSettings.Count > 0) db.SystemSettings.RemoveRange(obsoleteInstituteRegionalSettings);
         if (!hadGradeRules)
         {
             var scale = GradeThresholds.From(SettingsCatalog.Defaults("grade-rules"));

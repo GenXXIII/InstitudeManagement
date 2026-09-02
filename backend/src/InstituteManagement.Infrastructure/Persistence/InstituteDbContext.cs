@@ -27,13 +27,19 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        var format = RequiresNotificationCodeFormat() ? NotificationCodeFormat() : null;
+        AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
+        AssignHistoryBusinessCodes(format);
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        var format = RequiresNotificationCodeFormat() ? NotificationCodeFormat() : null;
+        AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
+        AssignHistoryBusinessCodes(format);
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -60,5 +66,81 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
             history.Add(new NotificationHistory { SourceId = item.Id, SourceCode = item.AnnouncementCode, Kind = "Alert", Type = item.Type, Title = item.Title, Message = item.Message, Action = action });
         }
         if (history.Count > 0) NotificationHistory.AddRange(history);
+    }
+
+    private void AssignSourceBusinessCodes(NotificationCodeFormat? format)
+    {
+        if (format is null) return;
+        var notifications = ChangeTracker.Entries<Notification>().Where(entry => entry.State == EntityState.Added).OrderBy(entry => entry.Entity.CreateAt).ThenBy(entry => entry.Entity.Id).ToList();
+        if (notifications.Count > 0)
+        {
+            var stem = format.Stem(format.NotificationPrefix);
+            var next = NextSequence(Notifications.AsNoTracking().Select(item => item.NotificationCode).ToList(), stem, format.StartingNumber);
+            foreach (var entry in notifications) entry.Entity.NotificationCode = BusinessCode(stem, next++, format.PaddingWidth);
+        }
+
+        var announcements = ChangeTracker.Entries<Announcement>().Where(entry => entry.State == EntityState.Added).OrderBy(entry => entry.Entity.CreateAt).ThenBy(entry => entry.Entity.Id).ToList();
+        if (announcements.Count > 0)
+        {
+            var stem = format.Stem(format.AnnouncementPrefix);
+            var next = NextSequence(Announcements.AsNoTracking().Select(item => item.AnnouncementCode).ToList(), stem, format.StartingNumber);
+            foreach (var entry in announcements) entry.Entity.AnnouncementCode = BusinessCode(stem, next++, format.PaddingWidth);
+        }
+    }
+
+    private void AssignHistoryBusinessCodes(NotificationCodeFormat? format)
+    {
+        if (format is null) return;
+        var entries = ChangeTracker.Entries<NotificationHistory>().Where(entry => entry.State == EntityState.Added).OrderBy(entry => entry.Entity.CreateAt).ThenBy(entry => entry.Entity.Id).ToList();
+        if (entries.Count == 0) return;
+        var stem = format.Stem(format.HistoryPrefix);
+        var next = NextSequence(NotificationHistory.AsNoTracking().Select(item => item.NotificationHistoryCode).ToList(), stem, format.StartingNumber);
+        foreach (var entry in entries) entry.Entity.NotificationHistoryCode = BusinessCode(stem, next++, format.PaddingWidth);
+    }
+
+    private bool RequiresNotificationCodeFormat() =>
+        ChangeTracker.Entries<Notification>().Any(entry => entry.State == EntityState.Added)
+        || ChangeTracker.Entries<Announcement>().Any(entry => entry.State == EntityState.Added)
+        || ChangeTracker.Entries<NotificationHistory>().Any(entry => entry.State == EntityState.Added);
+
+    private NotificationCodeFormat NotificationCodeFormat()
+    {
+        var values = SystemSettings.AsNoTracking().Where(setting => setting.Section == "notifications")
+            .ToDictionary(setting => setting.Key, setting => setting.Value, StringComparer.OrdinalIgnoreCase);
+        var timeZoneId = SystemSettings.AsNoTracking().Where(setting => setting.Section == "system" && setting.Key == "timeZone").Select(setting => setting.Value).FirstOrDefault() ?? "Asia/Phnom_Penh";
+        var localNow = DateTime.UtcNow;
+        try { localNow = TimeZoneInfo.ConvertTimeFromUtc(localNow, TimeZoneInfo.FindSystemTimeZoneById(timeZoneId)); }
+        catch (TimeZoneNotFoundException) { }
+        catch (InvalidTimeZoneException) { }
+
+        var separator = values.GetValueOrDefault("codeSeparator", "-");
+        var width = int.TryParse(values.GetValueOrDefault("codePaddingWidth"), out var configuredWidth) ? Math.Clamp(configuredWidth, 1, 12) : 8;
+        var start = long.TryParse(values.GetValueOrDefault("codeStartingNumber"), out var configuredStart) && configuredStart >= 0 ? configuredStart : 1;
+        var includeYear = bool.TryParse(values.GetValueOrDefault("codeIncludeYear"), out var configuredIncludeYear) && configuredIncludeYear;
+        return new(
+            Prefix(values, "notificationCodePrefix", "NOT"),
+            Prefix(values, "announcementCodePrefix", "ANN"),
+            Prefix(values, "historyCodePrefix", "NHS"),
+            separator,
+            includeYear,
+            localNow.Year,
+            start,
+            width);
+    }
+
+    private static string Prefix(IReadOnlyDictionary<string, string> values, string key, string fallback) =>
+        string.IsNullOrWhiteSpace(values.GetValueOrDefault(key)) ? fallback : values[key].Trim().ToUpperInvariant();
+
+    private static long NextSequence(IEnumerable<string> codes, string stem, long startingNumber) => codes
+        .Where(code => code.StartsWith(stem, StringComparison.OrdinalIgnoreCase))
+        .Select(code => long.TryParse(code[stem.Length..], out var number) ? number : startingNumber - 1)
+        .DefaultIfEmpty(startingNumber - 1)
+        .Max() + 1;
+
+    private static string BusinessCode(string stem, long sequence, int paddingWidth) => $"{stem}{sequence.ToString().PadLeft(paddingWidth, '0')}";
+
+    private sealed record NotificationCodeFormat(string NotificationPrefix, string AnnouncementPrefix, string HistoryPrefix, string Separator, bool IncludeYear, int Year, long StartingNumber, int PaddingWidth)
+    {
+        public string Stem(string prefix) => IncludeYear ? $"{prefix}{Separator}{Year}{Separator}" : $"{prefix}{Separator}";
     }
 }

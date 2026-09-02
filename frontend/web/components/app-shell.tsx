@@ -15,7 +15,7 @@ import { SearchableSelect } from "./searchable-select";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { settings } = useInstituteSettings();
+  const { settings, ready } = useInstituteSettings();
   const [open, setOpen] = useState(false);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [departmentScope, setDepartmentScope] = useState("");
@@ -23,14 +23,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const { live, events } = useLiveUpdates();
   const institute = settings.institute;
   const academicYear = settings["academic-year"];
   const semester = settings.semester;
   const system = settings.system;
   const settingsRoute = pathname.startsWith("/settings");
+  const maintenanceActive = ready && system.maintenanceEnabled === "true";
+  const maintenanceSettingsRoute = pathname === "/settings/system";
+  const { live, events } = useLiveUpdates(ready && !maintenanceActive);
 
-  useEffect(() => { departmentApi.get().then(setDepartments).catch(() => setDepartments([])); }, []);
+  useEffect(() => {
+    if (!ready || maintenanceActive) return;
+    departmentApi.get().then(setDepartments).catch(() => setDepartments([]));
+  }, [maintenanceActive, ready]);
   useEffect(() => {
     const sync = () => { const params = new URLSearchParams(window.location.search); setDepartmentScope(params.get("departmentId") ?? ""); setYearScope(params.get("year") ?? ""); };
     const timer = window.setTimeout(sync, 0);
@@ -55,6 +60,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const currentTime = `${currentDate} · ${clockTime}`;
   const avatar = (institute.shortName || "INK").slice(0, 2).toUpperCase();
   const departmentOptions = [{ id: "", label: "All departments" }, ...departments.map(department => ({ id: department.id, label: department.values.name }))];
+
+  if (maintenanceActive && !maintenanceSettingsRoute) {
+    return <div className="maintenance-page">
+      <div className="ambient ambient-one"/><div className="ambient ambient-two"/>
+      <section className="maintenance-card">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={institute.logoUrl || "/branding/ink-logo.png"} alt="Institude of New Khmer logo"/>
+        <span>System maintenance</span>
+        <h1>{institute.name || "Institude of New Khmer"}</h1>
+        <p>{system.maintenanceMessage || "System is currently under maintenance. Please try again later."}</p>
+        <div><i/><strong>Business services are temporarily unavailable</strong></div>
+        <button className="button primary" type="button" onClick={() => router.push("/settings/system")}>Open System Settings</button>
+      </section>
+    </div>;
+  }
 
   return <div className="app-frame">
     <div className="ambient ambient-one"/><div className="ambient ambient-two"/>

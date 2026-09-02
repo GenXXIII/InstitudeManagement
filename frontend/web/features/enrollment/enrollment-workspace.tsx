@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
@@ -26,8 +27,8 @@ const copy: Record<EnrollmentResource, { title: string; description: string; col
   "student-assignments": { title: "Student Assign", description: "View each enrolled student's department, year, shift, assigned courses, classrooms, and weekly classes.", columns: ["Assignment code", "Student", "Department", "Year / shift", "Assigned courses", "Assigned classrooms", "Weekly classes", "Actions"] },
   teachers: { title: "Teacher Assign", description: "View and manage what each teacher is assigned to across departments, courses, year levels, and weekly classes.", columns: ["Assignment code", "Teacher", "Department", "Assigned courses", "Year levels", "Weekly classes", "Actions"] },
   courses: { title: "Course Assign", description: "View and manage the department and year assigned to each course.", columns: ["Assignment code", "Course", "Department", "Year", "Actions"] },
-  classrooms: { title: "Classroom Assign", description: "View each classroom-course assignment as its own row with classroom access and seat capacity.", columns: ["Assignment code", "Classroom", "Access", "Assigned course", "Capacity", "Actions"] },
-  departments: { title: "Department Assign", description: "View what is assigned to each department for the selected year.", columns: ["Assignment code", "Department", "Year", "Students", "Teachers", "Courses", "Classrooms", "Weekly classes"] },
+  classrooms: { title: "Classroom Assign", description: "View each classroom-course assignment with its access, capacity, and operating status.", columns: ["Assignment code", "Classroom", "Access", "Assigned course", "Capacity", "Status", "Actions"] },
+  departments: { title: "Department Assign", description: "View and manage what is assigned to each department for the selected year.", columns: ["Assignment code", "Department", "Year", "Students", "Teachers", "Courses", "Classrooms", "Weekly classes", "Actions"] },
 };
 
 export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource }) {
@@ -148,7 +149,7 @@ function EnrollmentRow({ resource, item, studentSchedules, onEdit, onRemove }: {
     : resource === "student-assignments" ? [value.studentCode, value.name, value.year === "1" ? "General foundation" : value.department, [value.year ? `Year ${value.year}` : "Unassigned", value.shift].filter(Boolean).join(" / "), uniqueValues(relatedSchedules, "course"), uniqueValues(relatedSchedules, "classroom"), relatedSchedules.length.toString()]
     : resource === "teachers" ? [value.teacherCode, value.name, value.department, value.courses || `${value.courseCount || 0} assigned`, value.yearLevels || "Not scheduled", value.weeklyClasses || "0"]
     : resource === "courses" ? [value.courseCode, value.name, value.department, value.year ? `Year ${value.year}` : "Unassigned"]
-    : resource === "classrooms" ? [value.classroomCode, `${value.building} - ${value.roomType}`, value.access, item.assignedCourse || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned"]
+    : resource === "classrooms" ? [value.classroomCode, `${value.building} - ${value.roomType}`, value.access, item.assignedCourse || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned", value.status || "Available"]
     : resource === "timetable" ? [value.timetableCode, [value.courseCode, value.course].filter(Boolean).join(" - "), [value.teacherCode, value.teacher].filter(Boolean).join(" - "), value.department, value.yearLevel ? `Year ${value.yearLevel}` : "Unassigned", value.classroom, `${value.dayOfWeek} ${value.startsAt}-${value.endsAt}`, value.createAt]
     : [value.departmentCode, value.name, value.year === "All" ? "All years" : `Year ${value.year}`, value.students, value.teachers, value.courses, value.classrooms, value.weeklyClasses];
 
@@ -157,10 +158,16 @@ function EnrollmentRow({ resource, item, studentSchedules, onEdit, onRemove }: {
       const relationship = (resource === "classrooms" && index === 3) || (resource === "teachers" && index === 3) || (resource === "student-assignments" && (index === 4 || index === 5));
       const className = [index === 1 ? "horizontal-primary" : "horizontal-detail", relationship ? "enrollment-relationship-cell" : ""].filter(Boolean).join(" ");
       return <ManagementDataCell label={copy[resource].columns[index]} className={className} key={`${item.id}-${index}`}>
-        {index === 0 ? <div className="workflow-code-cell"><strong className="management-code-value">{enrollmentDisplayCode(resource, item)}</strong><small>Management {managementSourceCode(resource, value)}</small></div> : <strong className={relationship ? "enrollment-relationship-value" : undefined} title={relationship ? cell : undefined}>{cell || "Unassigned"}</strong>}
+        {index === 0
+          ? <div className="workflow-code-cell"><strong className="management-code-value">{enrollmentDisplayCode(resource, item)}</strong><small>Management {managementSourceCode(resource, value)}</small></div>
+          : resource === "classrooms" && index === 5
+            ? <span className={`table-status ${classroomEnrollmentStatusClass(cell)}`}>{cell}</span>
+            : <strong className={relationship ? "enrollment-relationship-value" : undefined} title={relationship ? cell : undefined}>{cell || "Unassigned"}</strong>}
       </ManagementDataCell>;
     })}
-    {resource !== "departments" && <ManagementDataCell label="Actions" className="management-action-cell"><div className="management-actions"><button type="button" onClick={onEdit}>Edit</button><button type="button" className="danger" onClick={onRemove}>Remove</button></div></ManagementDataCell>}
+    {resource === "departments"
+      ? <ManagementDataCell label="Actions" className="management-action-cell"><div className="management-actions"><Link href={departmentAssignmentHref(item)}>Manage</Link></div></ManagementDataCell>
+      : <ManagementDataCell label="Actions" className="management-action-cell"><div className="management-actions"><button type="button" onClick={onEdit}>Edit</button><button type="button" className="danger" onClick={onRemove}>Remove</button></div></ManagementDataCell>}
   </article>;
 }
 
@@ -238,4 +245,16 @@ function assignedCourseName(item: EnrollmentItem) {
 
 function uniqueValues(items: EnrollmentItem[], key: string) {
   return [...new Set(items.map(item => item.values[key]).filter(Boolean))].join(", ") || "Not scheduled";
+}
+
+function classroomEnrollmentStatusClass(status: string) {
+  if (status === "Maintenance") return "starting";
+  if (status === "Unavailable") return "offline";
+  return "available";
+}
+
+function departmentAssignmentHref(item: EnrollmentItem) {
+  const params = new URLSearchParams({ departmentId: item.id });
+  if (item.values.year && item.values.year !== "All") params.set("year", item.values.year);
+  return `/enrollment?${params.toString()}`;
 }

@@ -51,7 +51,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     { key: "departmentId", label: "Department access", type: "select", options: [{ id: "", label: "Whole institute" }, ...departmentOptions] },
     { key: "access", label: "Access", type: "select", options: ["Shared institute", "Department only"].map(id => ({ id, label: id })), required: true },
     { key: "capacity", label: "Assigned seat capacity", type: "number", required: true },
-    { key: "status", label: "Assignment status", type: "select", options: ["Available", "Reserved", "Unavailable"].map(id => ({ id, label: id })), required: true },
+    { key: "status", label: "Assignment status", type: "select", options: ["Available", "Maintenance", "Unavailable"].map(id => ({ id, label: id })), required: true },
   ] : [];
   const timetableCandidates = resource === "timetable"
     ? candidates.filter(candidate => (!selectedCourseId || candidate.values.courseId === selectedCourseId) && (!selectedTeacherId || candidate.values.teacherId === selectedTeacherId))

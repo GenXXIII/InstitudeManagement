@@ -5,8 +5,33 @@ const languageOptions = options("English", "Khmer");
 const timeZoneOptions = options("Asia/Phnom_Penh", "Asia/Bangkok", "Asia/Ho_Chi_Minh", "UTC");
 const twoFactorOptions = options("Disabled", "Optional", "Required");
 
+function notificationCodeExample(values: Record<string, string>, prefixKey: string, fallbackPrefix: string) {
+  const prefix = values[prefixKey]?.trim().toUpperCase() || fallbackPrefix;
+  const separator = values.codeSeparator || "-";
+  const year = values.codeIncludeYear === "true" ? `${separator}${new Date().getFullYear()}` : "";
+  const width = Math.max(1, Math.min(12, Number(values.codePaddingWidth) || 8));
+  const sequence = String(Math.max(0, Number(values.codeStartingNumber) || 1)).padStart(width, "0");
+  return `${prefix}${year}${separator}${sequence}`;
+}
+
 export const platformGroups = {
   notifications: [
+    {
+      title: "Notification code format",
+      description: "Generate readable linked codes for new notifications, announcements, and permanent notification history entries.",
+      fields: [
+        field("notificationCodePrefix", "Notification prefix", "Prefix for new notification records.", "text", { required: true }),
+        field("announcementCodePrefix", "Announcement prefix", "Prefix for new institute announcement records.", "text", { required: true }),
+        field("historyCodePrefix", "History prefix", "Prefix for new permanent notification history entries.", "text", { required: true }),
+        field("codeIncludeYear", "Include current year", "Place the current institute-local year before the sequence.", "toggle"),
+        field("codeStartingNumber", "Starting number", "Lowest sequence considered for a newly selected prefix and format.", "number", { required: true, min: 0, max: 999999999999 }),
+        field("codePaddingWidth", "Number padding", "Minimum digits used for each notification sequence.", "number", { required: true, min: 1, max: 12, unit: "digits" }),
+        field("codeSeparator", "Separator", "Character placed between prefix, optional year, and sequence.", "select", { required: true, options: options("-", "/", ".") }),
+        field("notificationCodeExample", "Notification example", "Preview for the next notification code.", "derived", { derive: values => notificationCodeExample(values, "notificationCodePrefix", "NOT") }),
+        field("announcementCodeExample", "Announcement example", "Preview for the next announcement code.", "derived", { derive: values => notificationCodeExample(values, "announcementCodePrefix", "ANN") }),
+        field("historyCodeExample", "History example", "Preview for the next history code.", "derived", { derive: values => notificationCodeExample(values, "historyCodePrefix", "NHS") }),
+      ],
+    },
     {
       title: "Email delivery",
       description: "Public SMTP routing details. Credentials must remain in environment secrets and are never shown here.",

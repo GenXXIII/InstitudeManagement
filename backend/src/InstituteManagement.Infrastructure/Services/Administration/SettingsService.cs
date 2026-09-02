@@ -77,9 +77,6 @@ public sealed class SettingsService(
             changedKeys.Add(item.Key);
         }
 
-        if (definition.Name is "institute" or "system")
-            await SynchronizeTimeZoneAsync(definition.Name, normalized["timeZone"], changedAt, changedKeys, cancellationToken);
-
         if (changedKeys.Count == 0) return CreateDto(definition, existing);
 
         if (definition.Name == "grade-rules" && changedKeys.Any(GradeThresholdKeys.Contains))
@@ -123,33 +120,4 @@ public sealed class SettingsService(
             allowed.Count == 0 ? null : allowed.Max(setting => setting.UpdatedAtUtc));
     }
 
-    private async Task SynchronizeTimeZoneAsync(
-        string sourceSection,
-        string timeZone,
-        DateTime changedAt,
-        ICollection<string> changedKeys,
-        CancellationToken cancellationToken)
-    {
-        var targetSection = sourceSection == "institute" ? "system" : "institute";
-        var target = await db.SystemSettings.FirstOrDefaultAsync(
-            setting => setting.Section == targetSection && setting.Key == "timeZone",
-            cancellationToken);
-        if (target is null)
-        {
-            db.SystemSettings.Add(new SystemSetting
-            {
-                Section = targetSection,
-                Key = "timeZone",
-                Value = timeZone,
-                UpdatedAtUtc = changedAt
-            });
-            changedKeys.Add($"{targetSection}.timeZone");
-        }
-        else if (target.Value != timeZone)
-        {
-            target.Value = timeZone;
-            target.UpdatedAtUtc = changedAt;
-            changedKeys.Add($"{targetSection}.timeZone");
-        }
-    }
 }

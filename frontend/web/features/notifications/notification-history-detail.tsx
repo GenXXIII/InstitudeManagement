@@ -22,11 +22,18 @@ export function NotificationHistoryDetail({ id }: { id: string }) {
   const recorded = new Date(item.createAt);
   return <>
     <PageHeading eyebrow="Announce" title="Read notification" description="Read-only notification history." actions={<Link className="button secondary" href="/announce/history">Back to history</Link>}/>
-    <article className="panel notification-detail">
-      <header><time><span>{recorded.toLocaleDateString()}</span><strong>{recorded.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong></time></header>
-      <section><span>Type</span><strong className={`table-status alert-${item.type.toLowerCase()}`}>{item.type}</strong></section>
+    <article className="panel notification-detail notification-full-detail">
+      <header><div><span>HistoryCode</span><strong className="management-code-value">{item.notificationHistoryCode}</strong></div><time><span>{recorded.toLocaleDateString()}</span><strong>{recorded.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</strong></time></header>
+      <section className="notification-detail-grid" aria-label="Notification history information">
+        <div><span>History code</span><strong className="management-code-value">{item.notificationHistoryCode}</strong></div>
+        <div><span>Source code</span><strong className="management-code-value">{item.sourceCode}</strong></div>
+        <div><span>Source kind</span><strong>{item.kind}</strong></div>
+        <div><span>Type</span><strong className={`table-status alert-${item.type.toLowerCase()}`}>{item.type}</strong></div>
+        <div><span>Lifecycle action</span><strong className="table-status">{item.action}</strong></div>
+        <div><span>Recorded at</span><strong>{recorded.toLocaleString()}</strong></div>
+      </section>
       <section><span>Title</span><h2>{item.title}</h2></section>
-      <section><span>Announcement detail</span><p>{item.message}</p></section>
+      <section><span>Full notification detail</span><p>{item.message}</p></section>
     </article>
   </>;
 }

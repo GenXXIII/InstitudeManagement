@@ -34,7 +34,7 @@ function validateField(section: SettingSection, definition: SettingFieldDefiniti
     if (available.size && selected.some(item => !available.has(item))) errors.push(`${definition.label} contains an unavailable option.`);
   }
   if (definition.type === "asset" && value && !isAssetLocation(value)) errors.push(`${definition.label} must be an application path or an http:// or https:// URL.`);
-  if (["idPrefix", "codePrefix"].includes(definition.key) && !/^[A-Za-z0-9_-]+$/.test(value)) errors.push(`${definition.label} may use only letters, numbers, underscores, and hyphens.`);
+  if ((["idPrefix", "codePrefix"].includes(definition.key) || definition.key.endsWith("CodePrefix")) && !/^[A-Za-z0-9_-]+$/.test(value)) errors.push(`${definition.label} may use only letters, numbers, underscores, and hyphens.`);
 }
 
 function validateNumber(definition: SettingFieldDefinition, raw: string, errors: string[]) {

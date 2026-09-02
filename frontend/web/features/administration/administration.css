@@ -143,9 +143,9 @@
 .administration-choice-list > div input:checked + i::after { opacity:1; }
 .administration-choice-list > div label:has(input:checked) { border-color:#9cbbe8;background:#edf5ff;color:#2d65ad; }
 .administration-asset-field { align-items:start; }
-.administration-asset-control { display:grid;grid-template-columns:74px minmax(0,1fr);align-items:center;gap:10px; }
-.administration-asset-preview { width:74px;height:58px;display:grid;place-items:center;overflow:hidden;border:1px solid #d5dfeb;border-radius:9px;background:linear-gradient(135deg,#f5f8fc,#e8f1fb); }
-.administration-asset-preview img { width:100%;height:100%;object-fit:contain;padding:5px; }
+.administration-asset-control { display:grid;grid-template-columns:92px minmax(0,1fr);align-items:center;gap:10px; }
+.administration-asset-preview { width:92px;aspect-ratio:1;display:grid;place-items:center;overflow:hidden;border:1px solid #d5dfeb;border-radius:9px;background:linear-gradient(135deg,#f5f8fc,#e8f1fb);padding:7px; }
+.administration-asset-preview img { display:block;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain; }
 .administration-asset-location { display:flex;min-width:0;flex-direction:column;gap:5px; }
 .administration-asset-location > span { color:#60748d;font-size:10px;font-weight:750; }
 .administration-asset-location > div { display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px; }
@@ -159,7 +159,57 @@
 .administration-save-bar > div { display:flex;flex:1;flex-direction:column;gap:3px;color:#6f8096;font-size:10.5px; }
 .administration-save-message { display:none;color:#278767;font-weight:700; }
 .administration-save-message.show { display:block; }
-.administration-section-pager { display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 1px 2px; }
+.maintenance-control-card { margin-top:12px;overflow:hidden;border:1px solid #d9e4f1;border-radius:16px;background:#fff;box-shadow:0 10px 30px rgba(52,83,122,.08); }
+.maintenance-control-card > header { display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:13px;padding:17px 19px;border-bottom:1px solid #e5ecf4;background:linear-gradient(105deg,#f9fcff,#f1f6fc); }
+.maintenance-control-card.plans-maintenance > header { background:linear-gradient(105deg,#fffaf0,#fff3da); }
+.maintenance-control-icon { width:43px;height:43px;display:grid;place-items:center;border-radius:12px;background:#e8f1fd;color:#2c6cc5; }
+.plans-maintenance .maintenance-control-icon { background:#ffebbc;color:#a46800; }
+.maintenance-control-card > header > div { display:flex;min-width:0;flex-direction:column;gap:2px; }
+.maintenance-control-card > header small,.maintenance-control-layout section > div:first-child > span,.maintenance-message-panel > div:first-child > span,.maintenance-recovery-panel > span { color:#798ba1;font-size:9px;font-weight:800;letter-spacing:.65px;text-transform:uppercase; }
+.maintenance-control-card > header h2 { margin:0;color:#2c4563;font-size:19px; }
+.maintenance-control-card > header p { margin:1px 0 0;color:#74869c;font-size:10.5px; }
+.maintenance-current-state { display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 9px;background:#eaf8f2;color:#267a59;font-size:10px; }
+.maintenance-current-state i { width:7px;height:7px;border-radius:50%;background:currentColor; }
+.maintenance-current-state.active { background:#fff0cc;color:#a66a00; }
+.maintenance-control-layout { display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.9fr);gap:12px;padding:14px;background:#f6f9fc; }
+.maintenance-control-layout > section,.maintenance-recovery-panel { border:1px solid #e0e8f2;border-radius:12px;background:#fff;padding:15px; }
+.maintenance-command-panel { grid-row:span 2; }
+.maintenance-command-panel > div:first-child h3 { margin:4px 0 2px;color:#344b68;font-size:14px; }
+.maintenance-command-panel > div:first-child p { margin:0;color:#7b8ba0;font-size:10.5px;line-height:1.5; }
+.maintenance-state-options { display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:13px; }
+.maintenance-state-options button { min-width:0;display:grid;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:2px 9px;border:1px solid #dbe4ee;border-radius:11px;background:#fbfdff;padding:12px;text-align:left;cursor:pointer; }
+.maintenance-state-options button > span { grid-row:span 2;width:31px;height:31px;display:grid;place-items:center;border-radius:9px;background:#edf3fa;color:#617994; }
+.maintenance-state-options button strong { color:#40536b;font-size:11px; }
+.maintenance-state-options button small { color:#8291a3;font-size:9px;line-height:1.4; }
+.maintenance-state-options button:hover { border-color:#adc6e5; }
+.maintenance-state-options button.selected.normal { border-color:#83c6aa;background:#edf9f3;box-shadow:0 0 0 2px rgba(58,153,112,.08); }
+.maintenance-state-options button.selected.normal > span { background:#d9f1e6;color:#217653; }
+.maintenance-state-options button.selected.maintenance { border-color:#e1b958;background:#fff7df;box-shadow:0 0 0 2px rgba(205,149,24,.09); }
+.maintenance-state-options button.selected.maintenance > span { background:#ffe9ae;color:#9f6500; }
+.maintenance-impact-warning { display:flex!important;align-items:flex-start;gap:9px;margin-top:11px;border:1px solid #efcf83;border-radius:9px;background:#fff8e5;padding:10px;color:#a66b00; }
+.maintenance-impact-warning > div { display:flex;flex-direction:column;gap:2px; }
+.maintenance-impact-warning strong { font-size:10.5px; }
+.maintenance-impact-warning span { color:#846c3e;font-size:9.5px;line-height:1.45; }
+.maintenance-message-panel > div:first-child { display:flex;align-items:center;justify-content:space-between; }
+.maintenance-message-panel > div:first-child b { color:#8494a7;font-size:9px; }
+.maintenance-message-panel textarea { width:100%;min-height:104px;margin-top:9px;border:1px solid #cbd7e6;border-radius:9px;outline:0;padding:10px 11px;color:#2e435d;font:inherit;font-size:11px;line-height:1.5;resize:vertical; }
+.maintenance-message-panel textarea:focus { border-color:#d1a947;box-shadow:0 0 0 3px rgba(209,169,71,.12); }
+.maintenance-message-preview { margin-top:8px;border-left:3px solid #d5ad4c;background:#fff9eb;padding:8px 10px; }
+.maintenance-message-preview small { color:#9b7c36;font-size:8px;font-weight:800;text-transform:uppercase; }
+.maintenance-message-preview p { margin:3px 0 0;color:#5e5543;font-size:9.5px;line-height:1.45; }
+.maintenance-recovery-panel ul { display:grid;gap:8px;margin:10px 0 0;padding:0;list-style:none; }
+.maintenance-recovery-panel li { display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:8px;border-radius:8px;background:#f4faf7;padding:8px;color:#2a8764; }
+.maintenance-recovery-panel li > div { display:flex;flex-direction:column;gap:2px; }
+.maintenance-recovery-panel li strong { color:#40556d;font-size:10px; }
+.maintenance-recovery-panel li small { color:#7c8c9f;font-size:8.5px;line-height:1.4; }
+.maintenance-recovery-panel li.unavailable { background:#f4f6f9;color:#8997a8; }
+.maintenance-control-error { display:flex;align-items:center;gap:8px;margin:0 14px 12px;border:1px solid #efc9ce;border-radius:9px;background:#fff3f4;padding:9px 11px;color:#bd4d58;font-size:10px; }
+.maintenance-control-card > footer { display:flex;align-items:center;justify-content:flex-end;gap:8px;border-top:1px solid #e3eaf3;background:#fbfcfe;padding:13px 17px; }
+.maintenance-control-card > footer > div { flex:1;color:#718298;font-size:10px; }
+.maintenance-control-card > footer strong { color:#278767; }
+.maintenance-control-card .maintenance-apply { border-color:#d7a432;background:#e5ad31;color:#fff; }
+.maintenance-control-card .maintenance-apply:hover { background:#d59d22; }
+.administration-section-pager { flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;border-top:1px solid #e2eaf4;background:rgba(247,250,254,.96);padding:10px 1px 1px;backdrop-filter:blur(10px); }
 .administration-section-pager > a { min-width:145px;display:flex;align-items:center;gap:8px;border:1px solid #dfe7f1;border-radius:9px;background:#fff;padding:9px 11px;color:#527096; }
 .administration-section-pager > a:hover { border-color:#b8cee9;background:#f8fbff; }
 .administration-section-pager > a:first-child > svg { transform:rotate(180deg); }
@@ -172,6 +222,8 @@
   .administration-status-hero { grid-template-columns:minmax(250px,1fr) auto; }
   .administration-status-hero > aside { grid-column:1/-1; }
   .administration-choice-list.is-checklist > div { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .maintenance-control-layout { grid-template-columns:1fr; }
+  .maintenance-command-panel { grid-row:auto; }
 }
 @media (max-width:760px) {
   .administration-overview-page,.administration-section-page { overflow:auto; }
@@ -183,6 +235,7 @@
   .administration-field { grid-template-columns:1fr;gap:9px; }
   .administration-toggle-control { justify-content:flex-start; }
   .administration-toggle-control b { text-align:left; }
+  .maintenance-state-options { grid-template-columns:1fr; }
 }
 @media (max-width:540px) {
   .administration-page > .page-heading { align-items:flex-start; }
@@ -207,9 +260,14 @@
   .administration-setting-group > header,.administration-setting-group > div { padding-left:13px;padding-right:13px; }
   .administration-choice-list > div,.administration-choice-list.is-checklist > div { grid-template-columns:1fr; }
   .administration-asset-control { grid-template-columns:1fr; }
-  .administration-asset-preview { width:100%;height:84px; }
+  .administration-asset-preview { width:100%;height:140px;aspect-ratio:auto; }
   .administration-save-bar { align-items:stretch;flex-wrap:wrap;padding:12px 13px; }
   .administration-save-bar > div { width:100%;flex-basis:100%; }
   .administration-save-bar .button { flex:1; }
   .administration-section-pager > a { min-width:0; }
+  .maintenance-control-card > header { grid-template-columns:40px minmax(0,1fr); }
+  .maintenance-current-state { grid-column:2;justify-self:start; }
+  .maintenance-control-card > footer { align-items:stretch;flex-wrap:wrap; }
+  .maintenance-control-card > footer > div { width:100%;flex-basis:100%; }
+  .maintenance-control-card > footer .button { flex:1; }
 }

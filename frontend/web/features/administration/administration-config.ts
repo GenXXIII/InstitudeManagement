@@ -23,7 +23,7 @@ const groups = {
 } as Record<SettingSection, readonly ConfigurationGroup[]>;
 
 const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
-  institute: ["name", "shortName", "code", "logoUrl", "email", "phone", "address", "timeZone"],
+  institute: ["name", "shortName", "code", "logoUrl", "email", "phone", "address"],
   "academic-year": ["currentYear", "code", "startsOn", "endsOn", "status"],
   semester: ["currentTerm"],
   departments: ["codePrefix", "codeIncludeYear", "codePaddingWidth", "codeSeparator", "codeExample", "defaultStatus", "requireDepartmentHead", "allowCrossDepartmentTeaching"],
@@ -34,13 +34,13 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   "teacher-rules": ["idPrefix", "includeYear", "startingNumber", "paddingWidth", "separator", "identifierExample", "statuses", "maximumCourses", "maximumClasses"],
   "attendance-rules": ["method", "attendanceRequired", "lateThresholdMinutes", "absentAfterMinutes", "autoAbsent", "teacherCanRecord", "notifyAdministrator"],
   "grade-rules": ["gradingSystem", "maximumScore", "passMark", "gpaEnabled", "overallPassMark", "coursePassMark"],
-  notifications: ["emailEnabled", "inAppEnabled", "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary"],
+  notifications: ["notificationCodePrefix", "announcementCodePrefix", "historyCodePrefix", "codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "notificationCodeExample", "announcementCodeExample", "historyCodeExample", "emailEnabled", "inAppEnabled", "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary"],
   system: ["language", "dateFormat", "timeFormat", "timeZone", "autoRefreshSeconds", "maintenanceEnabled"],
   security: ["passwordMinimumLength", "maximumLoginAttempts", "lockoutDurationMinutes", "twoFactorMode"],
 };
 
 export const administrationSections: readonly AdministrationSectionDefinition[] = [
-  section("institute", "General settings", "General", "Institute identity, branding, contact details, address, and time-zone profile.", "general", "building"),
+  section("institute", "General settings", "General", "Institute identity, branding, contact details, and address.", "general", "building"),
   section("academic-year", "Academic year", "Academic year", "Active academic-year identity, dates, and lifecycle status.", "academic", "calendar"),
   section("semester", "Semester and term", "Terms", "Current term plus Semester 1, Semester 2, and Summer Term windows.", "academic", "calendar"),
   section("departments", "Department rules", "Departments", "Code generation, defaults, and governance rules; department records remain in Management.", "academic", "building"),

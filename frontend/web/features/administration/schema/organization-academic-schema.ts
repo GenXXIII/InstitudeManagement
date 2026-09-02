@@ -1,8 +1,7 @@
 import type { ConfigurationGroup, ManagementLink, SettingSection } from "../administration-types";
-import { field, options, recordCodeExample, utcOffset } from "./schema-helpers";
+import { field, options, recordCodeExample } from "./schema-helpers";
 
 const statusOptions = options("Active", "Upcoming", "Inactive", "Completed");
-const timeZoneOptions = options("Asia/Phnom_Penh", "Asia/Bangkok", "Asia/Ho_Chi_Minh", "UTC");
 
 export const organizationAcademicGroups = {
   institute: [
@@ -45,14 +44,6 @@ export const organizationAcademicGroups = {
         field("district", "District", "District or khan.", "text"),
         field("address", "Street address", "Complete delivery and visitor address.", "textarea", { required: true }),
         field("postalCode", "Postal code", "Postal or ZIP code.", "text"),
-      ],
-    },
-    {
-      title: "Regional time",
-      description: "Profile time-zone metadata. Runtime scheduling uses the matching value under System preferences.",
-      fields: [
-        field("timeZone", "Time zone", "Use an IANA time-zone identifier.", "select", { required: true, options: timeZoneOptions }),
-        field("utcOffset", "Current UTC offset", "Derived from the selected time zone and current daylight-saving rules.", "derived", { derive: utcOffset }),
       ],
     },
   ],

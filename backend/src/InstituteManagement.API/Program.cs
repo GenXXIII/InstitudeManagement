@@ -34,6 +34,7 @@ app.UseStaticFiles(new StaticFileOptions
     FileProvider = new PhysicalFileProvider(uploadsPath),
     RequestPath = "/uploads",
 });
+app.UseMiddleware<InstituteManagement.API.Middleware.MaintenanceModeMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

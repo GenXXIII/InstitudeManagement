@@ -53,8 +53,9 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
         {
             var room = x.Classroom!;
             var schedule = currentSchedules.FirstOrDefault(item => item.ClassroomId == x.ClassroomId);
+            var fixedStatus = FixedStatus(x.Status, room.DeviceOnline);
             if (schedule is null)
-                return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", "Available", "No course in this period", "—", "Not scheduled", "Available for an assigned course.");
+                return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? "Available", "No course in this period", "—", "Not scheduled", FixedStatusDetail(fixedStatus));
 
             var department = courseAssignments.First(item => item.CourseId == schedule.CourseId).DepartmentId;
             var teacherAssignment = teacherAssignments
@@ -62,26 +63,46 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
                 .OrderByDescending(item => item.DepartmentId == department)
                 .FirstOrDefault();
             var attendance = TeacherPresence.Attendance(schedule.Teacher?.Status, teacherAssignment?.Status);
-            var running = TeacherPresence.IsPresent(attendance) && x.Status != "Unavailable" && room.DeviceOnline;
-            var detail = running
+            var running = fixedStatus is null && TeacherPresence.IsPresent(attendance);
+            var detail = fixedStatus is not null
+                ? FixedStatusDetail(fixedStatus)
+                : running
                 ? $"{schedule.Course?.Name ?? "Course"} is running with {schedule.Teacher?.FullName ?? "the assigned teacher"}."
                 : !TeacherPresence.IsPresent(attendance)
                     ? $"{schedule.Course?.Name ?? "Course"} is assigned, but {schedule.Teacher?.FullName ?? "the teacher"} is {attendance.ToLowerInvariant()}; the course is not running."
-                    : $"{schedule.Course?.Name ?? "Course"} is assigned and the teacher is present, but the classroom or attendance device is unavailable.";
-            return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", running ? "In Study" : "Available", schedule.Course?.Name ?? "Course", schedule.Teacher?.FullName ?? "—", attendance, detail);
+                    : $"{schedule.Course?.Name ?? "Course"} is assigned but is not running.";
+            return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? (running ? "In Study" : "Available"), schedule.Course?.Name ?? "Course", schedule.Teacher?.FullName ?? "—", attendance, detail);
         }).OrderBy(x => x.Room).ToList();
 
         var runningCount = rows.Count(x => x.Status == "In Study");
-        var teacherAbsentCount = rows.Count(x => x.TeacherAttendance is "Absent" or "Permission");
+        var maintenanceCount = rows.Count(x => x.Status == "Maintenance");
+        var unavailableCount = rows.Count(x => x.Status == "Unavailable");
+        var availableCount = rows.Count(x => x.Status == "Available");
         var metrics = new List<MetricDto>
         {
             new("Running", runningCount.ToString(), "Teacher present", "green"),
-            new("Available", (rows.Count - runningCount).ToString(), "Not running", "red"),
-            new("Teacher absent", teacherAbsentCount.ToString(), "Assigned course not held", "red")
+            new("Maintenance", maintenanceCount.ToString(), "Fixed enrollment status", "amber"),
+            new("Unavailable", unavailableCount.ToString(), "Fixed or device offline", "red"),
+            new("Available", availableCount.ToString(), "No class running")
         };
         var timing = selection.IsRunning ? "current" : "next";
-        return new OperationDto(Module, $"Learning-space operations · {context.Scope}", $"Room status for the {timing} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). A room runs only when its assigned course has a present teacher.", metrics, context.Activity, context.Attention, Classrooms: rows);
+        return new OperationDto(Module, $"Learning-space operations · {context.Scope}", $"Room status for the {timing} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). Available rooms follow the timetable; Maintenance and Unavailable remain fixed until changed in Enrollment.", metrics, context.Activity, context.Attention, Classrooms: rows);
     }
+
+    private static string? FixedStatus(string assignmentStatus, bool deviceOnline) => assignmentStatus switch
+    {
+        "Maintenance" or "Reserved" => "Maintenance",
+        "Unavailable" => "Unavailable",
+        _ when !deviceOnline => "Unavailable",
+        _ => null
+    };
+
+    private static string FixedStatusDetail(string? status) => status switch
+    {
+        "Maintenance" => "Maintenance is fixed in Enrollment and overrides the timetable.",
+        "Unavailable" => "Unavailable is fixed in Enrollment, or the attendance device is offline, and overrides the timetable.",
+        _ => "Available for an assigned timetable course."
+    };
 
     private static int Floor(string code) => char.IsDigit(code.FirstOrDefault()) ? code[0] - '0' : 1;
 }
