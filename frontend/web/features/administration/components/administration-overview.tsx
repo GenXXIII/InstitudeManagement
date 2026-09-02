@@ -10,7 +10,6 @@ import { defaultSettings } from "../administration-defaults";
 import type { SettingSection, Settings } from "../administration-types";
 import { formatUpdatedAt } from "../settings-codec";
 import { AdministrationModeToggle } from "./administration-mode-toggle";
-import { MaintenanceModeCard } from "./maintenance-mode-card";
 
 export function AdministrationOverview() {
   const [rows, setRows] = useState<Settings[]>();
@@ -38,22 +37,31 @@ export function AdministrationOverview() {
     <section className="administration-overview-scroll">
       <div className="administration-category-catalog">{administrationCategories.map(category => <section key={category.id}>
         <header><div><h2>{category.title}</h2><p>{category.description}</p></div><span>{administrationSections.filter(item => item.category === category.id).length} sections</span></header>
-        <div>{administrationSections.filter(item => item.category === category.id).map(item => <MaintenanceCardPlacement definition={item} row={bySection.get(item.section)} systemRow={bySection.get("system")} onSaved={load} key={item.section}/>)}</div>
+        <div>{administrationSections.filter(item => item.category === category.id).map(item => <MaintenanceCardPlacement definition={item} row={bySection.get(item.section)} systemRow={bySection.get("system")} key={item.section}/>)}</div>
       </section>)}</div>
     </section>
   </div>;
 }
 
-function MaintenanceCardPlacement({ definition, row, systemRow, onSaved }: {
+function MaintenanceCardPlacement({ definition, row, systemRow }: {
   definition: (typeof administrationSections)[number];
   row?: Settings;
   systemRow?: Settings;
-  onSaved: () => Promise<void>;
 }) {
   return <>
     <SectionCard definition={definition} row={row}/>
-    {definition.section === "system" && <MaintenanceModeCard row={systemRow} onSaved={onSaved}/>}
+    {definition.section === "system" && <MaintenanceSectionCard row={systemRow}/>}
   </>;
+}
+
+function MaintenanceSectionCard({ row }: { row?: Settings }) {
+  const values = { ...defaultSettings.system, ...(row?.values ?? {}) };
+  const active = values.maintenanceEnabled === "true";
+  return <Link className={`administration-section-card maintenance-section-card panel ${active ? "is-active" : ""}`} href="/settings/maintenance">
+    <span className="administration-section-icon"><Icon name="settings" size={18}/></span>
+    <div><span className={`administration-section-status ${active ? "" : "saved"}`}><i/>{active ? "Maintenance active" : "Normal service"}</span><h3>Maintenance mode</h3><p>Dedicated advanced control for platform availability, visitor messaging, impact, and recovery.</p><strong>Open full maintenance control</strong><small>{row?.updatedAtUtc ? `Updated ${formatUpdatedAt(row.updatedAtUtc)}` : "Uses the recommended normal-service default."}</small></div>
+    <Icon name="arrow" size={15}/>
+  </Link>;
 }
 
 function SectionCard({ definition, row }: { definition: (typeof administrationSections)[number]; row?: Settings }) {

@@ -4,6 +4,6 @@ import { isSettingSection } from "@/features/administration/administration-confi
 
 export default async function AdministrationSectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
-  if (section !== "overview" && !isSettingSection(section)) notFound();
+  if (section !== "overview" && section !== "maintenance" && !isSettingSection(section)) notFound();
   return <AdministrationWorkspace section={section}/>;
 }

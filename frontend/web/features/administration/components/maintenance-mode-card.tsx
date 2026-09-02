@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
+import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { administrationApi } from "../administration-api";
 import { defaultSettings } from "../administration-defaults";
 import type { Settings } from "../administration-types";
@@ -10,7 +12,32 @@ import { useInstituteSettings } from "../institute-settings-context";
 
 const maintenanceKeys = ["maintenanceEnabled", "maintenanceMessage", "allowAdministratorsDuringMaintenance"] as const;
 
-export function MaintenanceModeCard({ row, onSaved }: { row?: Settings; onSaved: () => Promise<void> }) {
+export function MaintenanceModePage() {
+  const [row, setRow] = useState<Settings>();
+  const [loadError, setLoadError] = useState(false);
+  const load = useCallback(async () => {
+    try { setRow(await administrationApi.get("system")); setLoadError(false); }
+    catch { setLoadError(true); }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void administrationApi.get("system", controller.signal).then(result => { setRow(result); setLoadError(false); }).catch(() => { if (!controller.signal.aborted) setLoadError(true); });
+    return () => controller.abort();
+  }, []);
+
+  if (loadError) return <ErrorPage retry={() => void load()}/>;
+  if (!row) return <LoadingPage/>;
+
+  return <div className="viewport-data-page administration-page administration-section-page maintenance-mode-page">
+    <PageHeading eyebrow="Advanced service control" title="Maintenance mode" description="Plan, communicate, activate, and safely recover from temporary platform maintenance." actions={<Link className="button secondary" href="/settings/overview"><Icon name="dashboard" size={15}/>Settings overview</Link>}/>
+    <section className="administration-section-scroll">
+      <MaintenanceModeControl row={row} onSaved={load}/>
+    </section>
+  </div>;
+}
+
+function MaintenanceModeControl({ row, onSaved }: { row: Settings; onSaved: () => Promise<void> }) {
   const { refresh } = useInstituteSettings();
   const initialValues = { ...defaultSettings.system, ...(row?.values ?? {}) };
   const [baseline, setBaseline] = useState<Record<string, string>>(initialValues);
@@ -64,7 +91,7 @@ export function MaintenanceModeCard({ row, onSaved }: { row?: Settings; onSaved:
     }
   }
 
-  return <article className={`maintenance-control-card maintenance-overview-card ${plannedActive ? "plans-maintenance" : "plans-normal"}`}>
+  return <article className={`maintenance-control-card ${plannedActive ? "plans-maintenance" : "plans-normal"}`}>
     <header>
       <span className="maintenance-control-icon"><Icon name="settings" size={21}/></span>
       <div><small>Advanced service control</small><h2>Maintenance mode</h2><p>Control application availability outside ordinary System Settings.</p></div>
