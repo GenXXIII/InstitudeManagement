@@ -160,6 +160,7 @@
 .administration-save-message { display:none;color:#278767;font-weight:700; }
 .administration-save-message.show { display:block; }
 .maintenance-control-card { margin-top:12px;overflow:hidden;border:1px solid #d9e4f1;border-radius:16px;background:#fff;box-shadow:0 10px 30px rgba(52,83,122,.08); }
+.maintenance-overview-card { grid-column:1/-1;margin-top:0; }
 .maintenance-control-card > header { display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:13px;padding:17px 19px;border-bottom:1px solid #e5ecf4;background:linear-gradient(105deg,#f9fcff,#f1f6fc); }
 .maintenance-control-card.plans-maintenance > header { background:linear-gradient(105deg,#fffaf0,#fff3da); }
 .maintenance-control-icon { width:43px;height:43px;display:grid;place-items:center;border-radius:12px;background:#e8f1fd;color:#2c6cc5; }

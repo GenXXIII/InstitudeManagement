@@ -35,7 +35,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   "attendance-rules": ["method", "attendanceRequired", "lateThresholdMinutes", "absentAfterMinutes", "autoAbsent", "teacherCanRecord", "notifyAdministrator"],
   "grade-rules": ["gradingSystem", "maximumScore", "passMark", "gpaEnabled", "overallPassMark", "coursePassMark"],
   notifications: ["notificationCodePrefix", "announcementCodePrefix", "historyCodePrefix", "codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "notificationCodeExample", "announcementCodeExample", "historyCodeExample", "emailEnabled", "inAppEnabled", "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary"],
-  system: ["language", "dateFormat", "timeFormat", "timeZone", "autoRefreshSeconds", "maintenanceEnabled"],
+  system: ["language", "dateFormat", "timeFormat", "timeZone", "autoRefreshSeconds"],
   security: ["passwordMinimumLength", "maximumLoginAttempts", "lockoutDurationMinutes", "twoFactorMode"],
 };
 
@@ -52,7 +52,7 @@ export const administrationSections: readonly AdministrationSectionDefinition[] 
   section("attendance-rules", "Attendance settings", "Attendance", "Capture, threshold, absence, correction, audit, and alert rules.", "policies", "check"),
   section("grade-rules", "Grading settings", "Grading", "Percentage, A+ through F boundaries, pass rules, and GPA behavior.", "policies", "grade"),
   section("notifications", "Notification settings", "Notifications", "Email, SMS, in-app audiences, templates, and operational events.", "platform", "bell"),
-  section("system", "System settings", "System", "Localization, time, live refresh, maintenance, and logging policy.", "platform", "settings"),
+  section("system", "System settings", "System", "Localization, time, live refresh, and logging policy.", "platform", "settings"),
   section("security", "Security policy", "Security", "Password, session, lockout, and two-factor policy readiness.", "platform", "archive"),
 ];
 

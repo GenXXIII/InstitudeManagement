@@ -10,6 +10,7 @@ import { defaultSettings } from "../administration-defaults";
 import type { SettingSection, Settings } from "../administration-types";
 import { formatUpdatedAt } from "../settings-codec";
 import { AdministrationModeToggle } from "./administration-mode-toggle";
+import { MaintenanceModeCard } from "./maintenance-mode-card";
 
 export function AdministrationOverview() {
   const [rows, setRows] = useState<Settings[]>();
@@ -37,10 +38,22 @@ export function AdministrationOverview() {
     <section className="administration-overview-scroll">
       <div className="administration-category-catalog">{administrationCategories.map(category => <section key={category.id}>
         <header><div><h2>{category.title}</h2><p>{category.description}</p></div><span>{administrationSections.filter(item => item.category === category.id).length} sections</span></header>
-        <div>{administrationSections.filter(item => item.category === category.id).map(item => <SectionCard definition={item} row={bySection.get(item.section)} key={item.section}/>)}</div>
+        <div>{administrationSections.filter(item => item.category === category.id).map(item => <MaintenanceCardPlacement definition={item} row={bySection.get(item.section)} systemRow={bySection.get("system")} onSaved={load} key={item.section}/>)}</div>
       </section>)}</div>
     </section>
   </div>;
+}
+
+function MaintenanceCardPlacement({ definition, row, systemRow, onSaved }: {
+  definition: (typeof administrationSections)[number];
+  row?: Settings;
+  systemRow?: Settings;
+  onSaved: () => Promise<void>;
+}) {
+  return <>
+    <SectionCard definition={definition} row={row}/>
+    {definition.section === "system" && <MaintenanceModeCard row={systemRow} onSaved={onSaved}/>}
+  </>;
 }
 
 function SectionCard({ definition, row }: { definition: (typeof administrationSections)[number]; row?: Settings }) {
