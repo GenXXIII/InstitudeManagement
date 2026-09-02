@@ -506,3 +506,9 @@ a { color:inherit; text-decoration:none; }
 @media(max-width:700px){.announce-alert-form{grid-template-columns:1fr 1fr}.announce-alert-form label:nth-child(4){grid-column:1/-1}}
 @media(max-width:560px){.announce-alert-form{grid-template-columns:1fr}.announce-alert-form label:nth-child(4),.announce-alert-form>div{grid-column:auto}}
 .announce-paginated-region{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}.announce-paginated-region>.announce-alert-form{flex:none}.announce-paginated-region>.notification-inbox,.announce-paginated-region>.announce-table{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.announce-paginated-region>.data-pagination{flex:none}
+
+/* Record groups keep their identity/header and page navigation visible while only rows scroll. */
+.record-paginated-region>.semester-history-scroll{overflow:auto}.semester-history-group{flex:0 0 100%;min-height:0;box-sizing:border-box;overflow:hidden}.semester-history-group>header,.semester-history-group>.data-pagination{flex:none}.semester-history-group>.panel,.semester-history-group>.session-record-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.semester-history-group .student-semester-record-head,.semester-history-group .entity-semester-record-head,.semester-history-group .structure-semester-record-head{position:sticky;top:0;z-index:4}
+
+/* Notification History follows the clean, solid Management table-header treatment. */
+.notification-history-register .notification-inbox-head{min-height:52px;box-shadow:none;border-bottom:1px solid #e5ecf5;background:#f6f9fd;font-size:9px;letter-spacing:.55px}.notification-history-register .notification-inbox-head>span{display:flex;min-width:0;align-items:center;line-height:1.25;white-space:normal}.notification-history-register .notification-inbox-row{background:white}

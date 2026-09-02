@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import { departmentApi } from "@/features/management/departments/department-api";
 import type { DepartmentItem } from "@/features/management/types/department";
@@ -23,6 +23,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const initialRecordEntryChecked = useRef(false);
+  const recordEntrySequence = useRef<{ parent: string; detail: string; step: "home" | "parent" | "detail" } | undefined>(undefined);
   const institute = settings.institute;
   const academicYear = settings["academic-year"];
   const semester = settings.semester;
@@ -43,6 +45,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => { window.clearTimeout(timer); window.removeEventListener("popstate", sync); };
   }, [pathname]);
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 1_000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => {
+    if (initialRecordEntryChecked.current) return;
+    initialRecordEntryChecked.current = true;
+    if (recordEntrySequence.current || window.history.state?.inkRecordBackSequence) return;
+    const parentPath = recordParentPath(pathname);
+    if (!parentPath) return;
+    const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    if (navigation?.type === "reload" || navigation?.type === "back_forward") return;
+    try {
+      if (document.referrer && new URL(document.referrer).origin === window.location.origin) return;
+    } catch { /* An invalid referrer is treated as an external entry. */ }
+    const search = window.location.search;
+    recordEntrySequence.current = { parent: `${parentPath}${search}`, detail: `${pathname}${search}`, step: "home" };
+    router.replace("/", { scroll: false });
+  }, [pathname, router]);
+  useEffect(() => {
+    const sequence = recordEntrySequence.current;
+    if (!sequence) return;
+    if (sequence.step === "home" && pathname === "/") {
+      sequence.step = "parent";
+      router.push(sequence.parent, { scroll: false });
+      return;
+    }
+    if (sequence.step === "parent" && `${pathname}${window.location.search}` === sequence.parent) {
+      sequence.step = "detail";
+      router.push(sequence.detail, { scroll: false });
+      return;
+    }
+    if (sequence.step === "detail" && `${pathname}${window.location.search}` === sequence.detail) {
+      window.history.replaceState({ ...window.history.state, inkRecordBackSequence: true }, "", sequence.detail);
+      recordEntrySequence.current = undefined;
+    }
+  }, [pathname, router]);
   useEffect(() => {
     document.documentElement.lang = system.language?.toLowerCase().startsWith("kh") ? "km" : "en";
     document.title = institute.name || "Institude of New Khmer";
@@ -105,4 +140,9 @@ function formatDate(date: Date, locale: string, timeZone: string, format = "DD M
   if (normalized === "MM/DD/YYYY") return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(date);
   if (normalized === "DD/MM/YYYY") return new Intl.DateTimeFormat("en-GB", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(date);
   return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric", timeZone }).format(date);
+}
+
+function recordParentPath(pathname: string) {
+  const match = pathname.match(/^\/(record|records)\/([^/]+)\/[^/]+$/);
+  return match ? `/${match[1]}/${match[2]}` : undefined;
 }
