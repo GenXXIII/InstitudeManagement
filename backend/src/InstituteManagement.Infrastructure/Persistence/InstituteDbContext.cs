@@ -27,7 +27,7 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        var format = RequiresNotificationCodeFormat() ? NotificationCodeFormat() : null;
+        var format = RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
         AssignHistoryBusinessCodes(format);
@@ -36,7 +36,7 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
-        var format = RequiresNotificationCodeFormat() ? NotificationCodeFormat() : null;
+        var format = RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
         AssignHistoryBusinessCodes(format);
@@ -103,7 +103,7 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
         || ChangeTracker.Entries<Announcement>().Any(entry => entry.State == EntityState.Added)
         || ChangeTracker.Entries<NotificationHistory>().Any(entry => entry.State == EntityState.Added);
 
-    private NotificationCodeFormat NotificationCodeFormat()
+    private NotificationCodeFormat LoadNotificationCodeFormat()
     {
         var values = SystemSettings.AsNoTracking().Where(setting => setting.Section == "notifications")
             .ToDictionary(setting => setting.Key, setting => setting.Value, StringComparer.OrdinalIgnoreCase);
