@@ -12,6 +12,8 @@ public static class SettingsCatalogSeeder
         var existing = await db.SystemSettings.AsNoTracking()
             .Select(setting => new { setting.Section, setting.Key })
             .ToListAsync(cancellationToken);
+        if (existing.Count == 0) return;
+
         var existingKeys = existing
             .Select(setting => CompositeKey(setting.Section, setting.Key))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

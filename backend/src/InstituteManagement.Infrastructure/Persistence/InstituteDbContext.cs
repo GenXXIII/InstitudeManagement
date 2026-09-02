@@ -107,7 +107,17 @@ public sealed class InstituteDbContext(DbContextOptions<InstituteDbContext> opti
     {
         var values = SystemSettings.AsNoTracking().Where(setting => setting.Section == "notifications")
             .ToDictionary(setting => setting.Key, setting => setting.Value, StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in ChangeTracker.Entries<SystemSetting>().Where(entry =>
+                     entry.State is EntityState.Added or EntityState.Modified
+                     && entry.Entity.Section.Equals("notifications", StringComparison.OrdinalIgnoreCase)))
+            values[entry.Entity.Key] = entry.Entity.Value;
+
         var timeZoneId = SystemSettings.AsNoTracking().Where(setting => setting.Section == "system" && setting.Key == "timeZone").Select(setting => setting.Value).FirstOrDefault() ?? "Asia/Phnom_Penh";
+        var pendingTimeZone = ChangeTracker.Entries<SystemSetting>().FirstOrDefault(entry =>
+            entry.State is EntityState.Added or EntityState.Modified
+            && entry.Entity.Section.Equals("system", StringComparison.OrdinalIgnoreCase)
+            && entry.Entity.Key.Equals("timeZone", StringComparison.OrdinalIgnoreCase));
+        if (pendingTimeZone is not null) timeZoneId = pendingTimeZone.Entity.Value;
         var localNow = DateTime.UtcNow;
         try { localNow = TimeZoneInfo.ConvertTimeFromUtc(localNow, TimeZoneInfo.FindSystemTimeZoneById(timeZoneId)); }
         catch (TimeZoneNotFoundException) { }

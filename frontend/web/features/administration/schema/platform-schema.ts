@@ -10,7 +10,9 @@ function notificationCodeExample(values: Record<string, string>, prefixKey: stri
   const separator = values.codeSeparator || "-";
   const year = values.codeIncludeYear === "true" ? `${separator}${new Date().getFullYear()}` : "";
   const width = Math.max(1, Math.min(12, Number(values.codePaddingWidth) || 8));
-  const sequence = String(Math.max(0, Number(values.codeStartingNumber) || 1)).padStart(width, "0");
+  const parsedStart = Number(values.codeStartingNumber);
+  const startingNumber = values.codeStartingNumber?.trim() && Number.isFinite(parsedStart) ? Math.max(0, parsedStart) : 1;
+  const sequence = String(startingNumber).padStart(width, "0");
   return `${prefix}${year}${separator}${sequence}`;
 }
 
