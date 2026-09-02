@@ -24,14 +24,14 @@ export const platformGroups = {
       fields: [
         field("notificationCodePrefix", "Notification prefix", "Prefix for new notification records.", "text", { required: true }),
         field("announcementCodePrefix", "Announcement prefix", "Prefix for new institute announcement records.", "text", { required: true }),
-        field("historyCodePrefix", "History prefix", "Prefix for new permanent notification history entries.", "text", { required: true }),
+        field("historyCodePrefix", "Notification history prefix", "Prefix for new permanent notification lifecycle entries; this is separate from Record History.", "text", { required: true }),
         field("codeIncludeYear", "Include current year", "Place the current institute-local year before the sequence.", "toggle"),
         field("codeStartingNumber", "Starting number", "Lowest sequence considered for a newly selected prefix and format.", "number", { required: true, min: 0, max: 999999999999 }),
         field("codePaddingWidth", "Number padding", "Minimum digits used for each notification sequence.", "number", { required: true, min: 1, max: 12, unit: "digits" }),
         field("codeSeparator", "Separator", "Character placed between prefix, optional year, and sequence.", "select", { required: true, options: options("-", "/", ".") }),
         field("notificationCodeExample", "Notification example", "Preview for the next notification code.", "derived", { derive: values => notificationCodeExample(values, "notificationCodePrefix", "NOT") }),
         field("announcementCodeExample", "Announcement example", "Preview for the next announcement code.", "derived", { derive: values => notificationCodeExample(values, "announcementCodePrefix", "ANN") }),
-        field("historyCodeExample", "History example", "Preview for the next history code.", "derived", { derive: values => notificationCodeExample(values, "historyCodePrefix", "NHS") }),
+        field("historyCodeExample", "Notification history example", "Preview for the next notification history code.", "derived", { derive: values => notificationCodeExample(values, "historyCodePrefix", "NHS") }),
       ],
     },
     {

@@ -46,6 +46,6 @@ public sealed class NotificationCenterController(INotificationCenterService serv
     [HttpGet("history")]
     public async Task<IActionResult> GetHistory(CancellationToken cancellationToken) => Ok(await service.GetHistoryAsync(cancellationToken));
 
-    [HttpGet("history/{id:guid}")]
-    public async Task<IActionResult> GetHistoryItem(Guid id, CancellationToken cancellationToken) => Ok(await service.GetHistoryItemAsync(id, cancellationToken));
+    [HttpGet("history/{codeOrId}")]
+    public async Task<IActionResult> GetHistoryItem(string codeOrId, CancellationToken cancellationToken) => Ok(await service.GetHistoryItemAsync(codeOrId, cancellationToken));
 }

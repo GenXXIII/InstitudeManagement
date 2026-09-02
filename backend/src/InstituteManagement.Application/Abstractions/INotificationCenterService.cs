@@ -15,5 +15,5 @@ public interface INotificationCenterService
     Task<AnnouncementItemDto> UpdateAnnouncementAsync(Guid id, AnnouncementRequestDto request, CancellationToken cancellationToken);
     Task DeleteAnnouncementAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<NotificationHistoryItemDto>> GetHistoryAsync(CancellationToken cancellationToken);
-    Task<NotificationHistoryItemDto> GetHistoryItemAsync(Guid id, CancellationToken cancellationToken);
+    Task<NotificationHistoryItemDto> GetHistoryItemAsync(string codeOrId, CancellationToken cancellationToken);
 }

@@ -127,9 +127,13 @@ public sealed class NotificationCenterService(InstituteDbContext db, InstituteCa
             .Select(item => new NotificationHistoryItemDto(item.Id, item.NotificationHistoryCode, item.SourceId, item.SourceCode, item.Kind, item.Type, item.Title, item.Message, item.Action, item.CreateAt))
             .ToListAsync(cancellationToken);
 
-    public async Task<NotificationHistoryItemDto> GetHistoryItemAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<NotificationHistoryItemDto> GetHistoryItemAsync(string codeOrId, CancellationToken cancellationToken)
     {
-        var item = await db.NotificationHistory.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken) ?? throw new KeyNotFoundException("Notification history not found.");
+        var key = Required(codeOrId, "Notification history code", 64);
+        var item = Guid.TryParse(key, out var id)
+            ? await db.NotificationHistory.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id || item.NotificationHistoryCode == key, cancellationToken)
+            : await db.NotificationHistory.AsNoTracking().SingleOrDefaultAsync(item => item.NotificationHistoryCode == key, cancellationToken);
+        if (item is null) throw new KeyNotFoundException("Notification history not found.");
         return History(item);
     }
 

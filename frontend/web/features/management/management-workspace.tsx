@@ -46,7 +46,7 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
 
   const selectedDepartment = references.departments.find(x => x.id === departmentId);
   const visibleItems = useMemo(() => sortItemsByYear(filterItemsByYear(items, currentModule, year), currentModule, references), [currentModule, items, references, year]);
-  const pagination = useDataPagination(visibleItems, `${currentModule}-${departmentId}-${year}-${query}`, currentModule === "teachers" ? 5 : undefined);
+  const pagination = useDataPagination(visibleItems, `${currentModule}-${departmentId}-${year}-${query}`);
   const visibleReferences = useMemo(() => sortReferencesByYear(filterReferencesByYear(references, year)), [references, year]);
   const canCreate = currentModule !== "overview" && currentModule !== "attendance" && currentModule !== "grades";
   if (error) return <ErrorPage retry={() => { setError(false); void loadReferences(); void load(); }}/>;

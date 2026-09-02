@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (key === "departmentId") setDepartmentScope(value); else setYearScope(value);
     const params = new URLSearchParams(window.location.search);
     if (value) params.set(key, value); else params.delete(key);
-    router.push(`${pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
+    router.replace(`${pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
   }
   const clockLocale = system.language?.toLowerCase().startsWith("kh") ? "km-KH" : "en-GB";
   const currentDate = formatDate(now, clockLocale, system.timeZone || "Asia/Bangkok", system.dateFormat);
