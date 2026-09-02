@@ -29,7 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const system = settings.system;
   const settingsRoute = pathname.startsWith("/settings");
   const maintenanceActive = ready && system.maintenanceEnabled === "true";
-  const maintenanceSettingsRoute = pathname === "/settings/system";
+  const maintenanceSettingsRoute = pathname === "/settings/maintenance";
   const { live, events } = useLiveUpdates(ready && !maintenanceActive);
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <h1>{institute.name || "Institude of New Khmer"}</h1>
         <p>{system.maintenanceMessage || "System is currently under maintenance. Please try again later."}</p>
         <div><i/><strong>Business services are temporarily unavailable</strong></div>
-        <button className="button primary" type="button" onClick={() => router.push("/settings/system")}>Open System Settings</button>
+        <button className="button primary" type="button" onClick={() => router.push("/settings/maintenance")}>Open Maintenance Control</button>
       </section>
     </div>;
   }
