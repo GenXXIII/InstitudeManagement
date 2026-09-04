@@ -61,7 +61,14 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"),
                 ("Students", StudentSummary(x.StudentAttendanceJson)))));
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
-            var status = room.Status is "Inactive" or "Offline" || !room.DeviceOnline ? "Unavailable" : runningIds.Contains(room.Id) ? "In Study" : "Available";
+            var status = room.Status switch
+            {
+                "Maintenance" => "Maintenance",
+                "Unavailable" or "Inactive" => "Unavailable",
+                _ when !room.DeviceOnline => "Unavailable",
+                _ when runningIds.Contains(room.Id) => "In Study",
+                _ => "Available"
+            };
             return new OperationalRecordDto(room.Id, "Classroom", room.ClassroomCode, $"{room.RoomType} · {room.Building}", status,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
                 events.Select(x => x.Item2).ToList(), Code: room.ClassroomCode, Department: room.Building, ResourceId: room.Id);

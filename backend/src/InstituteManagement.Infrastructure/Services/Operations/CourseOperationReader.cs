@@ -28,7 +28,7 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
             .Select(x => x.ScheduleEntryId)
             .ToListAsync(cancellationToken);
-        var currentSchedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Teacher)
+        var currentSchedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Teacher).Include(x => x.Classroom)
             .Where(x => x.Status != "Cancelled"
                 && enrolledTimetableIds.Contains(x.Id)
                 && assignmentCourseIds.Contains(x.CourseId)
@@ -53,8 +53,12 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
                 .OrderByDescending(item => item.DepartmentId == x.DepartmentId)
                 .FirstOrDefault();
             var attendance = TeacherPresence.Attendance(teacher?.Status, teacherAssignment?.Status);
-            var status = TeacherPresence.IsPresent(attendance) ? "Running" : "Not running";
-            return new CourseOperationDto(x.CourseId, x.Course!.Name, x.Course.CourseCode, teacher?.FullName ?? "—", x.Department?.Name ?? "—", x.Capacity, status, attendance, TeacherPresence.Reason(attendance));
+            var fixedClassroomStatus = FixedClassroomStatus(schedule.Classroom?.Status, schedule.Classroom?.DeviceOnline);
+            var status = fixedClassroomStatus ?? (TeacherPresence.IsPresent(attendance) ? "Running" : "Available");
+            var detail = fixedClassroomStatus is null
+                ? TeacherPresence.Reason(attendance)
+                : $"Classroom {schedule.Classroom?.ClassroomCode ?? "not assigned"} is {fixedClassroomStatus.ToLowerInvariant()} and the course cannot run.";
+            return new CourseOperationDto(x.CourseId, x.Course!.Name, x.Course.CourseCode, teacher?.FullName ?? "—", x.Department?.Name ?? "—", x.Capacity, status, attendance, detail);
         })
             .OrderBy(x => x.Status == "Running" ? 0 : 1)
             .ThenBy(x => x.CourseCode)
@@ -63,14 +67,24 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
         var catalogCount = assignments.Count;
         var timing = selection.IsRunning ? "Current" : "Next";
         var running = rows.Count(x => x.Status == "Running");
-        var notRunning = rows.Count - running;
+        var available = rows.Count(x => x.Status == "Available");
+        var blocked = rows.Count(x => x.Status is "Maintenance" or "Unavailable");
         var metrics = new List<MetricDto>
         {
             new("Running", running.ToString(), "Teacher present", "green"),
-            new("Not running", notRunning.ToString(), "Teacher absent or permission", "red"),
+            new("Available", available.ToString(), "Teacher absent or permission", "red"),
+            new("Blocked", blocked.ToString(), "Classroom maintenance or unavailable", "amber"),
             new("Teachers", rows.Select(x => x.Teacher).Distinct().Count().ToString(), selection.IsRunning ? "Assigned right now" : "Assigned next"),
-            new("Available", (catalogCount - rows.Count).ToString(), "Not in this period", "violet")
+            new("Not scheduled", (catalogCount - rows.Count).ToString(), "Not in this period", "violet")
         };
-        return new OperationDto(Module, $"Course operations · {context.Scope}", $"Courses from the {timing.ToLowerInvariant()} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). A course runs only when its assigned teacher is present.", metrics, context.Activity, context.Attention, Courses: rows);
+        return new OperationDto(Module, $"Course operations · {context.Scope}", $"Courses from the {timing.ToLowerInvariant()} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). A course runs only when its assigned teacher is present and its classroom is Available.", metrics, context.Activity, context.Attention, Courses: rows);
     }
+
+    private static string? FixedClassroomStatus(string? status, bool? deviceOnline) => status switch
+    {
+        "Maintenance" or "Reserved" => "Maintenance",
+        "Unavailable" or "Inactive" => "Unavailable",
+        _ when deviceOnline != true => "Unavailable",
+        _ => null
+    };
 }

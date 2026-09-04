@@ -53,7 +53,7 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
         {
             var room = x.Classroom!;
             var schedule = currentSchedules.FirstOrDefault(item => item.ClassroomId == x.ClassroomId);
-            var fixedStatus = FixedStatus(x.Status, room.DeviceOnline);
+            var fixedStatus = FixedStatus(room.Status, room.DeviceOnline);
             if (schedule is null)
                 return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? "Available", "No course in this period", "—", "Not scheduled", FixedStatusDetail(fixedStatus));
 
@@ -71,25 +71,25 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
                 : !TeacherPresence.IsPresent(attendance)
                     ? $"{schedule.Course?.Name ?? "Course"} is assigned, but {schedule.Teacher?.FullName ?? "the teacher"} is {attendance.ToLowerInvariant()}; the course is not running."
                     : $"{schedule.Course?.Name ?? "Course"} is assigned but is not running.";
-            return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? (running ? "In Study" : "Available"), schedule.Course?.Name ?? "Course", schedule.Teacher?.FullName ?? "—", attendance, detail);
+            return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? (running ? "Running" : "Available"), schedule.Course?.Name ?? "Course", schedule.Teacher?.FullName ?? "—", attendance, detail);
         }).OrderBy(x => x.Room).ToList();
 
-        var runningCount = rows.Count(x => x.Status == "In Study");
+        var runningCount = rows.Count(x => x.Status == "Running");
         var maintenanceCount = rows.Count(x => x.Status == "Maintenance");
         var unavailableCount = rows.Count(x => x.Status == "Unavailable");
         var availableCount = rows.Count(x => x.Status == "Available");
         var metrics = new List<MetricDto>
         {
             new("Running", runningCount.ToString(), "Teacher present", "green"),
-            new("Maintenance", maintenanceCount.ToString(), "Fixed enrollment status", "amber"),
+            new("Maintenance", maintenanceCount.ToString(), "Fixed management status", "amber"),
             new("Unavailable", unavailableCount.ToString(), "Fixed or device offline", "red"),
             new("Available", availableCount.ToString(), "No class running")
         };
         var timing = selection.IsRunning ? "current" : "next";
-        return new OperationDto(Module, $"Learning-space operations · {context.Scope}", $"Room status for the {timing} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). Available rooms follow the timetable; Maintenance and Unavailable remain fixed until changed in Enrollment.", metrics, context.Activity, context.Attention, Classrooms: rows);
+        return new OperationDto(Module, $"Learning-space operations · {context.Scope}", $"Room status for the {timing} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). Available rooms follow the timetable; Maintenance and Unavailable remain fixed until changed in Classroom Management.", metrics, context.Activity, context.Attention, Classrooms: rows);
     }
 
-    private static string? FixedStatus(string assignmentStatus, bool deviceOnline) => assignmentStatus switch
+    private static string? FixedStatus(string managementStatus, bool deviceOnline) => managementStatus switch
     {
         "Maintenance" or "Reserved" => "Maintenance",
         "Unavailable" => "Unavailable",
@@ -99,8 +99,8 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
 
     private static string FixedStatusDetail(string? status) => status switch
     {
-        "Maintenance" => "Maintenance is fixed in Enrollment and overrides the timetable.",
-        "Unavailable" => "Unavailable is fixed in Enrollment, or the attendance device is offline, and overrides the timetable.",
+        "Maintenance" => "Maintenance is fixed in Classroom Management and overrides the timetable.",
+        "Unavailable" => "Unavailable is fixed in Classroom Management, or the attendance device is offline, and overrides the timetable.",
         _ => "Available for an assigned timetable course."
     };
 

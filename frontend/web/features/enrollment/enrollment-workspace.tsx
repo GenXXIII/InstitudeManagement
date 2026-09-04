@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
@@ -9,10 +8,20 @@ import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitive
 import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import { workflowCode, workflowSourceSearch, type WorkflowCodeResource } from "@/lib/workflow-code";
 import { ManagementDataCell } from "@/features/management/components/management-data-cell";
+import { emptyReferences } from "@/features/management/management-config";
+import type { References } from "@/features/management/management-types";
+import { classroomApi } from "@/features/management/classrooms/classroom-api";
+import { courseApi } from "@/features/management/courses/course-api";
 import { departmentApi } from "@/features/management/departments/department-api";
 import { studentApi } from "@/features/management/students/student-api";
+import { teacherApi } from "@/features/management/teachers/teacher-api";
 import { timetableApi } from "@/features/management/timetable/timetable-api";
+import { TimetableEditor } from "@/features/management/timetable/timetable-editor";
+import type { ClassroomItem } from "@/features/management/types/classroom";
+import type { CourseItem } from "@/features/management/types/course";
 import type { DepartmentItem } from "@/features/management/types/department";
+import type { TeacherItem } from "@/features/management/types/teacher";
+import type { TimetableItem } from "@/features/management/types/timetable";
 import { enrollmentApi, type EnrollmentItem, type EnrollmentResource } from "./enrollment-api";
 import { EnrollmentEditor } from "./enrollment-editor";
 import { scheduleMatchesShift } from "./enrollment-relationships";
@@ -23,12 +32,12 @@ type EnrollmentDisplayItem = EnrollmentItem & { rowKey: string; assignedCourse?:
 
 const copy: Record<EnrollmentResource, { title: string; description: string; columns: string[] }> = {
   students: { title: "Student Enrollment", description: "Select a student added in Management, then enroll their code and name into a department, year, and learning shift.", columns: ["Enrollment code", "Name", "Year", "Shift", "Department", "Actions"] },
-  timetable: { title: "Timetable Enrollment", description: "Add and manage enrolled schedules by timetable, course, and teacher code with their department, year, classroom, day and time, and creation date.", columns: ["Enrollment code", "Course", "Teacher", "Department", "Year", "Classroom", "Day / time", "Create At", "Actions"] },
-  "student-assignments": { title: "Student Assign", description: "View each enrolled student's department, year, shift, assigned courses, classrooms, and weekly classes.", columns: ["Assignment code", "Student", "Department", "Year / shift", "Assigned courses", "Assigned classrooms", "Weekly classes", "Actions"] },
-  teachers: { title: "Teacher Assign", description: "View and manage what each teacher is assigned to across departments, courses, year levels, and weekly classes.", columns: ["Assignment code", "Teacher", "Department", "Assigned courses", "Year levels", "Weekly classes", "Actions"] },
-  courses: { title: "Course Assign", description: "View and manage the department and year assigned to each course.", columns: ["Assignment code", "Course", "Department", "Year", "Actions"] },
-  classrooms: { title: "Classroom Assign", description: "View each classroom-course assignment with its access, capacity, and operating status.", columns: ["Assignment code", "Classroom", "Access", "Assigned course", "Capacity", "Status", "Actions"] },
-  departments: { title: "Department Assign", description: "View and manage what is assigned to each department for the selected year.", columns: ["Assignment code", "Department", "Year", "Students", "Teachers", "Courses", "Classrooms", "Weekly classes", "Actions"] },
+  timetable: { title: "Timetable Enrollment", description: "Add and manage enrolled schedules, including the classroom availability status that controls whether a class can run.", columns: ["Enrollment code", "Course", "Teacher", "Department", "Year", "Classroom", "Day / time", "Status", "Create At", "Actions"] },
+  "student-assignments": { title: "Student Assign", description: "Read-only view of each enrolled student's department, year, shift, assigned courses, classrooms, and weekly classes.", columns: ["Assignment code", "Student", "Department", "Year / shift", "Assigned courses", "Assigned classrooms", "Weekly classes"] },
+  teachers: { title: "Teacher Assign", description: "Read-only view of what each teacher is assigned to across departments, courses, year levels, and weekly classes.", columns: ["Assignment code", "Teacher", "Department", "Assigned courses", "Year levels", "Weekly classes"] },
+  courses: { title: "Course Assign", description: "Read-only view of the department and year assigned to each course.", columns: ["Assignment code", "Course", "Department", "Year"] },
+  classrooms: { title: "Classroom Assign", description: "Read-only view of each classroom-course assignment, capacity, and Classroom Management status.", columns: ["Assignment code", "Classroom", "Access", "Assigned course", "Capacity", "Status"] },
+  departments: { title: "Department Assign", description: "Read-only view of what is assigned to each department for the selected year.", columns: ["Assignment code", "Department", "Year", "Students", "Teachers", "Courses", "Classrooms", "Weekly classes"] },
 };
 
 export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource }) {
@@ -42,6 +51,7 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
   const [teachers, setTeachers] = useState<EnrollmentItem[]>([]);
   const [studentSchedules, setStudentSchedules] = useState<EnrollmentItem[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [timetableReferences, setTimetableReferences] = useState<References>(emptyReferences);
   const [editing, setEditing] = useState<EnrollmentItem | null | undefined>();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
@@ -67,12 +77,16 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
       resource === "courses" ? enrollmentApi.get("teachers", "", settings.departments.allowCrossDepartmentTeaching === "true" ? "" : departmentId) : Promise.resolve([]),
       candidateRequest,
       resource === "student-assignments" ? enrollmentApi.get("timetable", "", departmentId, year) : Promise.resolve([]),
-    ]).then(([rows, departmentRows, teacherRows, candidateRows, scheduleRows]) => {
+      resource === "timetable"
+        ? Promise.all([teacherApi.get(), courseApi.get(), classroomApi.get()])
+        : Promise.resolve([[], [], []] as [TeacherItem[], CourseItem[], ClassroomItem[]]),
+    ]).then(([rows, departmentRows, teacherRows, candidateRows, scheduleRows, [managementTeachers, managementCourses, managementClassrooms]]) => {
       setItems(rows);
       setDepartments(departmentRows);
       setTeachers(teacherRows);
       setCandidates(candidateRows);
       setStudentSchedules(scheduleRows);
+      setTimetableReferences({ ...emptyReferences, departments: departmentRows, teachers: managementTeachers, courses: managementCourses, classrooms: managementClassrooms });
       setReady(true);
       setError(false);
     }).catch(() => setError(true));
@@ -124,12 +138,12 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     <section className="management-paginated-region">
       <section className={`panel horizontal-management-table enrollment-service-horizontal enrollment-${resource}`}>
         <div className="horizontal-management-head">{details.columns.map(column => <span key={column}>{column}</span>)}</div>
-        {pagination.pageItems.map(item => <EnrollmentRow resource={resource} item={item} studentSchedules={studentSchedules} onEdit={() => setEditing(item)} onRemove={() => { void remove(item); }} key={item.rowKey}/>)}
+        {pagination.pageItems.map(item => <EnrollmentRow resource={resource} item={item} studentSchedules={studentSchedules} onEdit={isEditableEnrollment(resource) ? () => setEditing(item) : undefined} onRemove={isEditableEnrollment(resource) ? () => { void remove(item); } : undefined} key={item.rowKey}/>)}
       </section>
       <DataPagination page={pagination.page} pageCount={pagination.pageCount} total={sortedItems.length} onPage={pagination.setPage}/>
     </section>
-    {editing !== undefined && resource !== "departments" && <EnrollmentEditor
-      resource={resource === "student-assignments" ? "students" : resource}
+    {editing !== undefined && (resource === "students" || (resource === "timetable" && editing === null)) && <EnrollmentEditor
+      resource={resource}
       item={editing}
       candidates={candidates}
       departments={departments}
@@ -139,10 +153,19 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
       onClose={() => setEditing(undefined)}
       onSaved={() => { setEditing(undefined); void load(); }}
     />}
+    {editing && resource === "timetable" && <TimetableEditor
+      item={editing as TimetableItem}
+      references={timetableReferences}
+      scopeDepartmentId={departmentId}
+      scopeYear={year}
+      saveItem={(id, values) => enrollmentApi.update("timetable", id, values)}
+      onClose={() => setEditing(undefined)}
+      onSaved={() => { setEditing(undefined); void load(); }}
+    />}
   </div>;
 }
 
-function EnrollmentRow({ resource, item, studentSchedules, onEdit, onRemove }: { resource: EnrollmentResource; item: EnrollmentDisplayItem; studentSchedules: EnrollmentItem[]; onEdit: () => void; onRemove: () => void }) {
+function EnrollmentRow({ resource, item, studentSchedules, onEdit, onRemove }: { resource: EnrollmentResource; item: EnrollmentDisplayItem; studentSchedules: EnrollmentItem[]; onEdit?: () => void; onRemove?: () => void }) {
   const value = item.values;
   const relatedSchedules = resource === "student-assignments" ? studentSchedules.filter(schedule => schedule.values.departmentId === value.departmentId && schedule.values.yearLevel === value.year && scheduleMatchesShift(schedule, value.shift)) : [];
   const cells = resource === "students" ? [value.studentCode, value.name, value.year ? `Year ${value.year}` : "Unassigned", value.shift || "Unassigned", value.year === "1" ? "General foundation" : value.department]
@@ -150,7 +173,7 @@ function EnrollmentRow({ resource, item, studentSchedules, onEdit, onRemove }: {
     : resource === "teachers" ? [value.teacherCode, value.name, value.department, value.courses || `${value.courseCount || 0} assigned`, value.yearLevels || "Not scheduled", value.weeklyClasses || "0"]
     : resource === "courses" ? [value.courseCode, value.name, value.department, value.year ? `Year ${value.year}` : "Unassigned"]
     : resource === "classrooms" ? [value.classroomCode, `${value.building} - ${value.roomType}`, value.access, item.assignedCourse || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned", value.status || "Available"]
-    : resource === "timetable" ? [value.timetableCode, [value.courseCode, value.course].filter(Boolean).join(" - "), [value.teacherCode, value.teacher].filter(Boolean).join(" - "), value.department, value.yearLevel ? `Year ${value.yearLevel}` : "Unassigned", value.classroom, `${value.dayOfWeek} ${value.startsAt}-${value.endsAt}`, value.createAt]
+    : resource === "timetable" ? [value.timetableCode, [value.courseCode, value.course].filter(Boolean).join(" - "), [value.teacherCode, value.teacher].filter(Boolean).join(" - "), value.department, value.yearLevel ? `Year ${value.yearLevel}` : "Unassigned", value.classroom, `${value.dayOfWeek} ${value.startsAt}-${value.endsAt}`, value.classroomStatus || "Maintenance", value.createAt]
     : [value.departmentCode, value.name, value.year === "All" ? "All years" : `Year ${value.year}`, value.students, value.teachers, value.courses, value.classrooms, value.weeklyClasses];
 
   return <article className="horizontal-management-row">
@@ -160,15 +183,19 @@ function EnrollmentRow({ resource, item, studentSchedules, onEdit, onRemove }: {
       return <ManagementDataCell label={copy[resource].columns[index]} className={className} key={`${item.id}-${index}`}>
         {index === 0
           ? <div className="workflow-code-cell"><strong className="management-code-value">{enrollmentDisplayCode(resource, item)}</strong><small>Management {managementSourceCode(resource, value)}</small></div>
-          : resource === "classrooms" && index === 5
+          : (resource === "classrooms" && index === 5) || (resource === "timetable" && index === 7)
             ? <span className={`table-status ${classroomEnrollmentStatusClass(cell)}`}>{cell}</span>
             : <strong className={relationship ? "enrollment-relationship-value" : undefined} title={relationship ? cell : undefined}>{cell || "Unassigned"}</strong>}
       </ManagementDataCell>;
     })}
-    {resource === "departments"
-      ? <ManagementDataCell label="Actions" className="management-action-cell"><div className="management-actions"><Link href={departmentAssignmentHref(item)}>Manage</Link></div></ManagementDataCell>
-      : <ManagementDataCell label="Actions" className="management-action-cell"><div className="management-actions"><button type="button" onClick={onEdit}>Edit</button><button type="button" className="danger" onClick={onRemove}>Remove</button></div></ManagementDataCell>}
+    {onEdit && onRemove
+        ? <ManagementDataCell label="Actions" className="management-action-cell"><div className="management-actions"><button type="button" onClick={onEdit}>Edit</button><button type="button" className="danger" onClick={onRemove}>Remove</button></div></ManagementDataCell>
+        : null}
   </article>;
+}
+
+function isEditableEnrollment(resource: EnrollmentResource) {
+  return resource === "students" || resource === "timetable";
 }
 
 function isAssignableEnrollment(resource: EnrollmentResource): resource is AssignableEnrollmentResource {
@@ -251,10 +278,4 @@ function classroomEnrollmentStatusClass(status: string) {
   if (status === "Maintenance") return "starting";
   if (status === "Unavailable") return "offline";
   return "available";
-}
-
-function departmentAssignmentHref(item: EnrollmentItem) {
-  const params = new URLSearchParams({ departmentId: item.id });
-  if (item.values.year && item.values.year !== "All") params.set("year", item.values.year);
-  return `/enrollment?${params.toString()}`;
 }

@@ -93,10 +93,7 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
             Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
     private static string RoomStatus(Dictionary<string, string> values)
-    {
-        var status = OneOf(values, "status", "Available", "Available", "Running", "Starting", "Offline", "Inactive");
-        return status == "Running" ? "Available" : status;
-    }
+        => OneOf(values, "status", "Available", "Available", "Maintenance", "Inactive");
 
     private static string RoomType(Dictionary<string, string> values) =>
         OneOf(values, "roomType", "Classroom", "Classroom", "Meeting Room");
@@ -105,7 +102,7 @@ public sealed class ClassroomManagementFeature(InstituteDbContext db, InstituteC
     {
         var value = await Db.SystemSettings.AsNoTracking().Where(x => x.Section == "classrooms" && x.Key == "attendanceDeviceRequired").Select(x => x.Value).FirstOrDefaultAsync(ct);
         var required = !bool.TryParse(value, out var enabled) || enabled;
-        if (required && status is "Available" or "Starting" && !deviceOnline) throw new InvalidOperationException("An online attendance device is required for active learning spaces by Classroom settings.");
+        if (required && status == "Available" && !deviceOnline) throw new InvalidOperationException("An online attendance device is required for available learning spaces by Classroom settings.");
     }
 
     private async Task<int> DefaultCapacityAsync(int fallback, CancellationToken ct)

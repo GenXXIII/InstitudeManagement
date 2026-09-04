@@ -67,8 +67,10 @@ public static class DatabaseSchemaUpdater
             IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Classrooms_Departments_DepartmentId') ALTER TABLE [Classrooms] ADD CONSTRAINT [FK_Classrooms_Departments_DepartmentId] FOREIGN KEY ([DepartmentId]) REFERENCES [Departments] ([Id]);
 
             UPDATE [Classrooms] SET [Status] = 'Available' WHERE [Status] = 'Running';
+            UPDATE [Classrooms] SET [Status] = 'Maintenance' WHERE [Status] = 'Starting';
+            UPDATE [Classrooms] SET [Status] = 'Maintenance' WHERE [Status] IN ('Offline', 'Unavailable');
             IF OBJECT_ID(N'[Enrollment].[ClassroomAssignments]', N'U') IS NOT NULL
-                UPDATE [Enrollment].[ClassroomAssignments] SET [Status] = 'Maintenance' WHERE [Status] = 'Reserved';
+                UPDATE [Enrollment].[ClassroomAssignments] SET [Status] = 'Maintenance' WHERE [Status] IN ('Reserved', 'Unavailable');
 
             IF OBJECT_ID(N'[Notifications]', N'U') IS NOT NULL AND EXISTS (SELECT 1 FROM [Notifications] WHERE LEN([NotificationCode]) = 36 AND [NotificationCode] LIKE 'NOT-%' AND SUBSTRING([NotificationCode], 5, 32) NOT LIKE '%[^0-9A-Fa-f]%')
             BEGIN

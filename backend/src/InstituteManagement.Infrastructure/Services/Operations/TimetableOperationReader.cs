@@ -51,15 +51,17 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
         var learningSpaces = classroomAssignments.Where(x => x.Classroom is not null).Select(x => x.Classroom!).DistinctBy(x => x.Id).OrderBy(x => x.ClassroomCode).ToList();
         var assignmentByRoom = classroomAssignments.GroupBy(x => x.ClassroomId).ToDictionary(x => x.Key, x => x.First());
         var runnableRoomIds = classroomAssignments
-            .Where(x => NormalizeClassroomStatus(x.Status) == "Available" && x.Classroom?.DeviceOnline == true)
+            .Where(x => NormalizeClassroomStatus(x.Classroom?.Status ?? "Unavailable") == "Available" && x.Classroom?.DeviceOnline == true)
             .Select(x => x.ClassroomId)
             .ToHashSet();
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var time = TimeOnly.FromDateTime(now);
         var running = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
             && TeacherPresence.IsPresent(teacherAttendance[x.Id]) && runnableRoomIds.Contains(x.ClassroomId));
-        var notRunning = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
-            && (!TeacherPresence.IsPresent(teacherAttendance[x.Id]) || !runnableRoomIds.Contains(x.ClassroomId)));
+        var available = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
+            && !TeacherPresence.IsPresent(teacherAttendance[x.Id]) && runnableRoomIds.Contains(x.ClassroomId));
+        var blocked = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
+            && !runnableRoomIds.Contains(x.ClassroomId));
         var inStudyRoomIds = schedules
             .Where(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
                 && TeacherPresence.IsPresent(teacherAttendance[x.Id]) && runnableRoomIds.Contains(x.ClassroomId))
@@ -71,11 +73,11 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
             var isCurrent = x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time;
             var attendance = teacherAttendance[x.Id];
             var classroomStatus = assignmentByRoom.TryGetValue(x.ClassroomId, out var classroomAssignment)
-                ? NormalizeClassroomStatus(classroomAssignment.Status)
+                ? NormalizeClassroomStatus(classroomAssignment.Classroom?.Status ?? "Unavailable")
                 : "Unavailable";
             if (classroomStatus == "Available" && x.Classroom?.DeviceOnline != true) classroomStatus = "Unavailable";
             var liveStatus = x.DayOfWeek == now.DayOfWeek
-                ? isCurrent ? classroomStatus == "Available" ? TeacherPresence.SessionStatus(attendance) : classroomStatus : x.EndsAt <= time ? "Ended" : "Upcoming"
+                ? isCurrent ? classroomStatus == "Available" ? TeacherPresence.IsPresent(attendance) ? "Running" : "Available" : classroomStatus : x.EndsAt <= time ? "Ended" : "Upcoming"
                 : "Upcoming";
             return new WeeklyTimetableSlotDto(
                 x.Id,
@@ -101,20 +103,20 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
                 room.Id,
                 room.ClassroomCode,
                 room.RoomType,
-                inStudyRoomIds.Contains(room.Id) ? "In Study" : NormalizeClassroomStatus(assignmentByRoom[room.Id].Status)))
+                inStudyRoomIds.Contains(room.Id) ? "Running" : NormalizeClassroomStatus(room.Status)))
             .ToList();
         var metrics = new List<MetricDto>
         {
             new("Running", running.ToString(), "Classes right now", "green"),
-            new("Not running", notRunning.ToString(), "Teacher absent or on permission", "red"),
+            new("Available", available.ToString(), "Teacher absent or on permission", "red"),
+            new("Blocked", blocked.ToString(), "Classroom maintenance or unavailable", "amber"),
             new("Shifts", AcademicTimetablePolicy.Shifts.Count.ToString(), "Morning, afternoon, evening, weekend"),
-            new("Concurrent", "4", "One class for each year"),
             new("Rooms", learningSpaces.Count.ToString(), "Enrollment-assigned learning spaces", "violet")
         };
         return new OperationDto(
             Module,
             $"Weekly timetable · {context.Scope}",
-            "A timetable period runs only when its assigned teacher is present and its classroom is Available. Maintenance and Unavailable classroom states stay fixed until changed in Enrollment.",
+            "A timetable period runs only when its assigned teacher is present and its classroom is Available. Maintenance and Unavailable classroom states stay fixed until changed in Classroom Management.",
             metrics,
             context.Activity,
             context.Attention,

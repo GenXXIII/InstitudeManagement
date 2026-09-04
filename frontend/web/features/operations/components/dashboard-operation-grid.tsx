@@ -13,7 +13,7 @@ export function DashboardOperationGrid({ data, departmentId, year }: { data: Ope
   const areas = [
     { name: "Students", route: "/operation/students", rows: (data.students ?? []).slice(0, 6).map(row => ({ title: row.student, detail: `${workflowCode(row.studentCode, "student", "enrollment")} · Year ${row.year} · ${row.shift}`, state: row.attendanceStatus })) },
     { name: "Teachers", route: "/operation/teachers", rows: (data.teachers ?? []).slice(0, 6).map(row => ({ title: row.teacher, detail: `${workflowCode(row.teacherCode, "teacher", "enrollment")} · ${row.department}`, state: row.status })) },
-    { name: "Classrooms", route: "/operation/classrooms", rows: (data.classrooms ?? []).filter(row => row.status === "In Study").slice(0, 6).map(row => ({ title: workflowCode(row.room, "classroom", "enrollment"), detail: `${row.roomType} · ${row.capacity} seats`, state: row.status })) },
+    { name: "Classrooms", route: "/operation/classrooms", rows: (data.classrooms ?? []).filter(row => row.status === "Running").slice(0, 6).map(row => ({ title: workflowCode(row.room, "classroom", "enrollment"), detail: `${row.roomType} · ${row.capacity} seats`, state: row.status })) },
     { name: "Courses", route: "/operation/courses", rows: (data.courses ?? []).slice(0, 6).map(row => ({ title: row.course, detail: `${workflowCode(row.courseCode, "course", "enrollment")} · ${row.teacher}`, state: row.status })) },
   ];
   return <div className="unified-operation-dashboard">

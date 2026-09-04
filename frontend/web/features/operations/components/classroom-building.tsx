@@ -7,7 +7,7 @@ export function ClassroomBuilding({ rows }: { rows: ClassroomOperation[] }) {
 }
 
 function classroomState(status: string) {
-  if (status === "In Study") return "running";
+  if (status === "Running" || status === "In Study") return "running";
   if (status === "Maintenance") return "maintenance";
   if (status === "Unavailable") return "unavailable";
   return "available";

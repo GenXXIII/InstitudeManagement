@@ -28,8 +28,8 @@ export function WeeklyTimetable({ rows, periods, rooms, globalYear }: { rows: We
     return <div className="room-period-cell" key={period.startsAt}>{scheduled.length ? scheduled.map(row => {
       const current = selectedDay === today && isCurrentTime(row, now);
       const running = current && row.status === "Running";
-      const teacherMissing = current && row.status === "Not running";
-      return <article className={`${running ? "current-course" : ""} ${teacherMissing ? "teacher-missing-course" : ""}`} key={row.id}><div><b>{workflowCode(row.timetableCode, "timetable", "enrollment")}</b><strong>{row.course}</strong>{current && <i>{running ? "Live" : "Not running"}</i>}</div><span>{row.teacher} · Year {row.yearLevel}{teacherMissing ? ` · ${row.statusDetail}` : ""}</span></article>;
+      const teacherMissing = current && row.status === "Available" && (row.teacherAttendance === "Absent" || row.teacherAttendance === "Permission");
+      return <article className={`${running ? "current-course" : ""} ${teacherMissing ? "teacher-missing-course" : ""}`} key={row.id}><div><b>{workflowCode(row.timetableCode, "timetable", "enrollment")}</b><strong>{row.course}</strong>{current && <i>{running ? "Live" : row.status}</i>}</div><span>{row.teacher} · Year {row.yearLevel}{current && !running ? ` · ${row.statusDetail}` : ""}</span></article>;
     }) : <span className="room-period-empty">Available</span>}</div>;
   })}</div>)}</div></section>{customCount > 0 && <section className="custom-timetable-warning"><strong>Needs rescheduling</strong><span>{customCount} older timetable entries are outside the configured teaching periods.</span></section>}</div>;
 }

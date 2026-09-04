@@ -15,7 +15,7 @@ import { timetableApi } from "./timetable-api";
 
 const weekendDays = new Set(["Saturday", "Sunday"]);
 
-export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear, onClose, onSaved }: { item: TimetableItem | null; references: References; scopeDepartmentId: string; scopeYear: string; onClose: () => void; onSaved: () => void }) {
+export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear, saveItem, onClose, onSaved }: { item: TimetableItem | null; references: References; scopeDepartmentId: string; scopeYear: string; saveItem?: (id: string, values: Record<string, string>) => Promise<unknown>; onClose: () => void; onSaved: () => void }) {
   const router = useRouter();
   const { settings } = useInstituteSettings();
   const defaults = timetableDefaults(scopeDepartmentId);
@@ -52,7 +52,7 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
     const scoped = ["teachers", "students", "classrooms", "courses"].includes(field.source) && values.departmentId && !allowCrossDepartmentTeacher && !sharedClassroom
       ? source.filter(option => option.values.departmentId === values.departmentId || (field.source === "teachers" && !option.values.departmentId))
       : source;
-    return scoped.filter(option => option.values.status !== "Inactive" && (field.source !== "classrooms" || classroomMatchesYear(option.values.classroomCode, values.yearLevel))).map(option => ({
+    return scoped.filter(option => option.values.status !== "Inactive" && (field.source !== "classrooms" || ((option.values.status === "Available" || (saveItem && option.id === values.classroomId)) && classroomMatchesYear(option.values.classroomCode, values.yearLevel)))).map(option => ({
       id: option.id,
       label: `${relationshipCode(field.source!, option.values)} - ${option.values.name ?? option.values.building ?? option.values.student ?? option.values.course}`,
       detail: [option.values.roomType, option.values.department].filter(Boolean).join(" - "),
@@ -66,7 +66,8 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
       setValues(current => {
         const selectedRoom = field.key === "yearLevel" ? references.classrooms.find(room => room.id === current.classroomId) : undefined;
         const clearRoom = selectedRoom && !classroomMatchesYear(selectedRoom.values.classroomCode, value);
-        return { ...current, [field.key]: value, ...(clearRoom ? { classroomId: "" } : {}) };
+        const nextRoom = field.key === "classroomId" ? references.classrooms.find(room => room.id === value) : undefined;
+        return { ...current, [field.key]: value, ...(nextRoom && saveItem ? { classroomStatus: nextRoom.values.status } : {}), ...(clearRoom ? { classroomId: "" } : {}) };
       });
       return;
     }
@@ -88,7 +89,8 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
     const payload: Record<string, string> = { ...values, startsAt, endsAt };
     delete payload.period;
     try {
-      if (item) await timetableApi.update(item.id, payload);
+      if (item && saveItem) await saveItem(item.id, payload);
+      else if (item) await timetableApi.update(item.id, payload);
       else await timetableApi.create(payload);
       onSaved();
     } catch (reason) {
@@ -104,7 +106,7 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
   }
 
   const problems = validationMessages(fieldErrors, error);
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">Schedule management</span><h2>{item ? "Edit schedule" : "Add schedule"}</h2><p>Choose Year 1-4, an institute teaching period, and any available classroom or meeting room.</p></div><button type="button" className="icon-button" onClick={onClose}><Icon name="close"/></button></div><div className="management-form-grid">{timetableFields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} onChange={value => change(field, value)}/>)}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="timetable-period-note"><strong>Room and concurrency rules</strong><span>Year 1 uses Classroom 501 only. Years 2-4 use the other classrooms. A teacher or learning space cannot be double-booked.</span></div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || !periods.length}>{saving ? "Saving schedule..." : item ? "Save changes" : "Add schedule"}</button></div></form></div>;
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{saveItem ? "Timetable enrollment" : "Schedule management"}</span><h2>{item ? "Edit schedule" : "Add schedule"}</h2><p>{saveItem ? "Edit the enrolled schedule and set whether its assigned classroom is Available or under Maintenance." : "Choose Year 1-4, an institute teaching period, and any available classroom or meeting room."}</p></div><button type="button" className="icon-button" onClick={onClose}><Icon name="close"/></button></div><div className="management-form-grid">{timetableFields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} onChange={value => change(field, value)}/>)}{saveItem && <label className="editor-field"><span>Status</span><select value={values.classroomStatus ?? "Available"} onChange={event => setValues(current => ({ ...current, classroomStatus: event.target.value }))}><option value="Available">Available</option><option value="Maintenance">Maintenance</option></select></label>}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="timetable-period-note"><strong>Room and concurrency rules</strong><span>Year 1 uses Classroom 501 only. Years 2-4 use the other classrooms. A teacher or learning space cannot be double-booked. Only Available classrooms can run.</span></div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || !periods.length}>{saving ? "Saving schedule..." : item ? "Save changes" : "Add schedule"}</button></div></form></div>;
 }
 
 function classroomMatchesYear(classroomCode: string | undefined, yearLevel: string) {

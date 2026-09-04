@@ -24,7 +24,7 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
                 && x.Status != "Removed" && x.Status != "Unassigned"
                 && (!departmentId.HasValue || x.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
-        var rooms = await db.ClassroomAssignments.AsNoTracking()
+        var rooms = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Classroom)
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
                 && x.Status != "Removed" && x.Status != "Unassigned"
                 && (!departmentId.HasValue || x.DepartmentId == null || x.DepartmentId == departmentId))
@@ -52,6 +52,7 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
                 && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt)
             .Select(x => new
             {
+                x.Id,
                 x.CourseId,
                 x.TeacherId,
                 x.ClassroomId,
@@ -61,7 +62,11 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
             })
             .ToListAsync(cancellationToken);
         if (!selection.IsRunning) focusedSchedules.Clear();
-        var runningSchedules = focusedSchedules.Where(schedule =>
+        var runnableRoomIds = rooms
+            .Where(x => x.Classroom is not null && x.Classroom.DeviceOnline && NormalizeClassroomStatus(x.Classroom.Status) == "Available")
+            .Select(x => x.ClassroomId)
+            .ToHashSet();
+        var teacherPresenceBySchedule = focusedSchedules.ToDictionary(schedule => schedule.Id, schedule =>
         {
             var courseDepartmentId = courseAssignments[schedule.CourseId].DepartmentId;
             var assignment = teachers
@@ -71,9 +76,12 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
                 .FirstOrDefault();
             return assignment?.Teacher is not null
                 && TeacherPresence.IsPresent(TeacherPresence.Attendance(assignment.Teacher.Status, assignment.Status));
-        }).ToList();
+        });
+        var runningSchedules = focusedSchedules
+            .Where(schedule => runnableRoomIds.Contains(schedule.ClassroomId) && teacherPresenceBySchedule[schedule.Id])
+            .ToList();
         var absentTeacherCount = focusedSchedules
-            .Where(schedule => !runningSchedules.Contains(schedule))
+            .Where(schedule => runnableRoomIds.Contains(schedule.ClassroomId) && !teacherPresenceBySchedule[schedule.Id])
             .Select(schedule => schedule.TeacherId)
             .Distinct()
             .Count();
@@ -88,7 +96,7 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
         var focusedRoomIds = runningSchedules.Select(x => x.ClassroomId).Distinct().ToList();
         var occupiedRooms = focusedRoomIds.Count;
         var runningCourses = runningSchedules.Select(x => x.CourseId).Distinct().Count();
-        var assignedRoomNeedsReview = await db.Classrooms.AsNoTracking().AnyAsync(x => focusedRoomIds.Contains(x.Id) && !x.DeviceOnline, cancellationToken);
+        var assignedRoomNeedsReview = focusedSchedules.Any(x => !runnableRoomIds.Contains(x.ClassroomId));
         var state = selection.IsRunning ? "Running" : "Next";
         var window = $"{shift.Name} · {selection.Date:dddd} · {shift.StartsAt:HH:mm}-{shift.EndsAt:HH:mm}";
         var periodWindow = $"{period.StartsAt:HH:mm}-{period.EndsAt:HH:mm}";
@@ -107,7 +115,7 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
             new("Students", "Enrollment assigned to classes that are actually running", $"{scheduledStudents:N0} / {studentTotal:N0}", $"Period {periodWindow} / students in running classes · {window}", absentTeacherCount > 0 ? "Class not running" : state, "/operation/students", "blue"),
             new("Teachers", "Faculty assigned through Enrollment", $"{runningTeachers:N0} / {teacherTotal:N0}", $"Period {periodWindow} / present assigned teachers · {window}", absentTeacherCount > 0 ? "Absent" : state, "/operation/teachers", "violet"),
             new("Classrooms", "Rooms assigned through Enrollment", $"{occupiedRooms:N0} / {roomTotal:N0}", $"Period {periodWindow} / rooms used by running classes · {window}", absentTeacherCount > 0 ? "Available" : assignedRoomNeedsReview ? "Review" : state, "/operation/classrooms", "cyan"),
-            new("Courses", "Courses assigned through Enrollment", $"{runningCourses:N0} / {courseTotal:N0}", $"Period {periodWindow} / courses with a present teacher · {window}", absentTeacherCount > 0 ? "Not running" : state, "/operation/courses", "green")
+            new("Courses", "Courses assigned through Enrollment", $"{runningCourses:N0} / {courseTotal:N0}", $"Period {periodWindow} / courses with a present teacher · {window}", absentTeacherCount > 0 ? "Available" : state, "/operation/courses", "green")
         };
         var metrics = summary.Select(x => new MetricDto(x.Module, x.Value, x.Status, x.Tone)).ToList();
 
@@ -120,4 +128,11 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
             context.Attention,
             Summary: summary);
     }
+
+    private static string NormalizeClassroomStatus(string status) => status switch
+    {
+        "Reserved" => "Maintenance",
+        "Inactive" => "Unavailable",
+        _ => status
+    };
 }
