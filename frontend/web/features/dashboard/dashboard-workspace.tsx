@@ -27,7 +27,12 @@ export default function DashboardPage() {
     catch { setError(true); }
     finally { setRefreshing(false); }
   }, []);
-  useEffect(() => { void load(range); }, [load, range]);
+  useEffect(() => {
+  const timer = setTimeout(() => {
+    void load(range);
+  }, 0);
+  return () => clearTimeout(timer);
+}, [load, range]);
   if (error && !data) return <ErrorPage retry={() => void load(range)}/>;
   if (!data) return <LoadingPage/>;
 
