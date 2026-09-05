@@ -5,4 +5,8 @@
     <Project Path="src/InstituteManagement.Domain/InstituteManagement.Domain.csproj" />
     <Project Path="src/InstituteManagement.Infrastructure/InstituteManagement.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/InstituteManagement.Application.Tests/InstituteManagement.Application.Tests.csproj" />
+    <Project Path="tests/InstituteManagement.Architecture.Tests/InstituteManagement.Architecture.Tests.csproj" />
+  </Folder>
 </Solution>

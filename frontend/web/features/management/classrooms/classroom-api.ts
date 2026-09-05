@@ -1,4 +1,4 @@
-import { managementResourceClient } from "../management-client";
-import type { ClassroomItem } from "../types/classroom";
+import { catalogResourceClient } from "@/lib/catalog-resource-client";
+import type { ClassroomItem } from "@/features/management/classrooms/classroom-types";
 
-export const classroomApi = managementResourceClient<ClassroomItem>("classrooms");
+export const classroomApi = catalogResourceClient<ClassroomItem>("classrooms");

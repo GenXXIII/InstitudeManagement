@@ -1,0 +1,10 @@
+using InstituteManagement.Application.Features.Enrollment;
+
+namespace InstituteManagement.Application.Features.Enrollment.Courses;
+
+public interface ICourseAssignmentService
+{
+    Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(string? search, Guid? departmentId, int? year, CancellationToken cancellationToken);
+    Task<EnrollmentItemDto> UpdateAsync(Guid courseId, Dictionary<string, string> values, CancellationToken cancellationToken);
+    Task<bool> RemoveAsync(Guid courseId, CancellationToken cancellationToken);
+}

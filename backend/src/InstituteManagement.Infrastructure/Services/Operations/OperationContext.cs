@@ -1,4 +1,4 @@
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.Features.Dashboard;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 

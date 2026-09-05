@@ -8,7 +8,7 @@ import { workflowCode, type WorkflowCodeStage } from "@/lib/workflow-code";
 import { recordApi } from "../record-api";
 import type { ClassSessionAttendanceUpdate, OperationalRecord } from "../record-types";
 import { EntitySemesterRecord } from "./entity-semester-record";
-import { StudentSemesterRecord } from "./student-semester-record";
+import { StudentSemesterRecord } from "../students/student-semester-record";
 import { StructureSemesterRecord } from "./structure-semester-record";
 
 export function OperationalRecordRow({ row, stage = "record", editable = false, showStatus = true, onUpdated, detailHref, detailPage = false }: { row: OperationalRecord; stage?: WorkflowCodeStage; editable?: boolean; showStatus?: boolean; onUpdated?: () => void; detailHref?: string; detailPage?: boolean }) {

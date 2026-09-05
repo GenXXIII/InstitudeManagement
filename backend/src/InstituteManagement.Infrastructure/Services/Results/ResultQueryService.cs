@@ -1,6 +1,5 @@
 using System.Text.Json;
-using InstituteManagement.Application.Abstractions;
-using InstituteManagement.Application.DTOs.Results;
+using InstituteManagement.Application.Features.Results;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Grades;

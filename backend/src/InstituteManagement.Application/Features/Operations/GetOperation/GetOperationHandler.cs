@@ -1,5 +1,4 @@
-using InstituteManagement.Application.Abstractions;
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.Features.Operations;
 using MediatR;
 
 namespace InstituteManagement.Application.Features.Operations.GetOperation;

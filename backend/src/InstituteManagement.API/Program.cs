@@ -1,7 +1,8 @@
 using InstituteManagement.API.Hubs;
 using InstituteManagement.API.Services;
+using InstituteManagement.API.Services.Administration;
 using InstituteManagement.Application;
-using InstituteManagement.Application.Abstractions;
+using InstituteManagement.Application.Common.LiveUpdates;
 using InstituteManagement.Infrastructure;
 using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.Extensions.FileProviders;
@@ -11,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ILiveUpdatePublisher, SignalRLiveUpdatePublisher>();
+builder.Services.AddScoped<SettingsAssetStorage>();
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddProblemDetails();

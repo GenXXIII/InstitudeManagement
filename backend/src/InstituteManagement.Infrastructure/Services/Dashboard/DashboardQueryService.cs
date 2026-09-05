@@ -1,5 +1,4 @@
-using InstituteManagement.Application.Abstractions;
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.Features.Dashboard;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Grades;

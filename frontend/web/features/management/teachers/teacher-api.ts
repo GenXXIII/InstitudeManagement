@@ -1,4 +1,4 @@
-import { managementResourceClient } from "../management-client";
-import type { TeacherItem } from "../types/teacher";
+import { catalogResourceClient } from "@/lib/catalog-resource-client";
+import type { TeacherItem } from "@/features/management/teachers/teacher-types";
 
-export const teacherApi = managementResourceClient<TeacherItem>("teachers");
+export const teacherApi = catalogResourceClient<TeacherItem>("teachers");

@@ -1,5 +1,5 @@
-using InstituteManagement.Application.Abstractions;
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.Features.History;
+using InstituteManagement.Application.Features.Record;
 using MediatR;
 
 namespace InstituteManagement.Application.Features.History.GetHistory;

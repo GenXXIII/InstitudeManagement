@@ -3,13 +3,19 @@
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
-import { enrollmentApi, type EnrollmentResource } from "@/features/enrollment/enrollment-api";
+import { attendanceApi } from "@/features/attendance/attendance-api";
+import type { AttendanceItem } from "@/features/attendance/attendance-types";
+import { enrollmentApiFor } from "@/features/enrollment/enrollment-apis";
+import type { EnrollmentResource } from "@/features/enrollment/common/enrollment-types";
 import { managementApis } from "@/features/management/management-apis";
 import { managementCode } from "@/features/management/management-id";
 import type { ManagementItem, ManagementResource } from "@/features/management/management-types";
 import { workflowSourceSearch } from "@/lib/workflow-code";
 
-const resources: { id: ManagementResource; label: string }[] = [
+type SearchResource = ManagementResource | "attendance";
+type SearchItem = ManagementItem | AttendanceItem;
+
+const resources: { id: SearchResource; label: string }[] = [
   { id: "students", label: "Students" }, { id: "teachers", label: "Teachers" },
   { id: "courses", label: "Courses" }, { id: "classrooms", label: "Learning rooms" },
   { id: "timetable", label: "Timetable" }, { id: "attendance", label: "Attendance" },
@@ -21,9 +27,9 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const resultsId = useId();
-  const [resource, setResource] = useState<ManagementResource>(() => resourceFromPath(pathname));
+  const [resource, setResource] = useState<SearchResource>(() => resourceFromPath(pathname));
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState<ManagementItem[]>([]);
+  const [items, setItems] = useState<SearchItem[]>([]);
   const [open, setOpen] = useState(false);
   const availableResources = useMemo(() => {
     const filtered = pathname.startsWith("/enrollment/")
@@ -46,9 +52,11 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     if (!text) { const timer = window.setTimeout(() => setItems([]), 0); return () => window.clearTimeout(timer); }
     const timer = window.setTimeout(() => {
       const promise = pathname.startsWith("/enrollment/")
-        ? enrollmentApi.get(resource as EnrollmentResource, text, departmentId, year)
-        : (managementApis[resource] as { get: (search?: string, departmentId?: string) => Promise<ManagementItem[]> }).get(text, departmentId);
-      promise.then(result => setItems((result as ManagementItem[]).filter(item => matchesYear(item, year)))).catch(() => setItems([]));
+        ? enrollmentApiFor(resource as EnrollmentResource).get(text, departmentId, year)
+        : resource === "attendance"
+          ? attendanceApi.get(text, departmentId)
+          : managementApis[resource].get(text, departmentId);
+      promise.then(result => setItems((result as SearchItem[]).filter(item => matchesYear(item, year)))).catch(() => setItems([]));
     }, 160);
     return () => window.clearTimeout(timer);
   }, [departmentId, pathname, query, resource, year]);
@@ -80,7 +88,7 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
   function submit(event: FormEvent) { event.preventDefault(); navigate(query); }
 
   return <form className="global-search" onSubmit={submit}>
-    <select aria-label="Search feature" value={resource} onChange={event => { setResource(event.target.value as ManagementResource); setItems([]); setOpen(true); }}>
+    <select aria-label="Search feature" value={resource} onChange={event => { setResource(event.target.value as SearchResource); setItems([]); setOpen(true); }}>
       {availableResources.map(option => <option value={option.id} key={option.id}>{option.label}</option>)}
     </select>
     <span className="global-search-input"><Icon name="search" size={17}/><input ref={input} aria-label={`Search ${resourceLabel}`} aria-autocomplete="list" aria-controls={resultsId} aria-expanded={open} role="combobox" placeholder={`Search in ${resourceLabel.toLowerCase()}…`} value={query} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 120)} onChange={event => { setQuery(event.target.value); setOpen(true); }}/><kbd>Ctrl K</kbd></span>
@@ -91,16 +99,16 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
   </form>;
 }
 
-function resourceFromPath(pathname: string): ManagementResource {
-  const segment = pathname.split("/")[2] as ManagementResource;
-  if (pathname.startsWith("/management/") && (segment === "attendance" || segment === "grades")) return "students";
+function resourceFromPath(pathname: string): SearchResource {
+  const segment = pathname.split("/")[2] as SearchResource;
+  if (segment === "attendance") return "attendance";
   return resources.some(option => option.id === segment) ? segment : "students";
 }
 function startsWithWord(value: string, query: string) { const text = query.trim().toLowerCase(); return !text || value.toLowerCase().split(/\s+/).some(word => word.startsWith(text)); }
-function matchesYear(item: ManagementItem, year: string) { return !year || !item.values.year && !item.values.yearLevel || item.values.year === year || item.values.yearLevel === year; }
-function suggestion(item: ManagementItem, resource: ManagementResource) {
+function matchesYear(item: SearchItem, year: string) { return !year || !item.values.year && !item.values.yearLevel || item.values.year === year || item.values.yearLevel === year; }
+function suggestion(item: SearchItem, resource: SearchResource) {
   const values = item.values;
-  const uiId = managementCode(resource, values);
+  const uiId = resource === "attendance" ? values.attendanceCode : managementCode(resource, values);
   const label = values.name ?? values.student ?? values.course ?? (resource === "classrooms" ? `Room ${uiId}` : uiId) ?? "Institute record";
   const detail = [uiId, values.department, values.email, values.dayOfWeek && values.startsAt ? `${values.dayOfWeek} ${values.startsAt}` : ""].filter(Boolean).join(" · ");
   return { id: item.id, label, detail };

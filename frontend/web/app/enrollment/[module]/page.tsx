@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { EnrollmentWorkspace } from "@/features/enrollment/enrollment-workspace";
 import { EnrollmentOverview } from "@/features/enrollment/enrollment-overview";
-import type { EnrollmentResource } from "@/features/enrollment/enrollment-api";
+import type { EnrollmentResource } from "@/features/enrollment/common/enrollment-types";
 
 export default function EnrollmentPage() {
   const { module } = useParams<{ module: string }>();

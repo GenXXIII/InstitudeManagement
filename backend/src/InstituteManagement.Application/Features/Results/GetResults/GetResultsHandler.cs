@@ -1,5 +1,4 @@
-using InstituteManagement.Application.Abstractions;
-using InstituteManagement.Application.DTOs.Results;
+using InstituteManagement.Application.Features.Results;
 using MediatR;
 
 namespace InstituteManagement.Application.Features.Results.GetResults;

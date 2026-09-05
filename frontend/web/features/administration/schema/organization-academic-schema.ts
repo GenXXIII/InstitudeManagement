@@ -1,5 +1,5 @@
 import type { ConfigurationGroup, ManagementLink, SettingSection } from "../administration-types";
-import { field, options, recordCodeExample } from "./schema-helpers";
+import { field, options } from "./schema-helpers";
 
 const statusOptions = options("Active", "Upcoming", "Inactive", "Completed");
 
@@ -83,7 +83,6 @@ export const organizationAcademicGroups = {
     },
   ],
   departments: [
-    codeFormatGroup("Department", "DEP"),
     {
       title: "Department defaults",
       description: "Rules applied when real department records and teaching relationships are saved.",
@@ -95,7 +94,6 @@ export const organizationAcademicGroups = {
     },
   ],
   courses: [
-    codeFormatGroup("Course", "CRS"),
     {
       title: "Course defaults",
       description: "Defaults and requirements used by course management and enrollment.",
@@ -106,7 +104,6 @@ export const organizationAcademicGroups = {
     },
   ],
   classrooms: [
-    codeFormatGroup("Classroom", "ROOM"),
     {
       title: "Classroom defaults",
       description: "Defaults and safeguards for institute learning spaces.",
@@ -135,19 +132,4 @@ function termFields(prefix: string, term: string) {
     field(`${prefix}EndsOn`, "End date", `Final day of ${term}.`, "date", { required: true }),
     field(`${prefix}Status`, "Status", `Lifecycle state for ${term}.`, "select", { required: true, options: statusOptions }),
   ];
-}
-
-function codeFormatGroup(resource: string, samplePrefix: string): ConfigurationGroup {
-  return {
-    title: `${resource} code format`,
-    description: `Generate the next ${resource.toLowerCase()} code when its code field is left blank during creation. Manual codes remain supported.`,
-    fields: [
-      field("codePrefix", "Prefix", `Uppercase prefix such as ${samplePrefix}.`, "text", { required: true }),
-      field("codeIncludeYear", "Include current year", "Place the current local year between the prefix and sequence.", "toggle"),
-      field("codeStartingNumber", "Starting number", "Lowest sequence number considered when generating a new code.", "number", { required: true, min: 0, max: 999999999999 }),
-      field("codePaddingWidth", "Number padding", "Minimum number of digits in the generated sequence.", "number", { required: true, min: 1, max: 12, unit: "digits" }),
-      field("codeSeparator", "Separator", "Character placed between code parts.", "select", { required: true, options: options("-", "/", ".") }),
-      field("codeExample", "Next-code example", "Preview generated from the current format.", "derived", { derive: recordCodeExample }),
-    ],
-  };
 }

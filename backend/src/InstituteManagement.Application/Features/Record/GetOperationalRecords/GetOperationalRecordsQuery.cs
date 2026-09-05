@@ -1,4 +1,4 @@
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.Features.Record;
 using MediatR;
 
 namespace InstituteManagement.Application.Features.Record.GetOperationalRecords;

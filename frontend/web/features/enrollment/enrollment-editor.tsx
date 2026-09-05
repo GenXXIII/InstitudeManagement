@@ -2,14 +2,20 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/icon";
-import { SearchableSelect, type SearchableOption } from "@/components/searchable-select";
+import { SearchableSelect } from "@/components/searchable-select";
 import { useInstituteSettings } from "@/features/administration/institute-settings-context";
-import type { DepartmentItem } from "@/features/management/types/department";
-import { enrollmentApi, type EnrollmentItem, type EnrollmentResource } from "./enrollment-api";
-
-type Option = { id: string; label: string };
-type Field = { key: string; label: string; type?: "select" | "number" | "text" | "time"; options?: Option[]; required?: boolean };
-type SelectableEnrollmentResource = "students" | "timetable";
+import type { DepartmentItem } from "@/features/management/departments/department-types";
+import type { EnrollmentItem, EnrollmentResource } from "./common/enrollment-types";
+import { enrollmentApiFor } from "./enrollment-apis";
+import {
+  buildEnrollmentFields,
+  candidateName,
+  candidateOption,
+  enrollmentDefaults,
+  relationshipOptions,
+  type EnrollmentField,
+} from "./enrollment-editor-config";
+import { isSelectableEnrollment } from "./enrollment-workspace-model";
 
 export function EnrollmentEditor({ resource, item, candidates, departments, teachers, scopeDepartmentId, scopeYear, onClose, onSaved }: {
   resource: EnrollmentResource;
@@ -30,29 +36,10 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const creating = item === null;
-  const departmentOptions = departments.map(department => ({ id: department.id, label: department.values.name }));
   const teacherRequired = settings.courses.requireAssignedTeacher === "true";
   const allowCrossDepartment = settings.departments.allowCrossDepartmentTeaching === "true";
   const availableTeachers = teachers.filter(teacher => teacher.values.status === "Assigned" && (allowCrossDepartment || !values.departmentId || !teacher.values.departmentId || teacher.values.departmentId === values.departmentId));
-  const fields: Field[] = resource === "students" ? [
-    { key: "departmentId", label: "Department selected for Year 2-4", type: "select", options: departmentOptions, required: true },
-    { key: "year", label: "Year level", type: "select", options: ["1", "2", "3", "4"].map(id => ({ id, label: `Year ${id}` })), required: true },
-    { key: "shift", label: "Learning shift", type: "select", options: ["Morning", "Afternoon", "Evening", "Weekend"].map(id => ({ id, label: id })), required: true },
-  ] : resource === "teachers" ? [
-    { key: "departmentId", label: "Assigned department", type: "select", options: [{ id: "", label: "Unassigned" }, ...departmentOptions] },
-    { key: "status", label: "Assignment status", type: "select", options: ["Assigned", "On leave", "Unassigned"].map(id => ({ id, label: id })), required: true },
-  ] : resource === "courses" ? [
-    { key: "departmentId", label: "Department", type: "select", options: departmentOptions, required: true },
-    { key: "teacherId", label: "Assigned teacher", type: "select", options: [...(teacherRequired ? [] : [{ id: "", label: "Assign later" }]), ...availableTeachers.map(teacher => ({ id: teacher.id, label: `${teacher.values.teacherCode} - ${teacher.values.name}` }))], required: teacherRequired },
-    { key: "year", label: "Year level", type: "select", options: ["1", "2", "3", "4"].map(id => ({ id, label: `Year ${id}` })), required: true },
-    { key: "capacity", label: "Student capacity", type: "number", required: true },
-    { key: "status", label: "Assignment status", type: "select", options: ["Active", "Paused"].map(id => ({ id, label: id })), required: true },
-  ] : resource === "classrooms" ? [
-    { key: "departmentId", label: "Department access", type: "select", options: [{ id: "", label: "Whole institute" }, ...departmentOptions] },
-    { key: "access", label: "Access", type: "select", options: ["Shared institute", "Department only"].map(id => ({ id, label: id })), required: true },
-    { key: "capacity", label: "Assigned seat capacity", type: "number", required: true },
-    { key: "status", label: "Assignment status", type: "select", options: ["Available", "Maintenance"].map(id => ({ id, label: id })), required: true },
-  ] : [];
+  const fields = buildEnrollmentFields({ resource, departments, availableTeachers, teacherRequired });
   const timetableCandidates = resource === "timetable"
     ? candidates.filter(candidate => (!selectedCourseId || candidate.values.courseId === selectedCourseId) && (!selectedTeacherId || candidate.values.teacherId === selectedTeacherId))
     : [];
@@ -70,7 +57,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     if (missing) { setError(`${missing.label} is required.`); return; }
     setSaving(true);
     try {
-      await enrollmentApi.update(resource, item?.id ?? resourceId, values);
+      await enrollmentApiFor(resource).update(item?.id ?? resourceId, values);
       onSaved();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save this enrollment assignment.");
@@ -116,7 +103,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     }
   }
 
-  function changeField(field: Field, value: string) {
+  function changeField(field: EnrollmentField, value: string) {
     setError("");
     setValues(current => {
       const next = { ...current, [field.key]: value };
@@ -149,52 +136,6 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     {error && <div className="form-error" role="alert">{error}</div>}
     <div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || (creating && isSelectableEnrollment(resource) && candidates.length === 0)}>{saving ? "Saving assignment..." : creating ? createTitle : "Save enrollment"}</button></div>
   </form></div>;
-}
-
-function isSelectableEnrollment(resource: EnrollmentResource): resource is SelectableEnrollmentResource {
-  return resource === "students" || resource === "timetable";
-}
-
-function enrollmentDefaults(resource: EnrollmentResource, departmentId: string, year: string, courseCapacity = "40"): Record<string, string> {
-  if (resource === "students") return { departmentId, year: year || "1", shift: "Morning", status: "Active" };
-  if (resource === "teachers") return { departmentId, status: departmentId ? "Assigned" : "Unassigned" };
-  if (resource === "courses") return { departmentId, teacherId: "", year: year || "1", capacity: courseCapacity || "40", status: "Active" };
-  if (resource === "classrooms") return { departmentId, access: departmentId ? "Department only" : "Shared institute", capacity: "", status: "Available" };
-  if (resource === "timetable") return { yearLevel: year || "1", dayOfWeek: "Monday", startsAt: "07:30", endsAt: "09:00", status: "Upcoming" };
-  return {};
-}
-
-function candidateName(resource: EnrollmentResource) {
-  if (resource === "students") return "Student profile";
-  if (resource === "timetable") return "Timetable code";
-  if (resource === "teachers") return "Teacher profile";
-  if (resource === "courses") return "Course record";
-  if (resource === "classrooms") return "Learning space";
-  return "Enrollment record";
-}
-
-function candidateOption(item: EnrollmentItem): SearchableOption {
-  const values = item.values;
-  if (values.timetableCode) {
-    return {
-      id: item.id,
-      label: [values.timetableCode, values.courseCode, values.teacherCode].filter(Boolean).join(" - "),
-      detail: [values.enrollmentStatus, values.course, values.teacher, values.dayOfWeek, `${values.startsAt}-${values.endsAt}`, values.classroom].filter(Boolean).join(" - "),
-    };
-  }
-  const code = values.studentCode || values.timetableCode || values.teacherCode || values.courseCode || values.classroomCode;
-  const name = values.name || values.course || [values.building, values.roomType].filter(Boolean).join(" - ");
-  const detail = values.email;
-  return { id: item.id, label: [code, name].filter(Boolean).join(" - "), detail: detail || undefined };
-}
-
-function relationshipOptions(items: EnrollmentItem[], idKey: string, codeKey: string, nameKey: string): SearchableOption[] {
-  const options = new Map<string, SearchableOption>();
-  for (const item of items) {
-    const id = item.values[idKey];
-    if (id && !options.has(id)) options.set(id, { id, label: [item.values[codeKey], item.values[nameKey]].filter(Boolean).join(" - ") });
-  }
-  return [...options.values()].toSorted((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: "base" }));
 }
 
 function ManagementSelectionPreview({ resource, values }: { resource: EnrollmentResource; values: Record<string, string> }) {

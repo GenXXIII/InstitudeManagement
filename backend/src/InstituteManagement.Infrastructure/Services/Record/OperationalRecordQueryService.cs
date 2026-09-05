@@ -1,8 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using InstituteManagement.Application.Abstractions;
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Grades;
 using InstituteManagement.Infrastructure.Services.Results;

@@ -10,18 +10,23 @@ import { ManagementEditor } from "./components/management-editor";
 import { ManagementOverview } from "./components/management-overview";
 import { ModuleLayout } from "./components/module-layout";
 import { classroomApi } from "./classrooms/classroom-api";
-import { attendanceApi } from "./attendance/attendance-api";
+import { attendanceApi } from "@/features/attendance/attendance-api";
 import { courseApi } from "./courses/course-api";
 import { departmentApi } from "./departments/department-api";
 import { managementApis } from "./management-apis";
 import { emptyReferences, managementCopy } from "./management-config";
-import { managementCode } from "./management-id";
 import { studentApi } from "./students/student-api";
 import { teacherApi } from "./teachers/teacher-api";
-import { timetableApi } from "./timetable/timetable-api";
 import type { ManagementItem, ManagementModule, References } from "./management-types";
-import { TimetableEditor } from "./timetable/timetable-editor";
-import type { TimetableItem } from "./types/timetable";
+import { timetableApi } from "@/features/timetable/timetable-api";
+import { TimetableEditor } from "@/features/timetable/timetable-editor";
+import type { TimetableItem } from "@/features/timetable/timetable-types";
+import {
+  filterManagementItemsByYear,
+  filterManagementReferencesByYear,
+  sortManagementItemsByYear,
+  sortManagementReferencesByYear,
+} from "./management-workspace-model";
 
 export function ManagementWorkspace({ module: rawModule }: { module: string }) {
   const currentModule = (managementModules.has(rawModule as ManagementModule) ? rawModule : "overview") as ManagementModule;
@@ -45,10 +50,10 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
   useEffect(() => { const timer = window.setTimeout(() => setQuery(searchParams.get("q") ?? ""), 0); return () => window.clearTimeout(timer); }, [searchParams]);
 
   const selectedDepartment = references.departments.find(x => x.id === departmentId);
-  const visibleItems = useMemo(() => sortItemsByYear(filterItemsByYear(items, currentModule, year), currentModule, references), [currentModule, items, references, year]);
+  const visibleItems = useMemo(() => sortManagementItemsByYear(filterManagementItemsByYear(items, currentModule, year), currentModule, references), [currentModule, items, references, year]);
   const pagination = useDataPagination(visibleItems, `${currentModule}-${departmentId}-${year}-${query}`);
-  const visibleReferences = useMemo(() => sortReferencesByYear(filterReferencesByYear(references, year)), [references, year]);
-  const canCreate = currentModule !== "overview" && currentModule !== "attendance" && currentModule !== "grades";
+  const visibleReferences = useMemo(() => sortManagementReferencesByYear(filterManagementReferencesByYear(references, year)), [references, year]);
+  const canCreate = currentModule !== "overview";
   if (error) return <ErrorPage retry={() => { setError(false); void loadReferences(); void load(); }}/>;
   if (!ready) return <LoadingPage/>;
 
@@ -71,57 +76,3 @@ export function ManagementWorkspace({ module: rawModule }: { module: string }) {
 }
 
 const managementModules = new Set<ManagementModule>(["overview", "students", "teachers", "classrooms", "courses", "timetable", "departments"]);
-
-function filterItemsByYear(items: ManagementItem[], module: ManagementModule, year: string) {
-  if (!year) return items;
-  if (module === "timetable") return items.filter(item => item.values.yearLevel === year);
-  return items;
-}
-
-function filterReferencesByYear(references: References, year: string): References {
-  if (!year) return references;
-  const students = references.students.filter(student => student.values.year === year);
-  const studentIds = new Set(students.map(student => student.id));
-  return {
-    ...references,
-    students,
-    timetable: references.timetable.filter(entry => entry.values.yearLevel === year),
-    attendance: references.attendance.filter(item => studentIds.has(item.values.studentId)),
-  };
-}
-
-function sortItemsByYear(items: ManagementItem[], module: ManagementModule, references: References) {
-  const students = new Map(references.students.map(student => [student.id, Number(student.values.year)]));
-  const studentDepartments = new Map<string, number>();
-  for (const student of references.students) studentDepartments.set(student.values.departmentId, Math.min(studentDepartments.get(student.values.departmentId) ?? 99, Number(student.values.year)));
-  const timetableYear = (field: "teacherId" | "courseId" | "classroomId", id: string) => references.timetable.filter(entry => entry.values[field] === id).reduce((minimum, entry) => Math.min(minimum, Number(entry.values.yearLevel)), 99);
-  const yearOf = (item: ManagementItem) => {
-    const values = item.values as unknown as Record<string, string>;
-    if (values.year || values.yearLevel) return Number(values.year ?? values.yearLevel);
-    if (module === "attendance" || module === "grades") return students.get(values.studentId) ?? 99;
-    if (module === "teachers") return timetableYear("teacherId", item.id);
-    if (module === "courses") return timetableYear("courseId", item.id);
-    if (module === "classrooms") return timetableYear("classroomId", item.id);
-    if (module === "departments" || module === "overview") return studentDepartments.get(item.id) ?? 99;
-    return 99;
-  };
-  const businessId = (item: ManagementItem) => {
-    const values = item.values as unknown as Record<string, string>;
-    return managementCode(module, values) || item.id;
-  };
-  return items.toSorted((left, right) => yearOf(left) - yearOf(right) || businessId(left).localeCompare(businessId(right), undefined, { numeric: true, sensitivity: "base" }));
-}
-
-function sortReferencesByYear(references: References): References {
-  const studentYears = new Map(references.students.map(student => [student.id, Number(student.values.year)]));
-  return {
-    ...references,
-    departments: references.departments.toSorted((left, right) => left.values.departmentCode.localeCompare(right.values.departmentCode, undefined, { numeric: true })),
-    teachers: references.teachers.toSorted((left, right) => left.values.teacherCode.localeCompare(right.values.teacherCode, undefined, { numeric: true })),
-    students: references.students.toSorted((left, right) => Number(left.values.year) - Number(right.values.year) || left.values.studentCode.localeCompare(right.values.studentCode, undefined, { numeric: true })),
-    classrooms: references.classrooms.toSorted((left, right) => left.values.classroomCode.localeCompare(right.values.classroomCode, undefined, { numeric: true })),
-    courses: references.courses.toSorted((left, right) => left.values.courseCode.localeCompare(right.values.courseCode, undefined, { numeric: true })),
-    timetable: references.timetable.toSorted((left, right) => Number(left.values.yearLevel) - Number(right.values.yearLevel) || left.values.timetableCode.localeCompare(right.values.timetableCode, undefined, { numeric: true })),
-    attendance: references.attendance.toSorted((left, right) => (studentYears.get(left.values.studentId) ?? 99) - (studentYears.get(right.values.studentId) ?? 99) || left.values.attendanceCode.localeCompare(right.values.attendanceCode, undefined, { numeric: true })),
-  };
-}

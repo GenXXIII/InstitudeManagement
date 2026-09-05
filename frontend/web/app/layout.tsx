@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AppShell } from "@/components/app-shell";
+import { AppShell } from "@/features/shell/app-shell";
 import { AdministrationModeProvider } from "@/features/administration/administration-mode-context";
 import { InstituteSettingsProvider } from "@/features/administration/institute-settings-context";
 import "./globals.css";

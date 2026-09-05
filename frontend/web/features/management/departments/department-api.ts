@@ -1,4 +1,4 @@
-import { managementResourceClient } from "../management-client";
-import type { DepartmentItem } from "../types/department";
+import { catalogResourceClient } from "@/lib/catalog-resource-client";
+import type { DepartmentItem } from "@/features/management/departments/department-types";
 
-export const departmentApi = managementResourceClient<DepartmentItem>("departments");
+export const departmentApi = catalogResourceClient<DepartmentItem>("departments");

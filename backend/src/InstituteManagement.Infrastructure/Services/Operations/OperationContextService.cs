@@ -1,4 +1,5 @@
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.Features.Dashboard;
+using InstituteManagement.Application.Features.Operations;
 using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 

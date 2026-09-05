@@ -1,11 +1,11 @@
-import type { References } from "./management-types";
+import type { RelationshipResource } from "./management-types";
 
 type RelationshipCreateTarget = {
   label: string;
   path: string;
 };
 
-const relationshipCreateTargets: Partial<Record<keyof References, RelationshipCreateTarget>> = {
+const relationshipCreateTargets: Partial<Record<RelationshipResource, RelationshipCreateTarget>> = {
   departments: { label: "Create department data", path: "/management/departments" },
   teachers: { label: "Create teacher data", path: "/management/teachers" },
   students: { label: "Create student data", path: "/management/students" },
@@ -13,6 +13,6 @@ const relationshipCreateTargets: Partial<Record<keyof References, RelationshipCr
   courses: { label: "Create course data", path: "/management/courses" },
 };
 
-export function relationshipCreateTarget(source: keyof References | undefined) {
+export function relationshipCreateTarget(source: RelationshipResource | undefined) {
   return source ? relationshipCreateTargets[source] : undefined;
 }

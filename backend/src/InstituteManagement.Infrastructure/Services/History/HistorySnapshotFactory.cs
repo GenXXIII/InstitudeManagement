@@ -1,5 +1,5 @@
 using System.Text.Json;
-using InstituteManagement.Application.DTOs;
+using InstituteManagement.Application.Features.Record;
 
 namespace InstituteManagement.Infrastructure.Services.History;
 

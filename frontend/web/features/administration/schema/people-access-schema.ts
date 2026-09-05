@@ -1,5 +1,5 @@
 import type { ConfigurationGroup, ManagementLink, SettingSection } from "../administration-types";
-import { field, identifierExample, labelledOptions, options } from "./schema-helpers";
+import { field, labelledOptions, options } from "./schema-helpers";
 
 const userStatuses = options("Active", "Inactive", "Suspended", "Pending", "Locked");
 const roles = options("Super Administrator", "Administrator", "Teacher", "Staff", "Student");
@@ -50,18 +50,6 @@ export const peopleAccessGroups = {
   ],
   "student-rules": [
     {
-      title: "Student ID format",
-      description: "Configure deterministic student identifiers used when records are created.",
-      fields: [
-        field("idPrefix", "Prefix", "Uppercase identifier prefix.", "text", { required: true }),
-        field("includeYear", "Include year", "Include the current year after the prefix.", "toggle"),
-        field("startingNumber", "Starting number", "First value used by a new sequence.", "number", { required: true, min: 0, max: 99999999 }),
-        field("paddingWidth", "Number padding", "Minimum number of digits in the sequence.", "number", { required: true, min: 1, max: 10, unit: "digits" }),
-        field("separator", "Separator", "Character placed between identifier parts.", "select", { required: true, options: options("-", "/", ".") }),
-        field("identifierExample", "Example", "Derived from the current identifier settings.", "derived", { derive: identifierExample }),
-      ],
-    },
-    {
       title: "Enrollment rules",
       description: "Requirements applied to student enrollment workflows.",
       fields: [
@@ -85,18 +73,6 @@ export const peopleAccessGroups = {
     },
   ],
   "teacher-rules": [
-    {
-      title: "Teacher ID format",
-      description: "Configure deterministic teacher identifiers used when records are created.",
-      fields: [
-        field("idPrefix", "Prefix", "Uppercase identifier prefix.", "text", { required: true }),
-        field("includeYear", "Include year", "Include the current year after the prefix.", "toggle"),
-        field("startingNumber", "Starting number", "First value used by a new sequence.", "number", { required: true, min: 0, max: 99999999 }),
-        field("paddingWidth", "Number padding", "Minimum number of digits in the sequence.", "number", { required: true, min: 1, max: 10, unit: "digits" }),
-        field("separator", "Separator", "Character placed between identifier parts.", "select", { required: true, options: options("-", "/", ".") }),
-        field("identifierExample", "Example", "Derived from the current identifier settings.", "derived", { derive: identifierExample }),
-      ],
-    },
     {
       title: "Teacher statuses",
       description: "Lifecycle states available to teacher records.",

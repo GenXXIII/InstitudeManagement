@@ -1,0 +1,13 @@
+using InstituteManagement.Application.Features.Record;
+using InstituteManagement.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using static InstituteManagement.Infrastructure.Services.History.HistorySnapshotFactory;
+
+namespace InstituteManagement.Infrastructure.Services.History;
+
+public sealed class AttendanceHistorySnapshotProvider(InstituteDbContext db) : IHistorySnapshotProvider
+{
+    public string Type => "Attendance";
+    public async Task<IReadOnlyList<RecordDto>> GetAsync(CancellationToken cancellationToken) =>
+        (await db.AttendanceRecords.AsNoTracking().Include(x => x.Student).ThenInclude(x => x!.Department).ToListAsync(cancellationToken)).Select(x => Create(x.Id, x.UpdatedAtUtc, Type, x.Student?.FullName ?? x.AttendanceCode, "Recorded", new { x.AttendanceCode, x.StudentId, student = x.Student?.FullName, studentCode = x.Student?.StudentCode, studentShift = x.Student?.Shift, studentStatus = x.Student?.Status, departmentCode = x.Student?.Department?.DepartmentCode, department = x.Student?.Department?.Name, x.AcademicYear, x.Term, x.Date, x.CheckedInAt, x.Status, x.Method, x.CreateAt, x.UpdatedAtUtc })).ToList();
+}

@@ -14,24 +14,6 @@ export function labelledOptions(values: ReadonlyArray<readonly [string, string]>
   return values.map(([value, label]) => ({ value, label }));
 }
 
-export function identifierExample(values: Record<string, string>) {
-  const prefix = values.idPrefix || "ID";
-  const separator = values.separator ?? "-";
-  const year = values.includeYear === "true" ? `${separator}${new Date().getFullYear()}` : "";
-  const width = Math.max(1, Math.min(10, Number(values.paddingWidth) || 4));
-  const sequence = String(Math.max(0, Number(values.startingNumber) || 1)).padStart(width, "0");
-  return `${prefix}${year}${separator}${sequence}`;
-}
-
-export function recordCodeExample(values: Record<string, string>) {
-  const prefix = values.codePrefix || "CODE";
-  const separator = values.codeSeparator ?? "-";
-  const year = values.codeIncludeYear === "true" ? `${separator}${new Date().getFullYear()}` : "";
-  const width = Math.max(1, Math.min(12, Number(values.codePaddingWidth) || 4));
-  const sequence = String(Math.max(0, Number(values.codeStartingNumber) || 1)).padStart(width, "0");
-  return `${prefix}${year}${separator}${sequence}`;
-}
-
 export function utcOffset(values: Record<string, string>) {
   const timeZone = values.timeZone || "Asia/Phnom_Penh";
   try {
