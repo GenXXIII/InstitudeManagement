@@ -4,6 +4,7 @@ import { organizationAcademicGroups, organizationAcademicLinks } from "./schema/
 import { peopleAccessGroups, peopleAccessLinks } from "./schema/people-access-schema";
 import { platformGroups } from "./schema/platform-schema";
 import { policyGroups } from "./schema/policy-schema";
+import { codeFormatGroups } from "./schema/code-format-schema";
 
 export const administrationCategories: ReadonlyArray<{ id: AdministrationCategory; title: string; description: string }> = [
   { id: "general", title: "General", description: "Institute identity, branding, contact, address, and regional profile." },
@@ -19,6 +20,7 @@ const groups = {
   ...peopleAccessGroups,
   ...policyGroups,
   ...platformGroups,
+  "code-formats": codeFormatGroups,
 } as Record<SettingSection, readonly ConfigurationGroup[]>;
 
 const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
@@ -28,6 +30,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   departments: ["defaultStatus", "requireDepartmentHead", "allowCrossDepartmentTeaching"],
   courses: ["defaultCapacity", "requireAssignedTeacher"],
   classrooms: ["defaultCapacity", "attendanceDeviceRequired"],
+  "code-formats": ["codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "studentManagementPrefix", "studentEnrollmentPrefix", "studentRecordPrefix", "studentHistoryPrefix"],
   "users-access": ["defaultUserStatus", "availableRoles"],
   "student-rules": ["maximumCoursesPerSemester", "statuses"],
   "teacher-rules": ["statuses", "maximumCourses", "maximumClasses"],
@@ -45,6 +48,7 @@ export const administrationSections: readonly AdministrationSectionDefinition[] 
   section("departments", "Department rules", "Departments", "Defaults and governance rules; every DepartmentCode is entered manually in Management.", "academic", "building"),
   section("courses", "Course rules", "Courses", "Defaults and assignment requirements; every CourseCode is entered manually in Management.", "academic", "book"),
   section("classrooms", "Classroom rules", "Classrooms", "Learning-space defaults; every ClassroomCode is entered manually in Management.", "academic", "room"),
+  section("code-formats", "Code formats", "Codes", "Configure the prefixes and formatting applied to every owned code across the full workflow.", "academic", "settings"),
   section("users-access", "Users and access", "Users & access", "Future account statuses, roles, and permission catalog without fake user records.", "access", "users"),
   section("student-rules", "Student settings", "Students", "Enrollment rules, statuses, and required information; StudentCode is entered manually in Management.", "people", "users"),
   section("teacher-rules", "Teacher settings", "Teachers", "Statuses, workloads, and assignment requirements; TeacherCode is entered manually in Management.", "people", "teacher"),
@@ -88,6 +92,7 @@ export function configurationSummary(sectionName: SettingSection, values: Record
   if (sectionName === "departments") return `Manual DepartmentCode · ${values.requireDepartmentHead === "true" ? "Head required" : "Head optional"}`;
   if (sectionName === "courses") return `Manual CourseCode · ${values.defaultCapacity || "–"} default seats`;
   if (sectionName === "classrooms") return `Manual ClassroomCode · ${values.defaultCapacity || "–"} default seats`;
+  if (sectionName === "code-formats") return `${values.studentManagementPrefix || "STU"} → ${values.studentEnrollmentPrefix || "ESTU"} → ${values.studentRecordPrefix || "RSTU"} · padding ${values.codePaddingWidth || "1"}`;
   if (sectionName === "users-access") return `${parseCsv(values.availableRoles).length} roles · ${parseCsv(values.permissionCatalog).length} permissions`;
   if (sectionName === "student-rules") return `Manual StudentCode · ${values.maximumCoursesPerSemester || "–"} courses per term`;
   if (sectionName === "teacher-rules") return `Manual TeacherCode · ${values.maximumCourses || "–"} courses maximum`;

@@ -1,6 +1,11 @@
 namespace InstituteManagement.Application.Features.Dashboard;
 
 public sealed record DashboardDto(
+    string Range,
+    string RangeLabel,
+    string PeriodStart,
+    string PeriodEnd,
+    DateTime GeneratedAt,
     IReadOnlyList<MetricDto> Metrics,
     decimal AttendanceRate,
     decimal AttendanceChange,

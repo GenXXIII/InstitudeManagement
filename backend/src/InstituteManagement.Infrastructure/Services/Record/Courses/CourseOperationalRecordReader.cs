@@ -40,7 +40,7 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
             {
                 var studentCount = enrollments.Count(x => x.DepartmentId == assignment.DepartmentId && x.YearLevel == assignment.YearLevel && x.AcademicYear == assignment.AcademicYear && x.Semester == assignment.Semester);
                 return (assignment.UpdatedAtUtc, Create(
-                    ("Activity", "Course assignment"), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
+                    ("Activity", "Course assignment"), ("Enrollment code", assignment.EnrollmentCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", $"Year {assignment.YearLevel}"), ("Course", course.Name), ("Course code", course.CourseCode),
                     ("Department", assignment.Department?.Name ?? course.Department?.Name ?? "Unassigned"),

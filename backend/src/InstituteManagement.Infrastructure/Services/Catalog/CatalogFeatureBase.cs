@@ -63,6 +63,9 @@ public abstract class CatalogFeatureBase<TResponse>(InstituteDbContext db, Insti
     protected static string RequiredCode(Dictionary<string, string> values, string key) =>
         CatalogValidation.RequiredCode(values, key);
 
+    protected Task<string> ConfiguredCodeAsync(Dictionary<string, string> values, string key, string resource, CancellationToken ct) =>
+        BusinessCodeFormatter.FormatAsync(Db, values, key, resource, "management", ct);
+
     protected static string Get(IReadOnlyDictionary<string, string> values, string key, string fallback = "") =>
         CatalogValidation.Get(values, key, fallback);
 

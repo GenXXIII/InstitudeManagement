@@ -20,10 +20,10 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
                 && (!departmentId.HasValue || x.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
         var courseAssignments = enrolledCourseAssignments.Select(x => x.CourseId).ToList();
-        var enrolledTimetableIds = await db.TimetableEnrollments.AsNoTracking()
+        var timetableEnrollments = await db.TimetableEnrollments.AsNoTracking()
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
-            .Select(x => x.ScheduleEntryId)
-            .ToListAsync(cancellationToken);
+            .ToDictionaryAsync(x => x.ScheduleEntryId, cancellationToken);
+        var enrolledTimetableIds = timetableEnrollments.Keys.ToList();
         var query = db.ScheduleEntries.AsNoTracking()
             .Include(x => x.Course)
             .Include(x => x.Teacher)
@@ -49,8 +49,8 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
                 && x.Status != "Removed" && x.Status != "Unassigned"
                 && (!departmentId.HasValue || x.DepartmentId == null || x.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
-        var learningSpaces = classroomAssignments.Where(x => x.Classroom is not null).Select(x => x.Classroom!).DistinctBy(x => x.Id).OrderBy(x => x.ClassroomCode).ToList();
         var assignmentByRoom = classroomAssignments.GroupBy(x => x.ClassroomId).ToDictionary(x => x.Key, x => x.First());
+        var learningSpaces = assignmentByRoom.Values.Where(x => x.Classroom is not null).OrderBy(x => x.Classroom!.ClassroomCode).ToList();
         var runnableRoomIds = classroomAssignments
             .Where(x => NormalizeClassroomStatus(x.Classroom?.Status ?? "Unavailable") == "Available" && x.Classroom?.DeviceOnline == true)
             .Select(x => x.ClassroomId)
@@ -83,6 +83,7 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
             return new WeeklyTimetableSlotDto(
                 x.Id,
                 x.TimetableCode,
+                timetableEnrollments[x.Id].EnrollmentCode,
                 x.DayOfWeek.ToString(),
                 period?.Session ?? "Custom",
                 x.StartsAt.ToString("HH:mm"),
@@ -100,11 +101,12 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
             .Select(x => new TimetablePeriodDto(x.DayGroup, x.Session, x.StartsAt.ToString("HH:mm"), x.EndsAt.ToString("HH:mm")))
             .ToList();
         var roomRows = learningSpaces
-            .Select(room => new TimetableRoomDto(
-                room.Id,
-                room.ClassroomCode,
-                room.RoomType,
-                inStudyRoomIds.Contains(room.Id) ? "Running" : NormalizeClassroomStatus(room.Status)))
+            .Select(assignment => new TimetableRoomDto(
+                assignment.ClassroomId,
+                assignment.Classroom!.ClassroomCode,
+                assignment.EnrollmentCode,
+                assignment.Classroom.RoomType,
+                inStudyRoomIds.Contains(assignment.ClassroomId) ? "Running" : NormalizeClassroomStatus(assignment.Classroom.Status)))
             .ToList();
         var metrics = new List<MetricDto>
         {

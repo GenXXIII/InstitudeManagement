@@ -9,38 +9,36 @@ export type ClassSessionRecordGroup = {
 
 export function sortClassSessionRecords(rows: OperationalRecord[]) {
   return rows.toSorted((left, right) =>
-    sessionSortKey(left).localeCompare(sessionSortKey(right))
+    sessionSortKey(right).localeCompare(sessionSortKey(left))
     || (left.code || left.subject).localeCompare(right.code || right.subject, undefined, { numeric: true }),
   );
 }
 
 export function groupClassSessionRecords(rows: OperationalRecord[]): ClassSessionRecordGroup[] {
   const groups = new Map<string, OperationalRecord[]>();
-  for (const row of rows) {
-    const date = sessionDate(row);
-    groups.set(date, [...(groups.get(date) ?? []), row]);
+  for (const row of sortClassSessionRecords(rows)) {
+    const key = `${row.academicYear || "Academic year unavailable"}|${row.term || "Semester unavailable"}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
   }
 
-  return [...groups].map(([date, dateRows]) => ({
-    key: date,
-    title: displaySessionDate(date),
-    label: sessionTimeRange(dateRows),
-    rows: dateRows,
-  }));
+  return [...groups.entries()]
+    .map(([key, semesterRows]) => {
+      const [academicYear, term] = key.split("|");
+      return {
+        key,
+        title: academicYear,
+        label: `${term} · ${sessionDateRange(semesterRows)}`,
+        rows: semesterRows,
+      };
+    })
+    .toSorted((left, right) => right.key.localeCompare(left.key, undefined, { numeric: true, sensitivity: "base" }));
 }
 
 function sessionSortKey(row: OperationalRecord) {
-  const date = sessionDate(row);
-  const time = sessionTimes(row)[0] ?? "23:59";
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T${time}` : "9999-12-31T23:59";
-}
-
-function sessionDate(row: OperationalRecord) {
-  return sessionSummary(row)?.Date || "Session date unavailable";
-}
-
-function sessionTimes(row: OperationalRecord) {
-  return sessionSummary(row)?.Time?.match(/\d{1,2}:\d{2}/g) ?? [];
+  const summary = sessionSummary(row);
+  const date = summary?.Date ?? "0000-00-00";
+  const time = summary?.Time?.match(/\d{1,2}:\d{2}/)?.[0] ?? "00:00";
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T${time}` : "0000-00-00T00:00";
 }
 
 function sessionSummary(row: OperationalRecord) {
@@ -48,17 +46,17 @@ function sessionSummary(row: OperationalRecord) {
     ?? row.activities.find(activity => activity.Date && activity.Time);
 }
 
-function sessionTimeRange(rows: OperationalRecord[]) {
-  const times = rows.map(sessionTimes).filter(times => times.length);
-  if (!times.length) return "Time unavailable";
-  const starts = times.map(time => time[0]).toSorted();
-  const ends = times.map(time => time.at(-1) ?? time[0]).toSorted();
-  return `${starts[0]} – ${ends.at(-1)}`;
+function sessionDateRange(rows: OperationalRecord[]) {
+  const dates = rows.map(row => sessionSummary(row)?.Date).filter((date): date is string => Boolean(date)).toSorted();
+  if (!dates.length) return "No class dates";
+  const latest = displayDate(dates.at(-1)!);
+  const earliest = displayDate(dates[0]);
+  return dates[0] === dates.at(-1) ? latest : `${earliest} – ${latest}`;
 }
 
-function displaySessionDate(value: string) {
+function displayDate(value: string) {
   const parsed = new Date(`${value}T00:00:00`);
   return Number.isNaN(parsed.valueOf())
     ? value
-    : parsed.toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "short", year: "numeric" });
+    : parsed.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 }

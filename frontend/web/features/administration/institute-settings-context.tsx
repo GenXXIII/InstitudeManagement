@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { administrationApi } from "./administration-api";
 import { defaultSettings } from "./administration-defaults";
 import { settingSections, type InstituteSettings, type SettingSection } from "./administration-types";
+import { configureWorkflowCodes } from "@/lib/workflow-code";
 
 export { defaultSettings, settingSections };
 export type { InstituteSettings, SettingSection };
@@ -19,7 +20,9 @@ export function InstituteSettingsProvider({ children }: { children: React.ReactN
     try {
       const results = await administrationApi.list();
       const bySection = new Map(results.map(result => [result.section, result.values]));
-      setSettings(Object.fromEntries(settingSections.map(section => [section, { ...defaultSettings[section], ...(bySection.get(section) ?? {}) }])) as InstituteSettings);
+      const next = Object.fromEntries(settingSections.map(section => [section, { ...defaultSettings[section], ...(bySection.get(section) ?? {}) }])) as InstituteSettings;
+      configureWorkflowCodes(next["code-formats"], next["academic-year"].currentYear);
+      setSettings(next);
     } catch {
       // Runtime screens continue with safe sample defaults while the API is unavailable.
     } finally { setReady(true); }

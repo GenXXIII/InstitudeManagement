@@ -52,7 +52,7 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
                     || row.assignment?.DepartmentId == null)
                 && (!year.HasValue || schedules.Any(entry =>
                     entry.ClassroomId == row.room.Id && entry.YearLevel == year))
-                && Matches(search, row.room.ClassroomCode, row.room.Building, row.department?.Name, row.room.Status))
+                && Matches(search, row.assignment?.EnrollmentCode, row.room.ClassroomCode, row.room.Building, row.department?.Name, row.room.Status))
             .Select(row =>
             {
                 var roomSchedule = schedules
@@ -62,6 +62,7 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
                     .ToList();
                 return Item(
                     row.room.Id,
+                    ("enrollmentCode", row.assignment?.EnrollmentCode ?? ""),
                     ("classroomCode", row.room.ClassroomCode),
                     ("building", row.room.Building),
                     ("roomType", row.room.RoomType),

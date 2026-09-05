@@ -49,7 +49,7 @@ internal sealed class TeacherAssignmentReader(InstituteDbContext db)
                 (!departmentId.HasValue || row.assignment?.DepartmentId == departmentId)
                 && (!year.HasValue || schedules.Any(entry =>
                     entry.TeacherId == row.teacher.Id && entry.YearLevel == year))
-                && Matches(search, row.teacher.TeacherCode, row.teacher.FullName, row.department?.Name))
+                && Matches(search, row.assignment?.EnrollmentCode, row.teacher.TeacherCode, row.teacher.FullName, row.department?.Name))
             .Select(row =>
             {
                 var teacherSchedule = schedules
@@ -57,6 +57,7 @@ internal sealed class TeacherAssignmentReader(InstituteDbContext db)
                     .ToList();
                 return Item(
                     row.teacher.Id,
+                    ("enrollmentCode", row.assignment?.EnrollmentCode ?? ""),
                     ("teacherCode", row.teacher.TeacherCode),
                     ("name", row.teacher.FullName),
                     ("email", row.teacher.Email),

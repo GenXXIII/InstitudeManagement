@@ -1,0 +1,11 @@
+.git
+.env
+frontend/
+docs/
+infrastructure/
+**/bin/
+**/obj/
+**/node_modules/
+**/.next/
+*.user
+*.suo

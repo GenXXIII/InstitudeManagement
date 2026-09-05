@@ -98,7 +98,7 @@ function enrollmentYear(item: EnrollmentItem, resource: EnrollmentResource) {
 
 function enrollmentCode(item: EnrollmentItem) {
   const values = item.values;
-  return values.studentCode || values.teacherCode || values.courseCode || values.classroomCode || values.timetableCode || values.departmentCode || item.id;
+  return values.enrollmentCode || values.studentCode || values.teacherCode || values.courseCode || values.classroomCode || values.timetableCode || values.departmentCode || item.id;
 }
 
 function assignedCourseName(item: EnrollmentItem) {

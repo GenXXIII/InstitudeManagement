@@ -17,13 +17,13 @@ public sealed class CourseManagementService(InstituteDbContext db, InstituteCach
     }
     public override async Task<CourseResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var code = RequiredCode(values, "courseCode");
+        var code = await ConfiguredCodeAsync(values, "courseCode", "course", ct); values["courseCode"] = code;
         await EnsureUniqueAsync(Db.Courses.Where(course => course.CourseCode == code), "CourseCode", ct);
         return await SaveCreatedAsync(new Course { CourseCode = code, Name = Required(values, "name"), DepartmentId = null, TeacherId = null, Capacity = 0, IsActive = true }, values, ct);
     }
     public override async Task<CourseResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
-        var entity = await RequiredEntityAsync(Db.Courses, id, ct); var code = RequiredCode(values, "courseCode"); await EnsureUniqueAsync(Db.Courses.Where(course => course.Id != id && course.CourseCode == code), "CourseCode", ct);
+        var entity = await RequiredEntityAsync(Db.Courses, id, ct); var code = await ConfiguredCodeAsync(values, "courseCode", "course", ct); values["courseCode"] = code; await EnsureUniqueAsync(Db.Courses.Where(course => course.Id != id && course.CourseCode == code), "CourseCode", ct);
         entity.CourseCode = code; entity.Name = Required(values, "name"); Touch(entity); return await SaveUpdatedAsync(id, values, ct);
     }
     protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct) { if (await Db.CourseAssignments.AnyAsync(x => x.CourseId == entity.Id && x.Status == "Active", ct) || await Db.ScheduleEntries.AnyAsync(x => x.CourseId == entity.Id && x.Status != "Cancelled", ct) || await Db.GradeRecords.AnyAsync(x => x.CourseId == entity.Id, ct)) throw new InvalidOperationException("Course still has enrollment, timetable, or grade relationships."); }

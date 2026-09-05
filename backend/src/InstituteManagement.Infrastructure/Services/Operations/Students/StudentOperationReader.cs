@@ -71,6 +71,7 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
                 x.StudentId,
                 x.Student!.FullName,
                 x.Student.StudentCode,
+                x.EnrollmentCode,
                 x.Department?.Name ?? "—",
                 x.YearLevel,
                 x.Shift,

@@ -4,8 +4,9 @@ import { SearchableSelect, type SearchableOption } from "@/components/searchable
 import type { Field } from "../management-types";
 import { cropPhoto4x6 } from "../management-utils";
 
-export function EditorField({ field, value, options, createOption, error, onChange }: { field: Field; value: string; options: SearchableOption[]; createOption?: SearchableOption; error?: string; onChange: (value: string) => void }) {
+export function EditorField({ field, value, options, createOption, error, hint, onChange }: { field: Field; value: string; options: SearchableOption[]; createOption?: SearchableOption; error?: string; hint?: string; onChange: (value: string) => void }) {
   const errorMessage = error ? <small className="field-error">{error}</small> : null;
+  const hintMessage = hint && !error ? <small>{hint}</small> : null;
   const label = <span>{field.label}{field.required && <b className="required-field-marker" aria-hidden> *</b>}</span>;
   if (field.readOnly) {
     const displayValue = field.source ? options.find(option => option.id === value)?.label ?? value : value;
@@ -17,5 +18,5 @@ export function EditorField({ field, value, options, createOption, error, onChan
   return <label className={`editor-field ${error ? "invalid" : ""}`}>{label}{field.type === "select"
     ? <select aria-invalid={Boolean(error)} required={field.required} value={value} onChange={event => onChange(event.target.value)}><option value="">Select {field.label.toLowerCase()}</option>{options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select>
     : <input aria-invalid={Boolean(error)} required={field.required} type={field.type ?? "text"} step={field.key === "score" ? ".1" : undefined} min={field.key === "score" ? "0" : undefined} max={field.key === "score" ? "100" : undefined} value={value} onChange={event => onChange(event.target.value)}/>}
-    {errorMessage}</label>;
+    {hintMessage}{errorMessage}</label>;
 }

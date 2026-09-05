@@ -3,4 +3,4 @@ using MediatR;
 
 namespace InstituteManagement.Application.Features.Dashboard.GetDashboard;
 
-public sealed record GetDashboardQuery : IRequest<DashboardDto>;
+public sealed record GetDashboardQuery(string Range) : IRequest<DashboardDto>;

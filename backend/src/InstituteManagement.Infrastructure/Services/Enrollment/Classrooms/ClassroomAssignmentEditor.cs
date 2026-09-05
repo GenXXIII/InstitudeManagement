@@ -1,6 +1,7 @@
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.Enrollment.EnrollmentItemFactory;
 using static InstituteManagement.Infrastructure.Services.Enrollment.EnrollmentValueParser;
@@ -25,6 +26,9 @@ internal sealed class ClassroomAssignmentEditor(InstituteDbContext db)
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
+        var enrollmentCode = await BusinessCodeFormatter.FormatAsync(db, values, "enrollmentCode", "classroom", "enrollment", cancellationToken);
+        if (await db.ClassroomAssignments.AnyAsync(item => item.Id != (assignment == null ? Guid.Empty : assignment.Id) && item.EnrollmentCode == enrollmentCode, cancellationToken))
+            throw new InvalidOperationException("EnrollmentCode already exists.");
 
         if (assignment is null)
         {
@@ -38,6 +42,7 @@ internal sealed class ClassroomAssignmentEditor(InstituteDbContext db)
         }
 
         assignment.DepartmentId = departmentId;
+        assignment.EnrollmentCode = enrollmentCode;
         assignment.Capacity = capacity;
         assignment.Access = Choice(
             values,
@@ -57,6 +62,7 @@ internal sealed class ClassroomAssignmentEditor(InstituteDbContext db)
 
         return Item(
             id,
+            ("enrollmentCode", assignment.EnrollmentCode),
             ("classroomCode", room.ClassroomCode),
             ("building", room.Building),
             ("departmentId", departmentId?.ToString() ?? ""),

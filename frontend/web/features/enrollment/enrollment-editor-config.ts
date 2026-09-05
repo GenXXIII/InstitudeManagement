@@ -7,6 +7,7 @@ import { courseAssignmentDefaults, courseAssignmentFields } from "./courses/cour
 import { studentEnrollmentDefaults, studentEnrollmentFields } from "./students/student-enrollment-form";
 import { teacherAssignmentDefaults, teacherAssignmentFields } from "./teachers/teacher-assignment-form";
 import { timetableEnrollmentDefaults } from "./timetable/timetable-enrollment-form";
+import type { WorkflowCodeResource } from "@/lib/workflow-code";
 
 export type { EnrollmentField } from "./common/enrollment-field";
 
@@ -16,11 +17,22 @@ export function buildEnrollmentFields({ resource, departments, availableTeachers
   availableTeachers: EnrollmentItem[];
   teacherRequired: boolean;
 }): EnrollmentField[] {
-  if (resource === "students") return studentEnrollmentFields(departments);
-  if (resource === "teachers") return teacherAssignmentFields(departments);
-  if (resource === "courses") return courseAssignmentFields(departments, availableTeachers, teacherRequired);
-  if (resource === "classrooms") return classroomAssignmentFields(departments);
+  const code: EnrollmentField = { key: "enrollmentCode", label: "EnrollmentCode", type: "text", required: true };
+  if (resource === "students") return [code, ...studentEnrollmentFields(departments)];
+  if (resource === "teachers") return [code, ...teacherAssignmentFields(departments)];
+  if (resource === "courses") return [code, ...courseAssignmentFields(departments, availableTeachers, teacherRequired)];
+  if (resource === "classrooms") return [code, ...classroomAssignmentFields(departments)];
+  if (resource === "timetable") return [code];
   return [];
+}
+
+export function enrollmentCodeResource(resource: EnrollmentResource): WorkflowCodeResource | undefined {
+  if (resource === "students") return "student";
+  if (resource === "teachers") return "teacher";
+  if (resource === "courses") return "course";
+  if (resource === "classrooms") return "classroom";
+  if (resource === "timetable") return "timetable";
+  return undefined;
 }
 
 export function enrollmentDefaults(

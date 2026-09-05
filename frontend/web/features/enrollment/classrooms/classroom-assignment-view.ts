@@ -4,7 +4,7 @@ import type { EnrollmentDisplayItem, EnrollmentItem } from "../common/enrollment
 export const classroomAssignmentCopy: EnrollmentCopy = {
   title: "Classroom Assign",
   description: "Read-only view of each classroom-course assignment, capacity, and Classroom Management status.",
-  columns: ["ClassroomCode", "Classroom", "Access", "Assigned course", "Capacity", "Status"],
+  columns: ["EnrollmentCode", "Classroom", "Access", "Assigned course", "Capacity", "Status"],
 };
 
 export function classroomAssignmentDisplayItems(items: EnrollmentItem[]): EnrollmentDisplayItem[] {
@@ -21,7 +21,7 @@ export function classroomAssignmentDisplayItems(items: EnrollmentItem[]): Enroll
 
 export function classroomAssignmentCells(item: EnrollmentDisplayItem) {
   const value = item.values;
-  return [value.classroomCode, `${value.building} - ${value.roomType}`, value.access, item.assignedCourse || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned", value.status || "Available"];
+  return [value.enrollmentCode, `${value.building} - ${value.roomType}`, value.access, item.assignedCourse || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned", value.status || "Available"];
 }
 
 export function classroomEnrollmentStatusClass(status: string) {

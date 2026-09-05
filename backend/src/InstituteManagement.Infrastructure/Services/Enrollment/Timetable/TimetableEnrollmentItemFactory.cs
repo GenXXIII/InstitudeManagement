@@ -10,9 +10,11 @@ internal static class TimetableEnrollmentItemFactory
         ScheduleEntry entry,
         Guid departmentId,
         string? departmentName,
+        string enrollmentCode,
         string? status = null) =>
         Item(
             entry.Id,
+            ("enrollmentCode", enrollmentCode),
             ("timetableCode", entry.TimetableCode),
             ("courseId", entry.CourseId.ToString()),
             ("courseCode", entry.Course?.CourseCode ?? "Unassigned"),

@@ -37,7 +37,7 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
                 var assignment = courseAssignments.FirstOrDefault(x => x.CourseId == schedule.CourseId && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester);
                 var enrolledStudents = assignment is null ? 0 : students.Count(x => x.DepartmentId == assignment.DepartmentId && x.YearLevel == schedule.YearLevel && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester && (shift == null || x.Shift == shift.Name));
                 return (enrollment.UpdatedAtUtc, Create(
-                    ("Activity", "Timetable enrollment"), ("Academic year", enrollment.AcademicYear), ("Term", enrollment.Semester),
+                    ("Activity", "Timetable enrollment"), ("Enrollment code", enrollment.EnrollmentCode), ("Academic year", enrollment.AcademicYear), ("Term", enrollment.Semester),
                     ("Date", enrollment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", $"{schedule.StartsAt:HH:mm} – {schedule.EndsAt:HH:mm}"),
                     ("Day", schedule.DayOfWeek.ToString()), ("Year", $"Year {schedule.YearLevel}"),
                     ("Course", schedule.Course?.Name ?? "Course"), ("Course code", schedule.Course?.CourseCode ?? "—"),

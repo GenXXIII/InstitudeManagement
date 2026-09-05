@@ -12,6 +12,7 @@ import { relationshipCreateTarget } from "@/features/management/relationship-cre
 import type { TimetableItem, TimetablePeriod } from "./timetable-types";
 import { timetableDefaults, timetableFields } from "./timetable-config";
 import { timetableApi } from "./timetable-api";
+import { formatAssignedCode, workflowCodeExample } from "@/lib/workflow-code";
 
 const weekendDays = new Set(["Saturday", "Sunday"]);
 
@@ -78,15 +79,24 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    const submittedValues: Record<string, string> = {
+      ...values,
+      timetableCode: formatAssignedCode(
+        values.timetableCode,
+        "timetable",
+        "management"
+      ),
+    };
     const optionSets = Object.fromEntries(timetableFields.filter(field => field.type === "select").map(field => [field.key, new Set(optionsFor(field).map(option => option.id))]));
-    const nextErrors = validateManagementFields(timetableFields, values, optionSets);
+    const nextErrors = validateManagementFields(timetableFields, submittedValues, optionSets);
     setFieldErrors(nextErrors);
     setError("");
     if (Object.keys(nextErrors).length) return;
 
-    const [startsAt, endsAt] = values.period.split("|");
+    const [startsAt, endsAt] = submittedValues.period.split("|");
     setSaving(true);
-    const payload: Record<string, string> = { ...values, startsAt, endsAt };
+    setValues(submittedValues);
+    const payload: Record<string, string> = { ...submittedValues, startsAt, endsAt };
     delete payload.period;
     try {
       if (item && saveItem) await saveItem(item.id, payload);
@@ -106,7 +116,7 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
   }
 
   const problems = validationMessages(fieldErrors, error);
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{saveItem ? "Timetable enrollment" : "Schedule management"}</span><h2>{item ? "Edit schedule" : "Add schedule"}</h2><p>{saveItem ? "Edit the enrolled schedule and set whether its assigned classroom is Available or under Maintenance." : "Enter your own unique schedule code, then choose Year 1-4, a teaching period, and an available classroom or meeting room."}</p></div><button type="button" className="icon-button" onClick={onClose}><Icon name="close"/></button></div><div className="management-form-grid">{timetableFields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} onChange={value => change(field, value)}/>)}{saveItem && <label className="editor-field"><span>Status</span><select value={values.classroomStatus ?? "Available"} onChange={event => setValues(current => ({ ...current, classroomStatus: event.target.value }))}><option value="Available">Available</option><option value="Maintenance">Maintenance</option></select></label>}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="timetable-period-note"><strong>Room and concurrency rules</strong><span>Year 1 uses Classroom 501 only. Years 2-4 use the other classrooms. A teacher or learning space cannot be double-booked. Only Available classrooms can run.</span></div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || !periods.length}>{saving ? "Saving schedule..." : item ? "Save changes" : "Add schedule"}</button></div></form></div>;
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{saveItem ? "Timetable enrollment" : "Schedule management"}</span><h2>{item ? "Edit schedule" : "Add schedule"}</h2><p>{saveItem ? "Edit the enrolled schedule and set whether its assigned classroom is Available or under Maintenance." : "Enter your own unique schedule code, then choose Year 1-4, a teaching period, and an available classroom or meeting room."}</p></div><button type="button" className="icon-button" onClick={onClose}><Icon name="close" /></button></div><div className="management-form-grid">{timetableFields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} hint={field.key === "timetableCode" ? `Final code: ${values.timetableCode?.trim() ? formatAssignedCode(values.timetableCode, "timetable", "management") : workflowCodeExample("timetable", "management")}` : undefined} onChange={value => change(field, value)} />)}{saveItem && <label className="editor-field"><span>Status</span><select value={values.classroomStatus ?? "Available"} onChange={event => setValues(current => ({ ...current, classroomStatus: event.target.value }))}><option value="Available">Available</option><option value="Maintenance">Maintenance</option></select></label>}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="timetable-period-note"><strong>Room and concurrency rules</strong><span>Year 1 uses Classroom 501 only. Years 2-4 use the other classrooms. A teacher or learning space cannot be double-booked. Only Available classrooms can run.</span></div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || !periods.length}>{saving ? "Saving schedule..." : item ? "Save changes" : "Add schedule"}</button></div></form></div>;
 }
 
 function classroomMatchesYear(classroomCode: string | undefined, yearLevel: string) {

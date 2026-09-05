@@ -11,11 +11,13 @@ import {
   buildEnrollmentFields,
   candidateName,
   candidateOption,
+  enrollmentCodeResource,
   enrollmentDefaults,
   relationshipOptions,
   type EnrollmentField,
 } from "./enrollment-editor-config";
 import { isSelectableEnrollment } from "./enrollment-workspace-model";
+import { formatAssignedCode, workflowCodeExample } from "@/lib/workflow-code";
 
 export function EnrollmentEditor({ resource, item, candidates, departments, teachers, scopeDepartmentId, scopeYear, onClose, onSaved }: {
   resource: EnrollmentResource;
@@ -40,6 +42,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
   const allowCrossDepartment = settings.departments.allowCrossDepartmentTeaching === "true";
   const availableTeachers = teachers.filter(teacher => teacher.values.status === "Assigned" && (allowCrossDepartment || !values.departmentId || !teacher.values.departmentId || teacher.values.departmentId === values.departmentId));
   const fields = buildEnrollmentFields({ resource, departments, availableTeachers, teacherRequired });
+  const codeResource = enrollmentCodeResource(resource);
   const timetableCandidates = resource === "timetable"
     ? candidates.filter(candidate => (!selectedCourseId || candidate.values.courseId === selectedCourseId) && (!selectedTeacherId || candidate.values.teacherId === selectedTeacherId))
     : [];
@@ -53,11 +56,15 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     event.preventDefault();
     setError("");
     if (creating && isSelectableEnrollment(resource) && !resourceId) { setError(`${candidateName(resource)} is required.`); return; }
-    const missing = fields.find(field => field.required && !values[field.key]?.trim());
+    const submittedValues = { ...values };
+    if (codeResource && submittedValues.enrollmentCode?.trim()) submittedValues.enrollmentCode = formatAssignedCode(submittedValues.enrollmentCode, codeResource, "enrollment");
+    const missing = fields.find(field => field.required && !submittedValues[field.key]?.trim());
     if (missing) { setError(`${missing.label} is required.`); return; }
+    if (submittedValues.enrollmentCode && !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/.test(submittedValues.enrollmentCode)) { setError("EnrollmentCode must be 1 to 64 characters using letters, numbers, dot, underscore, slash, or hyphen."); return; }
     setSaving(true);
     try {
-      await enrollmentApiFor(resource).update(item?.id ?? resourceId, values);
+      setValues(submittedValues);
+      await enrollmentApiFor(resource).update(item?.id ?? resourceId, submittedValues);
       onSaved();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save this enrollment assignment.");
@@ -75,7 +82,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     if (resource === "timetable" && candidate) {
       setSelectedCourseId(candidate.values.courseId);
       setSelectedTeacherId(candidate.values.teacherId);
-      setValues({ ...candidate.values });
+      setValues(current => ({ ...candidate.values, enrollmentCode: current.enrollmentCode ?? "" }));
     }
     if (resource === "classrooms" && candidate?.values.capacity) {
       setValues(current => ({ ...current, capacity: candidate.values.capacity }));
@@ -88,7 +95,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     const selectedSchedule = candidates.find(candidate => candidate.id === resourceId);
     if (selectedSchedule?.values.courseId !== id) {
       setResourceId("");
-      setValues(enrollmentDefaults(resource, scopeDepartmentId, scopeYear, settings.courses.defaultCapacity));
+      setValues(current => ({ ...enrollmentDefaults(resource, scopeDepartmentId, scopeYear, settings.courses.defaultCapacity), enrollmentCode: current.enrollmentCode ?? "" }));
     }
     if (!candidates.some(candidate => candidate.values.courseId === id && candidate.values.teacherId === selectedTeacherId)) setSelectedTeacherId("");
   }
@@ -99,7 +106,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     const selectedSchedule = candidates.find(candidate => candidate.id === resourceId);
     if (selectedSchedule?.values.teacherId !== id) {
       setResourceId("");
-      setValues(enrollmentDefaults(resource, scopeDepartmentId, scopeYear, settings.courses.defaultCapacity));
+      setValues(current => ({ ...enrollmentDefaults(resource, scopeDepartmentId, scopeYear, settings.courses.defaultCapacity), enrollmentCode: current.enrollmentCode ?? "" }));
     }
   }
 
@@ -119,7 +126,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
   const createTitle = resource === "timetable" ? "Add timetable" : "Add enrollment";
   const createDescription = resource === "timetable"
     ? "Select linked course, timetable, and teacher codes from Management. Department, year, classroom, day, time, and creation date come from that schedule."
-    : `Select an existing ${candidateName(resource).toLowerCase()} from Academic Management, then define its current academic assignment.`;
+    : `Assign its own EnrollmentCode, select an existing ${candidateName(resource).toLowerCase()} from Academic Management, then define its current academic assignment.`;
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><form className="modal management-modal" onSubmit={save} noValidate>
     <div className="modal-head"><div><span className="eyebrow">Academic enrollment service</span><h2>{creating ? createTitle : `Edit ${subject} assignment`}</h2><p>{creating ? createDescription : "This changes enrollment data only. Personal and master details remain in Academic Management."}</p></div><button type="button" className="icon-button" onClick={onClose}><Icon name="close"/></button></div>
     <div className="management-form-grid">
@@ -131,7 +138,7 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
         {candidates.length === 0 && <small className="enrollment-candidate-note enrollment-candidate-field">No Management schedules are available. Add a schedule in Management first.</small>}
       </>}
       {resourceId && <ManagementSelectionPreview resource={resource} values={values}/>}
-      {fields.map(field => <label className="editor-field" key={field.key}><span>{field.label}</span>{field.type === "select" ? <select value={values[field.key] ?? ""} onChange={event => changeField(field, event.target.value)}>{!field.options?.some(option => option.id === "") && <option value="">Select {field.label.toLowerCase()}</option>}{field.options?.map(option => <option value={option.id} key={option.id || "none"}>{option.label}</option>)}</select> : <input type={field.type === "time" ? "time" : field.type === "number" ? "number" : "text"} min={field.type === "number" ? "1" : undefined} value={values[field.key] ?? ""} onChange={event => changeField(field, event.target.value)}/>}</label>)}
+      {fields.map(field => <label className="editor-field" key={field.key}><span>{field.label}</span>{field.type === "select" ? <select value={values[field.key] ?? ""} onChange={event => changeField(field, event.target.value)}>{!field.options?.some(option => option.id === "") && <option value="">Select {field.label.toLowerCase()}</option>}{field.options?.map(option => <option value={option.id} key={option.id || "none"}>{option.label}</option>)}</select> : <input type={field.type === "time" ? "time" : field.type === "number" ? "number" : "text"} min={field.type === "number" ? "1" : undefined} value={values[field.key] ?? ""} onChange={event => changeField(field, event.target.value)}/>} {field.key === "enrollmentCode" && codeResource && <small>Final code: {values.enrollmentCode?.trim() ? formatAssignedCode(values.enrollmentCode, codeResource, "enrollment") : workflowCodeExample(codeResource, "enrollment")}</small>}</label>)}
     </div>
     {error && <div className="form-error" role="alert">{error}</div>}
     <div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || (creating && isSelectableEnrollment(resource) && candidates.length === 0)}>{saving ? "Saving assignment..." : creating ? createTitle : "Save enrollment"}</button></div>

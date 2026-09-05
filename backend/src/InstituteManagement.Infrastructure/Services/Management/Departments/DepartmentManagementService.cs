@@ -28,7 +28,7 @@ public sealed class DepartmentManagementService(InstituteDbContext db, Institute
 
     public override async Task<DepartmentResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var departmentCode = RequiredCode(values, "departmentCode");
+        var departmentCode = await ConfiguredCodeAsync(values, "departmentCode", "department", ct); values["departmentCode"] = departmentCode;
         await EnsureUniqueAsync(Db.Departments.Where(department => department.DepartmentCode == departmentCode), "DepartmentCode", ct);
         var (headId, teacher) = await HeadAsync(values, ct);
         var status = await DepartmentStatusAsync(values, null, ct);
@@ -39,7 +39,7 @@ public sealed class DepartmentManagementService(InstituteDbContext db, Institute
     public override async Task<DepartmentResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
         var entity = await RequiredEntityAsync(Db.Departments, id, ct);
-        var departmentCode = RequiredCode(values, "departmentCode");
+        var departmentCode = await ConfiguredCodeAsync(values, "departmentCode", "department", ct); values["departmentCode"] = departmentCode;
         await EnsureUniqueAsync(Db.Departments.Where(department => department.Id != id && department.DepartmentCode == departmentCode), "DepartmentCode", ct);
         var status = await DepartmentStatusAsync(values, entity.IsActive ? "Active" : "Inactive", ct);
         if (status == "Inactive") await ValidateDeleteAsync(entity, ct);

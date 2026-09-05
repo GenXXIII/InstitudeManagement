@@ -20,7 +20,11 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
             .Include(x => x.Teacher)
             .Include(x => x.Classroom)
             .Where(x => !departmentId.HasValue || x.DepartmentId == departmentId)
-            .OrderBy(x => x.SessionDate).ThenBy(x => x.StartsAt)
+            .OrderByDescending(x => x.SessionDate).ThenByDescending(x => x.StartsAt)
+            .ToListAsync(cancellationToken);
+        var scheduleIds = sessions.Select(session => session.ScheduleEntryId).Distinct().ToList();
+        var timetableEnrollments = await db.TimetableEnrollments.AsNoTracking()
+            .Where(enrollment => scheduleIds.Contains(enrollment.ScheduleEntryId))
             .ToListAsync(cancellationToken);
         return sessions.Select(session =>
         {
@@ -28,9 +32,13 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
             var sessionStatus = TeacherPresence.SessionStatus(session.TeacherAttendanceStatus);
             var statusDetail = TeacherPresence.Reason(session.TeacherAttendanceStatus);
             var sessionCode = ReadableSessionCode(session);
+            var enrollmentCode = timetableEnrollments
+                .Where(enrollment => enrollment.ScheduleEntryId == session.ScheduleEntryId && enrollment.AcademicYear == session.AcademicYear && enrollment.Semester == session.Term)
+                .Select(enrollment => enrollment.EnrollmentCode)
+                .FirstOrDefault() ?? "Not recorded";
             var activities = new List<Dictionary<string, string>>
             {
-                Create(("Activity", "Completed class"), ("Class session code", sessionCode), ("Timetable code", session.ScheduleEntry?.TimetableCode ?? "Not recorded"), ("Date", session.SessionDate.ToString("yyyy-MM-dd")), ("Time", time), ("Course", session.CourseName), ("Course code", session.Course?.CourseCode ?? "Not recorded"), ("Year", $"Year {session.YearLevel}"), ("Teacher", session.TeacherName), ("Teacher code", session.Teacher?.TeacherCode ?? "Not recorded"), ("Classroom", session.ClassroomCode), ("Classroom code", session.Classroom?.ClassroomCode ?? session.ClassroomCode), ("Academic year", session.AcademicYear), ("Term", session.Term), ("Teacher attendance", session.TeacherAttendanceStatus), ("Session status", sessionStatus), ("Reason", statusDetail), ("Attendance", $"{session.PresentCount} present · {session.LateCount} late · {session.AbsentCount} absent · {session.ExcusedCount} permission"))
+                Create(("Activity", "Completed class"), ("Class session code", sessionCode), ("Timetable enrollment code", enrollmentCode), ("Timetable code", session.ScheduleEntry?.TimetableCode ?? "Not recorded"), ("Date", session.SessionDate.ToString("yyyy-MM-dd")), ("Time", time), ("Course", session.CourseName), ("Course code", session.Course?.CourseCode ?? "Not recorded"), ("Year", $"Year {session.YearLevel}"), ("Teacher", session.TeacherName), ("Teacher code", session.Teacher?.TeacherCode ?? "Not recorded"), ("Classroom", session.ClassroomCode), ("Classroom code", session.Classroom?.ClassroomCode ?? session.ClassroomCode), ("Academic year", session.AcademicYear), ("Term", session.Term), ("Teacher attendance", session.TeacherAttendanceStatus), ("Session status", sessionStatus), ("Reason", statusDetail), ("Attendance", $"{session.PresentCount} present · {session.LateCount} late · {session.AbsentCount} absent · {session.ExcusedCount} permission"))
             };
             activities.AddRange(Deserialize(session.StudentAttendanceJson).Select(student => Create(
                 ("Activity", "Student attendance"),
@@ -40,6 +48,7 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
                 ("Student", student.StudentName),
                 ("StudentCode", student.StudentCode),
                 ("Class session code", sessionCode),
+                ("Timetable enrollment code", enrollmentCode),
                 ("Timetable code", session.ScheduleEntry?.TimetableCode ?? "Not recorded"),
                 ("Course code", session.Course?.CourseCode ?? "Not recorded"),
                 ("Teacher code", session.Teacher?.TeacherCode ?? "Not recorded"),

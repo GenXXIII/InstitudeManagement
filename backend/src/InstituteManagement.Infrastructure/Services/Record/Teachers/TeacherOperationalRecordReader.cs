@@ -35,7 +35,7 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
                 var years = string.Join(", ", relatedCourses.Select(x => $"Year {x.YearLevel}").Distinct().OrderBy(x => x));
                 var status = TeacherPresence.Attendance(teacher.Status, assignment.Status);
                 return (assignment.UpdatedAtUtc, Create(
-                    ("Activity", "Teacher assignment"), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
+                    ("Activity", "Teacher assignment"), ("Enrollment code", assignment.EnrollmentCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", string.IsNullOrWhiteSpace(years) ? "Not scheduled" : years),
                     ("Department", assignment.Department?.Name ?? teacher.Department?.Name ?? "Institute-wide"),

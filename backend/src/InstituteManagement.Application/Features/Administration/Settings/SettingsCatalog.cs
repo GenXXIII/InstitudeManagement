@@ -10,6 +10,7 @@ public static partial class SettingsCatalog
         DepartmentsSection,
         CoursesSection,
         ClassroomsSection,
+        CodeFormatsSection,
         UsersAccessSection,
         StudentRulesSection,
         TeacherRulesSection,

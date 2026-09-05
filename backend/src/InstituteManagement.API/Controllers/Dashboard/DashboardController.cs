@@ -11,5 +11,5 @@ namespace InstituteManagement.API.Controllers.Dashboard;
 public sealed class DashboardController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(CancellationToken ct) => Ok(await sender.Send(new GetDashboardQuery(), ct));
+    public async Task<IActionResult> Get([FromQuery] string range = "monthly", CancellationToken ct = default) => Ok(await sender.Send(new GetDashboardQuery(range), ct));
 }

@@ -70,6 +70,7 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
                         : "Closed",
                     AcademicYear = group.Key.AcademicYear,
                     Term = group.Key.Term,
+                    Code = activities.Select(activity => activity.GetValueOrDefault("Enrollment code")).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? record.Code,
                     Insights = null
                 });
             }

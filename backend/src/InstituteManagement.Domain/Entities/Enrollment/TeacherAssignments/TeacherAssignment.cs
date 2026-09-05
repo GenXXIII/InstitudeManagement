@@ -2,6 +2,7 @@ namespace InstituteManagement.Domain.Entities;
 
 public sealed class TeacherAssignment : Entity
 {
+    public string EnrollmentCode { get; set; } = string.Empty;
     public Guid TeacherId { get; set; }
     public Teacher? Teacher { get; set; }
     public Guid? DepartmentId { get; set; }

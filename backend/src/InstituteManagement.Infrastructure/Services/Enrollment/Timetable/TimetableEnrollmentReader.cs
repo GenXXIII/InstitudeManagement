@@ -22,14 +22,14 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                 && assignment.Semester == period.Semester
                 && assignment.Status == "Active")
             .ToDictionaryAsync(assignment => assignment.CourseId, cancellationToken);
-        var enrolledIds = await db.TimetableEnrollments
+        var enrollments = await db.TimetableEnrollments
             .AsNoTracking()
             .Where(enrollment =>
                 enrollment.AcademicYear == period.AcademicYear
                 && enrollment.Semester == period.Semester
                 && enrollment.Status == "Active")
-            .Select(enrollment => enrollment.ScheduleEntryId)
-            .ToListAsync(cancellationToken);
+            .ToDictionaryAsync(enrollment => enrollment.ScheduleEntryId, cancellationToken);
+        var enrolledIds = enrollments.Keys.ToList();
         var entries = await db.ScheduleEntries
             .AsNoTracking()
             .Include(entry => entry.Course)
@@ -45,6 +45,7 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                 && (!year.HasValue || entry.YearLevel == year)
                 && Matches(
                     search,
+                    enrollments[entry.Id].EnrollmentCode,
                     entry.TimetableCode,
                     entry.Course?.CourseCode,
                     entry.Course?.Name,
@@ -58,7 +59,8 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                 return TimetableEnrollmentItemFactory.Create(
                     entry,
                     assignment.DepartmentId,
-                    assignment.Department?.Name);
+                    assignment.Department?.Name,
+                    enrollments[entry.Id].EnrollmentCode);
             })
             .ToList();
     }

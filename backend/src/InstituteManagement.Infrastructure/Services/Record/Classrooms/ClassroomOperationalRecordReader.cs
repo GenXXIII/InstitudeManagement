@@ -42,7 +42,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
                 var courseNames = schedules.Select(x => x.Course?.Name ?? "Course").Distinct().OrderBy(x => x).ToList();
                 var years = schedules.Select(x => $"Year {x.YearLevel}").Distinct().OrderBy(x => x).ToList();
                 return (assignment.UpdatedAtUtc, Create(
-                    ("Activity", "Classroom assignment"), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
+                    ("Activity", "Classroom assignment"), ("Enrollment code", assignment.EnrollmentCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", years.Count == 0 ? "Not scheduled" : string.Join(", ", years)),
                     ("Classroom", room.ClassroomCode), ("Building", room.Building), ("Room type", room.RoomType),

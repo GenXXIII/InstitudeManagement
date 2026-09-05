@@ -1,37 +1,67 @@
 export type WorkflowCodeResource = "student" | "teacher" | "course" | "classroom" | "timetable" | "department" | "attendance" | "grade" | "session";
 export type WorkflowCodeStage = "management" | "enrollment" | "operation" | "record" | "history";
 
-const resourcePrefixes: Record<WorkflowCodeResource, string> = {
-  student: "STU",
-  teacher: "TEA",
-  course: "COU",
-  classroom: "CLA",
-  timetable: "TIM",
-  department: "DEP",
-  attendance: "ATT",
-  grade: "GRD",
-  session: "SES",
-};
+type ResourcePrefixes = Record<WorkflowCodeStage, string>;
 
-const stagePrefixes: Record<WorkflowCodeStage, string> = {
-  management: "",
-  enrollment: "E",
-  operation: "O",
-  record: "R",
-  history: "H",
+const fallbackPrefixes: Record<WorkflowCodeResource, ResourcePrefixes> = {
+  student: prefixes("STU", "ESTU", "OSTU", "RSTU", "HSTU"),
+  teacher: prefixes("TEA", "ETEA", "OTEA", "RTEA", "HTEA"),
+  course: prefixes("COU", "ECOU", "OCOU", "RCOU", "HCOU"),
+  classroom: prefixes("CLA", "ECLA", "OCLA", "RCLA", "HCLA"),
+  timetable: prefixes("TIM", "ETIM", "OTIM", "RTIM", "HTIM"),
+  department: prefixes("DEP", "EDEP", "ODEP", "RDEP", "HDEP"),
+  attendance: prefixes("ATT", "EATT", "OATT", "RATT", "HATT"),
+  grade: prefixes("GRD", "EGRD", "OGRD", "RGRD", "HGRD"),
+  session: prefixes("SES", "ESES", "OSES", "RSES", "HSES"),
 };
 
 export const workflowStages: WorkflowCodeStage[] = ["management", "enrollment", "operation", "record", "history"];
+let runtimeValues: Record<string, string> = fallbackValues();
+let runtimeYear = new Date().getFullYear().toString();
+
+
+export function configureWorkflowCodes(values: Record<string, string>, academicYear?: string) {
+  runtimeValues = { ...fallbackValues(), ...values };
+  runtimeYear = academicYear?.match(/\d{4}/)?.[0] ?? new Date().getFullYear().toString();
+}
+
+export function formatAssignedCode(sourceCode: string | undefined, resource: WorkflowCodeResource, stage: WorkflowCodeStage) {
+  const prefix = configuredPrefix(resource, stage);
+  const separator = configuredSeparator();
+  const rawSuffix = sourceSuffix(sourceCode, resource);
+  if (!rawSuffix) return "";
+  const includeYear = runtimeValues.codeIncludeYear === "true";
+  const suffixWithoutYear = includeYear && rawSuffix.startsWith(`${runtimeYear}${separator}`)
+    ? rawSuffix.slice(runtimeYear.length + separator.length)
+    : rawSuffix;
+  const suffix = /^\d+$/.test(suffixWithoutYear)
+    ? suffixWithoutYear.padStart(configuredPadding(), "0")
+    : suffixWithoutYear;
+  return [prefix, ...(includeYear ? [runtimeYear] : []), suffix].join(separator).toUpperCase();
+}
 
 export function workflowCode(sourceCode: string | undefined, resource: WorkflowCodeResource, stage: WorkflowCodeStage) {
-  const basePrefix = resourcePrefixes[resource];
-  const prefix = `${stagePrefixes[stage]}${basePrefix}`;
-  const normalized = (sourceCode ?? "").trim();
-  if (!normalized) return `${prefix}-UNASSIGNED`;
-  if (normalized.toUpperCase().startsWith(`${prefix}-`)) return normalized.toUpperCase();
-  const separator = normalized.indexOf("-");
-  const suffix = separator >= 0 ? normalized.slice(separator + 1) : normalized;
-  return `${prefix}-${suffix}`.toUpperCase();
+  const prefix = configuredPrefix(resource, stage);
+  const suffix = sourceSuffix(sourceCode, resource);
+  if (!suffix) return `${prefix}${configuredSeparator()}UNASSIGNED`;
+  return `${prefix}${configuredSeparator()}${suffix}`.toUpperCase();
+}
+
+export function workflowCodeExample(resource: WorkflowCodeResource, stage: WorkflowCodeStage) {
+  return formatAssignedCode(runtimeValues.codeStartingNumber || "1", resource, stage);
+}
+
+export function workflowResourceForField(key: string): WorkflowCodeResource | undefined {
+  if (key === "studentCode") return "student";
+  if (key === "teacherCode") return "teacher";
+  if (key === "courseCode") return "course";
+  if (key === "classroomCode") return "classroom";
+  if (key === "timetableCode") return "timetable";
+  if (key === "departmentCode") return "department";
+  if (key === "attendanceCode") return "attendance";
+  if (key === "gradeCode") return "grade";
+  if (key === "classSessionRecordCode") return "session";
+  return undefined;
 }
 
 export function workflowResource(value: string): WorkflowCodeResource {
@@ -53,6 +83,54 @@ export function workflowStageLabel(stage: WorkflowCodeStage) {
 
 export function workflowSourceSearch(query: string) {
   const trimmed = query.trim();
-  const match = trimmed.match(/^(?:EA|[EORH])?(?:STU|TEA|COU|CLA|TIM|DEP|ATT|GRD|SES)-(.+)$/i);
-  return match?.[1] ?? trimmed;
+  if (!trimmed) return "";
+  for (const resource of Object.keys(fallbackPrefixes) as WorkflowCodeResource[]) {
+    const suffix = sourceSuffix(trimmed, resource);
+    if (suffix !== trimmed.toUpperCase()) return suffix;
+  }
+  return trimmed;
+}
+
+function sourceSuffix(sourceCode: string | undefined, resource: WorkflowCodeResource) {
+  const normalized = (sourceCode ?? "").trim().toUpperCase();
+  if (!normalized) return "";
+  const knownPrefixes = workflowStages
+    .map(stage => configuredPrefix(resource, stage).toUpperCase())
+    .filter(Boolean)
+    .toSorted((left, right) => right.length - left.length);
+  for (const prefix of knownPrefixes) {
+    if (!normalized.startsWith(prefix)) continue;
+    const remainder = normalized.slice(prefix.length);
+    if (!remainder) return "";
+    if (/^[._/-]/.test(remainder)) return remainder.slice(1);
+    if (/^\d/.test(remainder)) return remainder;
+  }
+  return normalized;
+}
+
+function configuredPrefix(resource: WorkflowCodeResource, stage: WorkflowCodeStage) {
+  return runtimeValues[`${resource}${capitalize(stage)}Prefix`]?.trim().toUpperCase() || fallbackPrefixes[resource][stage];
+}
+
+function configuredSeparator() {
+  return ["-", "/", ".", "_"].includes(runtimeValues.codeSeparator) ? runtimeValues.codeSeparator : "-";
+}
+
+function configuredPadding() {
+  const value = Number(runtimeValues.codePaddingWidth);
+  return Number.isInteger(value) && value >= 1 && value <= 12 ? value : 1;
+}
+
+function fallbackValues() {
+  const format = { codeIncludeYear: "false", codeStartingNumber: "1", codePaddingWidth: "1", codeSeparator: "-" };
+  return Object.assign({}, format, ...Object.entries(fallbackPrefixes).flatMap(([resource, values]) =>
+    workflowStages.map(stage => ({ [`${resource}${capitalize(stage)}Prefix`]: values[stage] }))));
+}
+
+function prefixes(management: string, enrollment: string, operation: string, record: string, history: string): ResourcePrefixes {
+  return { management, enrollment, operation, record, history };
+}
+
+function capitalize(value: string) {
+  return `${value[0].toUpperCase()}${value.slice(1)}`;
 }

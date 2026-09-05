@@ -25,7 +25,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
         {
             var completed = studentSessions.Where(x => x.Student.StudentId == student.Id).ToList();
             var studentGrades = grades.Where(x => x.StudentId == student.Id).ToList();
-            var enrollmentEvents = enrollments.Where(x => x.StudentId == student.Id).Select(x => (At: x.UpdatedAtUtc, Activity: Create(("Activity", "Student enrollment"), ("Academic year", x.AcademicYear), ("Term", x.Semester), ("Date", x.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", x.UpdatedAtUtc.ToString("HH:mm")), ("Year", $"Year {x.YearLevel}"), ("Shift", x.Shift), ("Department", x.Department?.Name ?? student.Department?.Name ?? "Unassigned"), ("Enrollment status", x.Status))));
+            var enrollmentEvents = enrollments.Where(x => x.StudentId == student.Id).Select(x => (At: x.UpdatedAtUtc, Activity: Create(("Activity", "Student enrollment"), ("Enrollment code", x.EnrollmentCode), ("Academic year", x.AcademicYear), ("Term", x.Semester), ("Date", x.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", x.UpdatedAtUtc.ToString("HH:mm")), ("Year", $"Year {x.YearLevel}"), ("Shift", x.Shift), ("Department", x.Department?.Name ?? student.Department?.Name ?? "Unassigned"), ("Enrollment status", x.Status))));
             var attendanceEvents = completed.Select(x => (At: x.Session.UpdatedAtUtc, Activity: Create(
                 ("Activity", "Class attendance"), ("ClassSessionId", x.Session.Id.ToString()),
                 ("Class session code", SessionCode(x.Session)), ("Timetable code", x.Session.ScheduleEntry?.TimetableCode ?? "Not recorded"),

@@ -5,18 +5,18 @@ import { scheduleMatchesShift } from "../common/enrollment-relationships";
 export const studentEnrollmentCopy: EnrollmentCopy = {
   title: "Student Enrollment",
   description: "Select a student added in Management, then enroll their code and name into a department, year, and learning shift.",
-  columns: ["StudentCode", "Name", "Year", "Shift", "Department", "Actions"],
+  columns: ["EnrollmentCode", "Name", "Year", "Shift", "Department", "Actions"],
 };
 
 export const studentAssignmentCopy: EnrollmentCopy = {
   title: "Student Assign",
   description: "Read-only view of each enrolled student's department, year, shift, assigned courses, classrooms, and weekly classes.",
-  columns: ["StudentCode", "Student", "Department", "Year / shift", "Assigned courses", "Assigned classrooms", "Weekly classes"],
+  columns: ["EnrollmentCode", "Student", "Department", "Year / shift", "Assigned courses", "Assigned classrooms", "Weekly classes"],
 };
 
 export function studentEnrollmentCells(item: EnrollmentDisplayItem) {
   const value = item.values;
-  return [value.studentCode, value.name, value.year ? `Year ${value.year}` : "Unassigned", value.shift || "Unassigned", value.year === "1" ? "General foundation" : value.department];
+  return [value.enrollmentCode, value.name, value.year ? `Year ${value.year}` : "Unassigned", value.shift || "Unassigned", value.year === "1" ? "General foundation" : value.department];
 }
 
 export function studentAssignmentCells(item: EnrollmentDisplayItem, schedules: EnrollmentItem[]) {
@@ -26,7 +26,7 @@ export function studentAssignmentCells(item: EnrollmentDisplayItem, schedules: E
     && schedule.values.yearLevel === value.year
     && scheduleMatchesShift(schedule, value.shift));
   return [
-    value.studentCode,
+    value.enrollmentCode,
     value.name,
     value.year === "1" ? "General foundation" : value.department,
     [value.year ? `Year ${value.year}` : "Unassigned", value.shift].filter(Boolean).join(" / "),

@@ -5,6 +5,7 @@ export const settingSections = [
   "departments",
   "courses",
   "classrooms",
+  "code-formats",
   "users-access",
   "student-rules",
   "teacher-rules",

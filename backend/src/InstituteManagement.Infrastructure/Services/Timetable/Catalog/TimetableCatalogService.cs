@@ -66,7 +66,7 @@ public sealed class TimetableCatalogService(InstituteDbContext db, InstituteCach
 
     private async Task ApplyAsync(ScheduleEntry entry, Dictionary<string, string> values, CancellationToken ct)
     {
-        var timetableCode = RequiredCode(values, "timetableCode");
+        var timetableCode = await ConfiguredCodeAsync(values, "timetableCode", "timetable", ct); values["timetableCode"] = timetableCode;
         await EnsureUniqueAsync(Db.ScheduleEntries.Where(item => item.Id != entry.Id && item.TimetableCode == timetableCode), "TimetableCode", ct);
         entry.TimetableCode = timetableCode;
         entry.YearLevel = IntInRange(values, "yearLevel", 1, 1, 4);

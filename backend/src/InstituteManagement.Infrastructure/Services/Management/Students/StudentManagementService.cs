@@ -18,13 +18,13 @@ public sealed class StudentManagementService(InstituteDbContext db, InstituteCac
     }
     public override async Task<StudentResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var code = RequiredCode(values, "studentCode");
+        var code = await ConfiguredCodeAsync(values, "studentCode", "student", ct); values["studentCode"] = code;
         await EnsureUniqueAsync(Db.Students.Where(student => student.StudentCode == code), "StudentCode", ct);
         return await SaveCreatedAsync(new Student { StudentCode = code, FullName = Required(values, "name"), Email = Email(values, "email"), PhotoDataUrl = Required(values, "photoDataUrl"), DepartmentId = null, YearLevel = 0, Shift = "", Status = "Active" }, values, ct);
     }
     public override async Task<StudentResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
-        var entity = await RequiredEntityAsync(Db.Students, id, ct); var code = RequiredCode(values, "studentCode");
+        var entity = await RequiredEntityAsync(Db.Students, id, ct); var code = await ConfiguredCodeAsync(values, "studentCode", "student", ct); values["studentCode"] = code;
         await EnsureUniqueAsync(Db.Students.Where(student => student.Id != id && student.StudentCode == code), "StudentCode", ct);
         entity.StudentCode = code; entity.FullName = Required(values, "name"); entity.Email = Email(values, "email"); entity.PhotoDataUrl = Required(values, "photoDataUrl"); Touch(entity);
         return await SaveUpdatedAsync(id, values, ct);

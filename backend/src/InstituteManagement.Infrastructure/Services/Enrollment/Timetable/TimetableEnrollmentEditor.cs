@@ -1,6 +1,7 @@
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.Enrollment.EnrollmentItemFactory;
 using static InstituteManagement.Infrastructure.Services.Enrollment.EnrollmentValueParser;
@@ -39,6 +40,9 @@ internal sealed class TimetableEnrollmentEditor(
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
+        var enrollmentCode = await BusinessCodeFormatter.FormatAsync(db, values, "enrollmentCode", "timetable", "enrollment", cancellationToken);
+        if (await db.TimetableEnrollments.AnyAsync(item => item.Id != (enrollment == null ? Guid.Empty : enrollment.Id) && item.EnrollmentCode == enrollmentCode, cancellationToken))
+            throw new InvalidOperationException("EnrollmentCode already exists.");
         if (enrollment is null)
         {
             enrollment = new TimetableEnrollment
@@ -50,6 +54,7 @@ internal sealed class TimetableEnrollmentEditor(
             db.TimetableEnrollments.Add(enrollment);
         }
 
+        enrollment.EnrollmentCode = enrollmentCode;
         enrollment.Status = "Active";
         enrollment.UpdatedAtUtc = DateTime.UtcNow;
         db.AuditLogs.Add(EnrollmentAuditFactory.Create(
@@ -59,6 +64,7 @@ internal sealed class TimetableEnrollmentEditor(
             "Enrollment added",
             AssignmentValues(
                 ("timetableCode", entry.TimetableCode),
+                ("enrollmentCode", enrollment.EnrollmentCode),
                 ("classroomStatus", entry.Classroom?.Status ?? "Maintenance"),
                 ("academicYear", period.AcademicYear),
                 ("semester", period.Semester))));
@@ -67,6 +73,7 @@ internal sealed class TimetableEnrollmentEditor(
             entry,
             course.DepartmentId,
             course.Department?.Name,
+            enrollment.EnrollmentCode,
             enrollment.Status);
     }
 
@@ -93,6 +100,7 @@ internal sealed class TimetableEnrollmentEditor(
 
         var entry = enrollment.ScheduleEntry;
         var values = AssignmentValues(
+            ("enrollmentCode", enrollment.EnrollmentCode),
             ("timetableCode", entry.TimetableCode),
             ("courseId", entry.CourseId.ToString()),
             ("teacherId", entry.TeacherId.ToString()),

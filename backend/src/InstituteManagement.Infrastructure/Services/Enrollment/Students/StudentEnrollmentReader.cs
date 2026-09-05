@@ -43,9 +43,10 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
             .Where(row =>
                 (!departmentId.HasValue || row.enrollment?.DepartmentId == departmentId)
                 && (!year.HasValue || row.enrollment?.YearLevel == year)
-                && Matches(search, row.student.StudentCode, row.student.FullName, row.department?.Name))
+                && Matches(search, row.enrollment?.EnrollmentCode, row.student.StudentCode, row.student.FullName, row.department?.Name))
             .Select(row => Item(
                 row.student.Id,
+                ("enrollmentCode", row.enrollment?.EnrollmentCode ?? ""),
                 ("studentCode", row.student.StudentCode),
                 ("name", row.student.FullName),
                 ("email", row.student.Email),

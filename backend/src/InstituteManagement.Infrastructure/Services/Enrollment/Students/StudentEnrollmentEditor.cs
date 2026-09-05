@@ -2,6 +2,7 @@ using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.Enrollment.EnrollmentItemFactory;
 using static InstituteManagement.Infrastructure.Services.Enrollment.EnrollmentValueParser;
@@ -29,6 +30,9 @@ internal sealed class StudentEnrollmentEditor(
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
+        var enrollmentCode = await BusinessCodeFormatter.FormatAsync(db, values, "enrollmentCode", "student", "enrollment", cancellationToken);
+        if (await db.StudentEnrollments.AnyAsync(item => item.Id != (enrollment == null ? Guid.Empty : enrollment.Id) && item.EnrollmentCode == enrollmentCode, cancellationToken))
+            throw new InvalidOperationException("EnrollmentCode already exists.");
 
         if (enrollment is null)
         {
@@ -55,6 +59,7 @@ internal sealed class StudentEnrollmentEditor(
         }
 
         enrollment.DepartmentId = departmentId;
+        enrollment.EnrollmentCode = enrollmentCode;
         enrollment.YearLevel = year;
         enrollment.Shift = shift;
         enrollment.Status = Choice(values, "status", ["Active", "Paused", "Completed"], "Active");
@@ -71,6 +76,7 @@ internal sealed class StudentEnrollmentEditor(
 
         return Item(
             id,
+            ("enrollmentCode", enrollment.EnrollmentCode),
             ("studentCode", student.StudentCode),
             ("name", student.FullName),
             ("departmentId", departmentId.ToString()),

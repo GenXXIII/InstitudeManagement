@@ -45,9 +45,10 @@ internal sealed class CourseAssignmentReader(InstituteDbContext db)
                 row.assignment is not null
                 && (!departmentId.HasValue || row.assignment.DepartmentId == departmentId)
                 && (!year.HasValue || row.assignment.YearLevel == year)
-                && Matches(search, row.course.CourseCode, row.course.Name, row.department?.Name, row.teacher?.FullName))
+                && Matches(search, row.assignment?.EnrollmentCode, row.course.CourseCode, row.course.Name, row.department?.Name, row.teacher?.FullName))
             .Select(row => Item(
                 row.course.Id,
+                ("enrollmentCode", row.assignment?.EnrollmentCode ?? ""),
                 ("courseCode", row.course.CourseCode),
                 ("name", row.course.Name),
                 ("departmentId", row.assignment?.DepartmentId.ToString() ?? ""),

@@ -38,7 +38,7 @@ public sealed class ClassroomManagementService(InstituteDbContext db, InstituteC
 
     public override async Task<ClassroomResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var classroomCode = RequiredCode(values, "classroomCode");
+        var classroomCode = await ConfiguredCodeAsync(values, "classroomCode", "classroom", ct); values["classroomCode"] = classroomCode;
         await EnsureUniqueAsync(Db.Classrooms.Where(room => room.ClassroomCode == classroomCode), "ClassroomCode", ct);
         var status = RoomStatus(values); var deviceOnline = Bool(values, "deviceOnline", true); await ValidateDeviceAsync(status, deviceOnline, ct);
         var defaultCapacity = await DefaultCapacityAsync(40, ct);
@@ -58,7 +58,7 @@ public sealed class ClassroomManagementService(InstituteDbContext db, InstituteC
     public override async Task<ClassroomResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
         var entity = await RequiredEntityAsync(Db.Classrooms, id, ct);
-        var classroomCode = RequiredCode(values, "classroomCode");
+        var classroomCode = await ConfiguredCodeAsync(values, "classroomCode", "classroom", ct); values["classroomCode"] = classroomCode;
         await EnsureUniqueAsync(Db.Classrooms.Where(room => room.Id != id && room.ClassroomCode == classroomCode), "ClassroomCode", ct);
         var status = RoomStatus(values);
         var wasOnline = entity.DeviceOnline;

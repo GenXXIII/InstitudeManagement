@@ -1,4 +1,4 @@
 import { request } from "@/lib/http";
-import type { Dashboard } from "./dashboard-types";
+import type { Dashboard, DashboardRange } from "./dashboard-types";
 
-export const dashboardApi = { get: () => request<Dashboard>("/api/dashboard") };
+export const dashboardApi = { get: (range: DashboardRange) => request<Dashboard>(`/api/dashboard?range=${range}`) };
