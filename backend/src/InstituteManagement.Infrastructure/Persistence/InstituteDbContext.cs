@@ -30,6 +30,7 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
         var format = RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
+        format ??= RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignHistoryBusinessCodes(format);
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
@@ -39,6 +40,7 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
         var format = RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
+        format ??= RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignHistoryBusinessCodes(format);
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }

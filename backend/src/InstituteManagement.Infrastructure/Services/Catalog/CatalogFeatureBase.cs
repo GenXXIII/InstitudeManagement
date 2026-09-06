@@ -63,8 +63,8 @@ public abstract class CatalogFeatureBase<TResponse>(InstituteDbContext db, Insti
     protected static string RequiredCode(Dictionary<string, string> values, string key) =>
         CatalogValidation.RequiredCode(values, key);
 
-    protected Task<string> GeneratedCodeAsync(string resource, CancellationToken ct) =>
-        BusinessCodeFormatter.GenerateAsync(Db, resource, ct);
+    protected Task<string> ConfiguredCodeAsync(Dictionary<string, string> values, string key, string resource, CancellationToken ct) =>
+        BusinessCodeFormatter.FormatAsync(Db, values, key, resource, "management", ct);
 
     protected static string Get(IReadOnlyDictionary<string, string> values, string key, string fallback = "") =>
         CatalogValidation.Get(values, key, fallback);
@@ -95,6 +95,15 @@ public abstract class CatalogFeatureBase<TResponse>(InstituteDbContext db, Insti
     protected static async Task EnsureUniqueAsync<T>(IQueryable<T> duplicates, string field, CancellationToken ct)
         where T : class =>
         await CatalogValidation.EnsureUniqueAsync(duplicates, field, ct);
+
+    protected async Task EnsureUniqueCodeAsync(IQueryable<string> assignedCodes, string candidate, string field, CancellationToken ct)
+    {
+        if (await BusinessCodeFormatter.HasAssignedSequenceAsync(assignedCodes, candidate, ct))
+        {
+            var recommendation = await BusinessCodeFormatter.RecommendAvailableAsync(Db, assignedCodes, candidate, ct);
+            throw new InvalidOperationException($"{field} sequence already exists. Recommended available code: {recommendation}.");
+        }
+    }
 
     protected Task<Guid> RelatedIdAsync<T>(Dictionary<string, string> values, string key, CancellationToken ct) where T : Entity =>
         CatalogValidation.RelatedIdAsync<T>(Db, values, key, ct);

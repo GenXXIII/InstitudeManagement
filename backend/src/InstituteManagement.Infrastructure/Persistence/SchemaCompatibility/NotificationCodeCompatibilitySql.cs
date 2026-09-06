@@ -33,12 +33,21 @@ internal static class NotificationCodeCompatibilitySql
 
             IF EXISTS (SELECT 1 FROM [NotificationHistory] WHERE LEN([NotificationHistoryCode]) = 36 AND [NotificationHistoryCode] LIKE 'NHS-%' AND SUBSTRING([NotificationHistoryCode], 5, 32) NOT LIKE '%[^0-9A-Fa-f]%')
             BEGIN
-                ;WITH [Numbered] AS (
+                ;WITH [Highest] AS (
+                    SELECT COALESCE(MAX(TRY_CONVERT(bigint, SUBSTRING([NotificationHistoryCode], 5, 60))), 0) AS [Sequence]
+                    FROM [NotificationHistory]
+                    WHERE [NotificationHistoryCode] LIKE 'NHS-%'
+                ), [Numbered] AS (
                     SELECT [Id], ROW_NUMBER() OVER (ORDER BY [CreatedAtUtc], [Id]) AS [Sequence]
                     FROM [NotificationHistory]
+                    WHERE LEN([NotificationHistoryCode]) = 36
+                        AND [NotificationHistoryCode] LIKE 'NHS-%'
+                        AND SUBSTRING([NotificationHistoryCode], 5, 32) NOT LIKE '%[^0-9A-Fa-f]%'
                 )
-                UPDATE [item] SET [NotificationHistoryCode] = CONCAT('NHS-', RIGHT(CONCAT('00000000', [numbered].[Sequence]), 8))
-                FROM [NotificationHistory] [item] INNER JOIN [Numbered] [numbered] ON [numbered].[Id] = [item].[Id];
+                UPDATE [item] SET [NotificationHistoryCode] = CONCAT('NHS-', RIGHT(CONCAT('00000000', [highest].[Sequence] + [numbered].[Sequence]), 8))
+                FROM [NotificationHistory] [item]
+                INNER JOIN [Numbered] [numbered] ON [numbered].[Id] = [item].[Id]
+                CROSS JOIN [Highest] [highest];
             END;
         END;
         """;

@@ -12,17 +12,16 @@ const resources = [
   ["attendance", "Attendance", ["ATT", "EATT", "OPE", "REC", "HIS"]],
   ["grade", "Grade", ["GRD", "EGRD", "OPE", "REC", "HIS"]],
   ["session", "Class session", ["SES", "ESES", "OPE", "REC", "HIS"]],
-  ["alert", "Alert", ["ALT", "EALT", "OPE", "REC", "HIS"]],
 ] as const;
 
 export const codeFormatGroups: readonly ConfigurationGroup[] = [
   {
     title: "Shared linked-code format",
-    description: "The API assigns the Management identity and automatically builds every linked stage code with the same numeric sequence.",
+    description: "Management and Alert forms format the sequence you enter; the API then validates it and automatically builds linked stage codes with the same sequence.",
     fields: [
       field("codeIncludeYear", "Include year", "Place the active academic year's first year inside the Management code.", "toggle"),
-      field("codeStartingNumber", "Starting number", "Lowest sequence used when the backend assigns a new Management code.", "number", { required: true, min: 0, max: 999999999999 }),
-      field("codePaddingWidth", "Padding width", "Digits shared by the Management and stage suffixes; 4 produces STU-0001-ESTU-0001.", "number", { required: true, min: 1, max: 12 }),
+      field("codeStartingNumber", "Starting number", "Initial sequence shown in previews and used by records that the backend creates automatically.", "number", { required: true, min: 0, max: 999999999999 }),
+      field("codePaddingWidth", "Padding width", "Digits shared by assigned Management, Alert, and linked-code suffixes; 5 turns sequence 1 into STU-00001 or NOT-00001.", "number", { required: true, min: 1, max: 12 }),
       field("codeSeparator", "Separator", "Character joining the permanent Management code and each stage segment.", "select", { required: true, options: options("-", "/", ".", "_") }),
     ],
   },
@@ -34,6 +33,16 @@ export const codeFormatGroups: readonly ConfigurationGroup[] = [
       field(`${resource}${capitalize(stage)}Example`, `${capitalize(stage)} example`, "Preview of the backend-generated linked code.", "derived", { derive: values => example(values, resource, stage, prefixes) }),
     ]),
   })),
+  {
+    title: "Notification codes",
+    description: "Required Alert codes, automatic notifications, and permanent notification history use the same shared year, sequence, padding, and separator configured above.",
+    fields: [
+      field("notificationCodePrefix", "Alert and notification prefix", "Prefix used when a typed Alert sequence is formatted and when system notifications are assigned.", "text", { required: true }),
+      field("notificationCodeExample", "Alert and notification example", "Preview using the shared Code Formats rules.", "derived", { derive: values => standaloneExample(values, "notificationCodePrefix", "NOT") }),
+      field("historyCodePrefix", "Notification history prefix", "Prefix assigned to permanent notification lifecycle entries; this is separate from Record History.", "text", { required: true }),
+      field("historyCodeExample", "Notification history example", "Preview using the shared Code Formats rules.", "derived", { derive: values => standaloneExample(values, "historyCodePrefix", "NHS") }),
+    ],
+  },
 ];
 
 function example(values: Record<string, string>, resource: string, stage: typeof stages[number], fallbacks: readonly string[]) {
@@ -48,6 +57,16 @@ function example(values: Record<string, string>, resource: string, stage: typeof
   const stageIndex = stages.indexOf(stage);
   const stagePrefix = values[`${resource}${capitalize(stage)}Prefix`]?.trim().toUpperCase() || fallbacks[stageIndex];
   return `${managementCode}${separator}${stagePrefix}${separator}${sequence}`;
+}
+
+function standaloneExample(values: Record<string, string>, prefixKey: string, fallback: string) {
+  const separator = ["-", "/", ".", "_"].includes(values.codeSeparator) ? values.codeSeparator : "-";
+  const prefix = values[prefixKey]?.trim().toUpperCase() || fallback;
+  const rawSequence = /^\d+$/.test(values.codeStartingNumber || "") ? values.codeStartingNumber : "1";
+  const width = Math.min(12, Math.max(1, Number(values.codePaddingWidth) || 1));
+  const sequence = rawSequence.padStart(width, "0");
+  const year = values.codeIncludeYear === "true" ? `${new Date().getFullYear()}${separator}` : "";
+  return `${prefix}${separator}${year}${sequence}`;
 }
 
 function capitalize(value: string) {

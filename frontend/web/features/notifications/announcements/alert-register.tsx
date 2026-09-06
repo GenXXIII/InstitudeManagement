@@ -1,4 +1,5 @@
 import { Icon } from "@/components/icon";
+import { formatNotificationCode, notificationCodeExample } from "@/lib/workflow-code";
 import type { AnnouncementDraft, AnnouncementItem } from "./announcement-types";
 
 export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, onCancel, onEdit, onRemove }: {
@@ -14,6 +15,20 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, o
 }) {
   return <>
     <section className="panel announce-alert-form">
+      <label className="announce-alert-code-field">
+        <span>Alert code</span>
+        <input
+          className="management-code-value"
+          value={draft.announcementCode}
+          readOnly={Boolean(editing)}
+          required
+          placeholder="Enter sequence, for example 1"
+          aria-label="Alert code sequence"
+          onChange={event => onDraft({ ...draft, announcementCode: event.target.value })}
+          onBlur={() => { if (!editing && draft.announcementCode.trim()) onDraft({ ...draft, announcementCode: formatNotificationCode(draft.announcementCode) }); }}
+        />
+        <small>{editing ? "Permanent code" : `Final code: ${draft.announcementCode.trim() ? formatNotificationCode(draft.announcementCode) : notificationCodeExample()}`}</small>
+      </label>
       <label>
         <span>Alert type</span>
         <select
@@ -25,20 +40,23 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, o
           <option>Emergency</option>
           <option>Result</option>
         </select>
+        <small>Choose the alert category</small>
       </label>
       <label>
         <span>Title</span>
-        <input value={draft.title} onChange={event => onDraft({ ...draft, title: event.target.value })}/>
+        <input placeholder="Enter alert title" value={draft.title} onChange={event => onDraft({ ...draft, title: event.target.value })}/>
+        <small>Short heading shown to users</small>
       </label>
       <label>
         <span>Announcement detail</span>
-        <textarea value={draft.message} onChange={event => onDraft({ ...draft, message: event.target.value })}/>
+        <textarea placeholder="Enter notification message" value={draft.message} onChange={event => onDraft({ ...draft, message: event.target.value })}/>
+        <small>Message shown in Notification</small>
       </label>
       <div>
         {editing && <button className="button secondary" onClick={onCancel}>Cancel</button>}
         <button
           className="button primary"
-          disabled={saving || !draft.title.trim() || !draft.message.trim()}
+          disabled={saving || !draft.announcementCode.trim() || !draft.title.trim() || !draft.message.trim()}
           onClick={onSave}
         >
           <Icon name={editing ? "edit" : "plus"} size={15}/>

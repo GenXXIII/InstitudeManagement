@@ -38,8 +38,8 @@ public sealed class ClassroomManagementService(InstituteDbContext db, InstituteC
 
     public override async Task<ClassroomResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var classroomCode = await GeneratedCodeAsync("classroom", ct); values["classroomCode"] = classroomCode;
-        await EnsureUniqueAsync(Db.Classrooms.Where(room => room.ClassroomCode == classroomCode), "ClassroomCode", ct);
+        var classroomCode = await ConfiguredCodeAsync(values, "classroomCode", "classroom", ct); values["classroomCode"] = classroomCode;
+        await EnsureUniqueCodeAsync(Db.Classrooms.Select(room => room.ClassroomCode), classroomCode, "ClassroomCode", ct);
         var status = RoomStatus(values); var deviceOnline = Bool(values, "deviceOnline", true); await ValidateDeviceAsync(status, deviceOnline, ct);
         var defaultCapacity = await DefaultCapacityAsync(40, ct);
         var entity = new Classroom

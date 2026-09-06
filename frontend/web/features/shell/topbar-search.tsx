@@ -8,10 +8,10 @@ import type { ManagementItem, ManagementResource } from "@/features/management/m
 import { workflowSourceSearch } from "@/lib/workflow-code";
 import {
   itemSuggestion,
+  globalSearchHref,
   managementSearchHref,
   matchesYear,
   moduleSearchResults,
-  resourceFromPath,
   scopedHref,
   searchResources,
   type ModuleSearchResult,
@@ -96,12 +96,9 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const exactModule = modules.find(module => module.label.toLowerCase() === query.trim().toLowerCase());
     const action = activeIndex >= 0
       ? actions[activeIndex]
-      : exactModule
-        ? actions.find(candidate => candidate.id === `search-module-${exactModule.id}`)
-        : fallbackAction(pathname, query, departmentId, year, visibleGroups[0]?.resource);
+      : allResultsAction(query, departmentId, year);
     if (action) navigate(action);
   }
 
@@ -146,7 +143,6 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     {showResults && <div className="global-search-results" role="listbox" id={resultsId}>
       <header className="global-search-results-head">
         <div><strong>Search across all modules</strong><span>{searching ? "Finding live institute data..." : `${totalRecords} data matches · ${modules.length} page matches`}</span></div>
-        <small>Use ↑ ↓ and Enter</small>
       </header>
       <div className="global-search-results-body">
         {visibleGroups.length > 0 && <div className="global-search-groups">
@@ -155,7 +151,6 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
         {modules.length > 0 && <ModuleResults modules={modules} actions={actions} activeIndex={activeIndex} departmentId={departmentId} year={year} onNavigate={navigate} onActive={setActiveIndex}/>}
         {!searching && !visibleGroups.length && !modules.length && <div className="global-search-empty"><span><Icon name="search" size={20}/></span><strong>No matches for “{query.trim()}”</strong><small>Try a person’s name, code, course, room, department, or module name.</small></div>}
       </div>
-      <footer className="global-search-footer"><span>Results use the department and year selected in the top bar.</span><span><kbd>Enter</kbd> Open <kbd>Esc</kbd> Close</span></footer>
     </div>}
   </form>;
 }
@@ -164,19 +159,18 @@ function SearchResultGroup({ group, actions, activeIndex, onNavigate, onActive }
   const visibleItems = group.items.slice(0, 2);
   const allAction = actions.find(action => action.id === `search-all-${group.resource}`);
   return <section className="global-search-group">
-    <header><span><Icon name={group.icon as Parameters<typeof Icon>[0]["name"]} size={15}/></span><div><strong>{group.label}</strong><small>{group.items.length} {group.items.length === 1 ? "match" : "matches"}</small></div></header>
-    {visibleItems.map(item => {
-      const action = actions.find(candidate => candidate.id === `search-record-${group.resource}-${item.id}`);
-      if (!action) return null;
-      return <ResultAction action={action} actions={actions} activeIndex={activeIndex} onNavigate={onNavigate} onActive={onActive} key={item.id}/>;
-    })}
     {allAction && <ResultAction action={allAction} actions={actions} activeIndex={activeIndex} onNavigate={onNavigate} onActive={onActive}/>}
+    <div className="global-search-group-matches">{visibleItems.map(item => {
+        const action = actions.find(candidate => candidate.id === `search-record-${group.resource}-${item.id}`);
+        if (!action) return null;
+        return <ResultAction action={action} actions={actions} activeIndex={activeIndex} onNavigate={onNavigate} onActive={onActive} key={item.id}/>;
+      })}
+    </div>
   </section>;
 }
 
 function ModuleResults({ modules, actions, activeIndex, departmentId, year, onNavigate, onActive }: { modules: ModuleSearchResult[]; actions: SearchAction[]; activeIndex: number; departmentId: string; year: string; onNavigate: (action: SearchAction) => void; onActive: (index: number) => void }) {
   return <section className="global-search-pages">
-    <header><div><strong>Pages and modules</strong><small>Jump directly to a workspace</small></div></header>
     <div>{modules.map(module => {
       const action = actions.find(candidate => candidate.id === `search-module-${module.id}`) ?? {
         id: `search-module-${module.id}`,
@@ -198,6 +192,14 @@ function ResultAction({ action, actions, activeIndex, onNavigate, onActive }: { 
 
 function buildActions(groups: SearchGroup[], modules: ModuleSearchResult[], query: string, departmentId: string, year: string): SearchAction[] {
   const recordActions = groups.flatMap(group => [
+    {
+      id: `search-all-${group.resource}`,
+      label: group.label,
+      detail: `${group.items.length} ${group.items.length === 1 ? "match" : "matches"} · Open filtered module`,
+      href: managementSearchHref(group.resource, query, departmentId, year),
+      icon: group.icon,
+      kind: "all" as const,
+    },
     ...group.items.slice(0, 2).map(item => ({
       id: `search-record-${group.resource}-${item.id}`,
       label: item.label,
@@ -206,14 +208,6 @@ function buildActions(groups: SearchGroup[], modules: ModuleSearchResult[], quer
       icon: group.icon,
       kind: "record" as const,
     })),
-    {
-      id: `search-all-${group.resource}`,
-      label: `View all ${group.label.toLowerCase()} matches`,
-      detail: `Open ${group.label} filtered by “${query.trim()}”`,
-      href: managementSearchHref(group.resource, query, departmentId, year),
-      icon: "search",
-      kind: "all" as const,
-    },
   ]);
   const moduleActions = modules.map(module => ({
     id: `search-module-${module.id}`,
@@ -226,16 +220,14 @@ function buildActions(groups: SearchGroup[], modules: ModuleSearchResult[], quer
   return [...recordActions, ...moduleActions];
 }
 
-function fallbackAction(pathname: string, query: string, departmentId: string, year: string, preferredResource?: ManagementResource): SearchAction | undefined {
+function allResultsAction(query: string, departmentId: string, year: string): SearchAction | undefined {
   if (!query.trim()) return undefined;
-  const resource = preferredResource ?? resourceFromPath(pathname);
-  const definition = searchResources.find(item => item.id === resource) ?? searchResources[0];
   return {
-    id: "search-fallback",
-    label: `Search ${definition.label}`,
+    id: "search-all-results",
+    label: "View all search results",
     detail: query.trim(),
-    href: managementSearchHref(resource, query, departmentId, year),
-    icon: definition.icon,
+    href: globalSearchHref(query, departmentId, year),
+    icon: "search",
     kind: "all",
   };
 }

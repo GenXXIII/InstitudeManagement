@@ -15,8 +15,9 @@ import { notificationsApi } from "./notifications/notification-api";
 import { NotificationRegister } from "./notifications/notification-register";
 import type { NotificationDraft, NotificationItem } from "./notifications/notification-types";
 import { AnnounceOverview } from "./overview/announce-overview";
+import { formatNotificationCode } from "@/lib/workflow-code";
 
-const emptyAlert: AnnouncementDraft = { type: "General", title: "", message: "" };
+const emptyAlert: AnnouncementDraft = { announcementCode: "", type: "General", title: "", message: "" };
 
 export function AnnounceWorkspace({ module }: { module: string }) {
   const router = useRouter();
@@ -65,7 +66,8 @@ export function AnnounceWorkspace({ module }: { module: string }) {
   }
   async function saveAlert() {
     setSaving(true); setError("");
-    try { if (editingAlert) await announcementsApi.update(editingAlert, alertDraft); else await announcementsApi.create(alertDraft); notifyBell(); setEditingAlert(undefined); setAlertDraft(emptyAlert); await load(); }
+    const submittedDraft = { ...alertDraft, announcementCode: formatNotificationCode(alertDraft.announcementCode) };
+    try { if (editingAlert) await announcementsApi.update(editingAlert, submittedDraft); else await announcementsApi.create(submittedDraft); notifyBell(); setEditingAlert(undefined); setAlertDraft(emptyAlert); await load(); }
     catch (reason) { setError(message(reason)); } finally { setSaving(false); }
   }
   async function removeAlert(id: string) {
@@ -76,7 +78,7 @@ export function AnnounceWorkspace({ module }: { module: string }) {
   const copy = current === "overview"
     ? { eyebrow: "Announce", title: "Announce Overview", description: "Review every coded notification, institute alert, and read-only announcement history from one place." }
     : current === "alerts"
-    ? { eyebrow: "Announce", title: "Alert", description: "Publish institute-wide general, attendance, emergency, or semester result alerts." }
+    ? { eyebrow: "Announce", title: "Alert", description: "Publish institute-wide alerts with a required permanent code formatted by Administration > Code formats." }
     : current === "history"
       ? { eyebrow: "Announce", title: "History", description: "Read-only history of every notification and alert lifecycle event." }
       : { eyebrow: "Announce", title: "Notification", description: "Review, edit, mark, or remove current system notifications." };
@@ -86,7 +88,7 @@ export function AnnounceWorkspace({ module }: { module: string }) {
     {error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
     {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts} history={history}/>}
     {current === "notifications" && <section className="announce-paginated-region"><NotificationRegister rows={notificationPages.pageItems} editing={editingNotification} draft={notificationDraft} saving={saving} onDraft={setNotificationDraft} onOpen={id => router.push(`/announce/notifications/${id}`)} onEdit={item => { setEditingNotification(item.id); setNotificationDraft({ title: item.title, message: item.message, severity: item.severity, isRead: item.isRead }); }} onSave={saveNotification} onCancel={() => setEditingNotification(undefined)} onRemove={removeNotification}/><DataPagination page={notificationPages.page} pageCount={notificationPages.pageCount} total={notifications.length} onPage={notificationPages.setPage}/></section>}
-    {current === "alerts" && <section className="announce-paginated-region"><AlertRegister rows={alertPages.pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/><DataPagination page={alertPages.page} pageCount={alertPages.pageCount} total={alerts.length} onPage={alertPages.setPage}/></section>}
+    {current === "alerts" && <section className="announce-paginated-region"><AlertRegister rows={alertPages.pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ announcementCode: item.announcementCode, type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/><DataPagination page={alertPages.page} pageCount={alertPages.pageCount} total={alerts.length} onPage={alertPages.setPage}/></section>}
     {current === "history" && <section className="announce-paginated-region"><NotificationHistoryRegister rows={historyPages.pageItems} onOpen={code => router.push(`/announce/history/${encodeURIComponent(code)}`)}/><DataPagination page={historyPages.page} pageCount={historyPages.pageCount} total={history.length} onPage={historyPages.setPage}/></section>}
   </div>;
 }

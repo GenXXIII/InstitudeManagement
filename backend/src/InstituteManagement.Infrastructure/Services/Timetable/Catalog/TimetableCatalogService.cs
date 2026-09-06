@@ -66,7 +66,11 @@ public sealed class TimetableCatalogService(InstituteDbContext db, InstituteCach
 
     private async Task ApplyAsync(ScheduleEntry entry, Dictionary<string, string> values, CancellationToken ct)
     {
-        if (entry.Id == Guid.Empty) entry.TimetableCode = await GeneratedCodeAsync("timetable", ct);
+        if (entry.Id == Guid.Empty)
+        {
+            entry.TimetableCode = await ConfiguredCodeAsync(values, "timetableCode", "timetable", ct);
+            await EnsureUniqueCodeAsync(Db.ScheduleEntries.Select(item => item.TimetableCode), entry.TimetableCode, "TimetableCode", ct);
+        }
         values["timetableCode"] = entry.TimetableCode;
         entry.YearLevel = IntInRange(values, "yearLevel", 1, 1, 4);
         entry.CourseId = await RelatedIdAsync<Course>(values, "courseId", ct); entry.TeacherId = await RelatedIdAsync<Teacher>(values, "teacherId", ct); entry.ClassroomId = await RelatedIdAsync<Classroom>(values, "classroomId", ct);

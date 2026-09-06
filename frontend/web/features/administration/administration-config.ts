@@ -30,13 +30,13 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   departments: ["defaultStatus", "requireDepartmentHead", "allowCrossDepartmentTeaching"],
   courses: ["defaultCapacity", "requireAssignedTeacher"],
   classrooms: ["defaultCapacity", "attendanceDeviceRequired"],
-  "code-formats": ["codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "studentManagementPrefix", "studentEnrollmentPrefix", "studentOperationPrefix", "studentRecordPrefix", "studentHistoryPrefix"],
+  "code-formats": ["codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "studentManagementPrefix", "studentEnrollmentPrefix", "studentOperationPrefix", "studentRecordPrefix", "studentHistoryPrefix", "notificationCodePrefix", "notificationCodeExample", "historyCodePrefix", "historyCodeExample"],
   "users-access": ["defaultUserStatus", "availableRoles"],
   "student-rules": ["maximumCoursesPerSemester", "statuses"],
   "teacher-rules": ["statuses", "maximumCourses", "maximumClasses"],
   "attendance-rules": ["method", "attendanceRequired", "lateThresholdMinutes", "absentAfterMinutes", "autoAbsent", "teacherCanRecord", "notifyAdministrator"],
   "grade-rules": ["gradingSystem", "maximumScore", "passMark", "gpaEnabled", "overallPassMark", "coursePassMark"],
-  notifications: ["notificationCodePrefix", "historyCodePrefix", "codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "notificationCodeExample", "historyCodeExample", "emailEnabled", "inAppEnabled", "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary"],
+  notifications: ["emailEnabled", "inAppEnabled", "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary"],
   system: ["language", "dateFormat", "timeFormat", "timeZone", "autoRefreshSeconds"],
   security: ["passwordMinimumLength", "maximumLoginAttempts", "lockoutDurationMinutes", "twoFactorMode"],
 };
@@ -45,13 +45,13 @@ export const administrationSections: readonly AdministrationSectionDefinition[] 
   section("institute", "General settings", "General", "Institute identity, branding, contact details, and address.", "general", "building"),
   section("academic-year", "Academic year", "Academic year", "Active academic-year identity, dates, and lifecycle status.", "academic", "calendar"),
   section("semester", "Semester and term", "Terms", "Current term plus Semester 1, Semester 2, and Summer Term windows.", "academic", "calendar"),
-  section("departments", "Department rules", "Departments", "Defaults and governance rules; DepartmentCode is assigned automatically and remains permanent.", "academic", "building"),
-  section("courses", "Course rules", "Courses", "Defaults and assignment requirements; CourseCode is assigned automatically and remains permanent.", "academic", "book"),
-  section("classrooms", "Classroom rules", "Classrooms", "Learning-space defaults; ClassroomCode is assigned automatically and remains permanent.", "academic", "room"),
-  section("code-formats", "Code formats", "Codes", "Configure automatic permanent codes reused across the complete resource workflow.", "academic", "settings"),
+  section("departments", "Department rules", "Departments", "Defaults and governance rules; a DepartmentCode sequence is required during creation and remains permanent.", "academic", "building"),
+  section("courses", "Course rules", "Courses", "Defaults and assignment requirements; a CourseCode sequence is required during creation and remains permanent.", "academic", "book"),
+  section("classrooms", "Classroom rules", "Classrooms", "Learning-space defaults; a ClassroomCode sequence is required during creation and remains permanent.", "academic", "room"),
+  section("code-formats", "Code formats", "Codes", "Configure formatting for assigned Management and Alert codes plus automatic Notification, Record, and History codes.", "academic", "settings"),
   section("users-access", "Users and access", "Users & access", "Future account statuses, roles, and permission catalog without fake user records.", "access", "users"),
-  section("student-rules", "Student settings", "Students", "Enrollment rules, statuses, and required information; StudentCode is assigned automatically.", "people", "users"),
-  section("teacher-rules", "Teacher settings", "Teachers", "Statuses, workloads, and assignment requirements; TeacherCode is assigned automatically.", "people", "teacher"),
+  section("student-rules", "Student settings", "Students", "Enrollment rules, statuses, and required information; a unique StudentCode sequence is required.", "people", "users"),
+  section("teacher-rules", "Teacher settings", "Teachers", "Statuses, workloads, and assignment requirements; a unique TeacherCode sequence is required.", "people", "teacher"),
   section("attendance-rules", "Attendance settings", "Attendance", "Capture, threshold, absence, correction, audit, and alert rules.", "policies", "check"),
   section("grade-rules", "Grading settings", "Grading", "Percentage, A+ through F boundaries, pass rules, and GPA behavior.", "policies", "grade"),
   section("notifications", "Notification settings", "Notifications", "Email, SMS, in-app audiences, templates, and operational events.", "platform", "bell"),
@@ -89,13 +89,13 @@ export function configurationSummary(sectionName: SettingSection, values: Record
   if (sectionName === "institute") return `${values.shortName || values.code || "Institute"} · ${values.city || values.country || "Address required"}`;
   if (sectionName === "academic-year") return `${values.currentYear || "Year required"} · ${values.status || "Status required"}`;
   if (sectionName === "semester") return `${values.currentTerm || "Term required"} · ${values.startsOn || "Start date required"}`;
-  if (sectionName === "departments") return `Automatic DepartmentCode · ${values.requireDepartmentHead === "true" ? "Head required" : "Head optional"}`;
-  if (sectionName === "courses") return `Automatic CourseCode · ${values.defaultCapacity || "–"} default seats`;
-  if (sectionName === "classrooms") return `Automatic ClassroomCode · ${values.defaultCapacity || "–"} default seats`;
-  if (sectionName === "code-formats") return `${values.studentManagementPrefix || "STU"} → ${values.studentEnrollmentPrefix || "ESTU"} → ${values.studentRecordPrefix || "REC"} · linked padding ${values.codePaddingWidth || "1"}`;
+  if (sectionName === "departments") return `Assigned DepartmentCode · ${values.requireDepartmentHead === "true" ? "Head required" : "Head optional"}`;
+  if (sectionName === "courses") return `Assigned CourseCode · ${values.defaultCapacity || "–"} default seats`;
+  if (sectionName === "classrooms") return `Assigned ClassroomCode · ${values.defaultCapacity || "–"} default seats`;
+  if (sectionName === "code-formats") return `${values.studentManagementPrefix || "STU"} → ${values.studentEnrollmentPrefix || "ESTU"} · Alert and Notification ${values.notificationCodePrefix || "NOT"}`;
   if (sectionName === "users-access") return `${parseCsv(values.availableRoles).length} roles · ${parseCsv(values.permissionCatalog).length} permissions`;
-  if (sectionName === "student-rules") return `Automatic StudentCode · ${values.maximumCoursesPerSemester || "–"} courses per term`;
-  if (sectionName === "teacher-rules") return `Automatic TeacherCode · ${values.maximumCourses || "–"} courses maximum`;
+  if (sectionName === "student-rules") return `Assigned StudentCode · ${values.maximumCoursesPerSemester || "–"} courses per term`;
+  if (sectionName === "teacher-rules") return `Assigned TeacherCode · ${values.maximumCourses || "–"} courses maximum`;
   if (sectionName === "attendance-rules") return `${values.method || "Method required"} · late from ${values.lateThresholdMinutes || "0"} minutes`;
   if (sectionName === "grade-rules") return `A+ from ${values.aPlusMinimum || "–"} · pass mark ${values.passMark || "–"}%`;
   if (sectionName === "notifications") return `${values.emailEnabled === "true" ? "Email on" : "Email off"} · ${parseCsv(values.enabledTemplates).length} templates`;

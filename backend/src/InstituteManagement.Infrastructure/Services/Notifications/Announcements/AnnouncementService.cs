@@ -28,7 +28,14 @@ public sealed class AnnouncementService(
 
     public async Task<AnnouncementItemDto> CreateAsync(AnnouncementRequestDto request, CancellationToken cancellationToken)
     {
-        var code = await BusinessCodeFormatter.GenerateAsync(db, "alert", cancellationToken);
+        var code = await BusinessCodeFormatter.FormatStandaloneAsync(db, request.AnnouncementCode, "notificationCodePrefix", "NOT", "AnnouncementCode", cancellationToken);
+        var assignedCodes = db.Announcements.Select(item => item.AnnouncementCode)
+            .Concat(db.Notifications.Select(item => item.NotificationCode));
+        if (await BusinessCodeFormatter.HasAssignedSequenceAsync(assignedCodes, code, cancellationToken))
+        {
+            var recommendation = await BusinessCodeFormatter.RecommendAvailableAsync(db, assignedCodes, code, cancellationToken);
+            throw new InvalidOperationException($"Alert code sequence already exists ({code}). Recommended available code: {recommendation}.");
+        }
         var type = await policy.ValidateTypeAsync(request.Type, cancellationToken);
         var title = NotificationContentValidator.Required(request.Title, "Alert title", 200);
         var message = NotificationContentValidator.Required(request.Message, "Alert detail", 2000);
@@ -38,7 +45,7 @@ public sealed class AnnouncementService(
             Type = type,
             Title = title,
             Message = message,
-            Notification = CreateNotification(type, title, message)
+            Notification = CreateNotification(code, type, title, message)
         };
         db.Announcements.Add(entity);
         await SaveAsync(cancellationToken);
@@ -52,7 +59,7 @@ public sealed class AnnouncementService(
         entity.Title = NotificationContentValidator.Required(request.Title, "Alert title", 200);
         entity.Message = NotificationContentValidator.Required(request.Message, "Alert detail", 2000);
         entity.UpdatedAtUtc = DateTime.UtcNow;
-        entity.Notification ??= CreateNotification(entity.Type, entity.Title, entity.Message);
+        entity.Notification ??= CreateNotification(entity.AnnouncementCode, entity.Type, entity.Title, entity.Message);
         UpdateNotification(entity.Notification, entity);
         await SaveAsync(cancellationToken);
         return Map(entity);
@@ -78,8 +85,9 @@ public sealed class AnnouncementService(
         await cache.InvalidateDashboardAsync(cancellationToken);
     }
 
-    private static Notification CreateNotification(string type, string title, string message) => new()
+    private static Notification CreateNotification(string code, string type, string title, string message) => new()
     {
+        NotificationCode = code,
         Type = type,
         Title = title,
         Message = message,
@@ -99,4 +107,5 @@ public sealed class AnnouncementService(
 
     private static AnnouncementItemDto Map(Announcement item) =>
         new(item.Id, item.AnnouncementCode, item.NotificationId, item.Type, item.Title, item.Message, item.CreateAt);
+
 }

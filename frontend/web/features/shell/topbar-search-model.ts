@@ -18,6 +18,7 @@ export type SearchResourceDefinition = {
 
 export type SearchSuggestion = {
   id: string;
+  code: string;
   label: string;
   detail: string;
 };
@@ -70,7 +71,7 @@ export function itemSuggestion(item: ManagementItem, resource: ManagementResourc
     ?? "Institute record";
   const schedule = values.dayOfWeek && values.startsAt ? `${values.dayOfWeek} ${values.startsAt}` : "";
   const detail = [code, values.department, values.email, values.teacher, values.classroom, schedule].filter(Boolean).join(" · ");
-  return { id: item.id, label, detail };
+  return { id: item.id, code, label, detail };
 }
 
 export function moduleSearchResults(query: string) {
@@ -92,6 +93,10 @@ export function scopedHref(href: string, departmentId: string, year: string, que
 
 export function managementSearchHref(resource: ManagementResource, query: string, departmentId: string, year: string) {
   return scopedHref(`/management/${resource}`, departmentId, year, query);
+}
+
+export function globalSearchHref(query: string, departmentId: string, year: string) {
+  return scopedHref("/search", departmentId, year, query);
 }
 
 export function resourceFromPath(pathname: string): ManagementResource {

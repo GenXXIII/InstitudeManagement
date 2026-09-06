@@ -17,8 +17,7 @@ internal static partial class BusinessCodeFormatter
         ["timetable"] = ["TIM", "ETIM", "OPE", "REC", "HIS"],
         ["attendance"] = ["ATT", "EATT", "OPE", "REC", "HIS"],
         ["grade"] = ["GRD", "EGRD", "OPE", "REC", "HIS"],
-        ["session"] = ["SES", "ESES", "OPE", "REC", "HIS"],
-        ["alert"] = ["ALT", "EALT", "OPE", "REC", "HIS"]
+        ["session"] = ["SES", "ESES", "OPE", "REC", "HIS"]
     };
 
     public static async Task<string> GenerateAsync(InstituteDbContext db, string resource, CancellationToken cancellationToken)
@@ -44,6 +43,60 @@ internal static partial class BusinessCodeFormatter
         string stage,
         CancellationToken cancellationToken) =>
         (await LoadAsync(db, cancellationToken)).Derive(sourceCode, resource, stage);
+
+    public static async Task<string> FormatAsync(
+        InstituteDbContext db,
+        IReadOnlyDictionary<string, string> values,
+        string key,
+        string resource,
+        string stage,
+        CancellationToken cancellationToken)
+    {
+        var raw = values.GetValueOrDefault(key)?.Trim();
+        if (string.IsNullOrWhiteSpace(raw)) throw new ArgumentException($"{DisplayName(key)} is required.");
+        return (await LoadAsync(db, cancellationToken)).Format(raw, resource, stage, DisplayName(key));
+    }
+
+    public static async Task<string> FormatStandaloneAsync(
+        InstituteDbContext db,
+        string? raw,
+        string prefixKey,
+        string fallbackPrefix,
+        string label,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) throw new ArgumentException($"{label} is required.");
+        return (await LoadAsync(db, cancellationToken)).FormatStandalone(raw.Trim(), prefixKey, fallbackPrefix, label);
+    }
+
+    public static async Task<bool> HasAssignedSequenceAsync(IQueryable<string> assignedCodes, string candidate, CancellationToken cancellationToken)
+    {
+        var candidateSequence = NumericSuffix(candidate);
+        return (await assignedCodes.ToListAsync(cancellationToken)).Any(existing =>
+            candidateSequence >= 0
+                ? NumericSuffix(existing) == candidateSequence
+                : existing.Equals(candidate, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static async Task<string> RecommendAvailableAsync(
+        InstituteDbContext db,
+        IQueryable<string> assignedCodes,
+        string candidate,
+        CancellationToken cancellationToken)
+    {
+        var format = await LoadAsync(db, cancellationToken);
+        var used = (await assignedCodes.ToListAsync(cancellationToken))
+            .Select(NumericSuffix)
+            .Where(sequence => sequence >= format.StartingNumber)
+            .ToHashSet();
+        var recommendation = format.StartingNumber;
+        while (used.Contains(recommendation))
+        {
+            if (recommendation == long.MaxValue) throw new InvalidOperationException("No code sequence is available.");
+            recommendation++;
+        }
+        return format.WithSequence(candidate, recommendation);
+    }
 
     public static async Task<BusinessCodeFormat> LoadAsync(InstituteDbContext db, CancellationToken cancellationToken)
     {
@@ -72,7 +125,6 @@ internal static partial class BusinessCodeFormatter
         "attendance" => await db.AttendanceRecords.AsNoTracking().Select(item => item.AttendanceCode).ToListAsync(cancellationToken),
         "grade" => await db.GradeRecords.AsNoTracking().Select(item => item.GradeCode).ToListAsync(cancellationToken),
         "session" => await db.ClassSessionRecords.AsNoTracking().Select(item => item.ClassSessionRecordCode).ToListAsync(cancellationToken),
-        "alert" => await db.Announcements.AsNoTracking().Select(item => item.AnnouncementCode).ToListAsync(cancellationToken),
         _ => throw new ArgumentException("Code resource is invalid.")
     };
 
@@ -87,7 +139,6 @@ internal static partial class BusinessCodeFormatter
         "attendance" => db.AttendanceRecords.Local.Select(item => item.AttendanceCode),
         "grade" => db.GradeRecords.Local.Select(item => item.GradeCode),
         "session" => db.ClassSessionRecords.Local.Select(item => item.ClassSessionRecordCode),
-        "alert" => db.Announcements.Local.Select(item => item.AnnouncementCode),
         _ => []
     };
 
@@ -119,6 +170,39 @@ internal static partial class BusinessCodeFormatter
             return Validate(string.Join(separator, source, Prefix(resource, stage), number));
         }
 
+        public string Format(string raw, string resource, string stage, string label)
+        {
+            var prefixes = Stages.Select(configuredStage => Prefix(resource, configuredStage));
+            var suffix = StripPrefix(raw.Trim().ToUpperInvariant(), prefixes);
+            return Build(Prefix(resource, stage), suffix, label);
+        }
+
+        public string FormatStandalone(string raw, string prefixKey, string fallbackPrefix, string label)
+        {
+            var prefix = Value(values, prefixKey, fallbackPrefix).Trim().ToUpperInvariant();
+            return Build(prefix, StripPrefix(raw.Trim().ToUpperInvariant(), [prefix]), label);
+        }
+
+        public string WithSequence(string formattedCode, long sequence)
+        {
+            var result = formattedCode.Trim().ToUpperInvariant();
+            var number = sequence.ToString().PadLeft(padding, '0');
+            var suffix = NumericSuffixPattern().Match(result);
+            if (suffix.Success) return Validate($"{result[..suffix.Index]}{number}");
+            var separatorIndex = result.LastIndexOfAny(['-', '/', '.', '_']);
+            if (separatorIndex < 0) throw new ArgumentException("Formatted code must include a prefix and separator.");
+            return Validate($"{result[..(separatorIndex + 1)]}{number}");
+        }
+
+        private string Build(string prefix, string suffix, string label)
+        {
+            if (includeYear && suffix.StartsWith($"{year}{separator}", StringComparison.OrdinalIgnoreCase))
+                suffix = suffix[(year.Length + separator.Length)..];
+            if (string.IsNullOrWhiteSpace(suffix)) throw new ArgumentException($"{label} must include a sequence after its prefix.");
+            if (suffix.All(char.IsDigit)) suffix = suffix.PadLeft(padding, '0');
+            return Validate(string.Join(separator, new[] { prefix }.Concat(includeYear ? [year, suffix] : [suffix])));
+        }
+
         private string ManagementSource(string sourceCode, string resource)
         {
             var source = sourceCode.Trim().ToUpperInvariant();
@@ -138,6 +222,19 @@ internal static partial class BusinessCodeFormatter
             var modernKey = $"{resource}{Capitalize(stage)}Prefix";
             var singlePrefixFallback = stageIndex == 0 ? Value(values, $"{resource}Prefix", fallbacks[stageIndex]) : fallbacks[stageIndex];
             return Value(values, modernKey, singlePrefixFallback).Trim().ToUpperInvariant();
+        }
+
+        private static string StripPrefix(string value, IEnumerable<string> prefixes)
+        {
+            foreach (var prefix in prefixes.Where(candidate => !string.IsNullOrWhiteSpace(candidate)).OrderByDescending(candidate => candidate.Length))
+            {
+                if (!value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                var remainder = value[prefix.Length..];
+                if (remainder.Length == 0) return "";
+                if (remainder[0] is '.' or '_' or '/' or '-') return remainder[1..];
+                if (char.IsDigit(remainder[0])) return remainder;
+            }
+            return value;
         }
 
         private static string Validate(string result)
@@ -161,6 +258,8 @@ internal static partial class BusinessCodeFormatter
         ?? fallback;
 
     private static string Capitalize(string value) => $"{char.ToUpperInvariant(value[0])}{value[1..]}";
+
+    private static string DisplayName(string key) => key == "enrollmentCode" ? "EnrollmentCode" : $"{char.ToUpperInvariant(key[0])}{key[1..]}";
 
     [GeneratedRegex(@"\d+$", RegexOptions.CultureInvariant)]
     private static partial Regex NumericSuffixPattern();

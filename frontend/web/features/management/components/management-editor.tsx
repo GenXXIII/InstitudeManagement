@@ -11,11 +11,12 @@ import type { Field, ManagementItem, ManagementModule, References } from "../man
 import { validateManagementFields, validationMessages, type FieldErrors } from "../management-validation";
 import { relationshipCreateTarget } from "../relationship-create";
 import { EditorField } from "./editor-field";
+import { formatAssignedCode, workflowCodeExample, workflowResourceForField } from "@/lib/workflow-code";
 
 type PersonEditorMode = "full" | "profile" | "enrollment";
-const studentProfileFields = new Set(["photoDataUrl", "name", "email"]);
+const studentProfileFields = new Set(["photoDataUrl", "studentCode", "name", "email"]);
 const studentEnrollmentFields = new Set(["departmentId", "year", "shift"]);
-const teacherProfileFields = new Set(["photoDataUrl", "name", "email"]);
+const teacherProfileFields = new Set(["photoDataUrl", "teacherCode", "name", "email"]);
 const teacherEnrollmentFields = new Set(["departmentId"]);
 export function ManagementEditor({ module, item, references, scopeDepartmentId, scopeYear, studentMode = "full", teacherMode = "full", onClose, onSaved }: { module: Exclude<ManagementModule, "overview">; item: ManagementItem | null; references: References; scopeDepartmentId: string; scopeYear: string; studentMode?: PersonEditorMode; teacherMode?: PersonEditorMode; onClose: () => void; onSaved: () => void }) {
   const router = useRouter();
@@ -36,6 +37,7 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
   ).map(field => {
     if (field.key === "teacherId" && module === "courses") return { ...field, required: settings.courses.requireAssignedTeacher === "true" };
     if (field.key === "headTeacherId" && module === "departments") return { ...field, required: settings.departments.requireDepartmentHead === "true" };
+    if (item && workflowResourceForField(field.key)) return { ...field, readOnly: true };
     return field;
   });
   const fields: Field[] = configuredFields;
@@ -57,7 +59,7 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    const submittedValues = { ...values };
+    const submittedValues = formattedCodes(values, fields);
     const optionSets = Object.fromEntries(fields.filter(field => field.type === "select").map(field => [field.key, new Set(optionsFor(field).map(option => option.id))]));
     const nextErrors = validateManagementFields(fields, submittedValues, optionSets);
     setFieldErrors(nextErrors);
@@ -86,6 +88,12 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
     setError("");
   }
 
+  function formatCodeField(field: Field) {
+    const resource = workflowResourceForField(field.key);
+    if (!resource || !values[field.key]?.trim()) return;
+    change(field, formatAssignedCode(values[field.key], resource, "management"));
+  }
+
   function cancel() {
     saveController.current?.abort();
     onClose();
@@ -104,7 +112,23 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
   const editorEyebrow = personMode === "enrollment" ? "Academic enrollment" : item ? "Personal data management" : "New current data";
   const editorDescription = personMode === "enrollment"
     ? module === "teachers" ? "Change the teacher's assigned department. Active course and department-head relationships must remain consistent." : "Change only the student's department, year level, and learning shift. A department or year change reassigns the current course ledger."
-    : item ? "Required profile data and Administration rules are validated before saving. The permanent code cannot be changed." : "Complete the required details. A permanent code is assigned automatically from Code Format settings.";
+    : item ? "Required profile data and Administration rules are validated before saving. The permanent code cannot be changed." : "Enter a sequence such as 1. It is formatted from Code Format settings and must be unique.";
   const saveLabel = personMode === "enrollment" ? "Save enrollment" : personMode === "profile" ? "Save profile" : item ? "Save changes" : `Add ${managementCopy[module].singular}`;
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) cancel(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{editorEyebrow}</span><h2>{item ? editTitle : `Add ${managementCopy[module].singular}`}</h2><p>{editorDescription}</p></div><button type="button" className="icon-button" onClick={cancel}><Icon name="close"/></button></div><div className="management-form-grid">{fields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} onChange={value => change(field, value)}/>)}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>{saving ? "Cancel request" : "Cancel"}</button><button className="button primary" disabled={saving}>{saving ? "Saving relationships..." : saveLabel}</button></div></form></div>;
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) cancel(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{editorEyebrow}</span><h2>{item ? editTitle : `Add ${managementCopy[module].singular}`}</h2><p>{editorDescription}</p></div><button type="button" className="icon-button" onClick={cancel}><Icon name="close"/></button></div><div className="management-form-grid">{fields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} hint={codeHint(field.key, values[field.key], Boolean(item))} onChange={value => change(field, value)} onBlur={() => formatCodeField(field)}/>)}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>{saving ? "Cancel request" : "Cancel"}</button><button className="button primary" disabled={saving}>{saving ? "Saving relationships..." : saveLabel}</button></div></form></div>;
+}
+
+function formattedCodes(values: Record<string, string>, fields: Field[]) {
+  const next = { ...values };
+  for (const field of fields) {
+    const resource = workflowResourceForField(field.key);
+    if (resource && next[field.key]?.trim()) next[field.key] = formatAssignedCode(next[field.key], resource, "management");
+  }
+  return next;
+}
+
+function codeHint(key: string, value: string | undefined, permanent: boolean) {
+  const resource = workflowResourceForField(key);
+  if (!resource) return undefined;
+  if (permanent) return "Permanent code";
+  return `Final code: ${value?.trim() ? formatAssignedCode(value, resource, "management") : workflowCodeExample(resource, "management")}`;
 }

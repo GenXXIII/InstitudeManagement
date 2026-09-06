@@ -28,11 +28,32 @@ export function configureWorkflowCodes(values: Record<string, string>, academicY
 export function formatAssignedCode(sourceCode: string | undefined, resource: WorkflowCodeResource, stage: WorkflowCodeStage = "management") {
   const raw = (sourceCode ?? "").trim();
   if (!raw) return "";
-  if (!/^\d+$/.test(raw)) return workflowCode(raw, resource, stage);
   const separator = configuredSeparator();
-  const sequence = raw.padStart(configuredPadding(), "0");
-  const management = [configuredPrefix(resource, "management"), ...(runtimeValues.codeIncludeYear === "true" ? [runtimeYear] : []), sequence].join(separator);
-  return stage === "management" ? management.toUpperCase() : linkedCode(management, resource, stage, sequence);
+  const prefix = configuredPrefix(resource, "management");
+  let sequence = stripPrefix(raw.toUpperCase(), workflowStages.map(value => configuredPrefix(resource, value)));
+  if (runtimeValues.codeIncludeYear === "true" && sequence.startsWith(`${runtimeYear}${separator}`)) sequence = sequence.slice(runtimeYear.length + separator.length);
+  if (/^\d+$/.test(sequence)) sequence = sequence.padStart(configuredPadding(), "0");
+  if (!sequence) return "";
+  const management = [prefix, ...(runtimeValues.codeIncludeYear === "true" ? [runtimeYear] : []), sequence].join(separator).toUpperCase();
+  if (stage === "management") return management;
+  const numericSequence = numericSuffix(management);
+  return numericSequence ? linkedCode(management, resource, stage, numericSequence.padStart(configuredPadding(), "0")) : management;
+}
+
+export function formatNotificationCode(sourceCode: string | undefined) {
+  const raw = (sourceCode ?? "").trim();
+  if (!raw) return "";
+  const separator = configuredSeparator();
+  const prefix = runtimeValues.notificationCodePrefix?.trim().toUpperCase() || "NOT";
+  let sequence = stripPrefix(raw.toUpperCase(), [prefix]);
+  if (runtimeValues.codeIncludeYear === "true" && sequence.startsWith(`${runtimeYear}${separator}`)) sequence = sequence.slice(runtimeYear.length + separator.length);
+  if (/^\d+$/.test(sequence)) sequence = sequence.padStart(configuredPadding(), "0");
+  if (!sequence) return "";
+  return [prefix, ...(runtimeValues.codeIncludeYear === "true" ? [runtimeYear] : []), sequence].join(separator).toUpperCase();
+}
+
+export function notificationCodeExample() {
+  return formatNotificationCode(runtimeValues.codeStartingNumber || "1");
 }
 
 export function workflowCode(sourceCode: string | undefined, resource: WorkflowCodeResource, stage: WorkflowCodeStage = "management") {
@@ -103,6 +124,17 @@ function managementSource(sourceCode: string | undefined, resource: WorkflowCode
     normalized = normalized.replace(new RegExp(`${separator}${prefix}${separator}\\d+$`, "i"), "");
   }
   return normalized;
+}
+
+function stripPrefix(value: string, prefixesToStrip: string[]) {
+  for (const prefix of prefixesToStrip.filter(Boolean).toSorted((left, right) => right.length - left.length)) {
+    if (!value.startsWith(prefix)) continue;
+    const remainder = value.slice(prefix.length);
+    if (!remainder) return "";
+    if (["-", "/", ".", "_"].includes(remainder[0])) return remainder.slice(1);
+    if (/^\d/.test(remainder)) return remainder;
+  }
+  return value;
 }
 
 function numericSuffix(value: string) {

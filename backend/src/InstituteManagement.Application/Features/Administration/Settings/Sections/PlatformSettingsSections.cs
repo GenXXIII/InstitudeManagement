@@ -5,12 +5,6 @@ public static partial class SettingsCatalog
     private const string NotificationTemplates = "Student Enrollment Confirmation,Course Enrollment,Attendance Alert,Grade Published,Password Reset,Account Created,Announcement,Academic Year Started";
 
     private static readonly SettingsSectionDefinition NotificationsSection = Section("notifications",
-        Code("notificationCodePrefix", "NOT", 16),
-        Code("historyCodePrefix", "NHS", 16),
-        Boolean("codeIncludeYear", false),
-        Digits("codeStartingNumber", "1", 12),
-        Integer("codePaddingWidth", "8", 1, 12),
-        Option("codeSeparator", "-", "-", "/", "."),
         Boolean("attendanceAlerts", true),
         Boolean("deviceAlerts", true),
         Boolean("gradeReminders", true),

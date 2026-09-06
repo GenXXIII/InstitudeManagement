@@ -28,8 +28,8 @@ public sealed class DepartmentManagementService(InstituteDbContext db, Institute
 
     public override async Task<DepartmentResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var departmentCode = await GeneratedCodeAsync("department", ct); values["departmentCode"] = departmentCode;
-        await EnsureUniqueAsync(Db.Departments.Where(department => department.DepartmentCode == departmentCode), "DepartmentCode", ct);
+        var departmentCode = await ConfiguredCodeAsync(values, "departmentCode", "department", ct); values["departmentCode"] = departmentCode;
+        await EnsureUniqueCodeAsync(Db.Departments.Select(department => department.DepartmentCode), departmentCode, "DepartmentCode", ct);
         var (headId, teacher) = await HeadAsync(values, ct);
         var status = await DepartmentStatusAsync(values, null, ct);
         var department = new Department { DepartmentCode = departmentCode, Name = Required(values, "name"), HeadTeacherId = headId, Head = teacher?.FullName ?? "Not appointed", IsActive = status == "Active" };

@@ -76,7 +76,8 @@ export const defaultSettings: InstituteSettings = {
     attendanceManagementPrefix: "ATT", attendanceEnrollmentPrefix: "EATT", attendanceOperationPrefix: "OPE", attendanceRecordPrefix: "REC", attendanceHistoryPrefix: "HIS",
     gradeManagementPrefix: "GRD", gradeEnrollmentPrefix: "EGRD", gradeOperationPrefix: "OPE", gradeRecordPrefix: "REC", gradeHistoryPrefix: "HIS",
     sessionManagementPrefix: "SES", sessionEnrollmentPrefix: "ESES", sessionOperationPrefix: "OPE", sessionRecordPrefix: "REC", sessionHistoryPrefix: "HIS",
-    alertManagementPrefix: "ALT", alertEnrollmentPrefix: "EALT", alertOperationPrefix: "OPE", alertRecordPrefix: "REC", alertHistoryPrefix: "HIS",
+    notificationCodePrefix: "NOT",
+    historyCodePrefix: "NHS",
   },
   "users-access": {
     defaultUserStatus: "Active",
@@ -166,12 +167,6 @@ export const defaultSettings: InstituteSettings = {
     gpaDecimalPlaces: "2",
   },
   notifications: {
-    notificationCodePrefix: "NOT",
-    historyCodePrefix: "NHS",
-    codeIncludeYear: "false",
-    codeStartingNumber: "1",
-    codePaddingWidth: "8",
-    codeSeparator: "-",
     emailEnabled: "true",
     smtpHost: "smtp.ink.edu.kh",
     smtpPort: "587",

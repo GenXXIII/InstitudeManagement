@@ -2,7 +2,7 @@ namespace InstituteManagement.Domain.Entities;
 
 public sealed class NotificationHistory : Entity
 {
-    public string NotificationHistoryCode { get; set; } = $"NHS-{Guid.NewGuid():N}";
+    public string NotificationHistoryCode { get; set; } = string.Empty;
     public Guid SourceId { get; set; }
     public string SourceCode { get; set; } = string.Empty;
     public string Kind { get; set; } = string.Empty;

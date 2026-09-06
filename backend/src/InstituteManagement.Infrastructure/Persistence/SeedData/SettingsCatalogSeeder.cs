@@ -7,8 +7,20 @@ namespace InstituteManagement.Infrastructure.Persistence;
 
 public static class SettingsCatalogSeeder
 {
+    private static readonly string[] LegacyNotificationCodeKeys =
+    [
+        "notificationCodePrefix", "historyCodePrefix", "codeIncludeYear",
+        "codeStartingNumber", "codePaddingWidth", "codeSeparator"
+    ];
+    private static readonly string[] ObsoleteAlertCodeKeys =
+    [
+        "alertManagementPrefix", "alertEnrollmentPrefix", "alertOperationPrefix", "alertRecordPrefix", "alertHistoryPrefix"
+    ];
+
     public static async Task SeedMissingAsync(InstituteDbContext db, CancellationToken cancellationToken = default)
     {
+        await MoveNotificationCodeSettingsAsync(db, cancellationToken);
+        await RemoveObsoleteAlertCodeSettingsAsync(db, cancellationToken);
         var existing = await db.SystemSettings.AsNoTracking()
             .Select(setting => new { setting.Section, setting.Key })
             .ToListAsync(cancellationToken);
@@ -50,6 +62,38 @@ public static class SettingsCatalogSeeder
                 grade.UpdatedAtUtc = now;
             }
         }
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task MoveNotificationCodeSettingsAsync(InstituteDbContext db, CancellationToken cancellationToken)
+    {
+        var legacy = await db.SystemSettings
+            .Where(setting => setting.Section == "notifications" && LegacyNotificationCodeKeys.Contains(setting.Key))
+            .ToListAsync(cancellationToken);
+        if (legacy.Count == 0) return;
+
+        var codeFormatKeys = await db.SystemSettings.AsNoTracking()
+            .Where(setting => setting.Section == "code-formats")
+            .Select(setting => setting.Key)
+            .ToHashSetAsync(StringComparer.OrdinalIgnoreCase, cancellationToken);
+
+        foreach (var setting in legacy)
+        {
+            var prefixBelongsInCodeFormats = setting.Key is "notificationCodePrefix" or "historyCodePrefix";
+            if (prefixBelongsInCodeFormats && codeFormatKeys.Add(setting.Key)) setting.Section = "code-formats";
+            else db.SystemSettings.Remove(setting);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task RemoveObsoleteAlertCodeSettingsAsync(InstituteDbContext db, CancellationToken cancellationToken)
+    {
+        var obsolete = await db.SystemSettings
+            .Where(setting => setting.Section == "code-formats" && ObsoleteAlertCodeKeys.Contains(setting.Key))
+            .ToListAsync(cancellationToken);
+        if (obsolete.Count == 0) return;
+        db.SystemSettings.RemoveRange(obsolete);
         await db.SaveChangesAsync(cancellationToken);
     }
 

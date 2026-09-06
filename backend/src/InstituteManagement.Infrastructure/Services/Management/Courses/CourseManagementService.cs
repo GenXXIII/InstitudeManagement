@@ -17,8 +17,8 @@ public sealed class CourseManagementService(InstituteDbContext db, InstituteCach
     }
     public override async Task<CourseResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var code = await GeneratedCodeAsync("course", ct); values["courseCode"] = code;
-        await EnsureUniqueAsync(Db.Courses.Where(course => course.CourseCode == code), "CourseCode", ct);
+        var code = await ConfiguredCodeAsync(values, "courseCode", "course", ct); values["courseCode"] = code;
+        await EnsureUniqueCodeAsync(Db.Courses.Select(course => course.CourseCode), code, "CourseCode", ct);
         return await SaveCreatedAsync(new Course { CourseCode = code, Name = Required(values, "name"), DepartmentId = null, TeacherId = null, Capacity = 0, IsActive = true }, values, ct);
     }
     public override async Task<CourseResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)

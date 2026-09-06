@@ -8,7 +8,15 @@ public sealed partial class InstituteDbContext
     private void AssignSourceBusinessCodes(NotificationCodeFormat? format)
     {
         if (format is null) return;
-        var notifications = ChangeTracker.Entries<Notification>().Where(entry => entry.State == EntityState.Added).OrderBy(entry => entry.Entity.CreateAt).ThenBy(entry => entry.Entity.Id).ToList();
+        var alertNotifications = ChangeTracker.Entries<Announcement>()
+            .Where(entry => entry.State == EntityState.Added && entry.Entity.Notification is not null)
+            .Select(entry => entry.Entity.Notification!)
+            .ToHashSet();
+        var notifications = ChangeTracker.Entries<Notification>()
+            .Where(entry => entry.State == EntityState.Added && !alertNotifications.Contains(entry.Entity))
+            .OrderBy(entry => entry.Entity.CreateAt)
+            .ThenBy(entry => entry.Entity.Id)
+            .ToList();
         if (notifications.Count > 0)
         {
             var stem = format.Stem(format.NotificationPrefix);
@@ -34,11 +42,11 @@ public sealed partial class InstituteDbContext
 
     private NotificationCodeFormat LoadNotificationCodeFormat()
     {
-        var values = SystemSettings.AsNoTracking().Where(setting => setting.Section == "notifications")
+        var values = SystemSettings.AsNoTracking().Where(setting => setting.Section == "code-formats")
             .ToDictionary(setting => setting.Key, setting => setting.Value, StringComparer.OrdinalIgnoreCase);
         foreach (var entry in ChangeTracker.Entries<SystemSetting>().Where(entry =>
                      entry.State is EntityState.Added or EntityState.Modified
-                     && entry.Entity.Section.Equals("notifications", StringComparison.OrdinalIgnoreCase)))
+                     && entry.Entity.Section.Equals("code-formats", StringComparison.OrdinalIgnoreCase)))
             values[entry.Entity.Key] = entry.Entity.Value;
 
         var timeZoneId = SystemSettings.AsNoTracking().Where(setting => setting.Section == "system" && setting.Key == "timeZone").Select(setting => setting.Value).FirstOrDefault() ?? "Asia/Phnom_Penh";
