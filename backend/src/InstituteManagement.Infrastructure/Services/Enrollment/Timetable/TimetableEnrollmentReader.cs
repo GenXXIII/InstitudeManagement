@@ -60,7 +60,8 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                     entry,
                     assignment.DepartmentId,
                     assignment.Department?.Name,
-                    enrollments[entry.Id].EnrollmentCode);
+                    enrollments[entry.Id].EnrollmentCode,
+                    enrollments[entry.Id].Status);
             })
             .ToList();
     }

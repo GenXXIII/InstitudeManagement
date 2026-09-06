@@ -1,6 +1,7 @@
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Administration;
@@ -34,17 +35,15 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
             .Select(setting => setting.Value)
             .FirstOrDefaultAsync(cancellationToken) ?? "ID Card";
 
-        var termCode = term switch { "Semester 2" => "S2", "Summer Term" => "SUM", _ => "S1" };
+        var attendanceCodes = new Queue<string>(await BusinessCodeFormatter.GenerateManyAsync(db, "attendance", students.Count, cancellationToken));
+        var gradeCodes = new Queue<string>(await BusinessCodeFormatter.GenerateManyAsync(db, "grade", students.Count, cancellationToken));
         var attendanceCreated = 0;
         var gradesCreated = 0;
         foreach (var student in students)
         {
-            var studentCode = student.StudentCode.StartsWith("STU-", StringComparison.OrdinalIgnoreCase)
-                ? student.StudentCode[4..]
-                : student.StudentCode;
             if (!existingAttendance.Contains(student.Id))
             {
-                db.AttendanceRecords.Add(CreateAttendance(student, studentCode, academicYear, term, termCode, startsOn, attendanceMethod));
+                db.AttendanceRecords.Add(CreateAttendance(student, attendanceCodes.Dequeue(), academicYear, term, startsOn, attendanceMethod));
                 attendanceCreated++;
             }
 
@@ -53,7 +52,7 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
             if (!courseId.HasValue) continue;
             db.GradeRecords.Add(new GradeRecord
             {
-                GradeCode = $"GRD-{studentCode}-{academicYear.Replace("\u2013", "-")}-{termCode}",
+                GradeCode = gradeCodes.Dequeue(),
                 StudentId = student.Id,
                 CourseId = courseId.Value,
                 Score = 0,
@@ -79,14 +78,13 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
 
     private static AttendanceRecord CreateAttendance(
         Student student,
-        string studentCode,
+        string attendanceCode,
         string academicYear,
         string term,
-        string termCode,
         DateOnly startsOn,
         string method) => new()
     {
-        AttendanceCode = $"ATT-{studentCode}-{academicYear.Replace("\u2013", "-")}-{termCode}",
+        AttendanceCode = attendanceCode,
         StudentId = student.Id,
         Date = startsOn,
         CheckedInAt = RequiredShift(student.Shift).StartsAt,

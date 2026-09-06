@@ -26,10 +26,7 @@ internal sealed class ClassroomAssignmentEditor(InstituteDbContext db)
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
-        var enrollmentCode = await BusinessCodeFormatter.FormatAsync(db, values, "enrollmentCode", "classroom", "enrollment", cancellationToken);
-        if (await db.ClassroomAssignments.AnyAsync(item => item.Id != (assignment == null ? Guid.Empty : assignment.Id) && item.EnrollmentCode == enrollmentCode, cancellationToken))
-            throw new InvalidOperationException("EnrollmentCode already exists.");
-
+        var enrollmentCode = await BusinessCodeFormatter.DeriveAsync(db, room.ClassroomCode, "classroom", "enrollment", cancellationToken);
         if (assignment is null)
         {
             assignment = new ClassroomAssignment

@@ -1,7 +1,6 @@
 import type { Field } from "@/features/management/management-types";
 
 export const timetableFields: Field[] = [
-  { key: "timetableCode", label: "Code", required: true },
   { key: "courseId", label: "Course", type: "select", source: "courses", required: true },
   { key: "teacherId", label: "Teacher", type: "select", source: "teachers", required: true },
   { key: "classroomId", label: "Classroom or meeting room", type: "select", source: "classrooms", required: true },

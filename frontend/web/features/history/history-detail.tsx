@@ -44,8 +44,8 @@ export function HistoryDetail({ resource, id }: { resource: string; id: string }
     <section className="history-detail-scroll">
       <WorkflowCodeFlow sourceCode={sourceCode} resource={codeResource} currentStage="history"/>
       <article className="panel history-detail-summary">
-        <header><div><span>Latest captured snapshot</span><strong>{workflowCode(sourceCode, codeResource, "history")} · {group.subject}</strong></div><time>{formatDate(latest.date)}</time></header>
-        <div><section><span>History code</span><strong>{workflowCode(sourceCode, codeResource, "history")}</strong></section><section><span>Management source</span><strong>{workflowCode(sourceCode, codeResource, "management")}</strong></section>{group.values.filter(([name]) => isHistoryFieldVisible(name)).map(([name, value]) => <section key={name}><span>{pretty(name)}</span><strong>{displayValue(name, value)}</strong></section>)}</div>
+        <header><div><span>Latest captured snapshot</span><strong>{group.businessCode || workflowCode(sourceCode, codeResource, "history")} · {group.subject}</strong></div><time>{formatDate(latest.date)}</time></header>
+        <div><section><span>History code</span><strong>{group.businessCode || workflowCode(sourceCode, codeResource, "history")}</strong></section><section><span>Management source</span><strong>{workflowCode(sourceCode, codeResource, "management")}</strong></section>{group.values.filter(([name]) => isHistoryFieldVisible(name)).map(([name, value]) => <section key={name}><span>{pretty(name)}</span><strong>{displayValue(name, value)}</strong></section>)}</div>
       </article>
       <section className="record-row-history history-detail-timeline"><div className="record-history-heading"><strong>Complete lifecycle and data snapshots</strong><span>Newest snapshot first</span></div>{group.entries.map(entry => <HistoryEntry entry={entry} key={entry.id}/>)}</section>
     </section>

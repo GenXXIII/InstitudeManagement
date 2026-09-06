@@ -28,9 +28,7 @@ public sealed class AnnouncementService(
 
     public async Task<AnnouncementItemDto> CreateAsync(AnnouncementRequestDto request, CancellationToken cancellationToken)
     {
-        var code = NotificationContentValidator.Code(request.AnnouncementCode, "AnnouncementCode");
-        if (await db.Announcements.AnyAsync(item => item.AnnouncementCode == code, cancellationToken))
-            throw new InvalidOperationException("AnnouncementCode already exists.");
+        var code = await BusinessCodeFormatter.GenerateAsync(db, "alert", cancellationToken);
         var type = await policy.ValidateTypeAsync(request.Type, cancellationToken);
         var title = NotificationContentValidator.Required(request.Title, "Alert title", 200);
         var message = NotificationContentValidator.Required(request.Message, "Alert detail", 2000);
@@ -50,10 +48,6 @@ public sealed class AnnouncementService(
     public async Task<AnnouncementItemDto> UpdateAsync(Guid id, AnnouncementRequestDto request, CancellationToken cancellationToken)
     {
         var entity = await FindAsync(id, cancellationToken);
-        var code = NotificationContentValidator.Code(request.AnnouncementCode, "AnnouncementCode");
-        if (await db.Announcements.AnyAsync(item => item.Id != id && item.AnnouncementCode == code, cancellationToken))
-            throw new InvalidOperationException("AnnouncementCode already exists.");
-        entity.AnnouncementCode = code;
         entity.Type = await policy.ValidateTypeAsync(request.Type, cancellationToken);
         entity.Title = NotificationContentValidator.Required(request.Title, "Alert title", 200);
         entity.Message = NotificationContentValidator.Required(request.Message, "Alert detail", 2000);

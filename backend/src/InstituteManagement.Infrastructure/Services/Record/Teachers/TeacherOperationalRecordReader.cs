@@ -14,6 +14,7 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var teachers = await db.Teachers.AsNoTracking().Include(x => x.Department)
             .Where(x => !departmentId.HasValue || x.DepartmentId == departmentId)
             .OrderBy(x => x.FullName).ToListAsync(cancellationToken);
@@ -35,7 +36,7 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
                 var years = string.Join(", ", relatedCourses.Select(x => $"Year {x.YearLevel}").Distinct().OrderBy(x => x));
                 var status = TeacherPresence.Attendance(teacher.Status, assignment.Status);
                 return (assignment.UpdatedAtUtc, Create(
-                    ("Activity", "Teacher assignment"), ("Enrollment code", assignment.EnrollmentCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
+                    ("Activity", "Teacher assignment"), ("Permanent code", teacher.TeacherCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", string.IsNullOrWhiteSpace(years) ? "Not scheduled" : years),
                     ("Department", assignment.Department?.Name ?? teacher.Department?.Name ?? "Institute-wide"),
@@ -53,7 +54,7 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
             var attendanceStatus = TeacherPresence.Attendance(teacher.Status);
             return new OperationalRecordDto(teacher.Id, "Teacher", teacher.FullName, teacher.TeacherCode, attendanceStatus,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: teacher.TeacherCode, PhotoDataUrl: teacher.PhotoDataUrl,
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(teacher.TeacherCode, "teacher", "record"), PhotoDataUrl: teacher.PhotoDataUrl,
                 Department: teacher.Department?.Name ?? "Institute-wide", ResourceId: teacher.Id);
         }).ToList();
     }

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Grades;
 using InstituteManagement.Infrastructure.Services.Results;
 using Microsoft.EntityFrameworkCore;
@@ -40,6 +41,10 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
                 : SplitByPeriod(records, academicYear, term, history ? PeriodScope.Closed : PeriodScope.Current))
             .Select(record => record.Module == "Student" ? AddStudentInsights(record, thresholds, applyAttendanceRules, academicYear, term, history) : record)
             .ToList();
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
+        records = records.Select(record => string.IsNullOrWhiteSpace(record.Code)
+            ? record
+            : record with { Code = codeFormat.Derive(record.Code, CodeResource(record.Module), history ? "history" : "record") }).ToList();
         if (string.IsNullOrWhiteSpace(search)) return records;
         var searchTerm = search.Trim();
         return records.Where(x => Matches(searchTerm, x.Subject, x.Code, x.Department, x.Identifier, x.Summary, x.AcademicYear, x.Term)
@@ -70,7 +75,7 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
                         : "Closed",
                     AcademicYear = group.Key.AcademicYear,
                     Term = group.Key.Term,
-                    Code = activities.Select(activity => activity.GetValueOrDefault("Enrollment code")).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? record.Code,
+                    Code = activities.Select(activity => activity.GetValueOrDefault("Permanent code")).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? record.Code,
                     Insights = null
                 });
             }
@@ -153,6 +158,18 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
     }
 
     private static bool Matches(string search, params string?[] values) => values.Any(x => x?.Contains(search, StringComparison.OrdinalIgnoreCase) == true);
+
+    private static string CodeResource(string module) => module.ToLowerInvariant() switch
+    {
+        "student" => "student",
+        "teacher" => "teacher",
+        "course" => "course",
+        "classroom" => "classroom",
+        "timetable" => "timetable",
+        "department" => "department",
+        "session" => "session",
+        _ => throw new ArgumentException($"Code resource for '{module}' is not supported.")
+    };
 
     private enum PeriodScope { Current, Closed, All }
 }

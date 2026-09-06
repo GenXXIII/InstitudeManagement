@@ -30,10 +30,7 @@ internal sealed class StudentEnrollmentEditor(
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
-        var enrollmentCode = await BusinessCodeFormatter.FormatAsync(db, values, "enrollmentCode", "student", "enrollment", cancellationToken);
-        if (await db.StudentEnrollments.AnyAsync(item => item.Id != (enrollment == null ? Guid.Empty : enrollment.Id) && item.EnrollmentCode == enrollmentCode, cancellationToken))
-            throw new InvalidOperationException("EnrollmentCode already exists.");
-
+        var enrollmentCode = await BusinessCodeFormatter.DeriveAsync(db, student.StudentCode, "student", "enrollment", cancellationToken);
         if (enrollment is null)
         {
             enrollment = new StudentEnrollment

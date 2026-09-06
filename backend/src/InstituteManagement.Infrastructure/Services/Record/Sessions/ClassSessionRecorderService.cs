@@ -53,6 +53,8 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                 .ToListAsync(cancellationToken);
             var existing = await db.ClassSessionRecords.AsNoTracking().Where(x => x.SessionDate >= firstDate && x.SessionDate <= today).Select(x => new { x.ScheduleEntryId, x.SessionDate }).ToListAsync(cancellationToken);
             var existingKeys = existing.Select(x => (x.ScheduleEntryId, x.SessionDate)).ToHashSet();
+            var possibleSessions = Math.Max(1, schedules.Count * (today.DayNumber - firstDate.DayNumber + 1));
+            var sessionCodes = new Queue<string>(await BusinessCodeFormatter.GenerateManyAsync(db, "session", possibleSessions, cancellationToken));
             var recorded = 0;
 
             for (var date = firstDate; date <= today; date = date.AddDays(1))
@@ -85,7 +87,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                     var endedAtUtc = TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(schedule.EndsAt), timeZone);
                     var entity = new ClassSessionRecord
                     {
-                        ClassSessionRecordCode = SessionCode(date, schedule.TimetableCode),
+                        ClassSessionRecordCode = sessionCodes.Dequeue(),
                         ScheduleEntryId = schedule.Id,
                         SessionDate = date,
                         AcademicYear = academicYear,
@@ -137,11 +139,5 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
 
     private static bool Enabled(IReadOnlyDictionary<string, string> values, string key, bool fallback) =>
         bool.TryParse(values.GetValueOrDefault(key), out var enabled) ? enabled : fallback;
-
-    private static string SessionCode(DateOnly date, string timetableCode)
-    {
-        var suffix = timetableCode.Contains('-') ? timetableCode[(timetableCode.IndexOf('-') + 1)..] : timetableCode;
-        return $"SES-{date:yyyyMMdd}-{suffix}".ToUpperInvariant();
-    }
 
 }

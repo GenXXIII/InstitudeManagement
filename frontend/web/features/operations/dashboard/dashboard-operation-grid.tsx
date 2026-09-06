@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import type { Operation } from "../operations-types";
 import { statusClass } from "../operation-utils";
-import { workflowCode } from "@/lib/workflow-code";
 
 const icons = { Students: "users", Teachers: "teacher", Classrooms: "room", Courses: "book" } as const;
 
@@ -13,10 +12,10 @@ export function DashboardOperationGrid({ data, departmentId, year }: { data: Ope
   if (year) params.set("year", String(year));
   const scope = params.size ? `?${params}` : "";
   const areas = [
-    { name: "Students", route: "/operation/students", rows: (data.students ?? []).slice(0, 6).map(row => ({ title: row.student, detail: `${workflowCode(row.enrollmentCode, "student", "operation")} · ${row.enrollmentCode} · Year ${row.year} · ${row.shift}`, state: row.attendanceStatus })) },
-    { name: "Teachers", route: "/operation/teachers", rows: (data.teachers ?? []).slice(0, 6).map(row => ({ title: row.teacher, detail: `${workflowCode(row.enrollmentCode, "teacher", "operation")} · ${row.enrollmentCode} · ${row.department}`, state: row.status })) },
-    { name: "Classrooms", route: "/operation/classrooms", rows: (data.classrooms ?? []).filter(row => row.status === "Running").slice(0, 6).map(row => ({ title: workflowCode(row.enrollmentCode, "classroom", "operation"), detail: `${row.enrollmentCode} · ${row.roomType} · ${row.capacity} seats`, state: row.status })) },
-    { name: "Courses", route: "/operation/courses", rows: (data.courses ?? []).slice(0, 6).map(row => ({ title: row.course, detail: `${workflowCode(row.enrollmentCode, "course", "operation")} · ${row.enrollmentCode} · ${row.teacher}`, state: row.status })) },
+    { name: "Students", route: "/operation/students", rows: (data.students ?? []).slice(0, 6).map(row => ({ title: row.student, detail: `${row.operationCode} · ${row.studentCode} · Year ${row.year} · ${row.shift}`, state: row.attendanceStatus })) },
+    { name: "Teachers", route: "/operation/teachers", rows: (data.teachers ?? []).slice(0, 6).map(row => ({ title: row.teacher, detail: `${row.operationCode} · ${row.teacherCode} · ${row.department}`, state: row.status })) },
+    { name: "Classrooms", route: "/operation/classrooms", rows: (data.classrooms ?? []).filter(row => row.status === "Running").slice(0, 6).map(row => ({ title: row.operationCode, detail: `${row.room} · ${row.roomType} · ${row.capacity} seats`, state: row.status })) },
+    { name: "Courses", route: "/operation/courses", rows: (data.courses ?? []).slice(0, 6).map(row => ({ title: row.course, detail: `${row.operationCode} · ${row.courseCode} · ${row.teacher}`, state: row.status })) },
   ];
   return <div className="unified-operation-dashboard">
     <div className="unified-operation-summary">{summaries.map(row => <div className={`unified-summary-cell tone-${row.tone}`} key={row.module}><span><Icon name={icons[row.module as keyof typeof icons] ?? "dashboard"} size={18}/></span><div><small>{row.module}</small><strong>{row.value}</strong><p>{row.detail}</p></div><b className={`table-status ${statusClass(row.status)}`}>{row.status}</b></div>)}</div>

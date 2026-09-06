@@ -14,6 +14,7 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
     public async Task<OperationDto> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(now);
         var shift = selection.Shift;
@@ -59,7 +60,7 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
             var detail = fixedClassroomStatus is null
                 ? TeacherPresence.Reason(attendance)
                 : $"Classroom {schedule.Classroom?.ClassroomCode ?? "not assigned"} is {fixedClassroomStatus.ToLowerInvariant()} and the course cannot run.";
-            return new CourseOperationDto(x.CourseId, x.Course!.Name, x.Course.CourseCode, x.EnrollmentCode, teacher?.FullName ?? "—", x.Department?.Name ?? "—", x.Capacity, status, attendance, detail);
+            return new CourseOperationDto(x.CourseId, x.Course!.Name, x.Course.CourseCode, codeFormat.Derive(x.Course.CourseCode, "course", "operation"), teacher?.FullName ?? "—", x.Department?.Name ?? "—", x.Capacity, status, attendance, detail);
         })
             .OrderBy(x => x.Status == "Running" ? 0 : 1)
             .ThenBy(x => x.CourseCode)

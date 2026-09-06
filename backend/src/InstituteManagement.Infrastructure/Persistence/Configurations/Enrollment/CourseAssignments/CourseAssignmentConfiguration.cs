@@ -9,7 +9,6 @@ public sealed class CourseAssignmentConfiguration : IEntityTypeConfiguration<Cou
     public void Configure(EntityTypeBuilder<CourseAssignment> builder)
     {
         builder.ToTable("CourseAssignments", "Enrollment");
-        builder.HasIndex(x => x.EnrollmentCode).IsUnique();
         builder.HasIndex(x => new { x.CourseId, x.AcademicYear, x.Semester }).IsUnique();
         builder.HasIndex(x => new { x.DepartmentId, x.YearLevel });
         builder.HasIndex(x => x.TeacherId);

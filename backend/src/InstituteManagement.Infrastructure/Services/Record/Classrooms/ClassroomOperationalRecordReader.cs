@@ -15,6 +15,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var rooms = await db.Classrooms.AsNoTracking().OrderBy(x => x.ClassroomCode).ToListAsync(cancellationToken);
         var ids = rooms.Select(x => x.Id).ToList();
         var assignments = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Department)
@@ -42,7 +43,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
                 var courseNames = schedules.Select(x => x.Course?.Name ?? "Course").Distinct().OrderBy(x => x).ToList();
                 var years = schedules.Select(x => $"Year {x.YearLevel}").Distinct().OrderBy(x => x).ToList();
                 return (assignment.UpdatedAtUtc, Create(
-                    ("Activity", "Classroom assignment"), ("Enrollment code", assignment.EnrollmentCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
+                    ("Activity", "Classroom assignment"), ("Permanent code", room.ClassroomCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", years.Count == 0 ? "Not scheduled" : string.Join(", ", years)),
                     ("Classroom", room.ClassroomCode), ("Building", room.Building), ("Room type", room.RoomType),
@@ -71,7 +72,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
             };
             return new OperationalRecordDto(room.Id, "Classroom", room.ClassroomCode, $"{room.RoomType} · {room.Building}", status,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: room.ClassroomCode, Department: room.Building, ResourceId: room.Id);
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(room.ClassroomCode, "classroom", "record"), Department: room.Building, ResourceId: room.Id);
         }).ToList();
     }
 

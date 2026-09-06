@@ -14,6 +14,7 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
     public async Task<OperationDto> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(now);
         var shift = selection.Shift;
@@ -44,7 +45,7 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
                 && (!departmentId.HasValue || x.DepartmentId == departmentId))
             .OrderBy(x => x.Teacher!.TeacherCode)
             .ToListAsync(cancellationToken);
-        var rows = teachers.Where(x => x.Teacher is not null).Select(x => new TeacherOperationDto(x.TeacherId, x.Teacher!.FullName, x.Teacher.TeacherCode, x.EnrollmentCode, x.Department?.Name ?? "—", TeacherPresence.Attendance(x.Teacher.Status, x.Status)))
+        var rows = teachers.Where(x => x.Teacher is not null).Select(x => new TeacherOperationDto(x.TeacherId, x.Teacher!.FullName, x.Teacher.TeacherCode, codeFormat.Derive(x.Teacher.TeacherCode, "teacher", "operation"), x.Department?.Name ?? "—", TeacherPresence.Attendance(x.Teacher.Status, x.Status)))
             .OrderBy(x => AttendancePriority(x.Status))
             .ThenBy(x => x.TeacherCode)
             .ToList();

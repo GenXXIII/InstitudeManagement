@@ -12,6 +12,7 @@ public sealed class DepartmentOperationalRecordReader(InstituteDbContext db) : I
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var departments = await db.Departments.AsNoTracking().Include(x => x.HeadTeacher)
             .Where(x => !departmentId.HasValue || x.Id == departmentId)
             .OrderBy(x => x.DepartmentCode).ToListAsync(cancellationToken);
@@ -70,7 +71,7 @@ public sealed class DepartmentOperationalRecordReader(InstituteDbContext db) : I
             return new OperationalRecordDto(department.Id, "Department", department.Name,
                 department.HeadTeacher?.FullName ?? department.Head ?? "Not appointed", department.IsActive ? "Active" : "Inactive",
                 $"{events.Count} semester activities", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: department.DepartmentCode, Department: department.Name, ResourceId: department.Id);
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(department.DepartmentCode, "department", "record"), Department: department.Name, ResourceId: department.Id);
         }).ToList();
     }
 }

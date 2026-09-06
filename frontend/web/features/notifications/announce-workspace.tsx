@@ -16,7 +16,7 @@ import { NotificationRegister } from "./notifications/notification-register";
 import type { NotificationDraft, NotificationItem } from "./notifications/notification-types";
 import { AnnounceOverview } from "./overview/announce-overview";
 
-const emptyAlert: AnnouncementDraft = { announcementCode: "", type: "General", title: "", message: "" };
+const emptyAlert: AnnouncementDraft = { type: "General", title: "", message: "" };
 
 export function AnnounceWorkspace({ module }: { module: string }) {
   const router = useRouter();
@@ -86,7 +86,7 @@ export function AnnounceWorkspace({ module }: { module: string }) {
     {error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
     {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts} history={history}/>}
     {current === "notifications" && <section className="announce-paginated-region"><NotificationRegister rows={notificationPages.pageItems} editing={editingNotification} draft={notificationDraft} saving={saving} onDraft={setNotificationDraft} onOpen={id => router.push(`/announce/notifications/${id}`)} onEdit={item => { setEditingNotification(item.id); setNotificationDraft({ title: item.title, message: item.message, severity: item.severity, isRead: item.isRead }); }} onSave={saveNotification} onCancel={() => setEditingNotification(undefined)} onRemove={removeNotification}/><DataPagination page={notificationPages.page} pageCount={notificationPages.pageCount} total={notifications.length} onPage={notificationPages.setPage}/></section>}
-    {current === "alerts" && <section className="announce-paginated-region"><AlertRegister rows={alertPages.pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ announcementCode: item.announcementCode, type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/><DataPagination page={alertPages.page} pageCount={alertPages.pageCount} total={alerts.length} onPage={alertPages.setPage}/></section>}
+    {current === "alerts" && <section className="announce-paginated-region"><AlertRegister rows={alertPages.pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/><DataPagination page={alertPages.page} pageCount={alertPages.pageCount} total={alerts.length} onPage={alertPages.setPage}/></section>}
     {current === "history" && <section className="announce-paginated-region"><NotificationHistoryRegister rows={historyPages.pageItems} onOpen={code => router.push(`/announce/history/${encodeURIComponent(code)}`)}/><DataPagination page={historyPages.page} pageCount={historyPages.pageCount} total={history.length} onPage={historyPages.setPage}/></section>}
   </div>;
 }

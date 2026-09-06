@@ -15,6 +15,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var students = await db.Students.AsNoTracking().Include(x => x.Department).Where(x => !departmentId.HasValue || x.DepartmentId == departmentId).OrderBy(x => x.FullName).ToListAsync(cancellationToken);
         var ids = students.Select(x => x.Id).ToList();
         var enrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Department).Where(x => ids.Contains(x.StudentId)).ToListAsync(cancellationToken);
@@ -25,7 +26,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
         {
             var completed = studentSessions.Where(x => x.Student.StudentId == student.Id).ToList();
             var studentGrades = grades.Where(x => x.StudentId == student.Id).ToList();
-            var enrollmentEvents = enrollments.Where(x => x.StudentId == student.Id).Select(x => (At: x.UpdatedAtUtc, Activity: Create(("Activity", "Student enrollment"), ("Enrollment code", x.EnrollmentCode), ("Academic year", x.AcademicYear), ("Term", x.Semester), ("Date", x.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", x.UpdatedAtUtc.ToString("HH:mm")), ("Year", $"Year {x.YearLevel}"), ("Shift", x.Shift), ("Department", x.Department?.Name ?? student.Department?.Name ?? "Unassigned"), ("Enrollment status", x.Status))));
+            var enrollmentEvents = enrollments.Where(x => x.StudentId == student.Id).Select(x => (At: x.UpdatedAtUtc, Activity: Create(("Activity", "Student enrollment"), ("Permanent code", student.StudentCode), ("Academic year", x.AcademicYear), ("Term", x.Semester), ("Date", x.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", x.UpdatedAtUtc.ToString("HH:mm")), ("Year", $"Year {x.YearLevel}"), ("Shift", x.Shift), ("Department", x.Department?.Name ?? student.Department?.Name ?? "Unassigned"), ("Enrollment status", x.Status))));
             var attendanceEvents = completed.Select(x => (At: x.Session.UpdatedAtUtc, Activity: Create(
                 ("Activity", "Class attendance"), ("ClassSessionId", x.Session.Id.ToString()),
                 ("Class session code", SessionCode(x.Session)), ("Timetable code", x.Session.ScheduleEntry?.TimetableCode ?? "Not recorded"),
@@ -52,7 +53,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
                 $"{completed.Count} recorded class sessions · {studentGrades.Count} recorded course grades",
                 events.Count == 0 ? null : events[0].At,
                 events.Select(x => x.Activity).ToList(),
-                Code: student.StudentCode,
+                Code: codeFormat.Derive(student.StudentCode, "student", "record"),
                 PhotoDataUrl: student.PhotoDataUrl,
                 Department: student.Department?.Name ?? "Unassigned",
                 ResourceId: student.Id);

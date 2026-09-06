@@ -15,6 +15,7 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var courses = await db.Courses.AsNoTracking().Include(x => x.Department)
             .Where(x => !departmentId.HasValue || x.DepartmentId == departmentId)
             .OrderBy(x => x.CourseCode).ToListAsync(cancellationToken);
@@ -40,7 +41,7 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
             {
                 var studentCount = enrollments.Count(x => x.DepartmentId == assignment.DepartmentId && x.YearLevel == assignment.YearLevel && x.AcademicYear == assignment.AcademicYear && x.Semester == assignment.Semester);
                 return (assignment.UpdatedAtUtc, Create(
-                    ("Activity", "Course assignment"), ("Enrollment code", assignment.EnrollmentCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
+                    ("Activity", "Course assignment"), ("Permanent code", course.CourseCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", $"Year {assignment.YearLevel}"), ("Course", course.Name), ("Course code", course.CourseCode),
                     ("Department", assignment.Department?.Name ?? course.Department?.Name ?? "Unassigned"),
@@ -61,7 +62,7 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
             var status = !course.IsActive ? "Unavailable" : runningIds.Contains(course.Id) ? "In Study" : "Available";
             return new OperationalRecordDto(course.Id, "Course", course.Name, course.CourseCode, status,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: course.CourseCode,
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(course.CourseCode, "course", "record"),
                 Department: course.Department?.Name ?? "Unassigned", ResourceId: course.Id);
         }).ToList();
     }

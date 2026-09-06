@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { workflowCode } from "@/lib/workflow-code";
 import type { TimetablePeriod, TimetableRoom, WeeklyTimetableSlot } from "../operations-types";
 import { isCurrentTime, statusClass } from "../operation-utils";
 
@@ -28,14 +27,14 @@ export function WeeklyTimetable({ rows, periods, rooms, globalYear }: { rows: We
     <section className="room-schedule-matrix" style={{ "--period-columns": visiblePeriods.length } as React.CSSProperties}>
       <header><div><strong>Enrolled learning space</strong><span>{selectedDay} · {visibleRows.length} classes</span></div>{visiblePeriods.map(period => <div className={`session-${period.session.toLowerCase()}`} key={period.startsAt}><span>{period.session}</span><strong>{period.startsAt}–{period.endsAt}</strong></div>)}</header>
       <div className="room-schedule-body">{rooms.map(room => <div className="room-schedule-row" key={room.id}>
-        <div className="room-schedule-label"><div><strong>{workflowCode(room.enrollmentCode, "classroom", "operation")}</strong><span>{room.enrollmentCode} · {room.roomType}</span></div><b className={`table-status ${statusClass(room.status)}`}>{room.status}</b></div>
+        <div className="room-schedule-label"><div><strong>{room.operationCode}</strong><span>{room.room} · {room.roomType}</span></div><b className={`table-status ${statusClass(room.status)}`}>{room.status}</b></div>
         {visiblePeriods.map(period => {
           const scheduled = visibleRows.filter(row => row.room === room.room && row.startsAt === period.startsAt && row.endsAt === period.endsAt);
           return <div className="room-period-cell" key={period.startsAt}>{scheduled.length ? scheduled.map(row => {
             const current = selectedDay === today && isCurrentTime(row, now);
             const running = current && row.status === "Running";
             const teacherMissing = current && row.status === "Available" && (row.teacherAttendance === "Absent" || row.teacherAttendance === "Permission");
-            return <article className={`${running ? "current-course" : ""} ${teacherMissing ? "teacher-missing-course" : ""}`} key={row.id}><div><b>{workflowCode(row.enrollmentCode, "timetable", "operation")}</b><strong>{row.course}</strong>{current && <i>{running ? "Live" : row.status}</i>}</div><span>{row.enrollmentCode} · {row.teacher} · Year {row.yearLevel}{current && !running ? ` · ${row.statusDetail}` : ""}</span></article>;
+            return <article className={`${running ? "current-course" : ""} ${teacherMissing ? "teacher-missing-course" : ""}`} key={row.id}><div><b>{row.operationCode}</b><strong>{row.course}</strong>{current && <i>{running ? "Live" : row.status}</i>}</div><span>{row.timetableCode} · {row.teacher} · Year {row.yearLevel}{current && !running ? ` · ${row.statusDetail}` : ""}</span></article>;
           }) : <span className="room-period-empty">Available</span>}</div>;
         })}
       </div>)}</div>

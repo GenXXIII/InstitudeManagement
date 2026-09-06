@@ -15,10 +15,6 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, o
   return <>
     <section className="panel announce-alert-form">
       <label>
-        <span>Announcement code</span>
-        <input className="management-code-value" value={draft.announcementCode} required onChange={event => onDraft({ ...draft, announcementCode: event.target.value })}/>
-      </label>
-      <label>
         <span>Alert type</span>
         <select
           value={draft.type}
@@ -42,7 +38,7 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, o
         {editing && <button className="button secondary" onClick={onCancel}>Cancel</button>}
         <button
           className="button primary"
-          disabled={saving || !draft.announcementCode.trim() || !draft.title.trim() || !draft.message.trim()}
+          disabled={saving || !draft.title.trim() || !draft.message.trim()}
           onClick={onSave}
         >
           <Icon name={editing ? "edit" : "plus"} size={15}/>

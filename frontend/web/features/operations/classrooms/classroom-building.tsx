@@ -1,5 +1,4 @@
 import { Icon } from "@/components/icon";
-import { workflowCode } from "@/lib/workflow-code";
 import type { ClassroomOperation } from "../operations-types";
 
 export function ClassroomBuilding({ rows }: { rows: ClassroomOperation[] }) {
@@ -13,7 +12,7 @@ export function ClassroomBuilding({ rows }: { rows: ClassroomOperation[] }) {
           const state = classroomState(room.status);
           const teacherMissing = state === "available" && (room.teacherAttendance === "Absent" || room.teacherAttendance === "Permission");
           return <article className={`operation-${state}-classroom ${teacherMissing ? "teacher-missing-classroom" : ""}`} key={room.id}>
-            <div><strong>{workflowCode(room.enrollmentCode, "classroom", "operation")}</strong><small>{room.enrollmentCode} · {room.roomType} · {room.course}</small><span className="classroom-live-detail">{room.statusDetail}</span></div>
+            <div><strong>{room.operationCode}</strong><small>{room.room} · {room.roomType} · {room.course}</small><span className="classroom-live-detail">{room.statusDetail}</span></div>
             <b className={`table-status operation-classroom-status ${state}`}>{classroomStateLabel(state)}</b>
           </article>;
         }) : <span className="floor-empty">No enrolled learning spaces</span>}</div>

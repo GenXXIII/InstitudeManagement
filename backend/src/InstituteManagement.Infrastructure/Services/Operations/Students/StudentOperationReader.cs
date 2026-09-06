@@ -14,6 +14,7 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
     public async Task<OperationDto> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(localNow);
         var shift = selection.Shift;
@@ -71,7 +72,7 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
                 x.StudentId,
                 x.Student!.FullName,
                 x.Student.StudentCode,
-                x.EnrollmentCode,
+                codeFormat.Derive(x.Student.StudentCode, "student", "operation"),
                 x.Department?.Name ?? "—",
                 x.YearLevel,
                 x.Shift,

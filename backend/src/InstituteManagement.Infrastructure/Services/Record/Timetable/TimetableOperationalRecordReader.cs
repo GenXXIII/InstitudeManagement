@@ -13,6 +13,7 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var schedules = await db.ScheduleEntries.AsNoTracking()
             .Include(x => x.Course)!.ThenInclude(x => x!.Department)
             .Include(x => x.Teacher).Include(x => x.Classroom)
@@ -37,7 +38,7 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
                 var assignment = courseAssignments.FirstOrDefault(x => x.CourseId == schedule.CourseId && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester);
                 var enrolledStudents = assignment is null ? 0 : students.Count(x => x.DepartmentId == assignment.DepartmentId && x.YearLevel == schedule.YearLevel && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester && (shift == null || x.Shift == shift.Name));
                 return (enrollment.UpdatedAtUtc, Create(
-                    ("Activity", "Timetable enrollment"), ("Enrollment code", enrollment.EnrollmentCode), ("Academic year", enrollment.AcademicYear), ("Term", enrollment.Semester),
+                    ("Activity", "Timetable enrollment"), ("Permanent code", schedule.TimetableCode), ("Academic year", enrollment.AcademicYear), ("Term", enrollment.Semester),
                     ("Date", enrollment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", $"{schedule.StartsAt:HH:mm} – {schedule.EndsAt:HH:mm}"),
                     ("Day", schedule.DayOfWeek.ToString()), ("Year", $"Year {schedule.YearLevel}"),
                     ("Course", schedule.Course?.Name ?? "Course"), ("Course code", schedule.Course?.CourseCode ?? "—"),
@@ -61,7 +62,7 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
             return new OperationalRecordDto(schedule.Id, "Timetable", schedule.Course?.Name ?? "Scheduled course",
                 $"{schedule.DayOfWeek} · {schedule.StartsAt:HH:mm}–{schedule.EndsAt:HH:mm}", status,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: schedule.TimetableCode,
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(schedule.TimetableCode, "timetable", "record"),
                 Department: schedule.Course?.Department?.Name ?? "Unassigned", ResourceId: schedule.Id);
         }).ToList();
     }

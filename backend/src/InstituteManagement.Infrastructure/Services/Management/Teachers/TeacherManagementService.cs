@@ -17,14 +17,14 @@ public sealed class TeacherManagementService(InstituteDbContext db, InstituteCac
     }
     public override async Task<TeacherResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
-        var code = await ConfiguredCodeAsync(values, "teacherCode", "teacher", ct); values["teacherCode"] = code;
+        var code = await GeneratedCodeAsync("teacher", ct); values["teacherCode"] = code;
         await EnsureUniqueAsync(Db.Teachers.Where(teacher => teacher.TeacherCode == code), "TeacherCode", ct);
         return await SaveCreatedAsync(new Teacher { TeacherCode = code, FullName = Required(values, "name"), Email = Email(values, "email"), PhotoDataUrl = Required(values, "photoDataUrl"), DepartmentId = null, Status = "Available" }, values, ct);
     }
     public override async Task<TeacherResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
-        var entity = await RequiredEntityAsync(Db.Teachers, id, ct); var code = await ConfiguredCodeAsync(values, "teacherCode", "teacher", ct); values["teacherCode"] = code; await EnsureUniqueAsync(Db.Teachers.Where(teacher => teacher.Id != id && teacher.TeacherCode == code), "TeacherCode", ct);
-        entity.TeacherCode = code; entity.FullName = Required(values, "name"); entity.Email = Email(values, "email"); entity.PhotoDataUrl = Required(values, "photoDataUrl"); Touch(entity); return await SaveUpdatedAsync(id, values, ct);
+        var entity = await RequiredEntityAsync(Db.Teachers, id, ct); values["teacherCode"] = entity.TeacherCode;
+        entity.FullName = Required(values, "name"); entity.Email = Email(values, "email"); entity.PhotoDataUrl = Required(values, "photoDataUrl"); Touch(entity); return await SaveUpdatedAsync(id, values, ct);
     }
     protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct) { var id = entity.Id; if (await Db.Departments.AnyAsync(x => x.HeadTeacherId == id, ct) || await Db.CourseAssignments.AnyAsync(x => x.TeacherId == id && x.Status == "Active", ct) || await Db.ScheduleEntries.AnyAsync(x => x.TeacherId == id && x.Status != "Cancelled", ct)) throw new InvalidOperationException("Teacher is still assigned as a department head, course teacher, or timetable teacher."); }
     protected override async Task<Entity?> FindAsync(Guid id, CancellationToken ct) => await Db.Teachers.FindAsync([id], ct);

@@ -24,7 +24,7 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
         var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var today = DateOnly.FromDateTime(localNow);
         var record = await db.AttendanceRecords.FirstOrDefaultAsync(x => x.StudentId == studentId && x.Date == today, cancellationToken);
-        if (record is null) { record = new AttendanceRecord { AttendanceCode = $"ATT-{Guid.NewGuid():N}", StudentId = studentId, Date = today, AcademicYear = academicYear, Term = term }; db.AttendanceRecords.Add(record); }
+        if (record is null) { record = new AttendanceRecord { AttendanceCode = await BusinessCodeFormatter.GenerateAsync(db, "attendance", cancellationToken), StudentId = studentId, Date = today, AcademicYear = academicYear, Term = term }; db.AttendanceRecords.Add(record); }
         else if (record.AcademicYear != academicYear || record.Term != term) throw new InvalidOperationException("Today's attendance belongs to a completed academic period and is read-only.");
 
         var rules = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "attendance-rules" || x.Section == "notifications").ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, cancellationToken);

@@ -9,7 +9,6 @@ public sealed class StudentEnrollmentConfiguration : IEntityTypeConfiguration<St
     public void Configure(EntityTypeBuilder<StudentEnrollment> builder)
     {
         builder.ToTable("StudentEnrollments", "Enrollment");
-        builder.HasIndex(x => x.EnrollmentCode).IsUnique();
         builder.HasIndex(x => new { x.StudentId, x.AcademicYear, x.Semester }).IsUnique();
         builder.HasIndex(x => new { x.DepartmentId, x.YearLevel });
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();

@@ -14,6 +14,7 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
 
     public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var sessions = await db.ClassSessionRecords.AsNoTracking()
             .Include(x => x.ScheduleEntry)
             .Include(x => x.Course)
@@ -32,10 +33,9 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
             var sessionStatus = TeacherPresence.SessionStatus(session.TeacherAttendanceStatus);
             var statusDetail = TeacherPresence.Reason(session.TeacherAttendanceStatus);
             var sessionCode = ReadableSessionCode(session);
-            var enrollmentCode = timetableEnrollments
-                .Where(enrollment => enrollment.ScheduleEntryId == session.ScheduleEntryId && enrollment.AcademicYear == session.AcademicYear && enrollment.Semester == session.Term)
-                .Select(enrollment => enrollment.EnrollmentCode)
-                .FirstOrDefault() ?? "Not recorded";
+            var enrollmentCode = timetableEnrollments.Any(enrollment => enrollment.ScheduleEntryId == session.ScheduleEntryId && enrollment.AcademicYear == session.AcademicYear && enrollment.Semester == session.Term)
+                ? session.ScheduleEntry?.TimetableCode ?? "Not recorded"
+                : "Not recorded";
             var activities = new List<Dictionary<string, string>>
             {
                 Create(("Activity", "Completed class"), ("Class session code", sessionCode), ("Timetable enrollment code", enrollmentCode), ("Timetable code", session.ScheduleEntry?.TimetableCode ?? "Not recorded"), ("Date", session.SessionDate.ToString("yyyy-MM-dd")), ("Time", time), ("Course", session.CourseName), ("Course code", session.Course?.CourseCode ?? "Not recorded"), ("Year", $"Year {session.YearLevel}"), ("Teacher", session.TeacherName), ("Teacher code", session.Teacher?.TeacherCode ?? "Not recorded"), ("Classroom", session.ClassroomCode), ("Classroom code", session.Classroom?.ClassroomCode ?? session.ClassroomCode), ("Academic year", session.AcademicYear), ("Term", session.Term), ("Teacher attendance", session.TeacherAttendanceStatus), ("Session status", sessionStatus), ("Reason", statusDetail), ("Attendance", $"{session.PresentCount} present · {session.LateCount} late · {session.AbsentCount} absent · {session.ExcusedCount} permission"))
@@ -71,7 +71,8 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
                     : $"{time} · {session.TeacherName} {session.TeacherAttendanceStatus.ToLowerInvariant()} · class not held · room available",
                 session.UpdatedAtUtc,
                 activities,
-                sessionCode);
+                sessionCode,
+                Code: codeFormat.Derive(sessionCode, "session", "record"));
         }).ToList();
     }
 

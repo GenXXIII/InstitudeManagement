@@ -4,7 +4,7 @@ import { scheduleMatchesShift } from "../common/enrollment-relationships";
 
 export const studentEnrollmentCopy: EnrollmentCopy = {
   title: "Student Enrollment",
-  description: "Select a student added in Management, then enroll their code and name into a department, year, and learning shift.",
+  description: "Select a Management student and assign academic details. The linked EnrollmentCode is generated automatically from StudentCode.",
   columns: ["EnrollmentCode", "Name", "Year", "Shift", "Department", "Actions"],
 };
 

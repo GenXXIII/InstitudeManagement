@@ -46,12 +46,6 @@ export default function DashboardPage() {
       </div>
     </header>
 
-    <section className="dashboard-reporting-band">
-      <div><span>{data.rangeLabel} reporting window</span><strong>{periodLabel(data)}</strong><small>Generated {formatGenerated(data.generatedAt)}</small></div>
-      <div className="dashboard-attendance-hero"><span>Attendance performance</span><strong>{data.attendanceRate.toFixed(1)}%</strong><small className={changeTone}>{changeLabel(data.attendanceChange, data.range)}</small></div>
-      <div className="dashboard-reporting-note"><Icon name="chart" size={22}/><p><strong>One connected workflow</strong><span>Metrics combine current institute resources with activity inside the selected reporting period.</span></p></div>
-    </section>
-
     <section className="dashboard-metric-grid">{data.metrics.map((metric, index) => <article className={`dashboard-metric tone-${metric.tone || "blue"}`} key={metric.label}><span><Icon name={metricIcons[index % metricIcons.length]} size={19}/></span><div><small>{metric.label}</small><strong>{metric.value}</strong><p>{metric.detail}</p></div></article>)}</section>
 
     <main className="dashboard-layout">
@@ -110,7 +104,3 @@ function EmptyMessage({ text }: { text: string }) { return <div className="dashb
 function chartX(index: number, count: number) { return count < 2 ? 320 : index * 640 / (count - 1); }
 function chartY(value: number) { return 180 - Math.max(0, Math.min(100, Number(value))) * 1.55; }
 function signed(value: number) { return `${value > 0 ? "+" : ""}${Number(value).toFixed(1)}`; }
-function changeLabel(value: number, range: DashboardRange) { return range === "all" ? "Complete institute history" : `${signed(value)} points versus the previous period`; }
-function periodLabel(data: Dashboard) { return data.periodStart === "Beginning" ? `Beginning – ${displayDate(data.periodEnd)}` : `${displayDate(data.periodStart)} – ${displayDate(data.periodEnd)}`; }
-function displayDate(value: string) { const date = new Date(`${value}T00:00:00`); return Number.isNaN(date.valueOf()) ? value : date.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }); }
-function formatGenerated(value: string) { const date = new Date(value); return Number.isNaN(date.valueOf()) ? "just now" : date.toLocaleString("en-US", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }

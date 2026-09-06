@@ -9,7 +9,6 @@ public sealed class TeacherAssignmentConfiguration : IEntityTypeConfiguration<Te
     public void Configure(EntityTypeBuilder<TeacherAssignment> builder)
     {
         builder.ToTable("TeacherAssignments", "Enrollment");
-        builder.HasIndex(x => x.EnrollmentCode).IsUnique();
         builder.HasIndex(x => new { x.TeacherId, x.AcademicYear, x.Semester }).IsUnique();
         builder.HasIndex(x => x.DepartmentId);
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();

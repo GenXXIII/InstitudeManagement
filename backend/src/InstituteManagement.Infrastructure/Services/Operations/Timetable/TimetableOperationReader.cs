@@ -14,6 +14,7 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
     public async Task<OperationDto> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
         var enrolledCourseAssignments = await db.CourseAssignments.AsNoTracking()
             .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
@@ -83,7 +84,7 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
             return new WeeklyTimetableSlotDto(
                 x.Id,
                 x.TimetableCode,
-                timetableEnrollments[x.Id].EnrollmentCode,
+                codeFormat.Derive(x.TimetableCode, "timetable", "operation"),
                 x.DayOfWeek.ToString(),
                 period?.Session ?? "Custom",
                 x.StartsAt.ToString("HH:mm"),
@@ -104,7 +105,7 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
             .Select(assignment => new TimetableRoomDto(
                 assignment.ClassroomId,
                 assignment.Classroom!.ClassroomCode,
-                assignment.EnrollmentCode,
+                codeFormat.Derive(assignment.Classroom.ClassroomCode, "classroom", "operation"),
                 assignment.Classroom.RoomType,
                 inStudyRoomIds.Contains(assignment.ClassroomId) ? "Running" : NormalizeClassroomStatus(assignment.Classroom.Status)))
             .ToList();

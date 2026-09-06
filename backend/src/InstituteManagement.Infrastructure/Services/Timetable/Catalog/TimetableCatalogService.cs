@@ -66,9 +66,8 @@ public sealed class TimetableCatalogService(InstituteDbContext db, InstituteCach
 
     private async Task ApplyAsync(ScheduleEntry entry, Dictionary<string, string> values, CancellationToken ct)
     {
-        var timetableCode = await ConfiguredCodeAsync(values, "timetableCode", "timetable", ct); values["timetableCode"] = timetableCode;
-        await EnsureUniqueAsync(Db.ScheduleEntries.Where(item => item.Id != entry.Id && item.TimetableCode == timetableCode), "TimetableCode", ct);
-        entry.TimetableCode = timetableCode;
+        if (entry.Id == Guid.Empty) entry.TimetableCode = await GeneratedCodeAsync("timetable", ct);
+        values["timetableCode"] = entry.TimetableCode;
         entry.YearLevel = IntInRange(values, "yearLevel", 1, 1, 4);
         entry.CourseId = await RelatedIdAsync<Course>(values, "courseId", ct); entry.TeacherId = await RelatedIdAsync<Teacher>(values, "teacherId", ct); entry.ClassroomId = await RelatedIdAsync<Classroom>(values, "classroomId", ct);
         var course = await Db.Courses.FindAsync([entry.CourseId], ct) ?? throw new KeyNotFoundException("Course not found."); var teacher = await Db.Teachers.FindAsync([entry.TeacherId], ct) ?? throw new KeyNotFoundException("Teacher not found."); var room = await Db.Classrooms.FindAsync([entry.ClassroomId], ct) ?? throw new KeyNotFoundException("Classroom not found.");
