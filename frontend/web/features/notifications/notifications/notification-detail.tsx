@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { BrowserBackButton } from "@/components/browser-back-button";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { notificationsApi } from "./notification-api";
 import type { NotificationItem } from "./notification-types";
@@ -26,7 +26,7 @@ export function NotificationDetail({ id }: { id: string }) {
 
   const created = new Date(item.createAt);
   return <>
-    <PageHeading eyebrow="Announce" title="Notification detail" description="Read the complete institute notification." actions={<Link className="button secondary" href="/announce/notifications">Back to notifications</Link>}/>
+    <PageHeading eyebrow="Announce" title="Notification detail" description="Read the complete institute notification." actions={<BrowserBackButton>Back to notifications</BrowserBackButton>}/>
     <article className="panel notification-detail notification-full-detail">
       <header><div><span>NotificationCode</span><strong className="management-code-value">{item.notificationCode}</strong></div><time><span>{created.toLocaleDateString()}</span><strong>{created.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</strong></time></header>
       <section className="notification-detail-grid" aria-label="Notification information">

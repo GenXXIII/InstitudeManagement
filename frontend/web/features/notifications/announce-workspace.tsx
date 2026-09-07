@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
+import { CodeRecommendation } from "@/components/code-recommendation";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { AlertRegister } from "./announcements/alert-register";
@@ -16,6 +17,7 @@ import { NotificationRegister } from "./notifications/notification-register";
 import type { NotificationDraft, NotificationItem } from "./notifications/notification-types";
 import { AnnounceOverview } from "./overview/announce-overview";
 import { formatNotificationCode } from "@/lib/workflow-code";
+import { recommendedCodeFromError } from "@/lib/code-recommendation";
 
 const emptyAlert: AnnouncementDraft = { announcementCode: "", type: "General", title: "", message: "" };
 
@@ -82,10 +84,12 @@ export function AnnounceWorkspace({ module }: { module: string }) {
     : current === "history"
       ? { eyebrow: "Announce", title: "History", description: "Read-only history of every notification and alert lifecycle event." }
       : { eyebrow: "Announce", title: "Notification", description: "Review, edit, mark, or remove current system notifications." };
+  const recommendation = recommendedCodeFromError(error);
 
   return <div className="viewport-data-page announce-viewport-page">
     <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={current === "notifications" ? <button className="button secondary notification-mark-all-button" disabled={!notifications.length || markingAll} onClick={() => void markAllNotificationsAsRead()}>{markingAll ? "Marking all as read..." : "Mark all as read"}</button> : undefined}/>
-    {error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
+    {recommendation ? <CodeRecommendation code={recommendation} onUse={() => { setAlertDraft(currentDraft => ({ ...currentDraft, announcementCode: recommendation })); setError(""); }}/>
+      : error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
     {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts} history={history}/>}
     {current === "notifications" && <section className="announce-paginated-region"><NotificationRegister rows={notificationPages.pageItems} editing={editingNotification} draft={notificationDraft} saving={saving} onDraft={setNotificationDraft} onOpen={id => router.push(`/announce/notifications/${id}`)} onEdit={item => { setEditingNotification(item.id); setNotificationDraft({ title: item.title, message: item.message, severity: item.severity, isRead: item.isRead }); }} onSave={saveNotification} onCancel={() => setEditingNotification(undefined)} onRemove={removeNotification}/><DataPagination page={notificationPages.page} pageCount={notificationPages.pageCount} total={notifications.length} onPage={notificationPages.setPage}/></section>}
     {current === "alerts" && <section className="announce-paginated-region"><AlertRegister rows={alertPages.pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ announcementCode: item.announcementCode, type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/><DataPagination page={alertPages.page} pageCount={alertPages.pageCount} total={alerts.length} onPage={alertPages.setPage}/></section>}

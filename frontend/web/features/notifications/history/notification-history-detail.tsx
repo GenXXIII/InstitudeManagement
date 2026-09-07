@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { BrowserBackButton } from "@/components/browser-back-button";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { notificationHistoryApi } from "./notification-history-api";
 import type { NotificationHistoryItem } from "./notification-history-types";
@@ -21,7 +21,7 @@ export function NotificationHistoryDetail({ id }: { id: string }) {
 
   const recorded = new Date(item.createAt);
   return <>
-    <PageHeading eyebrow="Announce" title="Read notification" description="Read-only notification lifecycle entry." actions={<Link className="button secondary" href="/announce/history">Back to notification history</Link>}/>
+    <PageHeading eyebrow="Announce" title="Read notification" description="Read-only notification lifecycle entry." actions={<BrowserBackButton>Back to notification history</BrowserBackButton>}/>
     <article className="panel notification-detail notification-full-detail">
       <header><div><span>NotificationHistoryCode</span><strong className="management-code-value">{item.notificationHistoryCode}</strong></div><time><span>{recorded.toLocaleDateString()}</span><strong>{recorded.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</strong></time></header>
       <section className="notification-detail-grid" aria-label="Notification history information">

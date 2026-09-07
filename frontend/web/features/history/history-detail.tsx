@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { BrowserBackButton } from "@/components/browser-back-button";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
 import { workflowCode, workflowResource } from "@/lib/workflow-code";
@@ -13,7 +12,6 @@ import type { RecordGroup } from "./history-types";
 import { displayValue, formatDate, groupRecords, isHistoryFieldVisible, pretty } from "./history-utils";
 
 export function HistoryDetail({ resource, id }: { resource: string; id: string }) {
-  const searchParams = useSearchParams();
   const config = recordTypes[resource] ?? recordTypes.students;
   const [group, setGroup] = useState<RecordGroup>();
   const [error, setError] = useState(false);
@@ -34,13 +32,11 @@ export function HistoryDetail({ resource, id }: { resource: string; id: string }
   if (error) return <ErrorPage retry={load}/>;
   if (!group) return <LoadingPage/>;
 
-  const query = searchParams.toString();
-  const backHref = `/records/${resource}${query ? `?${query}` : ""}`;
   const latest = group.entries[0];
   const sourceCode = historyBusinessCode(group);
   const codeResource = workflowResource(group.type);
   return <div className="viewport-data-page history-detail-viewport-page">
-    <PageHeading eyebrow="Permanent read-only history" title={group.subject} description={`${group.type} · ${group.entries.length} recorded snapshot${group.entries.length === 1 ? "" : "s"}`} actions={<Link className="button secondary" href={backHref}>Back to history</Link>}/>
+    <PageHeading eyebrow="Permanent read-only history" title={group.subject} description={`${group.type} · ${group.entries.length} recorded snapshot${group.entries.length === 1 ? "" : "s"}`} actions={<BrowserBackButton>Back to history</BrowserBackButton>}/>
     <section className="history-detail-scroll">
       <WorkflowCodeFlow sourceCode={sourceCode} resource={codeResource} currentStage="history"/>
       <article className="panel history-detail-summary">

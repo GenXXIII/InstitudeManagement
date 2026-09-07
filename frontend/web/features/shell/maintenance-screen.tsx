@@ -21,7 +21,7 @@ export function MaintenanceScreen({ instituteName, logoUrl, message }: Maintenan
       <h1>{instituteName}</h1>
       <p>{message}</p>
       <div><i/><strong>Business services are temporarily unavailable</strong></div>
-      <button className="button primary" type="button" onClick={() => router.push("/settings/maintenance")}>Open Maintenance Control</button>
+      <button className="button primary" type="button" onClick={() => router.replace("/settings/maintenance")}>Open Maintenance Control</button>
     </section>
   </div>;
 }

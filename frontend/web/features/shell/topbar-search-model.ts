@@ -1,5 +1,6 @@
 import type { ManagementItem, ManagementResource } from "@/features/management/management-types";
 import { managementCode } from "@/features/management/management-id";
+import { workflowSourceSearch } from "@/lib/workflow-code";
 import {
   announceNavigation,
   enrollmentNavigation,
@@ -21,6 +22,12 @@ export type SearchSuggestion = {
   code: string;
   label: string;
   detail: string;
+};
+
+export type SearchMatch = {
+  label: string;
+  field: string;
+  rank: number;
 };
 
 export type ModuleSearchResult = {
@@ -75,12 +82,40 @@ export function itemSuggestion(item: ManagementItem, resource: ManagementResourc
 }
 
 export function moduleSearchResults(query: string) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return [];
+  const terms = searchTerms(query);
+  if (!terms.length) return [];
   return moduleDestinations
-    .filter(item => `${item.label} ${item.section} ${item.href}`.toLowerCase().includes(normalized))
-    .toSorted((left, right) => moduleRank(left, normalized) - moduleRank(right, normalized) || left.label.localeCompare(right.label))
+    .filter(item => matchesAllTerms(`${item.label} ${item.section} ${item.href}`, terms))
+    .toSorted((left, right) => moduleSearchMatch(left, query).rank - moduleSearchMatch(right, query).rank || left.label.localeCompare(right.label))
     .slice(0, 6);
+}
+
+export function searchQuerySeed(query: string) {
+  const [first] = query.trim().split(/\s+/);
+  return workflowSourceSearch(first ?? query);
+}
+
+export function suggestionSearchMatch(item: SearchSuggestion, query: string): SearchMatch | undefined {
+  return classifyMatch([
+    { label: "Code", value: item.code },
+    { label: "Name", value: item.label },
+    { label: "Details", value: item.detail },
+  ], query);
+}
+
+export function moduleSearchMatch(item: ModuleSearchResult, query: string): SearchMatch {
+  return classifyMatch([
+    { label: "Page", value: item.label },
+    { label: "Section", value: item.section },
+    { label: "Route", value: item.href },
+  ], query) ?? { label: "Related page", field: item.section, rank: 6 };
+}
+
+export function filterAndRankSuggestions(items: SearchSuggestion[], query: string) {
+  return items
+    .map(item => ({ item, match: suggestionSearchMatch(item, query) }))
+    .filter((result): result is { item: SearchSuggestion; match: SearchMatch } => Boolean(result.match))
+    .toSorted((left, right) => left.match.rank - right.match.rank || left.item.label.localeCompare(right.item.label, undefined, { numeric: true }));
 }
 
 export function scopedHref(href: string, departmentId: string, year: string, query = "") {
@@ -108,10 +143,29 @@ export function matchesYear(item: ManagementItem, year: string) {
   return !year || !item.values.year && !item.values.yearLevel || item.values.year === year || item.values.yearLevel === year;
 }
 
-function moduleRank(item: ModuleSearchResult, query: string) {
-  const label = item.label.toLowerCase();
-  if (label === query) return 0;
-  if (label.startsWith(query)) return 1;
-  if (label.split(/\s+/).some(word => word.startsWith(query))) return 2;
-  return 3;
+function classifyMatch(fields: { label: string; value: string }[], query: string): SearchMatch | undefined {
+  const normalized = query.trim().toLowerCase();
+  const terms = searchTerms(query);
+  if (!normalized || !terms.length) return undefined;
+  const normalizedFields = fields.filter(field => field.value).map(field => ({ ...field, normalized: field.value.toLowerCase() }));
+  const exact = normalizedFields.find(field => field.normalized === normalized);
+  if (exact) return { label: `Exact ${exact.label.toLowerCase()}`, field: exact.label, rank: exact.label === "Code" ? 0 : 1 };
+  const starts = normalizedFields.find(field => field.normalized.startsWith(normalized));
+  if (starts) return { label: "Starts with", field: starts.label, rank: 2 };
+  const word = normalizedFields.find(field => field.normalized.split(/[^a-z0-9]+/).some(value => value.startsWith(normalized)));
+  if (word) return { label: "Word starts with", field: word.label, rank: 3 };
+  const phrase = normalizedFields.find(field => field.normalized.includes(normalized));
+  if (phrase) return { label: "Contains characters", field: phrase.label, rank: 4 };
+  const combined = normalizedFields.map(field => field.normalized).join(" ");
+  if (matchesAllTerms(combined, terms)) return { label: terms.length > 1 ? "Matches all words" : "Contains characters", field: "Record", rank: 5 };
+  return undefined;
+}
+
+function searchTerms(query: string) {
+  return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function matchesAllTerms(value: string, terms: string[]) {
+  const normalized = value.toLowerCase();
+  return terms.every(term => normalized.includes(term));
 }

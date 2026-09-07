@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "@/components/icon";
 import { ManagementDataCell } from "@/components/management-data-cell";
 import { ManagementActions } from "@/features/management/components/management-actions";
 import { workflowCode } from "@/lib/workflow-code";
@@ -17,7 +18,7 @@ export function TimetableBoard({ items, onEdit, onDeactivate }: { items: Timetab
     .toSorted((left, right) => days.indexOf(left.values.dayOfWeek) - days.indexOf(right.values.dayOfWeek) || left.values.startsAt.localeCompare(right.values.startsAt) || left.values.classroom.localeCompare(right.values.classroom, undefined, { numeric: true }));
   return <section className="management-timetable-data">
     <div className="panel timetable-data-filters">
-      <label><span>Search schedule</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Code, time, day, created date..."/></label>
+      <label className="management-search module-search-field timetable-module-search"><Icon name="search" size={16}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search code, time, day, or created date..." aria-label="Search schedule"/></label>
       <label><span>Day</span><select value={selectedDay} onChange={event => setSelectedDay(event.target.value)}><option>All days</option>{days.map(day => <option key={day}>{day}</option>)}</select></label>
       <div className="timetable-data-count"><span>Showing</span><strong>{visible.length}</strong><small>matching schedules</small></div>
     </div>

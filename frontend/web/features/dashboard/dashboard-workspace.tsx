@@ -95,9 +95,12 @@ function CardHeading({ kicker, title, detail, link, linkLabel }: { kicker: strin
 
 function AttendanceChart({ points }: { points: Dashboard["attendanceTrend"] }) {
   if (!points.length) return <EmptyMessage text="No attendance trend is available for this period."/>;
-  const path = points.map((point, index) => `${index ? "L" : "M"} ${chartX(index, points.length)} ${chartY(point.value)}`).join(" ");
+  const singlePoint = points.length === 1;
+  const path = singlePoint
+    ? `M 0 ${chartY(points[0].value)} L 640 ${chartY(points[0].value)}`
+    : points.map((point, index) => `${index ? "L" : "M"} ${chartX(index, points.length)} ${chartY(point.value)}`).join(" ");
   const area = `${path} L 640 190 L 0 190 Z`;
-  return <div className="dashboard-chart"><div className="dashboard-chart-grid"><i/><i/><i/><i/></div><svg viewBox="0 0 640 200" preserveAspectRatio="none" aria-label="Attendance percentage trend"><defs><linearGradient id="dashboardAttendanceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3679ef" stopOpacity=".24"/><stop offset="1" stopColor="#3679ef" stopOpacity="0"/></linearGradient></defs><path className="dashboard-chart-area" d={area}/><path className="dashboard-chart-line" d={path}/>{points.map((point, index) => <circle cx={chartX(index, points.length)} cy={chartY(point.value)} r="4" key={`${point.label}-${index}`}/>)}</svg><div className="dashboard-chart-labels">{points.map((point, index) => <span key={`${point.label}-${index}`}><b>{point.label}</b><small>{Number(point.value).toFixed(0)}%</small></span>)}</div></div>;
+  return <div className="dashboard-chart"><div className="dashboard-chart-grid"><i/><i/><i/><i/></div><svg viewBox="0 0 640 200" preserveAspectRatio="none" aria-label="Attendance percentage trend"><defs><linearGradient id="dashboardAttendanceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3679ef" stopOpacity=".24"/><stop offset="1" stopColor="#3679ef" stopOpacity="0"/></linearGradient></defs><path className="dashboard-chart-area" d={area}/><path className="dashboard-chart-line" d={path}/>{points.map((point, index) => <circle cx={chartX(index, points.length)} cy={chartY(point.value)} r="4" key={`${point.label}-${index}`}/>)}</svg><div className="dashboard-chart-labels" style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}>{points.map((point, index) => <span key={`${point.label}-${index}`}><b>{point.label}</b><small>{Number(point.value).toFixed(0)}%</small></span>)}</div></div>;
 }
 
 function EmptyMessage({ text }: { text: string }) { return <div className="dashboard-empty"><Icon name="archive" size={18}/><span>{text}</span></div>; }

@@ -7,7 +7,7 @@ import { AppTopbar } from "./app-topbar";
 import { MaintenanceScreen } from "./maintenance-screen";
 import { Sidebar } from "./sidebar";
 import { useLiveUpdates } from "./use-live-updates";
-import { useRecordEntryNavigation } from "./use-record-entry-navigation";
+import { useApplicationEntryNavigation } from "./use-record-entry-navigation";
 import { useShellScopes } from "./use-shell-scopes";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { live, events } = useLiveUpdates(ready && !maintenanceActive);
   const scopes = useShellScopes(pathname, ready && !maintenanceActive);
 
-  useRecordEntryNavigation(pathname);
+  useApplicationEntryNavigation(pathname);
 
   useEffect(() => {
     document.documentElement.lang = system.language?.toLowerCase().startsWith("kh") ? "km" : "en";

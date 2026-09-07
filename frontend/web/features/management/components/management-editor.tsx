@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CodeRecommendation } from "@/components/code-recommendation";
 import { Icon } from "@/components/icon";
 import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import { managementApis } from "../management-apis";
@@ -12,6 +13,7 @@ import { validateManagementFields, validationMessages, type FieldErrors } from "
 import { relationshipCreateTarget } from "../relationship-create";
 import { EditorField } from "./editor-field";
 import { formatAssignedCode, workflowCodeExample, workflowResourceForField } from "@/lib/workflow-code";
+import { recommendedCodeFromError } from "@/lib/code-recommendation";
 
 type PersonEditorMode = "full" | "profile" | "enrollment";
 const studentProfileFields = new Set(["photoDataUrl", "studentCode", "name", "email"]);
@@ -102,10 +104,12 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
   function createOptionFor(field: Field) {
     const target = relationshipCreateTarget(field.source);
     if (!target) return undefined;
-    return { id: `create-${field.source}`, label: target.label, action: () => { cancel(); router.push(target.path); } };
+    return { id: `create-${field.source}`, label: target.label, action: () => { cancel(); router.replace(target.path); } };
   }
 
-  const problems = validationMessages(fieldErrors, error);
+  const recommendation = recommendedCodeFromError(error);
+  const recommendationField = recommendation ? fields.find(field => workflowResourceForField(field.key)) : undefined;
+  const problems = validationMessages(fieldErrors, recommendation ? "" : error);
   const personMode = module === "students" ? studentMode : module === "teachers" ? teacherMode : "full";
   const personName = module === "teachers" ? "teacher" : "student";
   const editTitle = personMode === "enrollment" ? `Edit ${personName} enrollment` : personMode === "profile" ? `Edit ${personName} profile` : `Edit ${managementCopy[module].singular}`;
@@ -114,7 +118,7 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
     ? module === "teachers" ? "Change the teacher's assigned department. Active course and department-head relationships must remain consistent." : "Change only the student's department, year level, and learning shift. A department or year change reassigns the current course ledger."
     : item ? "Required profile data and Administration rules are validated before saving. The permanent code cannot be changed." : "Enter a sequence such as 1. It is formatted from Code Format settings and must be unique.";
   const saveLabel = personMode === "enrollment" ? "Save enrollment" : personMode === "profile" ? "Save profile" : item ? "Save changes" : `Add ${managementCopy[module].singular}`;
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) cancel(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{editorEyebrow}</span><h2>{item ? editTitle : `Add ${managementCopy[module].singular}`}</h2><p>{editorDescription}</p></div><button type="button" className="icon-button" onClick={cancel}><Icon name="close"/></button></div><div className="management-form-grid">{fields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} hint={codeHint(field.key, values[field.key], Boolean(item))} onChange={value => change(field, value)} onBlur={() => formatCodeField(field)}/>)}</div>{problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>{saving ? "Cancel request" : "Cancel"}</button><button className="button primary" disabled={saving}>{saving ? "Saving relationships..." : saveLabel}</button></div></form></div>;
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) cancel(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{editorEyebrow}</span><h2>{item ? editTitle : `Add ${managementCopy[module].singular}`}</h2><p>{editorDescription}</p></div><button type="button" className="icon-button" onClick={cancel}><Icon name="close"/></button></div><div className="management-form-grid">{fields.map(field => <EditorField key={field.key} field={field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} hint={codeHint(field.key, values[field.key], Boolean(item))} onChange={value => change(field, value)} onBlur={() => formatCodeField(field)}/>)}</div>{recommendation && recommendationField && <CodeRecommendation code={recommendation} onUse={() => change(recommendationField, recommendation)}/>} {problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>{saving ? "Cancel request" : "Cancel"}</button><button className="button primary" disabled={saving}>{saving ? "Saving relationships..." : saveLabel}</button></div></form></div>;
 }
 
 function formattedCodes(values: Record<string, string>, fields: Field[]) {
