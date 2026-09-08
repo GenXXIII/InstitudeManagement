@@ -3,8 +3,12 @@ node_modules/
 .next/
 bin/
 obj/
-docs/*
-!docs/architecture.md
+
+# documentation - keep completely local
+docs/
+
+# scripts - keep completely local
+scripts/
 
 # local configuration
 .env
