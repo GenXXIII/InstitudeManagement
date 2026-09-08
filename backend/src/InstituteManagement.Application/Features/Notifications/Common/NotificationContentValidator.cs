@@ -1,6 +1,6 @@
-namespace InstituteManagement.Infrastructure.Services.Notifications.Common;
+namespace InstituteManagement.Application.Features.Notifications.Common;
 
-internal static class NotificationContentValidator
+public static class NotificationContentValidator
 {
     public static string Required(string? value, string label, int maximum)
     {

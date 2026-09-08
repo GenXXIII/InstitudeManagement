@@ -11,13 +11,13 @@ import { historyApi } from "./history-api";
 import type { RecordItem } from "./history-types";
 
 const historyAreas = [
-  { icon: "users", code: "HSTU-XX", title: "Student History", detail: "Graduates only: complete Year 1–4 attendance, grades, and results", path: "/records/students" },
-  { icon: "teacher", code: "HTEA-XX", title: "Teacher History", detail: "Teacher attendance and completed-class evidence together", path: "/records/teachers" },
+  { icon: "users", code: "STUDENT → HISTORY", title: "Student History", detail: "Graduates only: Management profile plus the complete Year 1–4 Enrollment, Operation, and Record story", path: "/records/students" },
+  { icon: "teacher", code: "TEACHER → HISTORY", title: "Teacher History", detail: "One read-only assignment and completed-class story for every closed semester", path: "/records/teachers" },
   { icon: "calendar", code: "HSES-XX", title: "Class Sessions", detail: "Frozen attendance for every completed enrolled timetable", path: "/records/class-sessions" },
-  { icon: "book", code: "HCOU-XX", title: "Course History", detail: "Course lifecycle and assignment snapshots", path: "/records/courses" },
-  { icon: "room", code: "HCLA-XX", title: "Classroom History", detail: "Learning-space lifecycle and capacity snapshots", path: "/records/classrooms" },
-  { icon: "calendar", code: "HTIM-XX", title: "Timetable History", detail: "Enrolled schedule lifecycle and time snapshots", path: "/records/timetable" },
-  { icon: "building", code: "HDEP-XX", title: "Department History", detail: "Department leadership and organization snapshots", path: "/records/departments" },
+  { icon: "book", code: "COURSE → HISTORY", title: "Course History", detail: "Course Management identity, Enrollment assignment, operations, and classes by closed semester", path: "/records/courses" },
+  { icon: "room", code: "CLASSROOM → HISTORY", title: "Classroom History", detail: "Learning-space identity, assignment, capacity, and operations by closed semester", path: "/records/classrooms" },
+  { icon: "calendar", code: "TIMETABLE → HISTORY", title: "Timetable History", detail: "Enrolled schedule lifecycle and completed operations by closed semester", path: "/records/timetable" },
+  { icon: "building", code: "DEPARTMENT → HISTORY", title: "Department History", detail: "Department identity and the semester relationships built from Enrollment", path: "/records/departments" },
   { icon: "grade", code: "HSTU-XX", title: "Result Semester", detail: "Final student semester outcome across five courses", path: "/records/result-semester" },
 ] as const;
 
@@ -56,18 +56,18 @@ export function HistoryOverview() {
   const gradeCount = visibleStudents.reduce((total, row) => total + row.activities.filter(activity => activity.Activity === "Course grade").length, 0);
 
   return <div className="viewport-data-page history-control-overview-page">
-    <PageHeading eyebrow="Permanent graduate archive" title="History Overview" description="Students enter History only after completing Year 4 Semester 2. Their graduation academic year is the outside header, and the full eight-semester journey remains inside."/>
-    <section className="record-semester-switcher panel"><div><span>Archived graduate data</span><strong>{selectedPeriod === "all" ? "Complete Year 1–4 histories" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Inspect an archived semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">Full graduate histories</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>
+    <PageHeading eyebrow="Permanent lifecycle archive" title="History Overview" description="Every closed semester archives teacher, course, classroom, timetable, department, and class-session stories. A student’s Management profile and complete semester journey move here together after graduation."/>
+    <section className="record-semester-switcher panel"><div><span>Archived lifecycle data</span><strong>{selectedPeriod === "all" ? "All completed stories" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Inspect an archived semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">All archived periods</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>
     <div className="history-control-overview-scroll">
       <section className="enrollment-overview-metrics">
-        <HistoryMetric icon="users" label="Graduated student histories" value={visibleStudents.length} detail={`${attendanceCount} attendance events across Year 1–4`} href={scopedHref("/records/students", departmentId, year, selectedPeriod)}/>
-        <HistoryMetric icon="teacher" label="Teacher semester records" value={visibleTeachers.length} detail="Attendance and completed classes" href={scopedHref("/records/teachers", departmentId, year, selectedPeriod)}/>
+        <HistoryMetric icon="users" label="Graduated student stories" value={visibleStudents.length} detail={`${attendanceCount} attendance events across Year 1–4`} href={scopedHref("/records/students", departmentId, year, selectedPeriod)}/>
+        <HistoryMetric icon="teacher" label="Teacher semester archives" value={visibleTeachers.length} detail="Assignments, attendance, and completed classes" href={scopedHref("/records/teachers", departmentId, year, selectedPeriod)}/>
         <HistoryMetric icon="grade" label="Archived course grades" value={gradeCount} detail="Grouped by all completed semesters" href={scopedHref("/records/students", departmentId, year, selectedPeriod)}/>
         <HistoryMetric icon="archive" label="Permanent snapshots" value={audit.length} detail="Management and enrollment lifecycle" href={scopedHref("/records/class-sessions", departmentId, year, selectedPeriod)}/>
       </section>
 
       <section className="panel history-data-map">
-        <header><div><span>Visual data ownership</span><h2>Open history by the record that owns the data</h2><p>Attendance is no longer a separate sidebar destination. Student attendance and grades live in Student History; teacher attendance lives in Teacher History.</p></div></header>
+        <header><div><span>Visual data ownership</span><h2>Open the complete story owned by each resource</h2><p>Each story follows Management → Enrollment → Operation → Record → History. Student attendance and grades stay with the student; teacher attendance and completed classes stay with the teacher.</p></div></header>
         <div>{historyAreas.map(area => <Link href={scopedHref(area.path, departmentId, year, selectedPeriod)} key={area.title}><span><Icon name={area.icon} size={17}/></span><div><small>{area.code}</small><strong>{area.title}</strong><p>{area.detail}</p></div><Icon name="arrow" size={14}/></Link>)}</div>
       </section>
 

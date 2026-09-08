@@ -10,6 +10,9 @@ public sealed class StudentEnrollmentConfiguration : IEntityTypeConfiguration<St
     {
         builder.ToTable("StudentEnrollments", "Enrollment");
         builder.HasIndex(x => new { x.StudentId, x.AcademicYear, x.Semester }).IsUnique();
+        builder.HasIndex(x => new { x.EnrollmentCode, x.AcademicYear, x.Semester }).IsUnique();
+        builder.HasIndex(x => new { x.AcademicYear, x.Semester, x.Status, x.Shift, x.DepartmentId, x.YearLevel })
+            .IncludeProperties(x => new { x.StudentId, x.EnrollmentCode });
         builder.HasIndex(x => new { x.DepartmentId, x.YearLevel });
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Shift).HasMaxLength(32).IsRequired();

@@ -30,7 +30,7 @@ export function MaintenanceModePage() {
   if (!row) return <LoadingPage/>;
 
   return <div className="viewport-data-page administration-page administration-section-page maintenance-mode-page">
-    <PageHeading eyebrow="Advanced service control" title="Maintenance mode" description="Plan, communicate, activate, and safely recover from temporary platform maintenance." actions={<Link className="button secondary" href="/settings/overview"><Icon name="dashboard" size={15}/>Settings overview</Link>}/>
+    <PageHeading eyebrow="Advanced service control" title="Maintenance mode" description="Plan, communicate, activate, and safely recover from temporary platform maintenance." actions={<Link className="button secondary" href="/settings"><Icon name="dashboard" size={15}/>Settings overview</Link>}/>
     <section className="administration-section-scroll">
       <MaintenanceModeControl row={row} onSaved={load}/>
     </section>

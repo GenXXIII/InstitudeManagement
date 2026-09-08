@@ -13,6 +13,29 @@ public sealed class FeatureFolderStructureTests
     ];
 
     [Fact]
+    public void Api_contains_only_transport_and_composition_source_folders()
+    {
+        var apiRoot = ArchitectureTestPaths.SourceDirectory("InstituteManagement.API");
+        string[] allowedFolders = ["Contracts", "Controllers", "Middleware", "Routes"];
+
+        var unexpectedFiles = ArchitectureTestPaths.CSharpFiles("InstituteManagement.API")
+            .Where(path =>
+            {
+                var relative = Path.GetRelativePath(apiRoot, path);
+                if (relative.Equals("Program.cs", StringComparison.OrdinalIgnoreCase)) return false;
+                var firstSegment = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
+                return !allowedFolders.Contains(firstSegment, StringComparer.OrdinalIgnoreCase);
+            })
+            .Select(path => Path.GetRelativePath(apiRoot, path))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            unexpectedFiles.Length == 0,
+            $"API contains non-transport source files: {string.Join(", ", unexpectedFiles)}");
+    }
+
+    [Fact]
     public void Controllers_are_grouped_below_technical_role_folder()
     {
         var controllerRoot = Path.Combine(

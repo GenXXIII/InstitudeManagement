@@ -1,8 +1,8 @@
 using InstituteManagement.Application.Features.Notifications.Announcements;
+using InstituteManagement.Application.Features.Notifications.Common;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
-using InstituteManagement.Infrastructure.Services.Notifications.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Notifications.Announcements;

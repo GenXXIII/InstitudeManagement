@@ -1,4 +1,4 @@
-namespace InstituteManagement.Infrastructure.Services.Common;
+namespace InstituteManagement.Domain.Policies;
 
 public static class TeacherPresence
 {
@@ -14,7 +14,9 @@ public static class TeacherPresence
     }
 
     public static bool IsPresent(string attendance) => attendance is "Present" or "Late";
+
     public static string SessionStatus(string attendance) => IsPresent(attendance) ? "Running" : "Not running";
+
     public static string Reason(string attendance) => attendance switch
     {
         "Permission" => "Teacher has permission; the assigned course was not held and the classroom remained available.",

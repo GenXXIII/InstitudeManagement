@@ -18,7 +18,7 @@ export function SettingsSection({ section }: { section: SettingSection }) {
 
   const values = state.values;
   return <div className="viewport-data-page administration-page administration-section-page">
-    <PageHeading eyebrow="Institute administration" title={state.definition.title} description={state.definition.description} actions={<><Link className="button secondary" href="/settings/overview" onClick={state.protectNavigation}><Icon name="dashboard" size={15}/>Settings overview</Link><AdministrationModeToggle compact/></>}/>
+    <PageHeading eyebrow="Institute administration" title={state.definition.title} description={state.definition.description} actions={<><Link className="button secondary" href="/settings" onClick={state.protectNavigation}><Icon name="dashboard" size={15}/>Settings overview</Link><AdministrationModeToggle compact/></>}/>
     <section className="administration-section-scroll">
         <div className="administration-current-summary">
           <span><Icon name={state.definition.icon} size={19}/></span>
@@ -41,7 +41,7 @@ export function SettingsSection({ section }: { section: SettingSection }) {
     </section>
     <nav className="administration-section-pager" aria-label="Settings section sequence">
       {state.previous ? <Link href={`/settings/${state.previous.section}`} onClick={state.protectNavigation}><Icon name="arrow" size={13}/><span><small>Previous</small><strong>{state.previous.shortTitle}</strong></span></Link> : <span/>}
-      {state.next ? <Link href={`/settings/${state.next.section}`} onClick={state.protectNavigation}><span><small>Next</small><strong>{state.next.shortTitle}</strong></span><Icon name="arrow" size={13}/></Link> : <Link href="/settings/overview" onClick={state.protectNavigation}><span><small>Finish</small><strong>Settings overview</strong></span><Icon name="check" size={14}/></Link>}
+      {state.next ? <Link href={`/settings/${state.next.section}`} onClick={state.protectNavigation}><span><small>Next</small><strong>{state.next.shortTitle}</strong></span><Icon name="arrow" size={13}/></Link> : <Link href="/settings" onClick={state.protectNavigation}><span><small>Finish</small><strong>Settings overview</strong></span><Icon name="check" size={14}/></Link>}
     </nav>
   </div>;
 }

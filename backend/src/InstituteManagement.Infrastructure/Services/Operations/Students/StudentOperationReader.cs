@@ -72,7 +72,7 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
                 x.StudentId,
                 x.Student!.FullName,
                 x.Student.StudentCode,
-                codeFormat.Derive(x.Student.StudentCode, "student", "operation"),
+                codeFormat.Derive(EnrollmentSource(x.EnrollmentCode, x.Student.StudentCode), "student", "operation"),
                 x.Department?.Name ?? "—",
                 x.YearLevel,
                 x.Shift,
@@ -115,4 +115,7 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
         "Scheduled" => 4,
         _ => 5
     };
+
+    private static string EnrollmentSource(string enrollmentCode, string managementCode) =>
+        string.IsNullOrWhiteSpace(enrollmentCode) ? managementCode : enrollmentCode;
 }

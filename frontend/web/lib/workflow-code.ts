@@ -30,7 +30,7 @@ export function formatAssignedCode(sourceCode: string | undefined, resource: Wor
   if (!raw) return "";
   const separator = configuredSeparator();
   const prefix = configuredPrefix(resource, "management");
-  let sequence = stripPrefix(raw.toUpperCase(), workflowStages.map(value => configuredPrefix(resource, value)));
+  let sequence = stripPrefix(raw.toUpperCase(), workflowStages.map(value => configuredPrefix(resource, value))).replace(/[._/-]+$/g, "");
   if (runtimeValues.codeIncludeYear === "true" && sequence.startsWith(`${runtimeYear}${separator}`)) sequence = sequence.slice(runtimeYear.length + separator.length);
   if (/^\d+$/.test(sequence)) sequence = sequence.padStart(configuredPadding(), "0");
   if (!sequence) return "";
@@ -116,7 +116,7 @@ function linkedCode(management: string, resource: WorkflowCodeResource, stage: E
 }
 
 function managementSource(sourceCode: string | undefined, resource: WorkflowCodeResource) {
-  let normalized = (sourceCode ?? "").trim().toUpperCase();
+  let normalized = (sourceCode ?? "").trim().toUpperCase().replace(/[._/-]+$/g, "");
   if (!normalized) return "";
   const separator = escapeRegExp(configuredSeparator());
   for (const stage of workflowStages.filter(value => value !== "management")) {

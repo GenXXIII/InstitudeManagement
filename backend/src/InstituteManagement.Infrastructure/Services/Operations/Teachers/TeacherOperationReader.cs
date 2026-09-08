@@ -45,7 +45,7 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
                 && (!departmentId.HasValue || x.DepartmentId == departmentId))
             .OrderBy(x => x.Teacher!.TeacherCode)
             .ToListAsync(cancellationToken);
-        var rows = teachers.Where(x => x.Teacher is not null).Select(x => new TeacherOperationDto(x.TeacherId, x.Teacher!.FullName, x.Teacher.TeacherCode, codeFormat.Derive(x.Teacher.TeacherCode, "teacher", "operation"), x.Department?.Name ?? "—", TeacherPresence.Attendance(x.Teacher.Status, x.Status)))
+        var rows = teachers.Where(x => x.Teacher is not null).Select(x => new TeacherOperationDto(x.TeacherId, x.Teacher!.FullName, x.Teacher.TeacherCode, codeFormat.Derive(EnrollmentSource(x.EnrollmentCode, x.Teacher.TeacherCode), "teacher", "operation"), x.Department?.Name ?? "—", TeacherPresence.Attendance(x.Teacher.Status, x.Status)))
             .OrderBy(x => AttendancePriority(x.Status))
             .ThenBy(x => x.TeacherCode)
             .ToList();
@@ -55,4 +55,7 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
     }
 
     private static int AttendancePriority(string status) => status switch { "Present" => 0, "Permission" => 1, "Absent" => 2, _ => 3 };
+
+    private static string EnrollmentSource(string enrollmentCode, string managementCode) =>
+        string.IsNullOrWhiteSpace(enrollmentCode) ? managementCode : enrollmentCode;
 }

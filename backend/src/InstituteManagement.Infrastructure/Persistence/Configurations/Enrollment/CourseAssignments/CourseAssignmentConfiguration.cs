@@ -10,6 +10,9 @@ public sealed class CourseAssignmentConfiguration : IEntityTypeConfiguration<Cou
     {
         builder.ToTable("CourseAssignments", "Enrollment");
         builder.HasIndex(x => new { x.CourseId, x.AcademicYear, x.Semester }).IsUnique();
+        builder.HasIndex(x => new { x.EnrollmentCode, x.AcademicYear, x.Semester }).IsUnique();
+        builder.HasIndex(x => new { x.AcademicYear, x.Semester, x.Status, x.DepartmentId, x.YearLevel })
+            .IncludeProperties(x => new { x.CourseId, x.TeacherId, x.EnrollmentCode });
         builder.HasIndex(x => new { x.DepartmentId, x.YearLevel });
         builder.HasIndex(x => x.TeacherId);
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();

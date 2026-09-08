@@ -127,8 +127,15 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("AttendanceCode")
                         .IsUnique();
 
+                    b.HasIndex("Date");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Date"), new[] { "StudentId", "Status", "CheckedInAt" });
+
                     b.HasIndex("StudentId", "Date")
                         .IsUnique();
+
+                    b.HasIndex("AcademicYear", "Term", "CreateAt")
+                        .IsDescending(false, false, true);
 
                     b.ToTable("AttendanceRecords");
                 });
@@ -178,9 +185,17 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("AuditLogCode")
                         .IsUnique();
 
+                    b.HasIndex("CreateAt")
+                        .IsDescending();
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("CreateAt"), new[] { "Action", "Subject", "Type" });
+
                     b.HasIndex("ResourceId");
 
                     b.HasIndex("Type", "CreateAt");
+
+                    b.HasIndex("Type", "Action", "ResourceId")
+                        .HasFilter("[ResourceId] IS NOT NULL");
 
                     b.ToTable("AuditLogs");
                 });
@@ -288,7 +303,13 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CourseId");
 
+                    b.HasIndex("SessionDate");
+
                     b.HasIndex("TeacherId");
+
+                    b.HasIndex("AcademicYear", "Term");
+
+                    b.HasIndex("DepartmentId", "YearLevel");
 
                     b.HasIndex("ScheduleEntryId", "SessionDate")
                         .IsUnique();
@@ -402,6 +423,13 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("ClassroomId", "AcademicYear", "Semester")
                         .IsUnique();
 
+                    b.HasIndex("EnrollmentCode", "AcademicYear", "Semester")
+                        .IsUnique();
+
+                    b.HasIndex("AcademicYear", "Semester", "Status", "DepartmentId");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("AcademicYear", "Semester", "Status", "DepartmentId"), new[] { "ClassroomId", "EnrollmentCode" });
+
                     b.ToTable("ClassroomAssignments", "Enrollment");
                 });
 
@@ -509,6 +537,13 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("CourseId", "AcademicYear", "Semester")
                         .IsUnique();
 
+                    b.HasIndex("EnrollmentCode", "AcademicYear", "Semester")
+                        .IsUnique();
+
+                    b.HasIndex("AcademicYear", "Semester", "Status", "DepartmentId", "YearLevel");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("AcademicYear", "Semester", "Status", "DepartmentId", "YearLevel"), new[] { "CourseId", "TeacherId", "EnrollmentCode" });
+
                     b.ToTable("CourseAssignments", "Enrollment");
                 });
 
@@ -605,6 +640,12 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("GradeCode")
                         .IsUnique();
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UpdatedAtUtc"), new[] { "Score" });
+
+                    b.HasIndex("AcademicYear", "Term");
 
                     b.HasIndex("StudentId", "CourseId", "AcademicYear", "Term")
                         .IsUnique();
@@ -774,16 +815,16 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClassroomId");
-
                     b.HasIndex("CourseId");
-
-                    b.HasIndex("TeacherId");
 
                     b.HasIndex("TimetableCode")
                         .IsUnique();
 
                     b.HasIndex("DayOfWeek", "StartsAt", "EndsAt");
+
+                    b.HasIndex("ClassroomId", "DayOfWeek", "StartsAt", "EndsAt");
+
+                    b.HasIndex("TeacherId", "DayOfWeek", "StartsAt", "EndsAt");
 
                     b.ToTable("ScheduleEntries");
                 });
@@ -897,8 +938,15 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DepartmentId", "YearLevel");
 
+                    b.HasIndex("EnrollmentCode", "AcademicYear", "Semester")
+                        .IsUnique();
+
                     b.HasIndex("StudentId", "AcademicYear", "Semester")
                         .IsUnique();
+
+                    b.HasIndex("AcademicYear", "Semester", "Status", "Shift", "DepartmentId", "YearLevel");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("AcademicYear", "Semester", "Status", "Shift", "DepartmentId", "YearLevel"), new[] { "StudentId", "EnrollmentCode" });
 
                     b.ToTable("StudentEnrollments", "Enrollment");
                 });
@@ -1040,8 +1088,15 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DepartmentId");
 
+                    b.HasIndex("EnrollmentCode", "AcademicYear", "Semester")
+                        .IsUnique();
+
                     b.HasIndex("TeacherId", "AcademicYear", "Semester")
                         .IsUnique();
+
+                    b.HasIndex("AcademicYear", "Semester", "Status", "DepartmentId");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("AcademicYear", "Semester", "Status", "DepartmentId"), new[] { "TeacherId", "EnrollmentCode" });
 
                     b.ToTable("TeacherAssignments", "Enrollment");
                 });
@@ -1083,6 +1138,13 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AcademicYear", "Semester", "Status");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("AcademicYear", "Semester", "Status"), new[] { "ScheduleEntryId", "EnrollmentCode" });
+
+                    b.HasIndex("EnrollmentCode", "AcademicYear", "Semester")
+                        .IsUnique();
 
                     b.HasIndex("ScheduleEntryId", "AcademicYear", "Semester")
                         .IsUnique();

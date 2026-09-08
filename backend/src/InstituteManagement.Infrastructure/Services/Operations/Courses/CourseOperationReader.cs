@@ -60,7 +60,8 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
             var detail = fixedClassroomStatus is null
                 ? TeacherPresence.Reason(attendance)
                 : $"Classroom {schedule.Classroom?.ClassroomCode ?? "not assigned"} is {fixedClassroomStatus.ToLowerInvariant()} and the course cannot run.";
-            return new CourseOperationDto(x.CourseId, x.Course!.Name, x.Course.CourseCode, codeFormat.Derive(x.Course.CourseCode, "course", "operation"), teacher?.FullName ?? "—", x.Department?.Name ?? "—", x.Capacity, status, attendance, detail);
+            var sourceCode = string.IsNullOrWhiteSpace(x.EnrollmentCode) ? x.Course!.CourseCode : x.EnrollmentCode;
+            return new CourseOperationDto(x.CourseId, x.Course!.Name, x.Course.CourseCode, codeFormat.Derive(sourceCode, "course", "operation"), teacher?.FullName ?? "—", x.Department?.Name ?? "—", x.Capacity, status, attendance, detail);
         })
             .OrderBy(x => x.Status == "Running" ? 0 : 1)
             .ThenBy(x => x.CourseCode)

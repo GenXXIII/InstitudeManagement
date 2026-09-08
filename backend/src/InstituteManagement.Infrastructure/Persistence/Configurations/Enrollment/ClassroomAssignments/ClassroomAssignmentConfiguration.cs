@@ -10,6 +10,9 @@ public sealed class ClassroomAssignmentConfiguration : IEntityTypeConfiguration<
     {
         builder.ToTable("ClassroomAssignments", "Enrollment");
         builder.HasIndex(x => new { x.ClassroomId, x.AcademicYear, x.Semester }).IsUnique();
+        builder.HasIndex(x => new { x.EnrollmentCode, x.AcademicYear, x.Semester }).IsUnique();
+        builder.HasIndex(x => new { x.AcademicYear, x.Semester, x.Status, x.DepartmentId })
+            .IncludeProperties(x => new { x.ClassroomId, x.EnrollmentCode });
         builder.HasIndex(x => x.DepartmentId);
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Access).HasMaxLength(64).IsRequired();

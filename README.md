@@ -36,8 +36,10 @@ EF Core migrations are stored in `backend/src/InstituteManagement.Infrastructure
 Create a future migration from the repository root with:
 
 ```powershell
-dotnet ef migrations add MigrationName --project backend/src/InstituteManagement.Infrastructure --startup-project backend/src/InstituteManagement.API --output-dir Persistence/Migrations -- --environment Production
+dotnet ef migrations add MigrationName --project backend/src/InstituteManagement.Infrastructure --startup-project backend/src/InstituteManagement.Infrastructure --context InstituteDbContext
 ```
+
+The Infrastructure project is the design-time startup project and supplies `InstituteDbContextFactory`; runtime migrations are still applied by API startup.
 
 ## Run locally with Docker
 
@@ -77,12 +79,12 @@ Enter `tcp:127.0.0.1,1433` in the SSMS **Server name** field. `INK-SQL-SERVER` i
 
 ```text
 frontend/web/                         Next.js application
-backend/src/InstituteManagement.API   HTTP, SignalR, OpenAPI
+backend/src/InstituteManagement.API   HTTP boundary, middleware, contracts, and OpenAPI
 backend/src/InstituteManagement.Application  MediatR commands, queries, handlers, DTOs, and interfaces
-backend/src/InstituteManagement.Domain       One business entity per file
-backend/src/InstituteManagement.Infrastructure EF Core configurations and resource-specific services
+backend/src/InstituteManagement.Domain       Entities, value objects, and framework-independent domain policies
+backend/src/InstituteManagement.Infrastructure EF Core, SQL Server, Redis, SignalR, file storage, and external adapters
 backend/tests/InstituteManagement.Application.Tests     Application behavior and validation tests
-backend/tests/InstituteManagement.Infrastructure.Tests  EF Core mapping and workflow tests
+backend/tests/InstituteManagement.Architecture.Tests    Dependency, boundary, folder, and EF ownership tests
 docker-compose.yml                    Docker Compose environment
 docs/                                 Original product and architecture sources
 ```

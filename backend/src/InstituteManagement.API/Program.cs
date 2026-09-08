@@ -1,20 +1,14 @@
-using InstituteManagement.API.Hubs;
-using InstituteManagement.API.Services;
-using InstituteManagement.API.Services.Administration;
 using InstituteManagement.Application;
-using InstituteManagement.Application.Common.LiveUpdates;
+using InstituteManagement.Application.Common.Startup;
 using InstituteManagement.Infrastructure;
-using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Realtime;
 using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddScoped<ILiveUpdatePublisher, SignalRLiveUpdatePublisher>();
-builder.Services.AddScoped<SettingsAssetStorage>();
 builder.Services.AddControllers();
-builder.Services.AddSignalR();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<InstituteManagement.API.Middleware.ApiExceptionHandler>();
 builder.Services.AddOpenApi();
@@ -49,11 +43,11 @@ app.MapControllers();
 app.MapHub<InstituteHub>("/hubs/institute");
 app.MapHealthChecks("/health");
 
+await app.Services.InitializeInfrastructureAsync();
 using (var scope = app.Services.CreateScope())
 {
-    await DatabaseInitializer.InitializeAsync(scope.ServiceProvider.GetRequiredService<InstituteDbContext>());
-    await scope.ServiceProvider.GetRequiredService<InstituteManagement.Infrastructure.Services.Record.ClassSessionRecorderService>().RecordCompletedForCurrentTimeAsync(CancellationToken.None);
-    await scope.ServiceProvider.GetRequiredService<InstituteManagement.Infrastructure.Services.Administration.AcademicCalendarRolloverService>().ApplyForCurrentDateAsync(CancellationToken.None);
+    foreach (var startupTask in scope.ServiceProvider.GetServices<IApplicationStartupTask>())
+        await startupTask.ExecuteAsync(CancellationToken.None);
 }
 
 app.Run();

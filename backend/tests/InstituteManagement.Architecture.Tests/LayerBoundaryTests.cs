@@ -12,7 +12,12 @@ public sealed class LayerBoundaryTests
             "InstituteManagement.API",
             "Microsoft.AspNetCore",
             "Microsoft.EntityFrameworkCore",
-            "MediatR");
+            "Microsoft.Extensions",
+            "MediatR",
+            "StackExchange.Redis",
+            "System.ComponentModel.DataAnnotations",
+            "System.Data.SqlClient",
+            "System.Text.Json");
     }
 
     [Fact]
@@ -23,7 +28,22 @@ public sealed class LayerBoundaryTests
             "InstituteManagement.Infrastructure",
             "InstituteManagement.API",
             "Microsoft.AspNetCore",
-            "Microsoft.EntityFrameworkCore");
+            "Microsoft.EntityFrameworkCore",
+            "StackExchange.Redis",
+            "System.Data.SqlClient");
+    }
+
+    [Fact]
+    public void Api_has_no_direct_persistence_or_cache_dependencies()
+    {
+        AssertNoForbiddenDependencies(
+            "InstituteManagement.API",
+            "InstituteManagement.Infrastructure.Persistence",
+            "InstituteManagement.Infrastructure.Services",
+            "Microsoft.EntityFrameworkCore",
+            "StackExchange.Redis",
+            "System.Data.SqlClient",
+            "InstituteDbContext");
     }
 
     [Fact]

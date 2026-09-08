@@ -1,8 +1,8 @@
 using System.Globalization;
 
-namespace InstituteManagement.Infrastructure.Services.Grades;
+namespace InstituteManagement.Domain.Policies;
 
-internal sealed record GradeThresholds(
+public sealed record GradeThresholds(
     decimal APlus,
     decimal A,
     decimal BPlus,

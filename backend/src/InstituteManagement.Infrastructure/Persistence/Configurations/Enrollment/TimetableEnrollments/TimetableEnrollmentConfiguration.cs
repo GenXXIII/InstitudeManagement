@@ -10,6 +10,9 @@ public sealed class TimetableEnrollmentConfiguration : IEntityTypeConfiguration<
     {
         builder.ToTable("TimetableEnrollments", "Enrollment");
         builder.HasIndex(x => new { x.ScheduleEntryId, x.AcademicYear, x.Semester }).IsUnique();
+        builder.HasIndex(x => new { x.EnrollmentCode, x.AcademicYear, x.Semester }).IsUnique();
+        builder.HasIndex(x => new { x.AcademicYear, x.Semester, x.Status })
+            .IncludeProperties(x => new { x.ScheduleEntryId, x.EnrollmentCode });
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Semester).HasMaxLength(32).IsRequired();

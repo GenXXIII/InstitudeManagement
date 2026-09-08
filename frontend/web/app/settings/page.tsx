@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import AdministrationWorkspace from "@/features/administration/administration-workspace";
 
 export default function AdministrationIndexPage() {
-  redirect("/settings/overview");
+  return <AdministrationWorkspace section="overview"/>;
 }

@@ -35,10 +35,14 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
             var shift = AcademicTimetablePolicy.FindShift(schedule.DayOfWeek, schedule.StartsAt, schedule.EndsAt);
             var enrollmentEvents = scheduleEnrollments.Select(enrollment =>
             {
+                var codes = codeFormat.Chain(schedule.TimetableCode, enrollment.EnrollmentCode, "timetable");
                 var assignment = courseAssignments.FirstOrDefault(x => x.CourseId == schedule.CourseId && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester);
                 var enrolledStudents = assignment is null ? 0 : students.Count(x => x.DepartmentId == assignment.DepartmentId && x.YearLevel == schedule.YearLevel && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester && (shift == null || x.Shift == shift.Name));
                 return (enrollment.UpdatedAtUtc, Create(
-                    ("Activity", "Timetable enrollment"), ("Permanent code", schedule.TimetableCode), ("Academic year", enrollment.AcademicYear), ("Term", enrollment.Semester),
+                    ("Activity", "Timetable enrollment"),
+                    ("Management code", codes.Management), ("Enrollment code", codes.Enrollment),
+                    ("Operation code", codes.Operation), ("Record code", codes.Record), ("Permanent code", codes.Management),
+                    ("Academic year", enrollment.AcademicYear), ("Term", enrollment.Semester),
                     ("Date", enrollment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", $"{schedule.StartsAt:HH:mm} – {schedule.EndsAt:HH:mm}"),
                     ("Day", schedule.DayOfWeek.ToString()), ("Year", $"Year {schedule.YearLevel}"),
                     ("Course", schedule.Course?.Name ?? "Course"), ("Course code", schedule.Course?.CourseCode ?? "—"),
@@ -59,10 +63,14 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"))));
             var events = enrollmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var status = schedule.Status == "Cancelled" ? "Cancelled" : scheduleEnrollments.Any(x => x.Status == "Active") ? "Enrolled" : schedule.Status;
+            var recordSource = scheduleEnrollments
+                .OrderByDescending(x => x.AcademicYear).ThenByDescending(x => x.Semester)
+                .Select(x => codeFormat.Chain(schedule.TimetableCode, x.EnrollmentCode, "timetable").Operation)
+                .FirstOrDefault() ?? schedule.TimetableCode;
             return new OperationalRecordDto(schedule.Id, "Timetable", schedule.Course?.Name ?? "Scheduled course",
                 $"{schedule.DayOfWeek} · {schedule.StartsAt:HH:mm}–{schedule.EndsAt:HH:mm}", status,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(schedule.TimetableCode, "timetable", "record"),
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(recordSource, "timetable", "record"),
                 Department: schedule.Course?.Department?.Name ?? "Unassigned", ResourceId: schedule.Id);
         }).ToList();
     }

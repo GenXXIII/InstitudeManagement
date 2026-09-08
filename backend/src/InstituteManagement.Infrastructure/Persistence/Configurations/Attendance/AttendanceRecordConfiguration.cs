@@ -10,6 +10,10 @@ public sealed class AttendanceRecordConfiguration : IEntityTypeConfiguration<Att
     {
         builder.HasIndex(x => x.AttendanceCode).IsUnique();
         builder.HasIndex(x => new { x.StudentId, x.Date }).IsUnique();
+        builder.HasIndex(x => x.Date)
+            .IncludeProperties(x => new { x.StudentId, x.Status, x.CheckedInAt });
+        builder.HasIndex(x => new { x.AcademicYear, x.Term, x.CreateAt })
+            .IsDescending(false, false, true);
         builder.Property(x => x.AttendanceCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Method).HasMaxLength(32).IsRequired();

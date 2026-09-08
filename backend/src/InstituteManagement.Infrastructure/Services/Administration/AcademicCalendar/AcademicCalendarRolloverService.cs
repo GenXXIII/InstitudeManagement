@@ -1,3 +1,4 @@
+using System.Text.Json;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
@@ -26,6 +27,8 @@ public sealed class AcademicCalendarRolloverService(
                 .Where(x => x.Section == "academic-year" || x.Section == "semester")
                 .ToListAsync(cancellationToken);
             var values = settings.ToDictionary(x => $"{x.Section}:{x.Key}", x => x.Value);
+            var previousAcademicYear = values.GetValueOrDefault("academic-year:currentYear", "");
+            var previousTerm = values.GetValueOrDefault("semester:currentTerm", "");
             if (!TryDate(values, "academic-year:startsOn", out var academicStart)
                 || !TryDate(values, "academic-year:endsOn", out var academicEnd)
                 || !TryDate(values, "semester:semester1StartsOn", out var semester1Start)
@@ -100,14 +103,16 @@ public sealed class AcademicCalendarRolloverService(
             if (!changed) return false;
             var activeYear = $"{academicStart.Year}\u2013{academicEnd.Year}";
             var (attendanceCreated, gradesCreated) = await ledgerCreator.CreateAsync(activeYear, activeTerm, activeStart, cancellationToken);
-            if (yearsAdvanced == 0)
+            if (!string.IsNullOrWhiteSpace(previousAcademicYear)
+                && !string.IsNullOrWhiteSpace(previousTerm)
+                && (previousAcademicYear != activeYear || previousTerm != activeTerm))
             {
-                db.AuditLogs.Add(new AuditLog { Type = "Academic calendar", Subject = activeTerm, Action = "Semester rollover", Details = $"Activated {activeTerm}. Previous grade and attendance rows remain in History; Management now uses a new active-period ledger." });
+                db.AuditLogs.Add(await CreateSemesterArchiveAuditAsync(previousAcademicYear, previousTerm, activeYear, activeTerm, cancellationToken));
             }
             db.Notifications.Add(new Notification
             {
                 Title = yearsAdvanced > 0 ? "Academic year advanced" : $"{activeTerm} activated",
-                Message = yearsAdvanced > 0 ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} students, graduated {graduated} Year 4 students, and created {attendanceCreated} attendance and {gradesCreated} grade rows." : $"{activeTerm} created {attendanceCreated} attendance and {gradesCreated} grade rows; the previous semester is available in Records.",
+                Message = yearsAdvanced > 0 ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} students, graduated {graduated} Year 4 students, and created {attendanceCreated} attendance and {gradesCreated} grade rows." : $"{activeTerm} created {attendanceCreated} attendance and {gradesCreated} grade rows; the previous semester is archived in History.",
                 Severity = "Info"
             });
             await db.SaveChangesAsync(cancellationToken);
@@ -120,6 +125,55 @@ public sealed class AcademicCalendarRolloverService(
     private static bool TryDate(IReadOnlyDictionary<string, string> values, string key, out DateOnly date) => DateOnly.TryParse(values.GetValueOrDefault(key), out date);
 
     private static string TermStatus(DateOnly today, DateOnly endsOn, bool active) => active ? "Active" : today > endsOn ? "Completed" : "Upcoming";
+
+    private async Task<AuditLog> CreateSemesterArchiveAuditAsync(
+        string academicYear,
+        string term,
+        string nextAcademicYear,
+        string nextTerm,
+        CancellationToken cancellationToken)
+    {
+        var studentEnrollments = await db.StudentEnrollments.AsNoTracking().CountAsync(x => x.AcademicYear == academicYear && x.Semester == term, cancellationToken);
+        var teacherAssignments = await db.TeacherAssignments.AsNoTracking().CountAsync(x => x.AcademicYear == academicYear && x.Semester == term, cancellationToken);
+        var courseAssignments = await db.CourseAssignments.AsNoTracking().CountAsync(x => x.AcademicYear == academicYear && x.Semester == term, cancellationToken);
+        var classroomAssignments = await db.ClassroomAssignments.AsNoTracking().CountAsync(x => x.AcademicYear == academicYear && x.Semester == term, cancellationToken);
+        var timetableEnrollments = await db.TimetableEnrollments.AsNoTracking().CountAsync(x => x.AcademicYear == academicYear && x.Semester == term, cancellationToken);
+        var classSessions = await db.ClassSessionRecords.AsNoTracking().CountAsync(x => x.AcademicYear == academicYear && x.Term == term, cancellationToken);
+        var attendanceRecords = await db.AttendanceRecords.AsNoTracking().CountAsync(x => x.AcademicYear == academicYear && x.Term == term, cancellationToken);
+        var gradeRecords = await db.GradeRecords.AsNoTracking().CountAsync(x => x.AcademicYear == academicYear && x.Term == term, cancellationToken);
+
+        return new AuditLog
+        {
+            Type = "Academic calendar",
+            Subject = $"{academicYear} · {term}",
+            Action = "Semester archived",
+            Details = JsonSerializer.Serialize(new
+            {
+                academicYear,
+                semester = term,
+                archiveStatus = "Read-only",
+                sourceFlow = "Management -> Enrollment -> Operation -> Record -> History",
+                managementProfiles = new
+                {
+                    students = studentEnrollments,
+                    teachers = teacherAssignments,
+                    courses = courseAssignments,
+                    classrooms = classroomAssignments
+                },
+                enrollment = new
+                {
+                    students = studentEnrollments,
+                    teachers = teacherAssignments,
+                    courses = courseAssignments,
+                    classrooms = classroomAssignments,
+                    timetable = timetableEnrollments
+                },
+                operation = new { classSessions },
+                record = new { attendance = attendanceRecords, grades = gradeRecords, classSessions },
+                nextPeriod = new { academicYear = nextAcademicYear, semester = nextTerm }
+            })
+        };
+    }
 
     private bool Set(List<SystemSetting> settings, string section, string key, string value)
     {

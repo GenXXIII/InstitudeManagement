@@ -26,7 +26,26 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
         {
             var completed = studentSessions.Where(x => x.Student.StudentId == student.Id).ToList();
             var studentGrades = grades.Where(x => x.StudentId == student.Id).ToList();
-            var enrollmentEvents = enrollments.Where(x => x.StudentId == student.Id).Select(x => (At: x.UpdatedAtUtc, Activity: Create(("Activity", "Student enrollment"), ("Permanent code", student.StudentCode), ("Academic year", x.AcademicYear), ("Term", x.Semester), ("Date", x.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", x.UpdatedAtUtc.ToString("HH:mm")), ("Year", $"Year {x.YearLevel}"), ("Shift", x.Shift), ("Department", x.Department?.Name ?? student.Department?.Name ?? "Unassigned"), ("Enrollment status", x.Status))));
+            var studentEnrollments = enrollments.Where(x => x.StudentId == student.Id).ToList();
+            var enrollmentEvents = studentEnrollments.Select(x =>
+            {
+                var codes = codeFormat.Chain(student.StudentCode, x.EnrollmentCode, "student");
+                return (At: x.UpdatedAtUtc, Activity: Create(
+                    ("Activity", "Student enrollment"),
+                    ("Management code", codes.Management),
+                    ("Enrollment code", codes.Enrollment),
+                    ("Operation code", codes.Operation),
+                    ("Record code", codes.Record),
+                    ("Permanent code", codes.Management),
+                    ("Academic year", x.AcademicYear),
+                    ("Term", x.Semester),
+                    ("Date", x.UpdatedAtUtc.ToString("yyyy-MM-dd")),
+                    ("Time", x.UpdatedAtUtc.ToString("HH:mm")),
+                    ("Year", $"Year {x.YearLevel}"),
+                    ("Shift", x.Shift),
+                    ("Department", x.Department?.Name ?? student.Department?.Name ?? "Unassigned"),
+                    ("Enrollment status", x.Status)));
+            });
             var attendanceEvents = completed.Select(x => (At: x.Session.UpdatedAtUtc, Activity: Create(
                 ("Activity", "Class attendance"), ("ClassSessionId", x.Session.Id.ToString()),
                 ("Class session code", SessionCode(x.Session)), ("Timetable code", x.Session.ScheduleEntry?.TimetableCode ?? "Not recorded"),
@@ -44,6 +63,11 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
                 ("Course", x.Course?.Name ?? "Course"), ("Score", x.Score.ToString("0.##", CultureInfo.InvariantCulture)),
                 ("Grade", x.LetterGrade))));
             var events = enrollmentEvents.Concat(attendanceEvents).Concat(gradeEvents).OrderByDescending(x => x.At).ToList();
+            var recordSource = studentEnrollments
+                .OrderByDescending(x => x.AcademicYear)
+                .ThenByDescending(x => x.Semester)
+                .Select(x => codeFormat.Chain(student.StudentCode, x.EnrollmentCode, "student").Operation)
+                .FirstOrDefault() ?? student.StudentCode;
             return new OperationalRecordDto(
                 student.Id,
                 "Student",
@@ -53,7 +77,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
                 $"{completed.Count} recorded class sessions · {studentGrades.Count} recorded course grades",
                 events.Count == 0 ? null : events[0].At,
                 events.Select(x => x.Activity).ToList(),
-                Code: codeFormat.Derive(student.StudentCode, "student", "record"),
+                Code: codeFormat.Derive(recordSource, "student", "record"),
                 PhotoDataUrl: student.PhotoDataUrl,
                 Department: student.Department?.Name ?? "Unassigned",
                 ResourceId: student.Id);

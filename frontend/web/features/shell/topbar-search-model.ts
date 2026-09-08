@@ -63,7 +63,7 @@ const moduleDestinations: ModuleSearchResult[] = moduleSections.flatMap(({ secti
     id: `${base || "dashboard"}-${slug || "home"}`,
     label,
     section,
-    href: base ? `/${base}/${slug}` : "/",
+    href: base ? `/${base}${slug ? `/${slug}` : ""}` : "/",
     icon,
   })),
 );

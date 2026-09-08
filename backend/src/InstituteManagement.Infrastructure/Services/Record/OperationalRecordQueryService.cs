@@ -75,7 +75,10 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
                         : "Closed",
                     AcademicYear = group.Key.AcademicYear,
                     Term = group.Key.Term,
-                    Code = activities.Select(activity => activity.GetValueOrDefault("Permanent code")).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? record.Code,
+                    Code = activities.Select(activity => activity.GetValueOrDefault("Operation code")).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+                        ?? activities.Select(activity => activity.GetValueOrDefault("Enrollment code")).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+                        ?? activities.Select(activity => activity.GetValueOrDefault("Permanent code")).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+                        ?? record.Code,
                     Insights = null
                 });
             }
@@ -143,9 +146,13 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
             : "In progress";
         var expectedCourses = fullProgram ? grades.Count : SemesterResultRules.ExpectedCourseCount;
         var insights = new OperationalRecordInsightsDto(present, permission, absent, grades, expectedCourses, total, average, result, isFinal);
-        return record with { Summary = fullProgram
+        return record with
+        {
+            Summary = fullProgram
             ? $"Four-year total · {present:N0} present · {permission:N0} permission · {absent:N0} absent · {grades.Count:N0} course grades"
-            : $"{attendance.Count:N0} class sessions · {grades.Count}/{SemesterResultRules.ExpectedCourseCount} course grades", Insights = insights };
+            : $"{attendance.Count:N0} class sessions · {grades.Count}/{SemesterResultRules.ExpectedCourseCount} course grades",
+            Insights = insights
+        };
     }
 
     private static decimal ParseScore(string? value) =>

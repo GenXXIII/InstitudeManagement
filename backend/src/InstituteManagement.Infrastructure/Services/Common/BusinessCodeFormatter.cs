@@ -170,6 +170,23 @@ internal static partial class BusinessCodeFormatter
             return Validate(string.Join(separator, source, Prefix(resource, stage), number));
         }
 
+        public WorkflowCodeChain Chain(string managementCode, string? enrollmentCode, string resource)
+        {
+            var management = Derive(managementCode, resource, "management");
+            var enrollment = Derive(
+                string.IsNullOrWhiteSpace(enrollmentCode) ? management : enrollmentCode,
+                resource,
+                "enrollment");
+            var operation = Derive(enrollment, resource, "operation");
+            var record = Derive(operation, resource, "record");
+            return new WorkflowCodeChain(
+                management,
+                enrollment,
+                operation,
+                record,
+                Derive(record, resource, "history"));
+        }
+
         public string Format(string raw, string resource, string stage, string label)
         {
             var prefixes = Stages.Select(configuredStage => Prefix(resource, configuredStage));
@@ -196,6 +213,7 @@ internal static partial class BusinessCodeFormatter
 
         private string Build(string prefix, string suffix, string label)
         {
+            suffix = suffix.Trim('.', '_', '/', '-');
             if (includeYear && suffix.StartsWith($"{year}{separator}", StringComparison.OrdinalIgnoreCase))
                 suffix = suffix[(year.Length + separator.Length)..];
             if (string.IsNullOrWhiteSpace(suffix)) throw new ArgumentException($"{label} must include a sequence after its prefix.");
@@ -205,7 +223,7 @@ internal static partial class BusinessCodeFormatter
 
         private string ManagementSource(string sourceCode, string resource)
         {
-            var source = sourceCode.Trim().ToUpperInvariant();
+            var source = sourceCode.Trim().TrimEnd('.', '_', '/', '-').ToUpperInvariant();
             foreach (var stage in Stages.Skip(1))
             {
                 var pattern = $"{Regex.Escape(separator)}{Regex.Escape(Prefix(resource, stage))}{Regex.Escape(separator)}\\d+$";
@@ -245,6 +263,13 @@ internal static partial class BusinessCodeFormatter
             return result;
         }
     }
+
+    internal sealed record WorkflowCodeChain(
+        string Management,
+        string Enrollment,
+        string Operation,
+        string Record,
+        string History);
 
     private static long NumericSuffix(string value)
     {

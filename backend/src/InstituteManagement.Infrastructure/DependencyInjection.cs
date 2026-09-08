@@ -1,4 +1,8 @@
+using InstituteManagement.Application.Common.LiveUpdates;
+using InstituteManagement.Application.Common.Startup;
 using InstituteManagement.Application.Features.Administration;
+using InstituteManagement.Application.Features.Administration.Maintenance;
+using InstituteManagement.Application.Features.Administration.Settings.Assets;
 using InstituteManagement.Application.Features.Attendance;
 using InstituteManagement.Application.Features.Dashboard;
 using InstituteManagement.Application.Features.Enrollment;
@@ -23,7 +27,10 @@ using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Application.Features.Results;
 using InstituteManagement.Application.Features.Timetable;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Realtime;
 using InstituteManagement.Infrastructure.Services.Administration;
+using InstituteManagement.Infrastructure.Services.Administration.Maintenance;
+using InstituteManagement.Infrastructure.Services.Administration.Settings;
 using InstituteManagement.Infrastructure.Services.Attendance;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Dashboard;
@@ -71,6 +78,10 @@ public static class DependencyInjection
         }
 
         services.AddScoped<InstituteCache>();
+        services.AddSignalR();
+        services.AddScoped<ILiveUpdatePublisher, SignalRLiveUpdatePublisher>();
+        services.AddScoped<IMaintenanceModeReader, MaintenanceModeReader>();
+        services.AddScoped<ISettingsAssetStorage, FileSystemSettingsAssetStorage>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddScoped<EnrollmentSettingsReader>();
         services.AddScoped<EnrollmentChangeCommitter>();
@@ -107,6 +118,7 @@ public static class DependencyInjection
         services.AddScoped<IOperationalRecordQueryService, OperationalRecordQueryService>();
         services.AddScoped<IOperationalRecordEditService, OperationalRecordEditService>();
         services.AddScoped<ClassSessionRecorderService>();
+        services.AddScoped<IApplicationStartupTask, ClassSessionRecorderStartupTask>();
         services.AddHostedService<ClassSessionRecorderHostedService>();
         services.AddScoped<IOperationalRecordReader, StudentOperationalRecordReader>();
         services.AddScoped<IOperationalRecordReader, TeacherOperationalRecordReader>();
@@ -134,6 +146,7 @@ public static class DependencyInjection
         services.AddScoped<StudentAcademicYearAdvancer>();
         services.AddScoped<ActivePeriodLedgerCreator>();
         services.AddScoped<AcademicCalendarRolloverService>();
+        services.AddScoped<IApplicationStartupTask, AcademicCalendarStartupTask>();
         services.AddHostedService<AcademicCalendarHostedService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IGradeService, GradeService>();

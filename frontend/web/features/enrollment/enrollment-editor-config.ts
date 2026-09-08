@@ -1,5 +1,6 @@
 import type { SearchableOption } from "@/components/searchable-select";
 import type { DepartmentItem } from "@/features/management/departments/department-types";
+import { workflowCode } from "@/lib/workflow-code";
 import { classroomAssignmentDefaults, classroomAssignmentFields } from "./classrooms/classroom-assignment-form";
 import type { EnrollmentField } from "./common/enrollment-field";
 import type { EnrollmentItem, EnrollmentResource } from "./common/enrollment-types";
@@ -56,7 +57,15 @@ export function candidateOption(item: EnrollmentItem): SearchableOption {
       detail: [values.enrollmentStatus, values.course, values.teacher, values.dayOfWeek, `${values.startsAt}-${values.endsAt}`, values.classroom].filter(Boolean).join(" - "),
     };
   }
-  const code = values.studentCode || values.teacherCode || values.courseCode || values.classroomCode;
+  const code = values.studentCode
+    ? workflowCode(values.studentCode, "student", "management")
+    : values.teacherCode
+      ? workflowCode(values.teacherCode, "teacher", "management")
+      : values.courseCode
+        ? workflowCode(values.courseCode, "course", "management")
+        : values.classroomCode
+          ? workflowCode(values.classroomCode, "classroom", "management")
+          : "";
   const name = values.name || values.course || [values.building, values.roomType].filter(Boolean).join(" - ");
   return { id: item.id, label: [code, name].filter(Boolean).join(" - "), detail: values.email || undefined };
 }

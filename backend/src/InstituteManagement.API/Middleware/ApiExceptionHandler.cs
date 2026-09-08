@@ -1,7 +1,6 @@
 using InstituteManagement.Application.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.API.Middleware;
 
@@ -15,7 +14,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             ArgumentException => StatusCodes.Status400BadRequest,
             KeyNotFoundException => StatusCodes.Status404NotFound,
             InvalidOperationException => StatusCodes.Status409Conflict,
-            DbUpdateException => StatusCodes.Status409Conflict,
+            PersistenceConflictException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
         };
 
@@ -40,9 +39,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             {
                 Status = status,
                 Title = TitleFor(status),
-                Detail = exception is DbUpdateException
-                    ? "This record duplicates an existing ID or unique relationship. Change the ID or selected relationship and try again."
-                    : status == StatusCodes.Status500InternalServerError
+                Detail = status == StatusCodes.Status500InternalServerError
                     ? "The request could not be completed."
                     : exception.Message
             };

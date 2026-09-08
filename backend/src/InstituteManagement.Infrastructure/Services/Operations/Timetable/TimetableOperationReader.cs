@@ -84,7 +84,12 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
             return new WeeklyTimetableSlotDto(
                 x.Id,
                 x.TimetableCode,
-                codeFormat.Derive(x.TimetableCode, "timetable", "operation"),
+                codeFormat.Derive(
+                    string.IsNullOrWhiteSpace(timetableEnrollments[x.Id].EnrollmentCode)
+                        ? x.TimetableCode
+                        : timetableEnrollments[x.Id].EnrollmentCode,
+                    "timetable",
+                    "operation"),
                 x.DayOfWeek.ToString(),
                 period?.Session ?? "Custom",
                 x.StartsAt.ToString("HH:mm"),
@@ -105,7 +110,12 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
             .Select(assignment => new TimetableRoomDto(
                 assignment.ClassroomId,
                 assignment.Classroom!.ClassroomCode,
-                codeFormat.Derive(assignment.Classroom.ClassroomCode, "classroom", "operation"),
+                codeFormat.Derive(
+                    string.IsNullOrWhiteSpace(assignment.EnrollmentCode)
+                        ? assignment.Classroom.ClassroomCode
+                        : assignment.EnrollmentCode,
+                    "classroom",
+                    "operation"),
                 assignment.Classroom.RoomType,
                 inStudyRoomIds.Contains(assignment.ClassroomId) ? "Running" : NormalizeClassroomStatus(assignment.Classroom.Status)))
             .ToList();

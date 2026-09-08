@@ -37,6 +37,7 @@ public sealed class DepartmentOperationalRecordReader(InstituteDbContext db) : I
                 .Concat(completed.Select(x => (x.AcademicYear, Term: x.Term))).Distinct().ToList();
             var overviewEvents = periods.Select(period =>
             {
+                var codes = codeFormat.Chain(department.DepartmentCode, null, "department");
                 var periodStudents = departmentStudents.Where(x => x.AcademicYear == period.AcademicYear && x.Semester == period.Term && x.Status == "Active").ToList();
                 var periodTeachers = departmentTeachers.Where(x => x.AcademicYear == period.AcademicYear && x.Semester == period.Term && x.Status != "Removed" && x.Status != "Unassigned").ToList();
                 var periodCourses = departmentCourses.Where(x => x.AcademicYear == period.AcademicYear && x.Semester == period.Term && x.Status == "Active").ToList();
@@ -46,7 +47,10 @@ public sealed class DepartmentOperationalRecordReader(InstituteDbContext db) : I
                 var timestamps = periodStudents.Select(x => x.UpdatedAtUtc).Concat(periodTeachers.Select(x => x.UpdatedAtUtc)).Concat(periodCourses.Select(x => x.UpdatedAtUtc)).Concat(periodRooms.Select(x => x.UpdatedAtUtc)).Concat(periodSessions.Select(x => x.UpdatedAtUtc)).ToList();
                 var at = timestamps.Count == 0 ? department.UpdatedAtUtc : timestamps.Max();
                 return (at, Create(
-                    ("Activity", "Department semester"), ("Academic year", period.AcademicYear), ("Term", period.Term),
+                    ("Activity", "Department semester"),
+                    ("Management code", codes.Management), ("Enrollment code", codes.Enrollment),
+                    ("Operation code", codes.Operation), ("Record code", codes.Record), ("Permanent code", codes.Management),
+                    ("Academic year", period.AcademicYear), ("Term", period.Term),
                     ("Date", at.ToString("yyyy-MM-dd")), ("Time", at.ToString("HH:mm")),
                     ("Department", department.Name), ("Head", department.HeadTeacher?.FullName ?? department.Head ?? "Not appointed"),
                     ("Year", years.Count == 0 ? "No year data" : string.Join(", ", years)),
@@ -68,10 +72,11 @@ public sealed class DepartmentOperationalRecordReader(InstituteDbContext db) : I
                 ("Reason", TeacherPresence.Reason(x.TeacherAttendanceStatus)),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"))));
             var events = overviewEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
+            var recordSource = codeFormat.Chain(department.DepartmentCode, null, "department").Operation;
             return new OperationalRecordDto(department.Id, "Department", department.Name,
                 department.HeadTeacher?.FullName ?? department.Head ?? "Not appointed", department.IsActive ? "Active" : "Inactive",
                 $"{events.Count} semester activities", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(department.DepartmentCode, "department", "record"), Department: department.Name, ResourceId: department.Id);
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(recordSource, "department", "record"), Department: department.Name, ResourceId: department.Id);
         }).ToList();
     }
 }

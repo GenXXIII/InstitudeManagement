@@ -37,18 +37,18 @@ public static class SettingsCatalogSeeder
             .ToListAsync(cancellationToken);
 
         foreach (var section in SettingsCatalog.Sections)
-        foreach (var setting in section.Settings)
-        {
-            if (!existingKeys.Add(CompositeKey(section.Name, setting.Key))) continue;
-            missing.Add(new SystemSetting
+            foreach (var setting in section.Settings)
             {
-                Section = section.Name,
-                Key = setting.Key,
-                Value = setting.DefaultValue,
-                CreateAt = now,
-                UpdatedAtUtc = now
-            });
-        }
+                if (!existingKeys.Add(CompositeKey(section.Name, setting.Key))) continue;
+                missing.Add(new SystemSetting
+                {
+                    Section = section.Name,
+                    Key = setting.Key,
+                    Value = setting.DefaultValue,
+                    CreateAt = now,
+                    UpdatedAtUtc = now
+                });
+            }
 
         if (missing.Count == 0 && obsoleteInstituteRegionalSettings.Count == 0) return;
         if (missing.Count > 0) db.SystemSettings.AddRange(missing);

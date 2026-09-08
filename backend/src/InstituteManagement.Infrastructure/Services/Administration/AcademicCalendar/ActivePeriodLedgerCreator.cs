@@ -83,16 +83,16 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
         string term,
         DateOnly startsOn,
         string method) => new()
-    {
-        AttendanceCode = attendanceCode,
-        StudentId = student.Id,
-        Date = startsOn,
-        CheckedInAt = RequiredShift(student.Shift).StartsAt,
-        Status = "Present",
-        Method = method,
-        AcademicYear = academicYear,
-        Term = term
-    };
+        {
+            AttendanceCode = attendanceCode,
+            StudentId = student.Id,
+            Date = startsOn,
+            CheckedInAt = RequiredShift(student.Shift).StartsAt,
+            Status = "Present",
+            Method = method,
+            AcademicYear = academicYear,
+            Term = term
+        };
 
     private static Guid? FindCourseId(Student student, IEnumerable<ScheduleEntry> schedules) =>
         schedules.FirstOrDefault(entry =>

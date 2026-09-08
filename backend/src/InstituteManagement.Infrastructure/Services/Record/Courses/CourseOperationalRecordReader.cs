@@ -39,9 +39,13 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
             var completed = sessions.Where(x => x.CourseId == course.Id).ToList();
             var assignmentEvents = assignments.Where(x => x.CourseId == course.Id).Select(assignment =>
             {
+                var codes = codeFormat.Chain(course.CourseCode, assignment.EnrollmentCode, "course");
                 var studentCount = enrollments.Count(x => x.DepartmentId == assignment.DepartmentId && x.YearLevel == assignment.YearLevel && x.AcademicYear == assignment.AcademicYear && x.Semester == assignment.Semester);
                 return (assignment.UpdatedAtUtc, Create(
-                    ("Activity", "Course assignment"), ("Permanent code", course.CourseCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
+                    ("Activity", "Course assignment"),
+                    ("Management code", codes.Management), ("Enrollment code", codes.Enrollment),
+                    ("Operation code", codes.Operation), ("Record code", codes.Record), ("Permanent code", codes.Management),
+                    ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", $"Year {assignment.YearLevel}"), ("Course", course.Name), ("Course code", course.CourseCode),
                     ("Department", assignment.Department?.Name ?? course.Department?.Name ?? "Unassigned"),
@@ -60,9 +64,13 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
                 ("Students", StudentSummary(x.StudentAttendanceJson)))));
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var status = !course.IsActive ? "Unavailable" : runningIds.Contains(course.Id) ? "In Study" : "Available";
+            var recordSource = assignments.Where(x => x.CourseId == course.Id)
+                .OrderByDescending(x => x.AcademicYear).ThenByDescending(x => x.Semester)
+                .Select(x => codeFormat.Chain(course.CourseCode, x.EnrollmentCode, "course").Operation)
+                .FirstOrDefault() ?? course.CourseCode;
             return new OperationalRecordDto(course.Id, "Course", course.Name, course.CourseCode, status,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(course.CourseCode, "course", "record"),
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(recordSource, "course", "record"),
                 Department: course.Department?.Name ?? "Unassigned", ResourceId: course.Id);
         }).ToList();
     }

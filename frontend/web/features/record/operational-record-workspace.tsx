@@ -66,8 +66,8 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
       : { eyebrow: "Active semester class sessions", description: "All daily sessions stay in one semester group, with each new date placed at the top." }
     : history
     ? isStudentModule
-      ? { eyebrow: "Permanent graduate history", description: `History is created only after Year 4 Semester 2 and remains read-only. ${config.description}` }
-      : { eyebrow: "Completed semester history", description: `Each closed semester moves from Record to read-only History. ${config.description}` }
+      ? { eyebrow: "Permanent graduate history", description: `After Year 4 Semester 2, the Management profile and every Enrollment, Operation, and Record semester move here as one read-only story. ${config.description}` }
+      : { eyebrow: "Completed semester history", description: `Each closed semester moves its Management identity, Enrollment assignment, operational evidence, and final Record into read-only History. ${config.description}` }
     : isStudentModule
       ? { eyebrow: "Accumulating student-cycle records", description: `Each new semester remains in Record until the student completes Year 4 Semester 2. ${config.description}` }
       : { eyebrow: "Current semester records", description: `Record contains the active semester; completed semesters move to History. ${config.description}` };

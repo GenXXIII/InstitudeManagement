@@ -5,6 +5,7 @@ import { Icon } from "@/components/icon";
 import { SearchableSelect } from "@/components/searchable-select";
 import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import type { DepartmentItem } from "@/features/management/departments/department-types";
+import { workflowCode } from "@/lib/workflow-code";
 import type { EnrollmentItem, EnrollmentResource } from "./common/enrollment-types";
 import { enrollmentApiFor } from "./enrollment-apis";
 import {
@@ -144,6 +145,10 @@ function ManagementSelectionPreview({ resource, values }: { resource: Enrollment
   const details = resource === "timetable" ? [
     ["Timetable code", values.timetableCode], ["Course code", values.courseCode], ["Course", values.course], ["Teacher code", values.teacherCode], ["Teacher", values.teacher],
     ["Department", values.department], ["Year", values.yearLevel ? `Year ${values.yearLevel}` : ""], ["Classroom", values.classroom], ["Day / time", [values.dayOfWeek, values.startsAt && values.endsAt ? `${values.startsAt}-${values.endsAt}` : ""].filter(Boolean).join(" ")], ["Create At", values.createAt],
-  ] : [["Code", values.studentCode], ["Name", values.name]];
+  ] : [
+    ["Student code", workflowCode(values.studentCode, "student", "management")],
+    ["Enrollment code", workflowCode(values.studentCode, "student", "enrollment")],
+    ["Name", values.name],
+  ];
   return <section className="enrollment-selection-preview">{details.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value || "Select a Management record"}</strong></div>)}</section>;
 }

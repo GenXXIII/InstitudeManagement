@@ -10,6 +10,9 @@ public sealed class ClassSessionRecordConfiguration : IEntityTypeConfiguration<C
     {
         builder.HasIndex(x => x.ClassSessionRecordCode).IsUnique();
         builder.HasIndex(x => new { x.ScheduleEntryId, x.SessionDate }).IsUnique();
+        builder.HasIndex(x => x.SessionDate);
+        builder.HasIndex(x => new { x.AcademicYear, x.Term });
+        builder.HasIndex(x => new { x.DepartmentId, x.YearLevel });
         builder.HasIndex(x => x.CourseId);
         builder.HasIndex(x => x.TeacherId);
         builder.HasIndex(x => x.ClassroomId);

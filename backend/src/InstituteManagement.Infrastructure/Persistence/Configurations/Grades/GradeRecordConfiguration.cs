@@ -10,6 +10,8 @@ public sealed class GradeRecordConfiguration : IEntityTypeConfiguration<GradeRec
     {
         builder.HasIndex(x => x.GradeCode).IsUnique();
         builder.HasIndex(x => new { x.StudentId, x.CourseId, x.AcademicYear, x.Term }).IsUnique();
+        builder.HasIndex(x => new { x.AcademicYear, x.Term });
+        builder.HasIndex(x => x.UpdatedAtUtc).IncludeProperties(x => x.Score);
         builder.Property(x => x.GradeCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Score).HasPrecision(5, 2);
         builder.Property(x => x.LetterGrade).HasMaxLength(4).IsRequired();

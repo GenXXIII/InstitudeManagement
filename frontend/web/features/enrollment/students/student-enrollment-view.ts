@@ -4,7 +4,7 @@ import { scheduleMatchesShift } from "../common/enrollment-relationships";
 
 export const studentEnrollmentCopy: EnrollmentCopy = {
   title: "Student Enrollment",
-  description: "Select a Management student and assign academic details. The linked EnrollmentCode is generated automatically from StudentCode.",
+  description: "Select a Management student, then choose any department and Year 1-4. The linked EnrollmentCode is generated automatically from StudentCode.",
   columns: ["EnrollmentCode", "Name", "Year", "Shift", "Department", "Actions"],
 };
 
@@ -16,7 +16,7 @@ export const studentAssignmentCopy: EnrollmentCopy = {
 
 export function studentEnrollmentCells(item: EnrollmentDisplayItem) {
   const value = item.values;
-  return [value.enrollmentCode, value.name, value.year ? `Year ${value.year}` : "Unassigned", value.shift || "Unassigned", value.year === "1" ? "General foundation" : value.department];
+  return [value.enrollmentCode, value.name, value.year ? `Year ${value.year}` : "Unassigned", value.shift || "Unassigned", value.department];
 }
 
 export function studentAssignmentCells(item: EnrollmentDisplayItem, schedules: EnrollmentItem[]) {
@@ -28,7 +28,7 @@ export function studentAssignmentCells(item: EnrollmentDisplayItem, schedules: E
   return [
     value.enrollmentCode,
     value.name,
-    value.year === "1" ? "General foundation" : value.department,
+    value.department,
     [value.year ? `Year ${value.year}` : "Unassigned", value.shift].filter(Boolean).join(" / "),
     uniqueValues(relatedSchedules, "course"),
     uniqueValues(relatedSchedules, "classroom"),

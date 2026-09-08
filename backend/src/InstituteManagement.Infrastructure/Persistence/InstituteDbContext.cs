@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Exceptions;
 using InstituteManagement.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,22 +33,38 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
         CaptureNotificationHistory();
         format ??= RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignHistoryBusinessCodes(format);
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        try
+        {
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        catch (DbUpdateException exception)
+        {
+            throw new PersistenceConflictException(exception);
+        }
     }
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         var format = RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
         format ??= RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignHistoryBusinessCodes(format);
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateException exception)
+        {
+            throw new PersistenceConflictException(exception);
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InstituteDbContext).Assembly);
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            entityType.FindProperty(nameof(Entity.CreateAt))?.SetColumnName("CreatedAtUtc");
         foreach (var foreignKey in modelBuilder.Model.GetEntityTypes().SelectMany(entity => entity.GetForeignKeys()))
             foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
     }

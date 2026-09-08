@@ -33,12 +33,17 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
             var sessionStatus = TeacherPresence.SessionStatus(session.TeacherAttendanceStatus);
             var statusDetail = TeacherPresence.Reason(session.TeacherAttendanceStatus);
             var sessionCode = ReadableSessionCode(session);
-            var enrollmentCode = timetableEnrollments.Any(enrollment => enrollment.ScheduleEntryId == session.ScheduleEntryId && enrollment.AcademicYear == session.AcademicYear && enrollment.Semester == session.Term)
-                ? session.ScheduleEntry?.TimetableCode ?? "Not recorded"
-                : "Not recorded";
+            var timetableEnrollment = timetableEnrollments.FirstOrDefault(enrollment =>
+                enrollment.ScheduleEntryId == session.ScheduleEntryId
+                && enrollment.AcademicYear == session.AcademicYear
+                && enrollment.Semester == session.Term);
+            var enrollmentCode = timetableEnrollment is null || string.IsNullOrWhiteSpace(timetableEnrollment.EnrollmentCode)
+                ? "Not recorded"
+                : timetableEnrollment.EnrollmentCode;
+            var codes = codeFormat.Chain(sessionCode, null, "session");
             var activities = new List<Dictionary<string, string>>
             {
-                Create(("Activity", "Completed class"), ("Class session code", sessionCode), ("Timetable enrollment code", enrollmentCode), ("Timetable code", session.ScheduleEntry?.TimetableCode ?? "Not recorded"), ("Date", session.SessionDate.ToString("yyyy-MM-dd")), ("Time", time), ("Course", session.CourseName), ("Course code", session.Course?.CourseCode ?? "Not recorded"), ("Year", $"Year {session.YearLevel}"), ("Teacher", session.TeacherName), ("Teacher code", session.Teacher?.TeacherCode ?? "Not recorded"), ("Classroom", session.ClassroomCode), ("Classroom code", session.Classroom?.ClassroomCode ?? session.ClassroomCode), ("Academic year", session.AcademicYear), ("Term", session.Term), ("Teacher attendance", session.TeacherAttendanceStatus), ("Session status", sessionStatus), ("Reason", statusDetail), ("Attendance", $"{session.PresentCount} present · {session.LateCount} late · {session.AbsentCount} absent · {session.ExcusedCount} permission"))
+                Create(("Activity", "Completed class"), ("Management code", codes.Management), ("Enrollment source", enrollmentCode), ("Operation code", codes.Operation), ("Record code", codes.Record), ("Class session code", sessionCode), ("Timetable enrollment code", enrollmentCode), ("Timetable code", session.ScheduleEntry?.TimetableCode ?? "Not recorded"), ("Date", session.SessionDate.ToString("yyyy-MM-dd")), ("Time", time), ("Course", session.CourseName), ("Course code", session.Course?.CourseCode ?? "Not recorded"), ("Year", $"Year {session.YearLevel}"), ("Teacher", session.TeacherName), ("Teacher code", session.Teacher?.TeacherCode ?? "Not recorded"), ("Classroom", session.ClassroomCode), ("Classroom code", session.Classroom?.ClassroomCode ?? session.ClassroomCode), ("Academic year", session.AcademicYear), ("Term", session.Term), ("Teacher attendance", session.TeacherAttendanceStatus), ("Session status", sessionStatus), ("Reason", statusDetail), ("Attendance", $"{session.PresentCount} present · {session.LateCount} late · {session.AbsentCount} absent · {session.ExcusedCount} permission"))
             };
             activities.AddRange(Deserialize(session.StudentAttendanceJson).Select(student => Create(
                 ("Activity", "Student attendance"),
@@ -72,13 +77,18 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
                 session.UpdatedAtUtc,
                 activities,
                 sessionCode,
-                Code: codeFormat.Derive(sessionCode, "session", "record"));
+                Code: codes.Record,
+                AcademicYear: session.AcademicYear,
+                Term: session.Term,
+                ResourceId: session.Id);
         }).ToList();
     }
 
     private static IReadOnlyList<SessionStudentSnapshot> Deserialize(string json)
     {
-        try { return JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? [];
         }
         catch (JsonException) { return []; }
     }

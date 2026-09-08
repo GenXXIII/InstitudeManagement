@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
 
-namespace InstituteManagement.API.Hubs;
+namespace InstituteManagement.Infrastructure.Realtime;
 
 public sealed class InstituteHub : Hub;

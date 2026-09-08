@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Persistence;
 
-public static class DatabaseInitializer
+internal static class DatabaseInitializer
 {
     public static async Task InitializeAsync(InstituteDbContext db, CancellationToken cancellationToken = default)
     {

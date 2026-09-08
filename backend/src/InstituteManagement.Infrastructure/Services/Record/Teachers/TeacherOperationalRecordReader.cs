@@ -32,11 +32,15 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
             var completed = sessions.Where(x => x.TeacherId == teacher.Id).ToList();
             var assignmentEvents = assignments.Where(x => x.TeacherId == teacher.Id).Select(assignment =>
             {
+                var codes = codeFormat.Chain(teacher.TeacherCode, assignment.EnrollmentCode, "teacher");
                 var relatedCourses = courseAssignments.Where(x => x.TeacherId == teacher.Id && x.AcademicYear == assignment.AcademicYear && x.Semester == assignment.Semester && (!assignment.DepartmentId.HasValue || x.DepartmentId == assignment.DepartmentId)).ToList();
                 var years = string.Join(", ", relatedCourses.Select(x => $"Year {x.YearLevel}").Distinct().OrderBy(x => x));
                 var status = TeacherPresence.Attendance(teacher.Status, assignment.Status);
                 return (assignment.UpdatedAtUtc, Create(
-                    ("Activity", "Teacher assignment"), ("Permanent code", teacher.TeacherCode), ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
+                    ("Activity", "Teacher assignment"),
+                    ("Management code", codes.Management), ("Enrollment code", codes.Enrollment),
+                    ("Operation code", codes.Operation), ("Record code", codes.Record), ("Permanent code", codes.Management),
+                    ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", string.IsNullOrWhiteSpace(years) ? "Not scheduled" : years),
                     ("Department", assignment.Department?.Name ?? teacher.Department?.Name ?? "Institute-wide"),
@@ -52,9 +56,13 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
                 ("Students", StudentSummary(x.StudentAttendanceJson)))));
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var attendanceStatus = TeacherPresence.Attendance(teacher.Status);
+            var recordSource = assignments.Where(x => x.TeacherId == teacher.Id)
+                .OrderByDescending(x => x.AcademicYear).ThenByDescending(x => x.Semester)
+                .Select(x => codeFormat.Chain(teacher.TeacherCode, x.EnrollmentCode, "teacher").Operation)
+                .FirstOrDefault() ?? teacher.TeacherCode;
             return new OperationalRecordDto(teacher.Id, "Teacher", teacher.FullName, teacher.TeacherCode, attendanceStatus,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(teacher.TeacherCode, "teacher", "record"), PhotoDataUrl: teacher.PhotoDataUrl,
+                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(recordSource, "teacher", "record"), PhotoDataUrl: teacher.PhotoDataUrl,
                 Department: teacher.Department?.Name ?? "Institute-wide", ResourceId: teacher.Id);
         }).ToList();
     }

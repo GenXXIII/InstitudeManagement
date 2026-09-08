@@ -56,8 +56,9 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
             var room = x.Classroom!;
             var schedule = currentSchedules.FirstOrDefault(item => item.ClassroomId == x.ClassroomId);
             var fixedStatus = FixedStatus(room.Status, room.DeviceOnline);
+            var sourceCode = string.IsNullOrWhiteSpace(x.EnrollmentCode) ? room.ClassroomCode : x.EnrollmentCode;
             if (schedule is null)
-                return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, codeFormat.Derive(room.ClassroomCode, "classroom", "operation"), room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? "Available", "No course in this period", "—", "Not scheduled", FixedStatusDetail(fixedStatus));
+                return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, codeFormat.Derive(sourceCode, "classroom", "operation"), room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? "Available", "No course in this period", "—", "Not scheduled", FixedStatusDetail(fixedStatus));
 
             var department = courseAssignments.First(item => item.CourseId == schedule.CourseId).DepartmentId;
             var teacherAssignment = teacherAssignments
@@ -73,7 +74,7 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
                 : !TeacherPresence.IsPresent(attendance)
                     ? $"{schedule.Course?.Name ?? "Course"} is assigned, but {schedule.Teacher?.FullName ?? "the teacher"} is {attendance.ToLowerInvariant()}; the course is not running."
                     : $"{schedule.Course?.Name ?? "Course"} is assigned but is not running.";
-            return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, codeFormat.Derive(room.ClassroomCode, "classroom", "operation"), room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? (running ? "Running" : "Available"), schedule.Course?.Name ?? "Course", schedule.Teacher?.FullName ?? "—", attendance, detail);
+            return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, codeFormat.Derive(sourceCode, "classroom", "operation"), room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? (running ? "Running" : "Available"), schedule.Course?.Name ?? "Course", schedule.Teacher?.FullName ?? "—", attendance, detail);
         }).OrderBy(x => x.Room).ToList();
 
         var runningCount = rows.Count(x => x.Status == "Running");
