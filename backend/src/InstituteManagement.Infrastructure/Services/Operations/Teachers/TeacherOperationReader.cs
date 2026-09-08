@@ -32,7 +32,7 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
         var currentTeacherIds = await db.ScheduleEntries.AsNoTracking()
             .Where(x => x.Status != "Cancelled"
                 && enrolledTimetableIds.Contains(x.Id)
-                && courseAssignments.Contains(x.CourseId)
+                && x.CourseId.HasValue && courseAssignments.Contains(x.CourseId.Value)
                 && x.DayOfWeek == selection.Date.DayOfWeek
                 && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt)
             .Select(x => x.TeacherId)

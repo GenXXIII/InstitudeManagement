@@ -48,16 +48,17 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
         var focusedSchedules = await db.ScheduleEntries.AsNoTracking()
             .Where(x => x.Status != "Cancelled"
                 && enrolledTimetableIds.Contains(x.Id)
-                && courseIds.Contains(x.CourseId)
+                && x.CourseId.HasValue && courseIds.Contains(x.CourseId.Value)
+                && x.TeacherId.HasValue && x.ClassroomId.HasValue && x.YearLevel.HasValue
                 && x.DayOfWeek == selection.Date.DayOfWeek
                 && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt)
             .Select(x => new
             {
                 x.Id,
-                x.CourseId,
-                x.TeacherId,
-                x.ClassroomId,
-                x.YearLevel,
+                CourseId = x.CourseId.GetValueOrDefault(),
+                TeacherId = x.TeacherId.GetValueOrDefault(),
+                ClassroomId = x.ClassroomId.GetValueOrDefault(),
+                YearLevel = x.YearLevel.GetValueOrDefault(),
                 x.StartsAt,
                 x.EndsAt
             })

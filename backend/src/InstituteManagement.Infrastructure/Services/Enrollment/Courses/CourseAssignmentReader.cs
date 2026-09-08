@@ -44,7 +44,7 @@ internal sealed class CourseAssignmentReader(InstituteDbContext db)
             .Where(row =>
                 row.assignment is not null
                 && (!departmentId.HasValue || row.assignment.DepartmentId == departmentId)
-                && (!year.HasValue || row.assignment.YearLevel == year)
+                && (!year.HasValue || row.course.YearLevel == year)
                 && Matches(search, row.assignment?.EnrollmentCode, row.course.CourseCode, row.course.Name, row.department?.Name, row.teacher?.FullName))
             .Select(row => Item(
                 row.course.Id,
@@ -55,11 +55,12 @@ internal sealed class CourseAssignmentReader(InstituteDbContext db)
                 ("department", row.department?.Name ?? "Unassigned"),
                 ("teacherId", row.assignment?.TeacherId.ToString() ?? ""),
                 ("teacher", row.teacher?.FullName ?? "Unassigned"),
-                ("year", row.assignment?.YearLevel.ToString() ?? ""),
+                ("year", row.course.YearLevel.ToString()),
                 ("capacity", row.assignment?.Capacity.ToString() ?? ""),
                 ("status", row.assignment?.Status ?? "Unassigned"),
                 ("academicYear", period.AcademicYear),
-                ("semester", period.Semester)))
+                ("semester", row.course.Semester),
+                ("createAt", row.assignment?.CreateAt.ToString("yyyy-MM-dd") ?? "Not assigned")))
             .ToList();
     }
 }

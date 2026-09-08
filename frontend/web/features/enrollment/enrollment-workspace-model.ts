@@ -78,9 +78,9 @@ export function enrollmentSubject(resource: EnrollmentResource) {
   return resourceSubjects[resource];
 }
 
-export function enrollmentCells(resource: EnrollmentResource, item: EnrollmentDisplayItem, studentSchedules: EnrollmentItem[]) {
+export function enrollmentCells(resource: EnrollmentResource, item: EnrollmentDisplayItem) {
   if (resource === "students") return studentEnrollmentCells(item);
-  if (resource === "student-assignments") return studentAssignmentCells(item, studentSchedules);
+  if (resource === "student-assignments") return studentAssignmentCells(item);
   if (resource === "teachers") return teacherAssignmentCells(item);
   if (resource === "courses") return courseAssignmentCells(item);
   if (resource === "classrooms") return classroomAssignmentCells(item);

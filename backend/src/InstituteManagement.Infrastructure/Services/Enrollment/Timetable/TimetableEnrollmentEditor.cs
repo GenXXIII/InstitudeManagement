@@ -10,7 +10,6 @@ namespace InstituteManagement.Infrastructure.Services.Enrollment.Timetable;
 
 internal sealed class TimetableEnrollmentEditor(
     InstituteDbContext db,
-    TimetableScheduleEditor scheduleEditor,
     TimetableEnrollmentValidator validator)
 {
     public async Task<EnrollmentItemDto> UpdateAsync(
@@ -19,21 +18,21 @@ internal sealed class TimetableEnrollmentEditor(
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
-        var entry = await db.ScheduleEntries
-            .Include(item => item.Course)
-            .Include(item => item.Teacher)
-            .Include(item => item.Classroom)
-            .FirstOrDefaultAsync(
-                item => item.Id == id && item.Status != "Cancelled",
-                cancellationToken)
+        var entry = await db.ScheduleEntries.FirstOrDefaultAsync(
+            item => item.Id == id && item.Status != "Cancelled",
+            cancellationToken)
             ?? throw new KeyNotFoundException("Management schedule not found.");
-
-        if (values.ContainsKey("timetableCode"))
-        {
-            await scheduleEditor.ApplyAsync(entry, values, cancellationToken);
-        }
-
-        var course = await validator.ValidateAsync(entry, period, cancellationToken);
+        var courseId = GuidValue(values, "courseId", true)!.Value;
+        var teacherId = GuidValue(values, "teacherId", true)!.Value;
+        var classroomId = GuidValue(values, "classroomId", true)!.Value;
+        var validated = await validator.ValidateAsync(
+            entry,
+            courseId,
+            teacherId,
+            classroomId,
+            period,
+            cancellationToken);
+        var yearLevel = validated.Course.YearLevel;
         var enrollment = await db.TimetableEnrollments.FirstOrDefaultAsync(
             item =>
                 item.ScheduleEntryId == id
@@ -53,26 +52,49 @@ internal sealed class TimetableEnrollmentEditor(
         }
 
         enrollment.EnrollmentCode = enrollmentCode;
+        enrollment.CourseId = courseId;
+        enrollment.Course = validated.Course;
+        enrollment.TeacherId = teacherId;
+        enrollment.Teacher = validated.Teacher;
+        enrollment.ClassroomId = classroomId;
+        enrollment.Classroom = validated.Classroom;
+        enrollment.YearLevel = yearLevel;
         enrollment.Status = "Active";
         enrollment.UpdatedAtUtc = DateTime.UtcNow;
+
+        // Keep legacy schedule columns synchronized until all operational readers use enrollment-owned relationships.
+        entry.CourseId = courseId;
+        entry.Course = validated.Course;
+        entry.TeacherId = teacherId;
+        entry.Teacher = validated.Teacher;
+        entry.ClassroomId = classroomId;
+        entry.Classroom = validated.Classroom;
+        entry.YearLevel = yearLevel;
+        entry.UpdatedAtUtc = DateTime.UtcNow;
+
+        var auditValues = AssignmentValues(
+            ("timetableCode", entry.TimetableCode),
+            ("enrollmentCode", enrollment.EnrollmentCode),
+            ("courseId", courseId.ToString()),
+            ("teacherId", teacherId.ToString()),
+            ("classroomId", classroomId.ToString()),
+            ("yearLevel", yearLevel.ToString()),
+            ("shift", entry.Shift),
+            ("academicYear", period.AcademicYear),
+            ("semester", period.Semester),
+            ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
         db.AuditLogs.Add(EnrollmentAuditFactory.Create(
             id,
             "Timetable",
             entry.TimetableCode,
-            "Enrollment added",
-            AssignmentValues(
-                ("timetableCode", entry.TimetableCode),
-                ("enrollmentCode", enrollment.EnrollmentCode),
-                ("classroomStatus", entry.Classroom?.Status ?? "Maintenance"),
-                ("academicYear", period.AcademicYear),
-                ("semester", period.Semester))));
+            "Enrollment updated",
+            auditValues));
 
         return TimetableEnrollmentItemFactory.Create(
             entry,
-            course.DepartmentId,
-            course.Department?.Name,
-            enrollment.EnrollmentCode,
-            enrollment.Status);
+            enrollment,
+            validated.DepartmentId,
+            validated.DepartmentName);
     }
 
     public async Task<bool> RemoveAsync(
@@ -88,27 +110,23 @@ internal sealed class TimetableEnrollmentEditor(
                     && item.AcademicYear == period.AcademicYear
                     && item.Semester == period.Semester,
                 cancellationToken);
-
-        if (enrollment is null
-            || enrollment.Status == "Removed"
-            || enrollment.ScheduleEntry is null)
-        {
+        if (enrollment is null || enrollment.Status == "Removed" || enrollment.ScheduleEntry is null)
             return false;
-        }
 
         var entry = enrollment.ScheduleEntry;
         var values = AssignmentValues(
             ("enrollmentCode", enrollment.EnrollmentCode),
             ("timetableCode", entry.TimetableCode),
-            ("courseId", entry.CourseId.ToString()),
-            ("teacherId", entry.TeacherId.ToString()),
-            ("classroomId", entry.ClassroomId.ToString()),
-            ("yearLevel", entry.YearLevel.ToString()),
+            ("courseId", enrollment.CourseId.ToString()),
+            ("teacherId", enrollment.TeacherId.ToString()),
+            ("classroomId", enrollment.ClassroomId.ToString()),
+            ("yearLevel", enrollment.YearLevel.ToString()),
             ("dayOfWeek", entry.DayOfWeek.ToString()),
             ("startsAt", entry.StartsAt.ToString("HH:mm")),
             ("endsAt", entry.EndsAt.ToString("HH:mm")),
             ("academicYear", enrollment.AcademicYear),
-            ("semester", enrollment.Semester));
+            ("semester", enrollment.Semester),
+            ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
 
         enrollment.Status = "Removed";
         enrollment.UpdatedAtUtc = DateTime.UtcNow;

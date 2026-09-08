@@ -6,20 +6,14 @@ import { useInstituteSettings } from "@/features/administration/institute-settin
 import { classroomApi } from "@/features/management/classrooms/classroom-api";
 import { courseApi } from "@/features/management/courses/course-api";
 import { departmentApi } from "@/features/management/departments/department-api";
-import { emptyReferences } from "@/features/management/management-config";
-import type { References } from "@/features/management/management-types";
 import { studentApi } from "@/features/management/students/student-api";
 import { teacherApi } from "@/features/management/teachers/teacher-api";
 import { timetableApi } from "@/features/timetable/timetable-api";
-import type { ClassroomItem } from "@/features/management/classrooms/classroom-types";
-import type { CourseItem } from "@/features/management/courses/course-types";
 import type { DepartmentItem } from "@/features/management/departments/department-types";
-import type { TeacherItem } from "@/features/management/teachers/teacher-types";
 import { workflowSourceSearch } from "@/lib/workflow-code";
 import type { EnrollmentItem, EnrollmentResource } from "./common/enrollment-types";
 import { enrollmentApiFor } from "./enrollment-apis";
 import { teacherAssignmentApi } from "./teachers/teacher-assignment-api";
-import { timetableEnrollmentApi } from "./timetable/timetable-enrollment-api";
 import {
   enrollmentSubject,
   isSelectableEnrollment,
@@ -35,9 +29,9 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
   const [items, setItems] = useState<EnrollmentItem[]>([]);
   const [candidates, setCandidates] = useState<EnrollmentItem[]>([]);
   const [teachers, setTeachers] = useState<EnrollmentItem[]>([]);
-  const [studentSchedules, setStudentSchedules] = useState<EnrollmentItem[]>([]);
+  const [courses, setCourses] = useState<EnrollmentItem[]>([]);
+  const [classrooms, setClassrooms] = useState<EnrollmentItem[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
-  const [timetableReferences, setTimetableReferences] = useState<References>(emptyReferences);
   const [editing, setEditing] = useState<EnrollmentItem | null | undefined>();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
@@ -48,9 +42,9 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
       ? Promise.all([getCatalogCandidates(resource, departmentId, year), enrollmentApiFor(resource).get()]).then(([catalogItems, enrollmentItems]) => {
           const assignedIds = new Set(enrollmentItems.filter(item => item.values.status !== "Unassigned").map(item => item.id));
           if (resource === "timetable") {
-            return catalogItems.map(item => ({
+            return catalogItems.filter(item => !assignedIds.has(item.id)).map(item => ({
               ...item,
-              values: { ...item.values, enrollmentStatus: assignedIds.has(item.id) ? "Already enrolled" : "Available to enroll" },
+              values: { ...item.values, enrollmentStatus: "Available to enroll" },
             }));
           }
           return catalogItems.filter(item => !assignedIds.has(item.id));
@@ -60,19 +54,21 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
     return Promise.all([
       enrollmentApiFor(resource).get(workflowSourceSearch(query), departmentId, year),
       departmentApi.get(),
-      resource === "courses" ? teacherAssignmentApi.get("", settings.departments.allowCrossDepartmentTeaching === "true" ? "" : departmentId) : Promise.resolve([]),
-      candidateRequest,
-      resource === "student-assignments" ? timetableEnrollmentApi.get("", departmentId, year) : Promise.resolve([]),
       resource === "timetable"
-        ? Promise.all([teacherApi.get(), courseApi.get(), classroomApi.get()])
-        : Promise.resolve([[], [], []] as [TeacherItem[], CourseItem[], ClassroomItem[]]),
-    ]).then(([rows, departmentRows, teacherRows, candidateRows, scheduleRows, [managementTeachers, managementCourses, managementClassrooms]]) => {
+        ? teacherApi.get()
+        : resource === "courses"
+          ? teacherAssignmentApi.get("", settings.departments.allowCrossDepartmentTeaching === "true" ? "" : departmentId)
+          : Promise.resolve([]),
+      resource === "timetable" ? courseApi.get() : Promise.resolve([]),
+      resource === "timetable" ? classroomApi.get() : Promise.resolve([]),
+      candidateRequest,
+    ]).then(([rows, departmentRows, teacherRows, courseRows, classroomRows, candidateRows]) => {
       setItems(rows);
       setDepartments(departmentRows);
       setTeachers(teacherRows);
+      setCourses(courseRows);
+      setClassrooms(classroomRows);
       setCandidates(candidateRows);
-      setStudentSchedules(scheduleRows);
-      setTimetableReferences({ ...emptyReferences, departments: departmentRows, teachers: managementTeachers, courses: managementCourses, classrooms: managementClassrooms });
       setReady(true);
       setError(false);
     }).catch(() => setError(true));
@@ -94,13 +90,11 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
     }
   }
 
-  function saveTimetable(id: string, values: Record<string, string>) {
-    return timetableEnrollmentApi.update(id, values);
-  }
-
   return {
     actionError,
     candidates,
+    classrooms,
+    courses,
     departmentId,
     departments,
     editing,
@@ -110,19 +104,17 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
     query,
     ready,
     remove,
-    saveTimetable,
     setActionError,
     setEditing,
     setError,
     setQuery,
-    studentSchedules,
     teachers,
-    timetableReferences,
     year,
   };
 }
 
 function getCatalogCandidates(resource: SelectableEnrollmentResource, departmentId: string, year: string): Promise<EnrollmentItem[]> {
   if (resource === "students") return studentApi.get();
-  return timetableApi.get("", departmentId).then(items => items.filter(item => !year || item.values.yearLevel === year));
+  void year;
+  return timetableApi.get("", departmentId);
 }

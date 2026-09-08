@@ -64,7 +64,10 @@ internal sealed class TeacherAssignmentEditor(InstituteDbContext db, TeacherAssi
             ("teacherCode", teacher.TeacherCode),
             ("name", teacher.FullName),
             ("departmentId", departmentId?.ToString() ?? ""),
-            ("status", assignment.Status));
+            ("status", assignment.Status),
+            ("academicYear", assignment.AcademicYear),
+            ("semester", assignment.Semester),
+            ("createAt", assignment.CreateAt.ToString("yyyy-MM-dd")));
     }
 
     public async Task<bool> RemoveAsync(

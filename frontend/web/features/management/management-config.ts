@@ -12,8 +12,8 @@ export const managementCopy: Record<ManagementModule, { title: string; descripti
   students: { title: "Student profile management", description: "Maintain each student's identity, profile photo, name, email, and personal record. Academic placement is shown under Academic enrollment.", singular: "student" },
   teachers: { title: "Teacher profile management", description: "Maintain each teacher's identity, profile photo, name, email, and personal record. Academic assignments are managed under Academic enrollment.", singular: "teacher" },
   classrooms: { title: "Learning-space management", description: "Manage institute-shared classroom and meeting-room information, including the status that controls timetable availability.", singular: "learning space" },
-  courses: { title: "Course master management", description: "Maintain course identity and name only. Department, teacher, year, and capacity belong to Academic enrollment.", singular: "course" },
-  timetable: { title: "Schedule management", description: "View and manage each schedule with its course, teacher, classroom, student year, day, time, and creation date.", singular: "schedule" },
+  courses: { title: "Course master management", description: "Maintain each permanent course identity and its intended student year and semester. Department, teacher, and capacity belong to Academic enrollment.", singular: "course" },
+  timetable: { title: "Schedule management", description: "Maintain permanent schedule codes, shifts, and reusable day/time slots. Course, teacher, classroom, and student year are assigned in Timetable Enrollment.", singular: "schedule" },
   departments: { title: "Department management", description: "Organize academic units and appoint an existing teacher as each department head.", singular: "department" },
 };
 

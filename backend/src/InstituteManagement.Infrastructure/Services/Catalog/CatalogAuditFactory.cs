@@ -78,9 +78,9 @@ internal static class CatalogAuditFactory
         Student student => new { student.StudentCode, student.FullName, student.Email, student.DepartmentId, student.YearLevel, student.Shift, student.Status },
         Teacher teacher => new { teacher.TeacherCode, teacher.FullName, teacher.Email, teacher.DepartmentId, teacher.Status },
         Classroom classroom => new { classroom.ClassroomCode, classroom.Building, classroom.RoomType, classroom.DepartmentId, classroom.Capacity, classroom.Status, classroom.DeviceOnline },
-        Course course => new { course.CourseCode, course.Name, course.DepartmentId, course.TeacherId, course.Capacity, course.IsActive },
+        Course course => new { course.CourseCode, course.Name, course.YearLevel, course.Semester, course.DepartmentId, course.TeacherId, course.Capacity, course.IsActive },
         Department department => new { department.DepartmentCode, department.Name, department.HeadTeacherId, department.IsActive },
-        ScheduleEntry schedule => new { schedule.TimetableCode, schedule.CourseId, schedule.TeacherId, schedule.ClassroomId, schedule.YearLevel, schedule.DayOfWeek, schedule.StartsAt, schedule.EndsAt, schedule.Status },
+        ScheduleEntry schedule => new { schedule.TimetableCode, schedule.Shift, schedule.DayOfWeek, schedule.StartsAt, schedule.EndsAt, schedule.Status },
         AttendanceRecord attendance => new { attendance.AttendanceCode, attendance.StudentId, attendance.Date, attendance.CheckedInAt, attendance.Status, attendance.Method },
         GradeRecord grade => new { grade.GradeCode, grade.StudentId, grade.CourseId, grade.Score, grade.LetterGrade, grade.Term },
         _ => new { entity.Id }

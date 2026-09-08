@@ -76,7 +76,8 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
                     ("yearLevels", string.Join(", ", roomSchedule.Select(entry => entry.YearLevel).Distinct().Order().Select(value => $"Year {value}"))),
                     ("weeklyClasses", roomSchedule.Count.ToString()),
                     ("academicYear", period.AcademicYear),
-                    ("semester", period.Semester));
+                    ("semester", period.Semester),
+                    ("createAt", row.assignment?.CreateAt.ToString("yyyy-MM-dd") ?? "Not assigned"));
             })
             .ToList();
     }

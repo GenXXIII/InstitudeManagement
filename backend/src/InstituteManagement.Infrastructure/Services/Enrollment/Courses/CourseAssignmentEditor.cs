@@ -20,7 +20,7 @@ internal sealed class CourseAssignmentEditor(InstituteDbContext db, CourseAssign
             ?? throw new KeyNotFoundException("Course not found.");
         var departmentId = await RequiredDepartmentAsync(db, values, cancellationToken);
         var teacherId = await policy.TeacherIdAsync(values, departmentId, period, cancellationToken);
-        var year = Integer(values, "year", 1, 4);
+        var year = course.YearLevel;
         var capacity = await policy.CapacityAsync(values, cancellationToken);
         var assignment = await db.CourseAssignments.FirstOrDefaultAsync(
             item =>
@@ -65,8 +65,11 @@ internal sealed class CourseAssignmentEditor(InstituteDbContext db, CourseAssign
             ("departmentId", departmentId.ToString()),
             ("teacherId", teacherId?.ToString() ?? ""),
             ("year", year.ToString()),
+            ("semester", course.Semester),
             ("capacity", capacity.ToString()),
-            ("status", assignment.Status));
+            ("status", assignment.Status),
+            ("academicYear", assignment.AcademicYear),
+            ("createAt", assignment.CreateAt.ToString("yyyy-MM-dd")));
     }
 
     public async Task<bool> RemoveAsync(

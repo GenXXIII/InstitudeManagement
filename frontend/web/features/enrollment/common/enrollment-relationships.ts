@@ -4,6 +4,7 @@ export const enrollmentShifts = ["Morning", "Afternoon", "Evening", "Weekend"] a
 
 export function scheduleMatchesShift(schedule: EnrollmentItem, shift: string | undefined) {
   if (!shift) return true;
+  if (schedule.values.shift) return schedule.values.shift === shift;
   if (shift === "Weekend") return schedule.values.dayOfWeek === "Saturday" || schedule.values.dayOfWeek === "Sunday";
   if (schedule.values.dayOfWeek === "Saturday" || schedule.values.dayOfWeek === "Sunday") return false;
 

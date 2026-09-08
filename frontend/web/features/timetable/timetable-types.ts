@@ -12,6 +12,7 @@ export type TimetableValues = Record<string, string> & {
   departmentId: string;
   department: string;
   yearLevel: string;
+  shift: string;
   dayOfWeek: string;
   startsAt: string;
   endsAt: string;

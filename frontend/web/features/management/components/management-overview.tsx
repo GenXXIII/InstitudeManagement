@@ -9,7 +9,7 @@ const lifecycle = [
   { icon: "teacher", source: "Teachers", management: "teachers", next: "Teacher Assign", enrollment: "teachers", rule: "Identity and home department" },
   { icon: "book", source: "Courses", management: "courses", next: "Course Assign", enrollment: "courses", rule: "Course code, name, credits, and level" },
   { icon: "room", source: "Classrooms", management: "classrooms", next: "Classroom Assign", enrollment: "classrooms", rule: "Room code, building, type, and capacity" },
-  { icon: "calendar", source: "Schedule", management: "timetable", next: "Timetable Enrollment", enrollment: "timetable", rule: "Code, day, time, and create date" },
+  { icon: "calendar", source: "Schedule", management: "timetable", next: "Timetable Enrollment", enrollment: "timetable", rule: "Code, shift, day, time, and create date" },
   { icon: "building", source: "Departments", management: "departments", next: "Department Assign", enrollment: "departments", rule: "Department code, name, and leadership" },
 ] as const;
 
@@ -20,7 +20,7 @@ export function ManagementOverview({ references, onSelect, selected, year }: { r
     { icon: "teacher", label: "Teacher master records", value: references.teachers.length, module: "teachers", detail: "Ready for assignment" },
     { icon: "book", label: "Course master records", value: references.courses.length, module: "courses", detail: "Includes course level" },
     { icon: "room", label: "Classroom master records", value: references.classrooms.length, module: "classrooms", detail: "Rooms and capacity" },
-    { icon: "calendar", label: "Schedule templates", value: references.timetable.length, module: "timetable", detail: "Code, day, and time" },
+    { icon: "calendar", label: "Schedule templates", value: references.timetable.length, module: "timetable", detail: "Code, shift, day, and time" },
   ] as const;
 
   return <div className="management-control-overview">

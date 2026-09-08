@@ -9,6 +9,7 @@ export type EnrollmentField = {
   type?: "select" | "number" | "text" | "time";
   options?: EnrollmentFieldOption[];
   required?: boolean;
+  readOnly?: boolean;
 };
 
 export function yearOptions(): EnrollmentFieldOption[] {

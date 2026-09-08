@@ -4,6 +4,8 @@ public sealed class Course : Entity
 {
     public required string CourseCode { get; set; }
     public required string Name { get; set; }
+    public int YearLevel { get; set; } = 1;
+    public string Semester { get; set; } = "Semester 1";
     public Guid? DepartmentId { get; set; }
     public Department? Department { get; set; }
     public Guid? TeacherId { get; set; }

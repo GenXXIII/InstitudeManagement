@@ -27,9 +27,9 @@ internal sealed class StudentEnrollmentRecordSynchronizer(InstituteDbContext db)
             .ToListAsync(cancellationToken);
         var courseId = await db.ScheduleEntries
                 .AsNoTracking()
-                .Where(entry => courseIds.Contains(entry.CourseId) && entry.Status != "Cancelled")
+                .Where(entry => entry.CourseId.HasValue && courseIds.Contains(entry.CourseId.Value) && entry.Status != "Cancelled")
                 .OrderBy(entry => entry.TimetableCode)
-                .Select(entry => (Guid?)entry.CourseId)
+                .Select(entry => entry.CourseId)
                 .FirstOrDefaultAsync(cancellationToken)
             ?? courseIds.FirstOrDefault();
 

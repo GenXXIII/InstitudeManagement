@@ -1,28 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { CodeRecommendation } from "@/components/code-recommendation";
 import { Icon } from "@/components/icon";
-import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import { EditorField } from "@/features/management/components/editor-field";
-import { relationshipCode } from "@/features/management/management-id";
-import type { Field, ManagementItem, References } from "@/features/management/management-types";
+import type { Field } from "@/features/management/management-types";
 import { validateManagementFields, validationMessages, type FieldErrors } from "@/features/management/management-validation";
-import { relationshipCreateTarget } from "@/features/management/relationship-create";
+import { formatAssignedCode, workflowCodeExample } from "@/lib/workflow-code";
+import { recommendedCodeFromError } from "@/lib/code-recommendation";
 import type { TimetableItem, TimetablePeriod } from "./timetable-types";
 import { timetableDefaults, timetableFields } from "./timetable-config";
 import { timetableApi } from "./timetable-api";
-import { formatAssignedCode, workflowCodeExample } from "@/lib/workflow-code";
-import { recommendedCodeFromError } from "@/lib/code-recommendation";
 
 const weekendDays = new Set(["Saturday", "Sunday"]);
 
-export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear, saveItem, onClose, onSaved }: { item: TimetableItem | null; references: References; scopeDepartmentId: string; scopeYear: string; saveItem?: (id: string, values: Record<string, string>) => Promise<unknown>; onClose: () => void; onSaved: () => void }) {
-  const router = useRouter();
-  const { settings } = useInstituteSettings();
+export function TimetableEditor({ item, scopeDepartmentId, onClose, onSaved }: {
+  item: TimetableItem | null;
+  scopeDepartmentId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const defaults = timetableDefaults(scopeDepartmentId);
-  if (scopeYear) defaults.yearLevel = scopeYear;
   const [values, setValues] = useState<Record<string, string>>(() => item
     ? { ...defaults, ...item.values, period: `${item.values.startsAt}|${item.values.endsAt}` }
     : defaults);
@@ -30,53 +28,48 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
-  const availablePeriods = useMemo(() => periods.filter(period => period.dayGroup === (weekendDays.has(values.dayOfWeek) ? "Weekend" : "Weekday")), [periods, values.dayOfWeek]);
+  const availablePeriods = useMemo(() => {
+    const weekend = weekendDays.has(values.dayOfWeek);
+    return periods.filter(period => period.dayGroup === (weekend ? "Weekend" : "Weekday") && (weekend || period.session === values.shift));
+  }, [periods, values.dayOfWeek, values.shift]);
 
   useEffect(() => {
     timetableApi.getPeriods().then(result => {
       setPeriods(result);
       setValues(current => {
         const group = weekendDays.has(current.dayOfWeek) ? "Weekend" : "Weekday";
-        const valid = result.some(period => period.dayGroup === group && `${period.startsAt}|${period.endsAt}` === current.period);
-        const first = result.find(period => period.dayGroup === group);
-        return valid || !first ? current : { ...current, period: `${first.startsAt}|${first.endsAt}` };
+        const shift = group === "Weekend" ? "Weekend" : current.shift === "Weekend" ? "Morning" : current.shift;
+        const matchingPeriods = result.filter(period => period.dayGroup === group && (group === "Weekend" || period.session === shift));
+        const valid = matchingPeriods.some(period => `${period.startsAt}|${period.endsAt}` === current.period);
+        const first = matchingPeriods[0];
+        return valid || !first ? { ...current, shift } : { ...current, shift, period: `${first.startsAt}|${first.endsAt}` };
       });
     }).catch(reason => setError(reason instanceof Error ? reason.message : "Could not load teaching periods."));
   }, []);
 
   function optionsFor(field: Field) {
     if (field.key === "period") return availablePeriods.map(period => ({ id: `${period.startsAt}|${period.endsAt}`, label: `${period.session} - ${period.startsAt}-${period.endsAt}` }));
-    if (field.options) return field.options.map(value => ({ id: value, label: value }));
-    if (!field.source) return [];
-    const source: ManagementItem[] = references[field.source];
-    const allowCrossDepartmentTeacher = field.source === "teachers" && settings.departments.allowCrossDepartmentTeaching === "true";
-    const sharedClassroom = field.source === "classrooms";
-    const scoped = ["teachers", "students", "classrooms", "courses"].includes(field.source) && values.departmentId && !allowCrossDepartmentTeacher && !sharedClassroom
-      ? source.filter(option => option.values.departmentId === values.departmentId || (field.source === "teachers" && !option.values.departmentId))
-      : source;
-    return scoped.filter(option => option.values.status !== "Inactive" && (field.source !== "classrooms" || ((option.values.status === "Available" || (saveItem && option.id === values.classroomId)) && classroomMatchesYear(option.values.classroomCode, values.yearLevel)))).map(option => ({
-      id: option.id,
-      label: `${relationshipCode(field.source!, option.values)} - ${option.values.name ?? option.values.building ?? option.values.student ?? option.values.course}`,
-      detail: [option.values.roomType, option.values.department].filter(Boolean).join(" - "),
-    }));
+    if (field.key === "shift") {
+      const shifts = weekendDays.has(values.dayOfWeek) ? ["Weekend"] : ["Morning", "Afternoon", "Evening"];
+      return shifts.map(value => ({ id: value, label: value }));
+    }
+    return field.options?.map(value => ({ id: value, label: value })) ?? [];
   }
 
   function change(field: Field, value: string) {
     setFieldErrors(current => { const next = { ...current }; delete next[field.key]; return next; });
     setError("");
-    if (field.key !== "dayOfWeek") {
-      setValues(current => {
-        const selectedRoom = field.key === "yearLevel" ? references.classrooms.find(room => room.id === current.classroomId) : undefined;
-        const clearRoom = selectedRoom && !classroomMatchesYear(selectedRoom.values.classroomCode, value);
-        const nextRoom = field.key === "classroomId" ? references.classrooms.find(room => room.id === value) : undefined;
-        return { ...current, [field.key]: value, ...(nextRoom && saveItem ? { classroomStatus: nextRoom.values.status } : {}), ...(clearRoom ? { classroomId: "" } : {}) };
-      });
+    if (field.key !== "dayOfWeek" && field.key !== "shift") {
+      setValues(current => ({ ...current, [field.key]: value }));
       return;
     }
-    const dayGroup = weekendDays.has(value) ? "Weekend" : "Weekday";
-    const first = periods.find(period => period.dayGroup === dayGroup);
-    setValues(current => ({ ...current, dayOfWeek: value, period: first ? `${first.startsAt}|${first.endsAt}` : "" }));
+    setValues(current => {
+      const dayOfWeek = field.key === "dayOfWeek" ? value : current.dayOfWeek;
+      const weekend = weekendDays.has(dayOfWeek);
+      const shift = weekend ? "Weekend" : field.key === "shift" ? value : current.shift === "Weekend" ? "Morning" : current.shift;
+      const first = periods.find(period => period.dayGroup === (weekend ? "Weekend" : "Weekday") && (weekend || period.session === shift));
+      return { ...current, dayOfWeek, shift, period: first ? `${first.startsAt}|${first.endsAt}` : "" };
+    });
   }
 
   async function save(event: React.FormEvent) {
@@ -97,20 +90,13 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
     const payload: Record<string, string> = { ...submittedValues, startsAt, endsAt };
     delete payload.period;
     try {
-      if (item && saveItem) await saveItem(item.id, payload);
-      else if (item) await timetableApi.update(item.id, payload);
+      if (item) await timetableApi.update(item.id, payload);
       else await timetableApi.create(payload);
       onSaved();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not save this timetable entry.");
+      setError(reason instanceof Error ? reason.message : "Could not save this schedule slot.");
       setSaving(false);
     }
-  }
-
-  function createOptionFor(field: Field) {
-    const target = relationshipCreateTarget(field.source);
-    if (!target) return undefined;
-    return { id: `create-${field.source}`, label: target.label, action: () => { onClose(); router.replace(target.path); } };
   }
 
   function formatTimetableCode() {
@@ -120,9 +106,5 @@ export function TimetableEditor({ item, references, scopeDepartmentId, scopeYear
 
   const recommendation = recommendedCodeFromError(error);
   const problems = validationMessages(fieldErrors, recommendation ? "" : error);
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">{saveItem ? "Timetable enrollment" : "Schedule management"}</span><h2>{item ? "Edit schedule" : "Add schedule"}</h2><p>{item ? "Edit the schedule details. Its permanent code cannot change." : "Enter a unique sequence such as 1, then choose Year 1-4, a teaching period, and an available classroom or meeting room."}</p></div><button type="button" className="icon-button" onClick={onClose}><Icon name="close" /></button></div><div className="management-form-grid">{timetableFields.map(field => <EditorField key={field.key} field={field.key === "timetableCode" && item ? { ...field, readOnly: true } : field} value={values[field.key] ?? ""} options={optionsFor(field)} createOption={createOptionFor(field)} error={fieldErrors[field.key]} hint={field.key === "timetableCode" ? item ? "Permanent code" : `Final code: ${values.timetableCode?.trim() ? formatAssignedCode(values.timetableCode, "timetable", "management") : workflowCodeExample("timetable", "management")}` : undefined} onChange={value => change(field, value)} onBlur={field.key === "timetableCode" ? formatTimetableCode : undefined} />)}{saveItem && <label className="editor-field"><span>Status</span><select value={values.classroomStatus ?? "Available"} onChange={event => setValues(current => ({ ...current, classroomStatus: event.target.value }))}><option value="Available">Available</option><option value="Maintenance">Maintenance</option></select></label>}</div>{recommendation && !item && <CodeRecommendation code={recommendation} onUse={() => change(timetableFields[0], recommendation)}/>} {problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="timetable-period-note"><strong>Room and concurrency rules</strong><span>Year 1 uses Classroom 501 only. Years 2-4 use the other classrooms. A teacher or learning space cannot be double-booked. Only Available classrooms can run.</span></div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || !periods.length}>{saving ? "Saving schedule..." : item ? "Save changes" : "Add schedule"}</button></div></form></div>;
-}
-
-function classroomMatchesYear(classroomCode: string | undefined, yearLevel: string) {
-  return yearLevel === "1" ? classroomCode === "501" : classroomCode !== "501";
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><form noValidate className="modal management-modal" onSubmit={save}><div className="modal-head"><div><span className="eyebrow">Schedule management</span><h2>{item ? "Edit schedule" : "Add schedule"}</h2><p>{item ? "Edit this permanent shift and day/time slot. Its permanent code cannot change." : "Create a permanent schedule code, shift, and reusable day/time slot. Course, teacher, classroom, and student year are added later in Timetable Enrollment."}</p></div><button type="button" className="icon-button" onClick={onClose}><Icon name="close" /></button></div><div className="management-form-grid">{timetableFields.map(field => <EditorField key={field.key} field={field.key === "timetableCode" && item ? { ...field, readOnly: true } : field} value={values[field.key] ?? ""} options={optionsFor(field)} error={fieldErrors[field.key]} hint={field.key === "timetableCode" ? item ? "Permanent code" : `Final code: ${values.timetableCode?.trim() ? formatAssignedCode(values.timetableCode, "timetable", "management") : workflowCodeExample("timetable", "management")}` : undefined} onChange={value => change(field, value)} onBlur={field.key === "timetableCode" ? formatTimetableCode : undefined} />)}</div>{recommendation && !item && <CodeRecommendation code={recommendation} onUse={() => change(timetableFields[0], recommendation)}/>} {problems.length > 0 && <div className="form-error validation-summary" role="alert"><strong>Fix these problems:</strong><ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul></div>}<div className="timetable-period-note"><strong>Permanent schedule slot</strong><span>This Management record stores the code, shift, day, and time. Semester relationships are maintained in Enrollment.</span></div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || !periods.length}>{saving ? "Saving schedule..." : item ? "Save changes" : "Add schedule"}</button></div></form></div>;
 }

@@ -3,7 +3,6 @@ import type { ManagementItem, ManagementModule, References } from "./management-
 
 export function filterManagementItemsByYear(items: ManagementItem[], module: ManagementModule, year: string) {
   if (!year) return items;
-  if (module === "timetable") return items.filter(item => item.values.yearLevel === year);
   return items;
 }
 
@@ -14,7 +13,7 @@ export function filterManagementReferencesByYear(references: References, year: s
   return {
     ...references,
     students,
-    timetable: references.timetable.filter(entry => entry.values.yearLevel === year),
+    timetable: references.timetable,
     attendance: references.attendance.filter(item => studentIds.has(item.values.studentId)),
   };
 }
@@ -48,7 +47,7 @@ export function sortManagementReferencesByYear(references: References): Referenc
     students: references.students.toSorted((left, right) => Number(left.values.year) - Number(right.values.year) || left.values.studentCode.localeCompare(right.values.studentCode, undefined, { numeric: true })),
     classrooms: references.classrooms.toSorted((left, right) => left.values.classroomCode.localeCompare(right.values.classroomCode, undefined, { numeric: true })),
     courses: references.courses.toSorted((left, right) => left.values.courseCode.localeCompare(right.values.courseCode, undefined, { numeric: true })),
-    timetable: references.timetable.toSorted((left, right) => Number(left.values.yearLevel) - Number(right.values.yearLevel) || left.values.timetableCode.localeCompare(right.values.timetableCode, undefined, { numeric: true })),
+    timetable: references.timetable.toSorted((left, right) => left.values.timetableCode.localeCompare(right.values.timetableCode, undefined, { numeric: true })),
     attendance: references.attendance.toSorted((left, right) => (studentYears.get(left.values.studentId) ?? 99) - (studentYears.get(right.values.studentId) ?? 99) || left.values.attendanceCode.localeCompare(right.values.attendanceCode, undefined, { numeric: true })),
   };
 }

@@ -57,7 +57,8 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
                 ("shift", row.enrollment?.Shift ?? ""),
                 ("status", row.enrollment?.Status ?? "Unassigned"),
                 ("academicYear", period.AcademicYear),
-                ("semester", period.Semester)))
+                ("semester", period.Semester),
+                ("createAt", row.enrollment?.CreateAt.ToString("yyyy-MM-dd") ?? "Not enrolled")))
             .ToList();
     }
 }

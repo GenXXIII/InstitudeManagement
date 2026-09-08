@@ -5,6 +5,8 @@ public sealed record CourseResponseDto(Guid Id, CourseValuesDto Values);
 public sealed record CourseValuesDto(
     string CourseCode,
     string Name,
+    string YearLevel,
+    string Semester,
     string DepartmentId,
     string Department,
     string TeacherId,

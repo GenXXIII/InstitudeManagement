@@ -1,5 +1,6 @@
 using InstituteManagement.Application.Features.Dashboard;
 using InstituteManagement.Application.Features.Operations;
+using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
@@ -7,7 +8,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
-public sealed class TimetableOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentPeriodService periodService) : IOperationModuleReader
+public sealed class TimetableOperationReader(
+    InstituteDbContext db,
+    OperationContextService contextService,
+    OperationEnrollmentPeriodService periodService) : IOperationModuleReader
 {
     public string Module => "timetable";
 
@@ -16,121 +20,140 @@ public sealed class TimetableOperationReader(InstituteDbContext db, OperationCon
         var context = await contextService.GetAsync(departmentId, cancellationToken);
         var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
-        var enrolledCourseAssignments = await db.CourseAssignments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
-                && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .ToListAsync(cancellationToken);
-        var courseAssignments = enrolledCourseAssignments.Select(x => x.CourseId).ToList();
-        var timetableEnrollments = await db.TimetableEnrollments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
-            .ToDictionaryAsync(x => x.ScheduleEntryId, cancellationToken);
-        var enrolledTimetableIds = timetableEnrollments.Keys.ToList();
-        var query = db.ScheduleEntries.AsNoTracking()
-            .Include(x => x.Course)
-            .Include(x => x.Teacher)
-            .Include(x => x.Classroom)
-            .Where(x => x.Status != "Cancelled" && enrolledTimetableIds.Contains(x.Id) && courseAssignments.Contains(x.CourseId));
-        var schedules = await query.OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartsAt).ToListAsync(cancellationToken);
-        var teacherIds = schedules.Select(x => x.TeacherId).Distinct().ToList();
-        var teacherAssignments = await db.TeacherAssignments.AsNoTracking()
-            .Where(x => teacherIds.Contains(x.TeacherId) && x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
-                && x.Status != "Removed" && x.Status != "Unassigned")
-            .ToListAsync(cancellationToken);
-        var teacherAttendance = schedules.ToDictionary(schedule => schedule.Id, schedule =>
-        {
-            var department = enrolledCourseAssignments.First(item => item.CourseId == schedule.CourseId).DepartmentId;
-            var assignment = teacherAssignments
-                .Where(item => item.TeacherId == schedule.TeacherId && (item.DepartmentId == department || item.DepartmentId == null))
-                .OrderByDescending(item => item.DepartmentId == department)
-                .FirstOrDefault();
-            return TeacherPresence.Attendance(schedule.Teacher?.Status, assignment?.Status);
-        });
-        var classroomAssignments = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Classroom)
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
-                && x.Status != "Removed" && x.Status != "Unassigned"
-                && (!departmentId.HasValue || x.DepartmentId == null || x.DepartmentId == departmentId))
-            .ToListAsync(cancellationToken);
-        var assignmentByRoom = classroomAssignments.GroupBy(x => x.ClassroomId).ToDictionary(x => x.Key, x => x.First());
-        var learningSpaces = assignmentByRoom.Values.Where(x => x.Classroom is not null).OrderBy(x => x.Classroom!.ClassroomCode).ToList();
-        var runnableRoomIds = classroomAssignments
-            .Where(x => NormalizeClassroomStatus(x.Classroom?.Status ?? "Unavailable") == "Available" && x.Classroom?.DeviceOnline == true)
-            .Select(x => x.ClassroomId)
+        var studentCohorts = (await db.StudentEnrollments.AsNoTracking()
+            .Where(enrollment =>
+                enrollment.AcademicYear == enrollmentPeriod.AcademicYear
+                && enrollment.Semester == enrollmentPeriod.Semester
+                && enrollment.Status == "Active"
+                && (!departmentId.HasValue || enrollment.DepartmentId == departmentId))
+            .Select(enrollment => new { enrollment.YearLevel, enrollment.Shift })
+            .Distinct()
+            .ToListAsync(cancellationToken))
+            .Select(cohort => (cohort.YearLevel, cohort.Shift))
             .ToHashSet();
+
+        var timetableEnrollments = await db.TimetableEnrollments.AsNoTracking()
+            .Include(enrollment => enrollment.ScheduleEntry)
+            .Include(enrollment => enrollment.Course)
+            .Include(enrollment => enrollment.Teacher)
+            .Include(enrollment => enrollment.Classroom)
+            .Where(enrollment =>
+                enrollment.AcademicYear == enrollmentPeriod.AcademicYear
+                && enrollment.Semester == enrollmentPeriod.Semester
+                && enrollment.Status == "Active"
+                && enrollment.ScheduleEntry != null
+                && enrollment.ScheduleEntry.Status != "Cancelled")
+            .ToListAsync(cancellationToken);
+        timetableEnrollments = timetableEnrollments
+            .Where(enrollment => studentCohorts.Contains((enrollment.YearLevel, enrollment.ScheduleEntry!.Shift)))
+            .OrderBy(enrollment => enrollment.ScheduleEntry!.DayOfWeek)
+            .ThenBy(enrollment => enrollment.ScheduleEntry!.StartsAt)
+            .ToList();
+
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var time = TimeOnly.FromDateTime(now);
-        var running = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
-            && TeacherPresence.IsPresent(teacherAttendance[x.Id]) && runnableRoomIds.Contains(x.ClassroomId));
-        var available = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
-            && !TeacherPresence.IsPresent(teacherAttendance[x.Id]) && runnableRoomIds.Contains(x.ClassroomId));
-        var blocked = schedules.Count(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
-            && !runnableRoomIds.Contains(x.ClassroomId));
-        var inStudyRoomIds = schedules
-            .Where(x => x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time
-                && TeacherPresence.IsPresent(teacherAttendance[x.Id]) && runnableRoomIds.Contains(x.ClassroomId))
-            .Select(x => x.ClassroomId)
+        var teacherAttendance = timetableEnrollments.ToDictionary(
+            enrollment => enrollment.ScheduleEntryId,
+            enrollment => TeacherPresence.Attendance(enrollment.Teacher?.Status));
+        var runnableRoomIds = timetableEnrollments
+            .Where(enrollment =>
+                enrollment.Classroom is not null
+                && NormalizeClassroomStatus(enrollment.Classroom.Status) == "Available"
+                && enrollment.Classroom.DeviceOnline)
+            .Select(enrollment => enrollment.ClassroomId)
             .ToHashSet();
-        var rows = schedules.Select(x =>
+
+        bool IsCurrent(ScheduleEntry entry) =>
+            entry.DayOfWeek == now.DayOfWeek && entry.StartsAt <= time && entry.EndsAt > time;
+
+        var running = timetableEnrollments.Count(enrollment =>
+            IsCurrent(enrollment.ScheduleEntry!)
+            && TeacherPresence.IsPresent(teacherAttendance[enrollment.ScheduleEntryId])
+            && runnableRoomIds.Contains(enrollment.ClassroomId));
+        var available = timetableEnrollments.Count(enrollment =>
+            IsCurrent(enrollment.ScheduleEntry!)
+            && !TeacherPresence.IsPresent(teacherAttendance[enrollment.ScheduleEntryId])
+            && runnableRoomIds.Contains(enrollment.ClassroomId));
+        var blocked = timetableEnrollments.Count(enrollment =>
+            IsCurrent(enrollment.ScheduleEntry!)
+            && !runnableRoomIds.Contains(enrollment.ClassroomId));
+        var inStudyRoomIds = timetableEnrollments
+            .Where(enrollment =>
+                IsCurrent(enrollment.ScheduleEntry!)
+                && TeacherPresence.IsPresent(teacherAttendance[enrollment.ScheduleEntryId])
+                && runnableRoomIds.Contains(enrollment.ClassroomId))
+            .Select(enrollment => enrollment.ClassroomId)
+            .ToHashSet();
+
+        var rows = timetableEnrollments.Select(enrollment =>
         {
-            var period = AcademicTimetablePolicy.Find(x.DayOfWeek, x.StartsAt, x.EndsAt);
-            var isCurrent = x.DayOfWeek == now.DayOfWeek && x.StartsAt <= time && x.EndsAt > time;
-            var attendance = teacherAttendance[x.Id];
-            var classroomStatus = assignmentByRoom.TryGetValue(x.ClassroomId, out var classroomAssignment)
-                ? NormalizeClassroomStatus(classroomAssignment.Classroom?.Status ?? "Unavailable")
-                : "Unavailable";
-            if (classroomStatus == "Available" && x.Classroom?.DeviceOnline != true) classroomStatus = "Unavailable";
-            var liveStatus = x.DayOfWeek == now.DayOfWeek
-                ? isCurrent ? classroomStatus == "Available" ? TeacherPresence.IsPresent(attendance) ? "Running" : "Available" : classroomStatus : x.EndsAt <= time ? "Ended" : "Upcoming"
+            var entry = enrollment.ScheduleEntry!;
+            var isCurrent = IsCurrent(entry);
+            var attendance = teacherAttendance[enrollment.ScheduleEntryId];
+            var classroomStatus = enrollment.Classroom is null
+                ? "Unavailable"
+                : NormalizeClassroomStatus(enrollment.Classroom.Status);
+            if (classroomStatus == "Available" && enrollment.Classroom?.DeviceOnline != true)
+                classroomStatus = "Unavailable";
+            var liveStatus = entry.DayOfWeek == now.DayOfWeek
+                ? isCurrent
+                    ? classroomStatus == "Available"
+                        ? TeacherPresence.IsPresent(attendance) ? "Running" : "Available"
+                        : classroomStatus
+                    : entry.EndsAt <= time ? "Ended" : "Upcoming"
                 : "Upcoming";
             return new WeeklyTimetableSlotDto(
-                x.Id,
-                x.TimetableCode,
+                entry.Id,
+                entry.TimetableCode,
                 codeFormat.Derive(
-                    string.IsNullOrWhiteSpace(timetableEnrollments[x.Id].EnrollmentCode)
-                        ? x.TimetableCode
-                        : timetableEnrollments[x.Id].EnrollmentCode,
+                    string.IsNullOrWhiteSpace(enrollment.EnrollmentCode) ? entry.TimetableCode : enrollment.EnrollmentCode,
                     "timetable",
                     "operation"),
-                x.DayOfWeek.ToString(),
-                period?.Session ?? "Custom",
-                x.StartsAt.ToString("HH:mm"),
-                x.EndsAt.ToString("HH:mm"),
-                x.Course?.Name ?? "—",
-                x.Teacher?.FullName ?? "—",
-                x.YearLevel,
-                x.Classroom?.ClassroomCode ?? "—",
-                x.Classroom?.RoomType ?? "Classroom",
+                entry.DayOfWeek.ToString(),
+                entry.Shift,
+                entry.StartsAt.ToString("HH:mm"),
+                entry.EndsAt.ToString("HH:mm"),
+                enrollment.Course?.Name ?? "—",
+                enrollment.Teacher?.FullName ?? "—",
+                enrollment.YearLevel,
+                enrollment.Classroom?.ClassroomCode ?? "—",
+                enrollment.Classroom?.RoomType ?? "Classroom",
                 liveStatus,
                 attendance,
-                isCurrent && classroomStatus != "Available" ? $"Classroom is {classroomStatus.ToLowerInvariant()} and cannot run." : isCurrent ? TeacherPresence.Reason(attendance) : "Scheduled timetable period.");
+                isCurrent && classroomStatus != "Available"
+                    ? $"Classroom is {classroomStatus.ToLowerInvariant()} and cannot run."
+                    : isCurrent ? TeacherPresence.Reason(attendance) : "Scheduled timetable period.");
         }).ToList();
+
         var periods = AcademicTimetablePolicy.All
-            .Select(x => new TimetablePeriodDto(x.DayGroup, x.Session, x.StartsAt.ToString("HH:mm"), x.EndsAt.ToString("HH:mm")))
+            .Select(period => new TimetablePeriodDto(period.DayGroup, period.Session, period.StartsAt.ToString("HH:mm"), period.EndsAt.ToString("HH:mm")))
             .ToList();
-        var roomRows = learningSpaces
-            .Select(assignment => new TimetableRoomDto(
-                assignment.ClassroomId,
-                assignment.Classroom!.ClassroomCode,
-                codeFormat.Derive(
-                    string.IsNullOrWhiteSpace(assignment.EnrollmentCode)
-                        ? assignment.Classroom.ClassroomCode
-                        : assignment.EnrollmentCode,
-                    "classroom",
-                    "operation"),
-                assignment.Classroom.RoomType,
-                inStudyRoomIds.Contains(assignment.ClassroomId) ? "Running" : NormalizeClassroomStatus(assignment.Classroom.Status)))
+        var learningSpaces = timetableEnrollments
+            .Where(enrollment => enrollment.Classroom is not null)
+            .GroupBy(enrollment => enrollment.ClassroomId)
+            .Select(group => group.First())
+            .OrderBy(enrollment => enrollment.Classroom!.ClassroomCode)
             .ToList();
+        var roomRows = learningSpaces.Select(enrollment => new TimetableRoomDto(
+            enrollment.ClassroomId,
+            enrollment.Classroom!.ClassroomCode,
+            codeFormat.Derive(enrollment.Classroom.ClassroomCode, "classroom", "operation"),
+            enrollment.Classroom.RoomType,
+            inStudyRoomIds.Contains(enrollment.ClassroomId)
+                ? "Running"
+                : NormalizeClassroomStatus(enrollment.Classroom.Status))).ToList();
         var metrics = new List<MetricDto>
         {
             new("Running", running.ToString(), "Classes right now", "green"),
-            new("Available", available.ToString(), "Teacher absent or on permission", "red"),
+            new("Available", available.ToString(), "Teacher absent or permission", "red"),
             new("Blocked", blocked.ToString(), "Classroom maintenance or unavailable", "amber"),
             new("Shifts", AcademicTimetablePolicy.Shifts.Count.ToString(), "Morning, afternoon, evening, weekend"),
-            new("Rooms", learningSpaces.Count.ToString(), "Enrollment-assigned learning spaces", "violet")
+            new("Rooms", learningSpaces.Count.ToString(), "Management rooms used by matched enrollments", "violet")
         };
         return new OperationDto(
             Module,
             $"Weekly timetable · {context.Scope}",
-            "A timetable period runs only when its assigned teacher is present and its classroom is Available. Maintenance and Unavailable classroom states stay fixed until changed in Classroom Management.",
+            "Operational timetable rows require a Student Enrollment with the same semester, year, and shift. Course, teacher, classroom, year, and semester come from the linked Management records.",
             metrics,
             context.Activity,
             context.Attention,

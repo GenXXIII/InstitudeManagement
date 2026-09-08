@@ -3,11 +3,11 @@ import type { EnrollmentDisplayItem } from "../common/enrollment-types";
 
 export const teacherAssignmentCopy: EnrollmentCopy = {
   title: "Teacher Assign",
-  description: "Read-only view of what each teacher is assigned to across departments, courses, year levels, and weekly classes.",
-  columns: ["EnrollmentCode", "Teacher", "Department", "Assigned courses", "Year levels", "Weekly classes"],
+  description: "Read-only view of what each teacher is assigned to across departments, courses, and year levels.",
+  columns: ["EnrollmentCode", "Teacher", "Department", "Assigned courses", "Year levels", "Create At"],
 };
 
 export function teacherAssignmentCells(item: EnrollmentDisplayItem) {
   const value = item.values;
-  return [value.enrollmentCode, value.name, value.department, value.courses || `${value.courseCount || 0} assigned`, value.yearLevels || "Not scheduled", value.weeklyClasses || "0"];
+  return [value.enrollmentCode, value.name, value.department, value.courses || `${value.courseCount || 0} assigned`, value.yearLevels || "Not scheduled", value.createAt];
 }

@@ -23,7 +23,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
             .ToListAsync(cancellationToken);
         var timetableEnrollments = await db.TimetableEnrollments.AsNoTracking()
             .Include(x => x.ScheduleEntry)!.ThenInclude(x => x!.Course)!.ThenInclude(x => x!.Department)
-            .Where(x => x.ScheduleEntry != null && ids.Contains(x.ScheduleEntry.ClassroomId) && (!departmentId.HasValue || x.ScheduleEntry.Course!.DepartmentId == departmentId))
+            .Where(x => x.ScheduleEntry != null && x.ScheduleEntry.ClassroomId.HasValue && ids.Contains(x.ScheduleEntry.ClassroomId.Value) && (!departmentId.HasValue || x.ScheduleEntry.Course!.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
         var sessions = await db.ClassSessionRecords.AsNoTracking()
             .Where(x => ids.Contains(x.ClassroomId) && (!departmentId.HasValue || x.DepartmentId == departmentId))
@@ -31,7 +31,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(now);
         var runningIds = selection.IsRunning
-            ? await db.ScheduleEntries.AsNoTracking().Where(x => x.Status != "Cancelled" && x.DayOfWeek == selection.Date.DayOfWeek && x.StartsAt == selection.Period.StartsAt && x.EndsAt == selection.Period.EndsAt).Select(x => x.ClassroomId).ToHashSetAsync(cancellationToken)
+            ? await db.ScheduleEntries.AsNoTracking().Where(x => x.Status != "Cancelled" && x.ClassroomId.HasValue && x.DayOfWeek == selection.Date.DayOfWeek && x.StartsAt == selection.Period.StartsAt && x.EndsAt == selection.Period.EndsAt).Select(x => x.ClassroomId!.Value).ToHashSetAsync(cancellationToken)
             : [];
 
         return rooms.Select(room =>

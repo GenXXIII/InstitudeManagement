@@ -4,8 +4,6 @@ import { useMemo } from "react";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
-import { TimetableEditor } from "@/features/timetable/timetable-editor";
-import type { TimetableItem } from "@/features/timetable/timetable-types";
 import type { EnrollmentResource } from "./common/enrollment-types";
 import { EnrollmentRow } from "./components/enrollment-row";
 import { EnrollmentEditor } from "./enrollment-editor";
@@ -21,6 +19,8 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
   const {
     actionError,
     candidates,
+    classrooms,
+    courses,
     departmentId,
     departments,
     editing,
@@ -30,14 +30,11 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     query,
     ready,
     remove,
-    saveTimetable,
     setActionError,
     setEditing,
     setError,
     setQuery,
-    studentSchedules,
     teachers,
-    timetableReferences,
     year,
   } = useEnrollmentWorkspace(resource);
 
@@ -65,27 +62,20 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     <section className="management-paginated-region">
       <section className={`panel horizontal-management-table enrollment-service-horizontal enrollment-${resource}`}>
         <div className="horizontal-management-head">{details.columns.map(column => <span key={column}>{column}</span>)}</div>
-        {pagination.pageItems.map(item => <EnrollmentRow resource={resource} item={item} studentSchedules={studentSchedules} onEdit={isEditableEnrollment(resource) ? () => setEditing(item) : undefined} onRemove={isEditableEnrollment(resource) ? () => { void remove(item); } : undefined} key={item.rowKey}/>)}
+        {pagination.pageItems.map(item => <EnrollmentRow resource={resource} item={item} onEdit={isEditableEnrollment(resource) ? () => setEditing(item) : undefined} onRemove={isEditableEnrollment(resource) ? () => { void remove(item); } : undefined} key={item.rowKey}/>)}
       </section>
       <DataPagination page={pagination.page} pageCount={pagination.pageCount} total={sortedItems.length} onPage={pagination.setPage}/>
     </section>
-    {editing !== undefined && (resource === "students" || (resource === "timetable" && editing === null)) && <EnrollmentEditor
+    {editing !== undefined && (resource === "students" || resource === "timetable") && <EnrollmentEditor
       resource={resource}
       item={editing}
       candidates={candidates}
       departments={departments}
       teachers={teachers}
+      courses={courses}
+      classrooms={classrooms}
       scopeDepartmentId={departmentId}
       scopeYear={year}
-      onClose={() => setEditing(undefined)}
-      onSaved={() => { setEditing(undefined); void load(); }}
-    />}
-    {editing && resource === "timetable" && <TimetableEditor
-      item={editing as TimetableItem}
-      references={timetableReferences}
-      scopeDepartmentId={departmentId}
-      scopeYear={year}
-      saveItem={saveTimetable}
       onClose={() => setEditing(undefined)}
       onSaved={() => { setEditing(undefined); void load(); }}
     />}

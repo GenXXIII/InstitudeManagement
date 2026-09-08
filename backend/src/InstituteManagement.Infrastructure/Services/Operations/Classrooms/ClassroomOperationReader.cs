@@ -37,9 +37,9 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
             .ToListAsync(cancellationToken);
         var enrolledCourseIds = courseAssignments.Select(x => x.CourseId).ToList();
         var currentSchedules = await db.ScheduleEntries.AsNoTracking().Include(entry => entry.Course).Include(entry => entry.Teacher)
-            .Where(entry => roomIds.Contains(entry.ClassroomId)
+            .Where(entry => entry.ClassroomId.HasValue && roomIds.Contains(entry.ClassroomId.Value)
                 && enrolledTimetableIds.Contains(entry.Id)
-                && enrolledCourseIds.Contains(entry.CourseId)
+                && entry.CourseId.HasValue && enrolledCourseIds.Contains(entry.CourseId.Value)
                 && entry.Status != "Cancelled"
                 && entry.DayOfWeek == selection.Date.DayOfWeek
                 && entry.StartsAt == period.StartsAt && entry.EndsAt == period.EndsAt)

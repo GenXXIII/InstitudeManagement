@@ -49,7 +49,9 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                 .Select(x => x.ScheduleEntryId)
                 .ToListAsync(cancellationToken);
             var schedules = await db.ScheduleEntries.AsNoTracking().Include(x => x.Course).Include(x => x.Teacher).Include(x => x.Classroom)
-                .Where(x => x.Status != "Cancelled" && enrolledScheduleIds.Contains(x.Id) && courseIds.Contains(x.CourseId))
+                .Where(x => x.Status != "Cancelled" && enrolledScheduleIds.Contains(x.Id)
+                    && x.CourseId.HasValue && courseIds.Contains(x.CourseId.Value)
+                    && x.TeacherId.HasValue && x.ClassroomId.HasValue && x.YearLevel.HasValue)
                 .ToListAsync(cancellationToken);
             var existing = await db.ClassSessionRecords.AsNoTracking().Where(x => x.SessionDate >= firstDate && x.SessionDate <= today).Select(x => new { x.ScheduleEntryId, x.SessionDate }).ToListAsync(cancellationToken);
             var existingKeys = existing.Select(x => (x.ScheduleEntryId, x.SessionDate)).ToHashSet();
@@ -65,13 +67,13 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                     if (existingKeys.Contains((schedule.Id, date)) || schedule.Course is null || schedule.Teacher is null || schedule.Classroom is null) continue;
                     var shift = AcademicTimetablePolicy.FindShift(schedule.DayOfWeek, schedule.StartsAt, schedule.EndsAt);
                     if (shift is null) continue;
-                    var courseAssignment = courseAssignments[schedule.CourseId];
-                    var teacherAssignment = teacherAssignments.FirstOrDefault(x => x.TeacherId == schedule.TeacherId && (x.DepartmentId == courseAssignment.DepartmentId || x.DepartmentId == null));
+                    var courseAssignment = courseAssignments[schedule.CourseId!.Value];
+                    var teacherAssignment = teacherAssignments.FirstOrDefault(x => x.TeacherId == schedule.TeacherId!.Value && (x.DepartmentId == courseAssignment.DepartmentId || x.DepartmentId == null));
                     var teacherAttendance = TeacherPresence.Attendance(schedule.Teacher.Status, teacherAssignment?.Status);
                     var classHeld = TeacherPresence.IsPresent(teacherAttendance);
                     var studentEnrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student)
                         .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status == "Active"
-                            && x.DepartmentId == courseAssignment.DepartmentId && x.YearLevel == schedule.YearLevel && x.Shift == shift.Name)
+                            && x.DepartmentId == courseAssignment.DepartmentId && x.YearLevel == schedule.YearLevel!.Value && x.Shift == shift.Name)
                         .OrderBy(x => x.Student!.FullName)
                         .ToListAsync(cancellationToken);
                     var students = studentEnrollments.Where(x => x.Student is not null && x.Student.Status != "Inactive").Select(x => x.Student!).ToList();
@@ -93,10 +95,10 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                         AcademicYear = academicYear,
                         Term = term,
                         DepartmentId = courseAssignment.DepartmentId,
-                        CourseId = schedule.CourseId,
-                        TeacherId = schedule.TeacherId,
-                        ClassroomId = schedule.ClassroomId,
-                        YearLevel = schedule.YearLevel,
+                        CourseId = schedule.CourseId.GetValueOrDefault(),
+                        TeacherId = schedule.TeacherId.GetValueOrDefault(),
+                        ClassroomId = schedule.ClassroomId.GetValueOrDefault(),
+                        YearLevel = schedule.YearLevel.GetValueOrDefault(),
                         StartsAt = schedule.StartsAt,
                         EndsAt = schedule.EndsAt,
                         CourseName = schedule.Course.Name,

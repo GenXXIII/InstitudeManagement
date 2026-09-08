@@ -101,7 +101,6 @@ public static class DependencyInjection
         services.AddScoped<ClassroomAssignmentEditor>();
         services.AddScoped<IClassroomAssignmentService, ClassroomEnrollmentService>();
         services.AddScoped<IDepartmentEnrollmentService, DepartmentEnrollmentService>();
-        services.AddScoped<TimetableScheduleEditor>();
         services.AddScoped<TimetableEnrollmentReader>();
         services.AddScoped<TimetableEnrollmentValidator>();
         services.AddScoped<TimetableEnrollmentEditor>();

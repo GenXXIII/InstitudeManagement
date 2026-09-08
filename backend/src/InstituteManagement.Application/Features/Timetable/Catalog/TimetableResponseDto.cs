@@ -16,6 +16,7 @@ public sealed record TimetableValuesDto(
     string DepartmentId,
     string Department,
     string YearLevel,
+    string Shift,
     string DayOfWeek,
     string StartsAt,
     string EndsAt,

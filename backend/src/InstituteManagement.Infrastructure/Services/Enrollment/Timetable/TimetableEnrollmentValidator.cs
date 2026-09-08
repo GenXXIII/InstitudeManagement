@@ -4,72 +4,86 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Enrollment.Timetable;
 
+internal sealed record ValidatedTimetableAssignment(
+    Course Course,
+    Teacher Teacher,
+    Classroom Classroom,
+    Guid? DepartmentId,
+    string? DepartmentName);
+
 internal sealed class TimetableEnrollmentValidator(InstituteDbContext db)
 {
-    public async Task<CourseAssignment> ValidateAsync(
-        ScheduleEntry entry,
+    public async Task<ValidatedTimetableAssignment> ValidateAsync(
+        ScheduleEntry schedule,
+        Guid courseId,
+        Guid teacherId,
+        Guid classroomId,
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
-        var course = await db.CourseAssignments
+        var course = await db.Courses
             .AsNoTracking()
-            .Include(assignment => assignment.Course)
-            .Include(assignment => assignment.Department)
-            .FirstOrDefaultAsync(
-                assignment =>
-                    assignment.CourseId == entry.CourseId
-                    && assignment.AcademicYear == period.AcademicYear
-                    && assignment.Semester == period.Semester
-                    && assignment.Status == "Active",
-                cancellationToken)
-            ?? throw new InvalidOperationException("Assign this course in Course Assign first.");
-        if (course.YearLevel != entry.YearLevel || course.TeacherId != entry.TeacherId)
-        {
-            throw new InvalidOperationException(
-                "The Management schedule must match the current course year and teacher assignment.");
-        }
+            .Include(item => item.Department)
+            .FirstOrDefaultAsync(item => item.Id == courseId && item.IsActive, cancellationToken)
+            ?? throw new InvalidOperationException("Select an active course from Management.");
+        if (!course.Semester.Equals(period.Semester, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"This Management course is assigned to {course.Semester}, not {period.Semester}.");
 
-        var teacher = await db.TeacherAssignments
+        var teacher = await db.Teachers
             .AsNoTracking()
-            .FirstOrDefaultAsync(
-                assignment =>
-                    assignment.TeacherId == entry.TeacherId
-                    && assignment.AcademicYear == period.AcademicYear
-                    && assignment.Semester == period.Semester
-                    && assignment.Status == "Assigned",
-                cancellationToken)
-            ?? throw new InvalidOperationException("Assign this teacher in Teacher Assign first.");
-        if (teacher.DepartmentId.HasValue && teacher.DepartmentId != course.DepartmentId)
-        {
-            throw new InvalidOperationException(
-                "Teacher and course must belong to the same enrollment department.");
-        }
+            .FirstOrDefaultAsync(item => item.Id == teacherId && item.Status != "Inactive", cancellationToken)
+            ?? throw new InvalidOperationException("Select an active teacher from Management.");
 
-        var classroom = await db.ClassroomAssignments
+        var classroom = await db.Classrooms
             .AsNoTracking()
-            .Include(assignment => assignment.Classroom)
-            .FirstOrDefaultAsync(
-                assignment =>
-                    assignment.ClassroomId == entry.ClassroomId
-                    && assignment.AcademicYear == period.AcademicYear
-                    && assignment.Semester == period.Semester
-                    && assignment.Status != "Removed",
-                cancellationToken)
-            ?? throw new InvalidOperationException(
-                "This classroom does not have a current-semester assignment.");
-        if (classroom.DepartmentId.HasValue && classroom.DepartmentId != course.DepartmentId)
-        {
-            throw new InvalidOperationException("This classroom is assigned to another department.");
-        }
+            .FirstOrDefaultAsync(item => item.Id == classroomId && item.Status == "Available", cancellationToken)
+            ?? throw new InvalidOperationException("Select an Available classroom from Management.");
         if (classroom.Capacity < course.Capacity)
+            throw new InvalidOperationException("Management classroom capacity must cover the Management course capacity.");
+
+        ValidateClassroomYear(course.YearLevel, classroom.ClassroomCode);
+        if (await db.TimetableEnrollments
+            .AsNoTracking()
+            .Include(enrollment => enrollment.ScheduleEntry)
+            .AnyAsync(enrollment =>
+                enrollment.ScheduleEntryId != schedule.Id
+                && enrollment.AcademicYear == period.AcademicYear
+                && enrollment.Semester == period.Semester
+                && enrollment.Status == "Active"
+                && enrollment.ScheduleEntry != null
+                && enrollment.ScheduleEntry.DayOfWeek == schedule.DayOfWeek
+                && enrollment.ScheduleEntry.StartsAt < schedule.EndsAt
+                && schedule.StartsAt < enrollment.ScheduleEntry.EndsAt
+                && (enrollment.TeacherId == teacherId || enrollment.ClassroomId == classroomId),
+                cancellationToken))
         {
-            throw new InvalidOperationException(
-                "Classroom assignment capacity must cover the course capacity.");
+            throw new InvalidOperationException("Teacher or classroom is already enrolled during this time.");
         }
 
-        TimetableScheduleEditor.ValidateClassroomYear(
-            entry.YearLevel,
-            classroom.Classroom?.ClassroomCode);
-        return course;
+        var courseAssignment = await db.CourseAssignments
+            .AsNoTracking()
+            .Include(assignment => assignment.Department)
+            .Where(assignment =>
+                assignment.CourseId == course.Id
+                && assignment.AcademicYear == period.AcademicYear
+                && assignment.Semester == period.Semester
+                && assignment.Status == "Active")
+            .OrderByDescending(assignment => assignment.UpdatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new ValidatedTimetableAssignment(
+            course,
+            teacher,
+            classroom,
+            courseAssignment?.DepartmentId ?? course.DepartmentId,
+            courseAssignment?.Department?.Name ?? course.Department?.Name);
+    }
+
+    private static void ValidateClassroomYear(int yearLevel, string? classroomCode)
+    {
+        if (yearLevel == 1 && classroomCode != "501")
+            throw new InvalidOperationException("Year 1 must use Classroom 501.");
+        if (yearLevel >= 2 && classroomCode == "501")
+            throw new InvalidOperationException("Classroom 501 is reserved for Year 1.");
     }
 }

@@ -79,7 +79,10 @@ internal sealed class StudentEnrollmentEditor(
             ("departmentId", departmentId.ToString()),
             ("year", year.ToString()),
             ("shift", shift),
-            ("status", enrollment.Status));
+            ("status", enrollment.Status),
+            ("academicYear", enrollment.AcademicYear),
+            ("semester", enrollment.Semester),
+            ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
     }
 
     public async Task<bool> RemoveAsync(

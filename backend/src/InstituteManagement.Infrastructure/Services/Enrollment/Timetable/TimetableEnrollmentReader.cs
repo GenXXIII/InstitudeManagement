@@ -14,54 +14,64 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
-        var assignments = await db.CourseAssignments
-            .AsNoTracking()
-            .Include(assignment => assignment.Department)
-            .Where(assignment =>
-                assignment.AcademicYear == period.AcademicYear
-                && assignment.Semester == period.Semester
-                && assignment.Status == "Active")
-            .ToDictionaryAsync(assignment => assignment.CourseId, cancellationToken);
         var enrollments = await db.TimetableEnrollments
             .AsNoTracking()
+            .Include(enrollment => enrollment.ScheduleEntry)
+            .Include(enrollment => enrollment.Course)
+                .ThenInclude(course => course!.Department)
+            .Include(enrollment => enrollment.Teacher)
+            .Include(enrollment => enrollment.Classroom)
             .Where(enrollment =>
                 enrollment.AcademicYear == period.AcademicYear
                 && enrollment.Semester == period.Semester
                 && enrollment.Status == "Active")
-            .ToDictionaryAsync(enrollment => enrollment.ScheduleEntryId, cancellationToken);
-        var enrolledIds = enrollments.Keys.ToList();
-        var entries = await db.ScheduleEntries
-            .AsNoTracking()
-            .Include(entry => entry.Course)
-            .Include(entry => entry.Teacher)
-            .Include(entry => entry.Classroom)
-            .Where(entry => entry.Status != "Cancelled" && enrolledIds.Contains(entry.Id))
             .ToListAsync(cancellationToken);
+        var courseIds = enrollments.Select(enrollment => enrollment.CourseId).Distinct().ToList();
+        var assignments = (await db.CourseAssignments
+            .AsNoTracking()
+            .Include(assignment => assignment.Department)
+            .Where(assignment =>
+                courseIds.Contains(assignment.CourseId)
+                && assignment.AcademicYear == period.AcademicYear
+                && assignment.Semester == period.Semester
+                && assignment.Status == "Active")
+            .OrderByDescending(assignment => assignment.UpdatedAtUtc)
+            .ToListAsync(cancellationToken))
+            .GroupBy(assignment => assignment.CourseId)
+            .ToDictionary(group => group.Key, group => group.First());
 
-        return entries
-            .Where(entry =>
-                assignments.TryGetValue(entry.CourseId, out var assignment)
-                && (!departmentId.HasValue || assignment.DepartmentId == departmentId)
-                && (!year.HasValue || entry.YearLevel == year)
+        return enrollments
+            .Where(enrollment => enrollment.ScheduleEntry is not null)
+            .Select(enrollment =>
+            {
+                assignments.TryGetValue(enrollment.CourseId, out var assignment);
+                var resolvedDepartmentId = assignment?.DepartmentId ?? enrollment.Course?.DepartmentId;
+                var resolvedDepartmentName = assignment?.Department?.Name ?? enrollment.Course?.Department?.Name;
+                return new { Enrollment = enrollment, DepartmentId = resolvedDepartmentId, DepartmentName = resolvedDepartmentName };
+            })
+            .Where(row =>
+                (!departmentId.HasValue || !row.DepartmentId.HasValue || row.DepartmentId == departmentId)
+                && (!year.HasValue || row.Enrollment.YearLevel == year)
                 && Matches(
                     search,
-                    enrollments[entry.Id].EnrollmentCode,
-                    entry.TimetableCode,
-                    entry.Course?.CourseCode,
-                    entry.Course?.Name,
-                    entry.Teacher?.TeacherCode,
-                    entry.Teacher?.FullName,
-                    entry.Classroom?.ClassroomCode,
-                    assignment.Department?.Name))
-            .Select(entry =>
+                    row.Enrollment.EnrollmentCode,
+                    row.Enrollment.ScheduleEntry!.TimetableCode,
+                    row.Enrollment.Course?.CourseCode,
+                    row.Enrollment.Course?.Name,
+                    row.Enrollment.Teacher?.TeacherCode,
+                    row.Enrollment.Teacher?.FullName,
+                    row.Enrollment.Classroom?.ClassroomCode,
+                    row.Enrollment.ScheduleEntry.Shift,
+                    row.DepartmentName,
+                    row.Enrollment.Semester,
+                    row.Enrollment.CreateAt.ToString("yyyy-MM-dd")))
+            .Select(row =>
             {
-                var assignment = assignments[entry.CourseId];
                 return TimetableEnrollmentItemFactory.Create(
-                    entry,
-                    assignment.DepartmentId,
-                    assignment.Department?.Name,
-                    enrollments[entry.Id].EnrollmentCode,
-                    enrollments[entry.Id].Status);
+                    row.Enrollment.ScheduleEntry!,
+                    row.Enrollment,
+                    row.DepartmentId,
+                    row.DepartmentName);
             })
             .ToList();
     }

@@ -7,21 +7,24 @@ import type { EnrollmentItem, EnrollmentResource } from "./common/enrollment-typ
 import { courseAssignmentDefaults, courseAssignmentFields } from "./courses/course-assignment-form";
 import { studentEnrollmentDefaults, studentEnrollmentFields } from "./students/student-enrollment-form";
 import { teacherAssignmentDefaults, teacherAssignmentFields } from "./teachers/teacher-assignment-form";
-import { timetableEnrollmentDefaults } from "./timetable/timetable-enrollment-form";
+import { timetableEnrollmentDefaults, timetableEnrollmentFields } from "./timetable/timetable-enrollment-form";
 
 export type { EnrollmentField } from "./common/enrollment-field";
 
-export function buildEnrollmentFields({ resource, departments, availableTeachers, teacherRequired }: {
+export function buildEnrollmentFields({ resource, departments, availableTeachers, availableCourses, availableClassrooms, teacherRequired, semester }: {
   resource: EnrollmentResource;
   departments: DepartmentItem[];
   availableTeachers: EnrollmentItem[];
+  availableCourses: EnrollmentItem[];
+  availableClassrooms: EnrollmentItem[];
   teacherRequired: boolean;
+  semester: string;
 }): EnrollmentField[] {
   if (resource === "students") return studentEnrollmentFields(departments);
   if (resource === "teachers") return teacherAssignmentFields(departments);
   if (resource === "courses") return courseAssignmentFields(departments, availableTeachers, teacherRequired);
   if (resource === "classrooms") return classroomAssignmentFields(departments);
-  if (resource === "timetable") return [];
+  if (resource === "timetable") return timetableEnrollmentFields(availableCourses, availableTeachers, availableClassrooms, semester);
   return [];
 }
 
@@ -30,12 +33,13 @@ export function enrollmentDefaults(
   departmentId: string,
   year: string,
   courseCapacity = "40",
+  semester = "Semester 1",
 ): Record<string, string> {
   if (resource === "students") return studentEnrollmentDefaults(departmentId, year);
   if (resource === "teachers") return teacherAssignmentDefaults(departmentId);
   if (resource === "courses") return courseAssignmentDefaults(departmentId, year, courseCapacity);
   if (resource === "classrooms") return classroomAssignmentDefaults(departmentId);
-  if (resource === "timetable") return timetableEnrollmentDefaults(year);
+  if (resource === "timetable") return timetableEnrollmentDefaults(year, semester);
   return {};
 }
 
@@ -53,8 +57,8 @@ export function candidateOption(item: EnrollmentItem): SearchableOption {
   if (values.timetableCode) {
     return {
       id: item.id,
-      label: [values.timetableCode, values.courseCode, values.teacherCode].filter(Boolean).join(" - "),
-      detail: [values.enrollmentStatus, values.course, values.teacher, values.dayOfWeek, `${values.startsAt}-${values.endsAt}`, values.classroom].filter(Boolean).join(" - "),
+      label: values.timetableCode,
+      detail: [values.enrollmentStatus, values.dayOfWeek, `${values.startsAt}-${values.endsAt}`, values.createAt].filter(Boolean).join(" - "),
     };
   }
   const code = values.studentCode

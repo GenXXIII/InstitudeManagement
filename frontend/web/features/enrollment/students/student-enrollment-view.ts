@@ -1,41 +1,39 @@
 import type { EnrollmentCopy } from "../common/enrollment-copy";
-import type { EnrollmentDisplayItem, EnrollmentItem } from "../common/enrollment-types";
-import { scheduleMatchesShift } from "../common/enrollment-relationships";
+import type { EnrollmentDisplayItem } from "../common/enrollment-types";
 
 export const studentEnrollmentCopy: EnrollmentCopy = {
   title: "Student Enrollment",
   description: "Select a Management student, then choose any department and Year 1-4. The linked EnrollmentCode is generated automatically from StudentCode.",
-  columns: ["EnrollmentCode", "Name", "Year", "Shift", "Department", "Actions"],
+  columns: ["EnrollmentCode", "Name", "Year", "Shift", "Department", "Semester", "Create At", "Actions"],
 };
 
 export const studentAssignmentCopy: EnrollmentCopy = {
   title: "Student Assign",
-  description: "Read-only view of each enrolled student's department, year, shift, assigned courses, classrooms, and weekly classes.",
-  columns: ["EnrollmentCode", "Student", "Department", "Year / shift", "Assigned courses", "Assigned classrooms", "Weekly classes"],
+  description: "Read-only view of each enrolled student's department, student year, learning shift, and creation date.",
+  columns: ["EnrollmentCode", "Student", "Department", "Year", "Shift", "Create At"],
 };
 
 export function studentEnrollmentCells(item: EnrollmentDisplayItem) {
   const value = item.values;
-  return [value.enrollmentCode, value.name, value.year ? `Year ${value.year}` : "Unassigned", value.shift || "Unassigned", value.department];
+  return [
+    value.enrollmentCode,
+    value.name,
+    value.year ? `Year ${value.year}` : "Unassigned",
+    value.shift || "Unassigned",
+    value.department,
+    value.semester,
+    value.createAt,
+  ];
 }
 
-export function studentAssignmentCells(item: EnrollmentDisplayItem, schedules: EnrollmentItem[]) {
+export function studentAssignmentCells(item: EnrollmentDisplayItem) {
   const value = item.values;
-  const relatedSchedules = schedules.filter(schedule =>
-    schedule.values.departmentId === value.departmentId
-    && schedule.values.yearLevel === value.year
-    && scheduleMatchesShift(schedule, value.shift));
   return [
     value.enrollmentCode,
     value.name,
     value.department,
-    [value.year ? `Year ${value.year}` : "Unassigned", value.shift].filter(Boolean).join(" / "),
-    uniqueValues(relatedSchedules, "course"),
-    uniqueValues(relatedSchedules, "classroom"),
-    relatedSchedules.length.toString(),
+    value.year ? `Year ${value.year}` : "Unassigned",
+    value.shift || "Unassigned",
+    value.createAt,
   ];
-}
-
-function uniqueValues(items: EnrollmentItem[], key: string) {
-  return [...new Set(items.map(item => item.values[key]).filter(Boolean))].join(", ") || "Not scheduled";
 }
