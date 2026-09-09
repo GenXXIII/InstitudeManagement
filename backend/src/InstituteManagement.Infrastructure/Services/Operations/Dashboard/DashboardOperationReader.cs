@@ -3,102 +3,62 @@ using InstituteManagement.Application.Features.Operations;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
-using Microsoft.EntityFrameworkCore;
+using InstituteManagement.Infrastructure.Services.Enrollment;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
-public sealed class DashboardOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentPeriodService periodService) : IOperationModuleReader
+public sealed class DashboardOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentSourceService enrollmentSource) : IOperationModuleReader
 {
     public string Module => "dashboard";
 
     public async Task<OperationDto> GetAsync(Guid? departmentId, CancellationToken cancellationToken)
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
-        var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
-        var students = await db.StudentEnrollments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
-                && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .ToListAsync(cancellationToken);
-        var teachers = await db.TeacherAssignments.AsNoTracking()
-            .Include(x => x.Teacher)
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
-                && x.Status != "Removed" && x.Status != "Unassigned"
-                && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .ToListAsync(cancellationToken);
-        var rooms = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Classroom)
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
-                && x.Status != "Removed" && x.Status != "Unassigned"
-                && (!departmentId.HasValue || x.DepartmentId == null || x.DepartmentId == departmentId))
-            .ToListAsync(cancellationToken);
-        var courses = await db.CourseAssignments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
-                && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .ToListAsync(cancellationToken);
-        var courseAssignments = courses.ToDictionary(x => x.CourseId);
-        var courseIds = courseAssignments.Keys.ToList();
-        var enrolledTimetableIds = await db.TimetableEnrollments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
-            .Select(x => x.ScheduleEntryId)
-            .ToListAsync(cancellationToken);
+        var source = await enrollmentSource.GetAsync(departmentId, cancellationToken);
+        var students = source.Students;
+        var timetables = source.Timetables;
         var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(localNow);
         var shift = selection.Shift;
         var period = selection.Period;
 
-        var focusedSchedules = await db.ScheduleEntries.AsNoTracking()
-            .Where(x => x.Status != "Cancelled"
-                && enrolledTimetableIds.Contains(x.Id)
-                && x.CourseId.HasValue && courseIds.Contains(x.CourseId.Value)
-                && x.TeacherId.HasValue && x.ClassroomId.HasValue && x.YearLevel.HasValue
-                && x.DayOfWeek == selection.Date.DayOfWeek
-                && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt)
-            .Select(x => new
-            {
-                x.Id,
-                CourseId = x.CourseId.GetValueOrDefault(),
-                TeacherId = x.TeacherId.GetValueOrDefault(),
-                ClassroomId = x.ClassroomId.GetValueOrDefault(),
-                YearLevel = x.YearLevel.GetValueOrDefault(),
-                x.StartsAt,
-                x.EndsAt
-            })
-            .ToListAsync(cancellationToken);
+        var focusedSchedules = timetables
+            .Where(enrollment => enrollment.ScheduleEntry!.Shift == shift.Name
+                && enrollment.ScheduleEntry.DayOfWeek == selection.Date.DayOfWeek
+                && enrollment.ScheduleEntry.StartsAt == period.StartsAt
+                && enrollment.ScheduleEntry.EndsAt == period.EndsAt)
+            .ToList();
         if (!selection.IsRunning) focusedSchedules.Clear();
-        var runnableRoomIds = rooms
-            .Where(x => x.Classroom is not null && x.Classroom.DeviceOnline && NormalizeClassroomStatus(x.Classroom.Status) == "Available")
-            .Select(x => x.ClassroomId)
+        var runnableRoomIds = timetables
+            .Where(enrollment => enrollment.Classroom!.DeviceOnline && NormalizeClassroomStatus(enrollment.Classroom.Status) == "Available")
+            .Select(enrollment => enrollment.ClassroomId)
             .ToHashSet();
-        var teacherPresenceBySchedule = focusedSchedules.ToDictionary(schedule => schedule.Id, schedule =>
-        {
-            var courseDepartmentId = courseAssignments[schedule.CourseId].DepartmentId;
-            var assignment = teachers
-                .Where(item => item.TeacherId == schedule.TeacherId
-                    && (item.DepartmentId == courseDepartmentId || item.DepartmentId == null))
-                .OrderByDescending(item => item.DepartmentId == courseDepartmentId)
-                .FirstOrDefault();
-            return assignment?.Teacher is not null
-                && TeacherPresence.IsPresent(TeacherPresence.Attendance(assignment.Teacher.Status, assignment.Status));
-        });
+        var teacherPresenceBySchedule = focusedSchedules.ToDictionary(
+            enrollment => enrollment.ScheduleEntryId,
+            enrollment => TeacherPresence.IsPresent(TeacherPresence.Attendance(enrollment.Teacher!.Status)));
         var runningSchedules = focusedSchedules
-            .Where(schedule => runnableRoomIds.Contains(schedule.ClassroomId) && teacherPresenceBySchedule[schedule.Id])
+            .Where(enrollment => runnableRoomIds.Contains(enrollment.ClassroomId) && teacherPresenceBySchedule[enrollment.ScheduleEntryId])
             .ToList();
         var absentTeacherCount = focusedSchedules
-            .Where(schedule => runnableRoomIds.Contains(schedule.ClassroomId) && !teacherPresenceBySchedule[schedule.Id])
-            .Select(schedule => schedule.TeacherId)
+            .Where(enrollment => runnableRoomIds.Contains(enrollment.ClassroomId) && !teacherPresenceBySchedule[enrollment.ScheduleEntryId])
+            .Select(enrollment => enrollment.TeacherId)
             .Distinct()
             .Count();
-        var cohorts = runningSchedules.Select(x => (courseAssignments[x.CourseId].DepartmentId, x.YearLevel)).ToHashSet();
-        var shiftStudents = students.Where(x => x.Shift == shift.Name).ToList();
-        var scheduledStudents = shiftStudents.Count(x => cohorts.Contains((x.DepartmentId, x.YearLevel)));
+        var cohorts = runningSchedules
+            .Select(OperationEnrollmentSourceService.TimetableCohort)
+            .Where(cohort => cohort.HasValue)
+            .Select(cohort => cohort!.Value)
+            .ToHashSet();
+        var scheduledStudents = students.Count(enrollment => cohorts.Contains(OperationEnrollmentSourceService.StudentCohort(enrollment)));
         var studentTotal = students.Count;
-        var teacherTotal = teachers.Count;
-        var roomTotal = rooms.Count;
-        var courseTotal = courses.Count;
-        var runningTeachers = runningSchedules.Select(x => x.TeacherId).Distinct().Count();
-        var focusedRoomIds = runningSchedules.Select(x => x.ClassroomId).Distinct().ToList();
+        var teacherTotal = timetables.Select(enrollment => enrollment.TeacherId).Distinct().Count();
+        var roomTotal = timetables.Select(enrollment => enrollment.ClassroomId).Distinct().Count();
+        var courseTotal = timetables.Select(enrollment => enrollment.CourseId).Distinct().Count();
+        var runningTeachers = runningSchedules.Select(enrollment => enrollment.TeacherId).Distinct().Count();
+        var focusedRoomIds = runningSchedules.Select(enrollment => enrollment.ClassroomId).Distinct().ToList();
         var occupiedRooms = focusedRoomIds.Count;
-        var runningCourses = runningSchedules.Select(x => x.CourseId).Distinct().Count();
-        var assignedRoomNeedsReview = focusedSchedules.Any(x => !runnableRoomIds.Contains(x.ClassroomId));
+        var runningCourses = runningSchedules.Select(enrollment => enrollment.CourseId).Distinct().Count();
+        var assignedRoomNeedsReview = focusedSchedules.Any(enrollment => !runnableRoomIds.Contains(enrollment.ClassroomId));
         var state = selection.IsRunning ? "Running" : "Next";
         var window = $"{shift.Name} · {selection.Date:dddd} · {shift.StartsAt:HH:mm}-{shift.EndsAt:HH:mm}";
         var periodWindow = $"{period.StartsAt:HH:mm}-{period.EndsAt:HH:mm}";

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useInstituteSettings } from "@/features/administration/institute-settings-context";
 import { classroomApi } from "@/features/management/classrooms/classroom-api";
 import { courseApi } from "@/features/management/courses/course-api";
 import { departmentApi } from "@/features/management/departments/department-api";
@@ -13,7 +12,6 @@ import type { DepartmentItem } from "@/features/management/departments/departmen
 import { workflowSourceSearch } from "@/lib/workflow-code";
 import type { EnrollmentItem, EnrollmentResource } from "./common/enrollment-types";
 import { enrollmentApiFor } from "./enrollment-apis";
-import { teacherAssignmentApi } from "./teachers/teacher-assignment-api";
 import {
   enrollmentSubject,
   isSelectableEnrollment,
@@ -21,7 +19,6 @@ import {
 } from "./enrollment-workspace-model";
 
 export function useEnrollmentWorkspace(resource: EnrollmentResource) {
-  const { settings } = useInstituteSettings();
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
@@ -54,11 +51,7 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
     return Promise.all([
       enrollmentApiFor(resource).get(workflowSourceSearch(query), departmentId, year),
       departmentApi.get(),
-      resource === "timetable"
-        ? teacherApi.get()
-        : resource === "courses"
-          ? teacherAssignmentApi.get("", settings.departments.allowCrossDepartmentTeaching === "true" ? "" : departmentId)
-          : Promise.resolve([]),
+      resource === "timetable" ? teacherApi.get() : Promise.resolve([]),
       resource === "timetable" ? courseApi.get() : Promise.resolve([]),
       resource === "timetable" ? classroomApi.get() : Promise.resolve([]),
       candidateRequest,
@@ -72,7 +65,7 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
       setReady(true);
       setError(false);
     }).catch(() => setError(true));
-  }, [departmentId, query, resource, settings.departments.allowCrossDepartmentTeaching, year]);
+  }, [departmentId, query, resource, year]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 180);

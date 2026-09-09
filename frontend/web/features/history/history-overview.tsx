@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { DataTable } from "@/components/data-table";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
@@ -73,7 +74,7 @@ export function HistoryOverview() {
 
       <section className="panel history-semester-coverage">
         <header><div><span>Archived journey comparison</span><h2>Graduate data by completed semester</h2></div></header>
-        <div className="history-semester-table"><div className="history-semester-head"><span>Academic year</span><span>Semester</span><span>Students</span><span>Teachers</span><span>Attendance</span><span>Grades</span><span>Open</span></div>{periods.map(period => <article className="history-semester-row" key={period.key}><strong>{period.academicYear}</strong><span>{period.term}</span><b>{period.students}</b><b>{period.teachers}</b><span>{period.attendance}</span><span>{period.grades}</span><button type="button" onClick={() => changePeriod(period.key)}>View <Icon name="arrow" size={12}/></button></article>)}{!periods.length && <div className="empty-state"><strong>No semester history yet</strong><span>Completed enrolled classes and grades will create the first semester view.</span></div>}</div>
+        <DataTable className="history-semester-table" headerClassName="history-semester-head" rowSelector=":scope > .history-semester-row" columns={["Academic year", "Semester", "Students", "Teachers", "Attendance", "Grades", "Open"]}>{periods.map(period => <article className="history-semester-row" key={period.key}><strong>{period.academicYear}</strong><span>{period.term}</span><b>{period.students}</b><b>{period.teachers}</b><span>{period.attendance}</span><span>{period.grades}</span><button type="button" onClick={() => changePeriod(period.key)}>View <Icon name="arrow" size={12}/></button></article>)}{!periods.length && <div className="empty-state"><strong>No semester history yet</strong><span>Completed enrolled classes and grades will create the first semester view.</span></div>}</DataTable>
       </section>
     </div>
   </div>;

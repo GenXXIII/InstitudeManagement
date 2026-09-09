@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { classroomApi } from "@/features/management/classrooms/classroom-api";
@@ -11,20 +12,18 @@ import { departmentApi } from "@/features/management/departments/department-api"
 import { studentApi } from "@/features/management/students/student-api";
 import { teacherApi } from "@/features/management/teachers/teacher-api";
 import { timetableApi } from "@/features/timetable/timetable-api";
-import { classroomAssignmentApi } from "./classrooms/classroom-assignment-api";
-import { courseAssignmentApi } from "./courses/course-assignment-api";
+import { deriveAssignmentProjection } from "./assignment-projection-api";
 import { studentEnrollmentApi } from "./students/student-enrollment-api";
-import { teacherAssignmentApi } from "./teachers/teacher-assignment-api";
 import { timetableEnrollmentApi } from "./timetable/timetable-enrollment-api";
 import { buildEnrollmentOverview, scopedEnrollmentHref, type EnrollmentOverviewData } from "./enrollment-overview-model";
 
 const maintenanceRows = [
   { icon: "users", source: "Students", management: "students", assignment: "Student Enrollment", enrollment: "students", result: "Student Assign", resultPath: "student-assignments", rule: "Department + year + shift" },
-  { icon: "teacher", source: "Teachers", management: "teachers", assignment: "Teacher Assign", enrollment: "teachers", result: "Timetable Enrollment", resultPath: "timetable", rule: "Department assignment" },
-  { icon: "book", source: "Courses", management: "courses", assignment: "Course Assign", enrollment: "courses", result: "Timetable Enrollment", resultPath: "timetable", rule: "Department + year + teacher" },
-  { icon: "room", source: "Classrooms", management: "classrooms", assignment: "Classroom Assign", enrollment: "classrooms", result: "Timetable Enrollment", resultPath: "timetable", rule: "Access + capacity" },
+  { icon: "teacher", source: "Teachers", management: "teachers", assignment: "Timetable Enrollment", enrollment: "timetable", result: "Teacher Assign", resultPath: "teachers", rule: "Matching student cohort" },
+  { icon: "book", source: "Courses", management: "courses", assignment: "Timetable Enrollment", enrollment: "timetable", result: "Course Assign", resultPath: "courses", rule: "Matching student cohort" },
+  { icon: "room", source: "Classrooms", management: "classrooms", assignment: "Timetable Enrollment", enrollment: "timetable", result: "Classroom Assign", resultPath: "classrooms", rule: "Matching student cohort" },
   { icon: "calendar", source: "Schedule", management: "timetable", assignment: "Timetable Enrollment", enrollment: "timetable", result: "Student Assign", resultPath: "student-assignments", rule: "Course + teacher + room + time" },
-  { icon: "building", source: "Departments", management: "departments", assignment: "Department Assign", enrollment: "departments", result: "Student Assign", resultPath: "student-assignments", rule: "Department + selected year" },
+  { icon: "building", source: "Departments", management: "departments", assignment: "Student + timetable", enrollment: "overview", result: "Department Assign", resultPath: "departments", rule: "Exact cohort intersection" },
 ] as const;
 
 export function EnrollmentOverview() {
@@ -36,22 +35,20 @@ export function EnrollmentOverview() {
 
   const load = useCallback(async () => {
     try {
-      const [students, teachers, courses, classrooms, timetable, enrollmentStudents, enrollmentTeachers, enrollmentCourses, enrollmentClassrooms, enrollmentTimetable, departments] = await Promise.all([
+      const [students, teachers, courses, classrooms, timetable, enrollmentStudents, enrollmentTimetable, departments] = await Promise.all([
         studentApi.get("", departmentId),
         teacherApi.get("", departmentId),
         courseApi.get("", departmentId),
         classroomApi.get("", departmentId),
         timetableApi.get("", departmentId),
         studentEnrollmentApi.get("", departmentId, year),
-        teacherAssignmentApi.get("", departmentId, year),
-        courseAssignmentApi.get("", departmentId, year),
-        classroomAssignmentApi.get("", departmentId, year),
         timetableEnrollmentApi.get("", departmentId, year),
         departmentApi.get(),
       ]);
+      const assignments = deriveAssignmentProjection(enrollmentStudents, enrollmentTimetable, departments);
       setData({
         management: { students, teachers, courses, classrooms, timetable },
-        enrollment: { students: enrollmentStudents, teachers: enrollmentTeachers, courses: enrollmentCourses, classrooms: enrollmentClassrooms, timetable: enrollmentTimetable },
+        enrollment: { students: enrollmentStudents, teachers: assignments.teachers, courses: assignments.courses, classrooms: assignments.classrooms, timetable: enrollmentTimetable },
         departments,
       });
       setError(false);
@@ -73,7 +70,7 @@ export function EnrollmentOverview() {
   const scope = `${selectedDepartment} / ${year ? `Year ${year}` : "All years"}`;
   const attention = [
     { label: "Students waiting for enrollment", count: view.missingStudents, detail: "Add their department, year, and shift.", href: scopedEnrollmentHref("/enrollment/students", departmentId, year) },
-    { label: "Courses waiting for assignment", count: view.missingCourses, detail: "Assign a department, year, and teacher.", href: scopedEnrollmentHref("/enrollment/courses", departmentId, year) },
+    { label: "Courses not in matched cohorts", count: view.missingCourses, detail: "Add them through Timetable Enrollment for a matching student cohort.", href: scopedEnrollmentHref("/enrollment/timetable", departmentId, year) },
     { label: "Management schedules not enrolled", count: view.missingTimetables, detail: "Enroll approved schedules for student use.", href: scopedEnrollmentHref("/enrollment/timetable", departmentId, year) },
     { label: "Cohorts missing course or time coverage", count: view.attentionCohorts, detail: "Complete the course and timetable chain.", href: scopedEnrollmentHref(view.firstAttentionPath, view.firstAttentionDepartmentId || departmentId, view.firstAttentionYear || year) },
   ];
@@ -82,11 +79,11 @@ export function EnrollmentOverview() {
     <PageHeading
       eyebrow="Academic enrollment control center"
       title="Enrollment Overview"
-      description="Maintain Management source data, complete each enrollment assignment, then confirm what every student cohort receives."
+      description="Maintain Management data, enroll students and timetables, then review the assignments generated from their matching cohorts."
     />
     <section className="enrollment-overview-scope panel">
       <div><span>Current scope</span><strong>{scope}</strong></div>
-      <p>Student schedules connect automatically by <b>department + year + shift</b>. A Year 1 student only receives Year 1 courses assigned to that student&apos;s department, using timetable times that match the selected shift.</p>
+      <p>Assign views are generated only when Student Enrollment and Timetable Enrollment match by <b>academic year + semester + department + year + shift</b>.</p>
     </section>
     <div className="enrollment-overview-scroll">
       <section className="enrollment-overview-metrics" aria-label="Enrollment completion">
@@ -99,7 +96,7 @@ export function EnrollmentOverview() {
 
       <section className="enrollment-overview-main">
         <article className="panel enrollment-maintenance-map">
-          <header><div><span>Maintain data in order</span><h2>Management → Assign → View result</h2></div><small>Open the step that needs work</small></header>
+          <header><div><span>Maintain data in order</span><h2>Management → Source enrollment → Derived assign</h2></div><small>Open the step that needs work</small></header>
           <div className="enrollment-maintenance-list">
             {maintenanceRows.map(row => <div className="enrollment-maintenance-row" key={row.source}>
               <span className="enrollment-maintenance-icon"><Icon name={row.icon} size={16}/></span>
@@ -127,8 +124,7 @@ export function EnrollmentOverview() {
 
       <section className="panel enrollment-cohort-panel">
         <header><div><span>Final relationship check</span><h2>Student cohort coverage</h2><p>Students in the same department, year, and shift automatically share the matching assigned courses and timetable.</p></div><Link className="button secondary" href={scopedEnrollmentHref("/enrollment/student-assignments", departmentId, year)}>View students <Icon name="arrow" size={14}/></Link></header>
-        <div className="enrollment-cohort-table">
-          <div className="enrollment-cohort-head"><span>Department</span><span>Year / shift</span><span>Students</span><span>Assigned courses</span><span>Matching classes</span><span>Coverage</span><span>Open</span></div>
+        <DataTable className="enrollment-cohort-table" headerClassName="enrollment-cohort-head" rowSelector=":scope > .enrollment-cohort-row" columns={["Department", "Year / shift", "Students", "Assigned courses", "Matching classes", "Coverage", "Open"]}>
           {view.cohorts.map(cohort => {
             const ready = cohort.courses > 0 && cohort.missingCourses === 0;
             const fixPath = cohort.courses ? "/enrollment/timetable" : "/enrollment/courses";
@@ -143,7 +139,7 @@ export function EnrollmentOverview() {
             </article>;
           })}
           {!view.cohorts.length && <div className="enrollment-overview-empty"><Icon name="users" size={22}/><strong>No enrolled student cohorts in this scope</strong><span>Start with Student Enrollment, then the cohort relationship will appear here.</span></div>}
-        </div>
+        </DataTable>
       </section>
     </div>
   </div>;

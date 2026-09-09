@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
@@ -60,10 +61,9 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     </section>
     {actionError && <section className="management-rule-error"><Icon name="bell" size={16}/><div><strong>Enrollment relationship protected</strong><span>{actionError}</span></div><button type="button" onClick={() => setActionError("")}>Dismiss</button></section>}
     <section className="management-paginated-region">
-      <section className={`panel horizontal-management-table enrollment-service-horizontal enrollment-${resource}`}>
-        <div className="horizontal-management-head">{details.columns.map(column => <span key={column}>{column}</span>)}</div>
+      <DataTable as="section" className={`panel horizontal-management-table enrollment-service-horizontal enrollment-${resource}`} headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={enrollmentTableColumns(resource, details.columns)}>
         {pagination.pageItems.map(item => <EnrollmentRow resource={resource} item={item} onEdit={isEditableEnrollment(resource) ? () => setEditing(item) : undefined} onRemove={isEditableEnrollment(resource) ? () => { void remove(item); } : undefined} key={item.rowKey}/>)}
-      </section>
+      </DataTable>
       <DataPagination page={pagination.page} pageCount={pagination.pageCount} total={sortedItems.length} onPage={pagination.setPage}/>
     </section>
     {editing !== undefined && (resource === "students" || resource === "timetable") && <EnrollmentEditor
@@ -80,4 +80,16 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
       onSaved={() => { setEditing(undefined); void load(); }}
     />}
   </div>;
+}
+
+function enrollmentTableColumns(resource: EnrollmentResource, labels: string[]): DataTableColumn[] {
+  return labels.map(label => ({
+    key: label,
+    label,
+    align: resource === "departments" && (label === "Students" || label === "Timetables")
+      ? "center"
+      : resource === "timetable" && label === "Classroom"
+        ? "center"
+        : undefined,
+  }));
 }

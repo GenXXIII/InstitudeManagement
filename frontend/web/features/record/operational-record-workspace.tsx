@@ -2,14 +2,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { workflowSourceSearch } from "@/lib/workflow-code";
 import { OperationalRecordRow } from "./components/operational-record-row";
-import { EntitySemesterRecordHeader } from "./components/entity-semester-record";
-import { StudentSemesterRecordHeader } from "./students/student-semester-record";
-import { StructureSemesterRecordHeader } from "./components/structure-semester-record";
 import { recordApi } from "./record-api";
 import type { OperationalRecord } from "./record-types";
 import { groupClassSessionRecords, sortClassSessionRecords, type ClassSessionRecordGroup } from "./sessions/class-session-record-ordering";
@@ -98,9 +96,9 @@ function RecordGroupSection({ module, group, history, load, detailHref }: { modu
 
 function renderLedger(module: string, rows: OperationalRecord[], history: boolean, load: () => void, detailHref: (id: string) => string) {
   const stage = history ? "history" : "record";
-  if (module === "students") return <div className="student-semester-record-ledger panel"><StudentSemesterRecordHeader history={history}/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history && row.insights?.isFinal !== true && row.status !== "Closed"} showStatus={false} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
-  if (module === "teachers" || module === "courses" || module === "classrooms") return <div className="entity-semester-record-ledger panel"><EntitySemesterRecordHeader module={entityModuleName(module)} history={history}/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
-  if (module === "departments" || module === "timetable") return <div className="structure-semester-record-ledger panel"><StructureSemesterRecordHeader module={module === "departments" ? "Department" : "Timetable"}/><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></div>;
+  if (module === "students") return <DataTable className="student-semester-record-ledger panel" headerClassName="student-semester-record-head" rowSelector=".student-semester-record-row" columns={studentRecordColumns(history)}><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history && row.insights?.isFinal !== true && row.status !== "Closed"} showStatus={false} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div></DataTable>;
+  if (module === "teachers" || module === "courses" || module === "classrooms") return <DataTable className="entity-semester-record-ledger panel" headerClassName="entity-semester-record-head" rowSelector=".entity-semester-record-row" columns={entityRecordColumns(entityModuleName(module), history)}><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></DataTable>;
+  if (module === "departments" || module === "timetable") return <DataTable className="structure-semester-record-ledger panel" headerClassName="structure-semester-record-head" rowSelector=".structure-semester-record-row" columns={structureRecordColumns(module)}><div>{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={false} showStatus={false} detailHref={detailHref(row.id)} key={row.id}/>)}</div></DataTable>;
   return <div className="session-record-list">{rows.map(row => <OperationalRecordRow row={row} stage={stage} editable={!history && row.status !== "Closed"} showStatus={!history} onUpdated={load} detailHref={detailHref(row.id)} key={row.id}/>)}</div>;
 }
 
@@ -113,3 +111,6 @@ function recordGroupEyebrow(module: string, history: boolean) { return module ==
 function comparePeriod(left: string, right: string) { return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }); }
 function recordYear(record: OperationalRecord) { const match = JSON.stringify(record).match(/Year\s+([1-4])/i); return match ? Number(match[1]) : 99; }
 function entityModuleName(module: string): "Teacher" | "Course" | "Classroom" { return module === "teachers" ? "Teacher" : module === "courses" ? "Course" : "Classroom"; }
+function studentRecordColumns(history: boolean) { return [history ? "History code" : "Record code", "Photo", "Name", "Department", history ? "Completed level" : "Year", history ? "Four-year attendance" : "Attendance", history ? "Semester grade totals" : "Five course grades", history ? "Program result" : "Semester result"]; }
+function entityRecordColumns(module: "Teacher" | "Course" | "Classroom", history: boolean) { return [history ? "History code" : "Record code", module === "Teacher" ? "Photo" : "Type", module === "Classroom" ? "Classroom" : `${module} name`, module === "Classroom" ? "Building" : "Department", history ? "Completed level" : "Year", module === "Teacher" ? "Assigned courses" : module === "Course" ? "Students" : "Courses", module === "Teacher" ? "Teacher attendance" : "Running / available", "Semester activity"]; }
+function structureRecordColumns(module: string) { return module === "departments" ? ["Department code", "Type", "Department", "Head", "Year", "Students / teachers", "Courses / rooms", "Recorded periods"] : ["Timetable code", "Type", "Course", "Department", "Year", "Day / time", "Teacher / classroom", "Students / classes"]; }

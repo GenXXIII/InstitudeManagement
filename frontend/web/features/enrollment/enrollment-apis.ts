@@ -1,21 +1,24 @@
-import { classroomAssignmentApi } from "./classrooms/classroom-assignment-api";
-import type { EnrollmentResource } from "./common/enrollment-types";
+import { assignmentProjectionClient, type AssignmentProjectionResource } from "./assignment-projection-api";
 import type { EnrollmentResourceClient } from "./common/enrollment-resource-client";
-import { courseAssignmentApi } from "./courses/course-assignment-api";
-import { departmentEnrollmentApi } from "./departments/department-enrollment-api";
+import type { EnrollmentResource } from "./common/enrollment-types";
 import { studentEnrollmentApi } from "./students/student-enrollment-api";
-import { teacherAssignmentApi } from "./teachers/teacher-assignment-api";
 import { timetableEnrollmentApi } from "./timetable/timetable-enrollment-api";
 
-const enrollmentApis = {
+const sourceEnrollmentApis = {
   students: studentEnrollmentApi,
-  teachers: teacherAssignmentApi,
-  courses: courseAssignmentApi,
-  classrooms: classroomAssignmentApi,
   timetable: timetableEnrollmentApi,
-  departments: departmentEnrollmentApi,
-} satisfies Record<Exclude<EnrollmentResource, "student-assignments">, EnrollmentResourceClient>;
+} satisfies Record<"students" | "timetable", EnrollmentResourceClient>;
+
+const assignmentProjectionApis = {
+  "student-assignments": assignmentProjectionClient("student-assignments"),
+  teachers: assignmentProjectionClient("teachers"),
+  courses: assignmentProjectionClient("courses"),
+  classrooms: assignmentProjectionClient("classrooms"),
+  departments: assignmentProjectionClient("departments"),
+} satisfies Record<AssignmentProjectionResource, EnrollmentResourceClient>;
 
 export function enrollmentApiFor(resource: EnrollmentResource): EnrollmentResourceClient {
-  return resource === "student-assignments" ? studentEnrollmentApi : enrollmentApis[resource];
+  return resource === "students" || resource === "timetable"
+    ? sourceEnrollmentApis[resource]
+    : assignmentProjectionApis[resource];
 }

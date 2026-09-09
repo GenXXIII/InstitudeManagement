@@ -108,6 +108,7 @@ public static class DependencyInjection
         services.AddScoped<IOperationQueryService, OperationQueryService>();
         services.AddScoped<OperationContextService>();
         services.AddScoped<OperationEnrollmentPeriodService>();
+        services.AddScoped<OperationEnrollmentSourceService>();
         services.AddScoped<IOperationModuleReader, DashboardOperationReader>();
         services.AddScoped<IOperationModuleReader, StudentOperationReader>();
         services.AddScoped<IOperationModuleReader, TeacherOperationReader>();
@@ -143,6 +144,7 @@ public static class DependencyInjection
         services.AddScoped<INotificationHistoryService, NotificationHistoryService>();
         services.AddScoped<AcademicCalendarClock>();
         services.AddScoped<StudentAcademicYearAdvancer>();
+        services.AddScoped<AcademicPeriodEnrollmentAdvancer>();
         services.AddScoped<ActivePeriodLedgerCreator>();
         services.AddScoped<AcademicCalendarRolloverService>();
         services.AddScoped<IApplicationStartupTask, AcademicCalendarStartupTask>();

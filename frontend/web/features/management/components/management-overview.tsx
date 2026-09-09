@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
 import { workflowCode } from "@/lib/workflow-code";
@@ -48,8 +49,7 @@ export function ManagementOverview({ references, onSelect, selected, year }: { r
 
     <section className="panel management-department-coverage">
       <header><div><span>Source data coverage</span><h2>Departments and their master records</h2></div><Link className="button secondary" href={scopedHref("/management/departments", selected, year)}>Manage departments <Icon name="arrow" size={14}/></Link></header>
-      <div className="management-department-table">
-        <div className="management-department-head"><span>Department code</span><span>Department</span><span>Head</span><span>Students</span><span>Teachers</span><span>Courses</span><span>Open</span></div>
+      <DataTable className="management-department-table" headerClassName="management-department-head" rowSelector=":scope > .management-department-row" columns={["Department code", "Department", "Head", "Students", "Teachers", "Courses", "Open"]}>
         {departments.map(department => {
           const students = references.students.filter(student => student.values.departmentId === department.id).length;
           const teachers = references.teachers.filter(teacher => teacher.values.departmentId === department.id).length;
@@ -59,7 +59,7 @@ export function ManagementOverview({ references, onSelect, selected, year }: { r
           </article>;
         })}
         {!departments.length && <div className="empty-state"><strong>No departments in this scope</strong><span>Add a DepartmentCode before linking other management records.</span></div>}
-      </div>
+      </DataTable>
     </section>
   </div>;
 }

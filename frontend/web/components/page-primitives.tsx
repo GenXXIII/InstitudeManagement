@@ -1,4 +1,5 @@
 import { Icon } from "./icon";
+import { DataTable as SharedDataTable } from "./data-table";
 import type { Activity, Metric } from "@/lib/types/presentation-types";
 
 export function PageHeading({ eyebrow, title, description, actions }: { eyebrow: string; title: string; description: string; actions?: React.ReactNode }) {
@@ -20,7 +21,7 @@ export function ActivityList({ items, empty = "No recent activity" }: { items: A
 export function DataTable({ rows }: { rows: Record<string, string>[] }) {
   if (!rows.length) return <div className="empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>No records yet</strong><span>Data added to this section will appear here.</span></div>;
   const columns = Object.keys(rows[0]);
-  return <div className="table-wrap"><table><thead><tr>{columns.map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{rows.map((row, i) => <tr key={i}>{columns.map(column => <td key={column}>{column.toLowerCase() === "status" || column.toLowerCase() === "device" ? <span className={`table-status ${row[column].toLowerCase().replace(" ", "-")}`}>{row[column]}</span> : row[column]}</td>)}</tr>)}</tbody></table></div>;
+  return <SharedDataTable className="table-wrap simple-data-table" headerClassName="simple-data-table-head" rowSelector=":scope > .simple-data-table-row" columns={columns}>{rows.map((row, index) => <div className="simple-data-table-row" key={index}>{columns.map(column => <span key={column}>{column.toLowerCase() === "status" || column.toLowerCase() === "device" ? <span className={`table-status ${row[column].toLowerCase().replace(" ", "-")}`}>{row[column]}</span> : row[column]}</span>)}</div>)}</SharedDataTable>;
 }
 
 export function LoadingPage() { return <div className="loading-page"><div className="loading-title"/><div className="loading-copy"/><div className="loading-grid">{[1,2,3,4].map(x => <div key={x}/>)}</div></div>; }

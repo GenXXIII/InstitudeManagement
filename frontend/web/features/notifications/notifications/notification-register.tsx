@@ -1,4 +1,5 @@
 import { Icon } from "@/components/icon";
+import { DataTable } from "@/components/data-table";
 import type { NotificationDraft, NotificationItem } from "./notification-types";
 
 export function NotificationRegister({ rows, editing, draft, saving, onDraft, onOpen, onEdit, onSave, onCancel, onRemove }: {
@@ -13,15 +14,7 @@ export function NotificationRegister({ rows, editing, draft, saving, onDraft, on
   onCancel: () => void;
   onRemove: (id: string) => void;
 }) {
-  return <section className="panel horizontal-management-table notification-register">
-    <div className="horizontal-management-head">
-      <span>Notification code</span>
-      <span>Type / severity</span>
-      <span>Title and preview</span>
-      <span>Received</span>
-      <span>Status</span>
-      <span>Actions</span>
-    </div>
+  return <DataTable as="section" className="panel horizontal-management-table notification-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-current-row, :scope > .notification-edit-row" columns={["Notification code", "Type / severity", "Title and preview", "Received", "Status", "Actions"]}>
     {rows.map(item => editing === item.id && draft
       ? <article className="horizontal-management-row notification-edit-row" key={item.id}>
         <strong className="management-code-value">{item.notificationCode}</strong>
@@ -111,5 +104,5 @@ export function NotificationRegister({ rows, editing, draft, saving, onDraft, on
       <strong>No notifications</strong>
       <span>Published alerts and system notifications will appear here.</span>
     </div>}
-  </section>;
+  </DataTable>;
 }

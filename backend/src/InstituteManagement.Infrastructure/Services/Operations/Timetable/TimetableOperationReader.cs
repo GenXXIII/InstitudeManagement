@@ -4,14 +4,13 @@ using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
-using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
 public sealed class TimetableOperationReader(
     InstituteDbContext db,
     OperationContextService contextService,
-    OperationEnrollmentPeriodService periodService) : IOperationModuleReader
+    OperationEnrollmentSourceService enrollmentSource) : IOperationModuleReader
 {
     public string Module => "timetable";
 
@@ -19,33 +18,8 @@ public sealed class TimetableOperationReader(
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
         var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
-        var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
-        var studentCohorts = (await db.StudentEnrollments.AsNoTracking()
-            .Where(enrollment =>
-                enrollment.AcademicYear == enrollmentPeriod.AcademicYear
-                && enrollment.Semester == enrollmentPeriod.Semester
-                && enrollment.Status == "Active"
-                && (!departmentId.HasValue || enrollment.DepartmentId == departmentId))
-            .Select(enrollment => new { enrollment.YearLevel, enrollment.Shift })
-            .Distinct()
-            .ToListAsync(cancellationToken))
-            .Select(cohort => (cohort.YearLevel, cohort.Shift))
-            .ToHashSet();
-
-        var timetableEnrollments = await db.TimetableEnrollments.AsNoTracking()
-            .Include(enrollment => enrollment.ScheduleEntry)
-            .Include(enrollment => enrollment.Course)
-            .Include(enrollment => enrollment.Teacher)
-            .Include(enrollment => enrollment.Classroom)
-            .Where(enrollment =>
-                enrollment.AcademicYear == enrollmentPeriod.AcademicYear
-                && enrollment.Semester == enrollmentPeriod.Semester
-                && enrollment.Status == "Active"
-                && enrollment.ScheduleEntry != null
-                && enrollment.ScheduleEntry.Status != "Cancelled")
-            .ToListAsync(cancellationToken);
-        timetableEnrollments = timetableEnrollments
-            .Where(enrollment => studentCohorts.Contains((enrollment.YearLevel, enrollment.ScheduleEntry!.Shift)))
+        var source = await enrollmentSource.GetAsync(departmentId, cancellationToken);
+        var timetableEnrollments = source.Timetables
             .OrderBy(enrollment => enrollment.ScheduleEntry!.DayOfWeek)
             .ThenBy(enrollment => enrollment.ScheduleEntry!.StartsAt)
             .ToList();
@@ -148,12 +122,12 @@ public sealed class TimetableOperationReader(
             new("Available", available.ToString(), "Teacher absent or permission", "red"),
             new("Blocked", blocked.ToString(), "Classroom maintenance or unavailable", "amber"),
             new("Shifts", AcademicTimetablePolicy.Shifts.Count.ToString(), "Morning, afternoon, evening, weekend"),
-            new("Rooms", learningSpaces.Count.ToString(), "Management rooms used by matched enrollments", "violet")
+            new("Rooms", learningSpaces.Count.ToString(), "Rooms used by matched Student and Timetable Enrollment", "violet")
         };
         return new OperationDto(
             Module,
             $"Weekly timetable · {context.Scope}",
-            "Operational timetable rows require a Student Enrollment with the same semester, year, and shift. Course, teacher, classroom, year, and semester come from the linked Management records.",
+            "Operational timetable rows come from matched Student Enrollment and Timetable Enrollment for the same academic year, semester, department, year, and shift.",
             metrics,
             context.Activity,
             context.Attention,

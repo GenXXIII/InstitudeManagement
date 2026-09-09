@@ -3,7 +3,7 @@ import type { EnrollmentDisplayItem } from "../common/enrollment-types";
 
 export const courseAssignmentCopy: EnrollmentCopy = {
   title: "Course Assign",
-  description: "Read-only view of the department, permanent student year, and semester assigned to each course.",
+  description: "Read-only courses from Timetable Enrollment rows that match an active Student Enrollment cohort.",
   columns: ["EnrollmentCode", "Course", "Department", "Year", "Semester", "Create At"],
 };
 

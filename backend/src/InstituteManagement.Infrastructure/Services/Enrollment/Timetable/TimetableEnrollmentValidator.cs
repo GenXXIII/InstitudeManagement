@@ -60,23 +60,12 @@ internal sealed class TimetableEnrollmentValidator(InstituteDbContext db)
             throw new InvalidOperationException("Teacher or classroom is already enrolled during this time.");
         }
 
-        var courseAssignment = await db.CourseAssignments
-            .AsNoTracking()
-            .Include(assignment => assignment.Department)
-            .Where(assignment =>
-                assignment.CourseId == course.Id
-                && assignment.AcademicYear == period.AcademicYear
-                && assignment.Semester == period.Semester
-                && assignment.Status == "Active")
-            .OrderByDescending(assignment => assignment.UpdatedAtUtc)
-            .FirstOrDefaultAsync(cancellationToken);
-
         return new ValidatedTimetableAssignment(
             course,
             teacher,
             classroom,
-            courseAssignment?.DepartmentId ?? course.DepartmentId,
-            courseAssignment?.Department?.Name ?? course.Department?.Name);
+            course.DepartmentId,
+            course.Department?.Name);
     }
 
     private static void ValidateClassroomYear(int yearLevel, string? classroomCode)

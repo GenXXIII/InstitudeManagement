@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { DataTable } from "@/components/data-table";
 import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
@@ -112,8 +113,7 @@ export function GlobalSearchResultsPage() {
 
     <section className="global-filter-results global-filter-results-direct">
       <div className="global-filter-paginated-region">
-        <div className="panel horizontal-management-table global-filter-register">
-          <div className="horizontal-management-head global-filter-register-head"><span>Workflow / module</span><span>Code and name</span><span>Why it matched</span><span>Record detail</span><span>Open</span></div>
+        <DataTable className="panel horizontal-management-table global-filter-register" headerClassName="horizontal-management-head global-filter-register-head" rowSelector=":scope > .global-filter-register-row" columns={["Workflow / module", "Code and name", "Why it matched", "Record detail", "Open"]}>
           {pagination.pageItems.map(row => <Link className="horizontal-management-row global-filter-register-row" href={workflowResultHref(row.workflow, row.resource.id, row.suggestion.code || row.suggestion.label, departmentId, year)} key={row.id}>
             <span className={`global-filter-workflow workflow-${row.workflow}`}><i><Icon name={globalSearchWorkflows.find(item => item.id === row.workflow)?.icon ?? "folder"} size={14}/></i><span><strong>{workflowLabel(row.workflow)}</strong><small>{row.resource.label}</small></span></span>
             <span className="global-filter-identity"><strong>{row.suggestion.code}</strong><small>{row.suggestion.label}</small></span>
@@ -122,7 +122,7 @@ export function GlobalSearchResultsPage() {
             <span className="global-filter-open">View <Icon name="arrow" size={12}/></span>
           </Link>)}
           {!visibleRows.length && <div className="global-search-empty"><span><Icon name="search" size={20}/></span><strong>{query ? `No results match "${query}" in this filter` : "Enter a search above"}</strong><small>Try a shorter character group, another word, or select All workflows and All data.</small></div>}
-        </div>
+        </DataTable>
         {visibleRows.length > 0 && <DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visibleRows.length} pageSize={pagination.pageSize} onPage={pagination.setPage}/>}
       </div>
     </section>

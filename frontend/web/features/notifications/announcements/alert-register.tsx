@@ -1,3 +1,4 @@
+import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { formatNotificationCode, notificationCodeExample } from "@/lib/workflow-code";
 import type { AnnouncementDraft, AnnouncementItem } from "./announcement-types";
@@ -64,15 +65,8 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, o
         </button>
       </div>
     </section>
-    <section className="panel announce-table alert-register">
-      <div className="announce-table-head">
-        <span>AnnouncementCode</span>
-        <span>Title and detail</span>
-        <span>Type</span>
-        <span>Create At</span>
-        <span>Actions</span>
-      </div>
-      {rows.map(item => <article className="announce-table-row" key={item.id}>
+    <DataTable as="section" className="panel horizontal-management-table alert-register" headerClassName="horizontal-management-head" rowSelector=":scope > .alert-register-row" columns={["AnnouncementCode", "Title and detail", "Type", "Create At", "Actions"]}>
+      {rows.map(item => <article className="horizontal-management-row alert-register-row" key={item.id}>
         <strong className="management-code-value">{item.announcementCode}</strong>
         <div>
           <strong>{item.title}</strong>
@@ -93,6 +87,6 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, o
         <strong>No active alerts</strong>
         <span>Create an institute announcement above.</span>
       </div>}
-    </section>
+    </DataTable>
   </>;
 }

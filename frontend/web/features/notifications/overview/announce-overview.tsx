@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import type { AnnouncementItem } from "../announcements/announcement-types";
 import type { NotificationHistoryItem } from "../history/notification-history-types";
@@ -71,15 +72,8 @@ export function AnnounceOverview({ notifications, alerts, history }: {
         <Icon name="arrow" size={14}/>
       </Link>)}
     </section>
-    <section className="panel announce-overview-register">
-      <header>
-        <span>FeatureCode</span>
-        <span>Feature</span>
-        <span>Latest title and detail</span>
-        <span>Create At</span>
-        <span>Open</span>
-      </header>
-      {recent.map(item => <Link href={item.href} key={`${item.kind}-${item.code}`}>
+    <DataTable as="section" className="panel horizontal-management-table announce-overview-register" headerClassName="horizontal-management-head" rowSelector=":scope > .announce-overview-row" columns={["FeatureCode", "Feature", "Latest title and detail", "Create At", "Open"]}>
+      {recent.map(item => <Link className="horizontal-management-row announce-overview-row" href={item.href} key={`${item.kind}-${item.code}`}>
         <strong className="management-code-value">{item.code}</strong>
         <span className="table-status">{item.kind}</span>
         <div>
@@ -93,6 +87,6 @@ export function AnnounceOverview({ notifications, alerts, history }: {
         <strong>No announcement activity</strong>
         <span>Notifications, alerts, and their coded history will appear here.</span>
       </div>}
-    </section>
+    </DataTable>
   </>;
 }

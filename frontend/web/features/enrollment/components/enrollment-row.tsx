@@ -21,10 +21,10 @@ export function EnrollmentRow({ resource, item, onEdit, onRemove }: {
       const className = [index === 1 ? "horizontal-primary" : "horizontal-detail", relationship ? "enrollment-relationship-cell" : ""].filter(Boolean).join(" ");
       return <ManagementDataCell label={column} className={className} key={`${item.id}-${index}`}>
         {index === 0
-          ? <strong className="management-code-value">{cell}</strong>
+          ? <strong className="management-code-value" title={cell}>{cell}</strong>
           : column === "Status"
             ? <span className={`table-status ${classroomEnrollmentStatusClass(cell)}`}>{cell}</span>
-            : <strong className={relationship ? "enrollment-relationship-value" : undefined} title={relationship ? cell : undefined}>{cell || "Unassigned"}</strong>}
+            : <strong className={relationship ? "enrollment-relationship-value" : undefined} title={cell || "Unassigned"}>{cell || "Unassigned"}</strong>}
       </ManagementDataCell>;
     })}
     {onEdit && onRemove

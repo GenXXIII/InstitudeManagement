@@ -3,11 +3,10 @@ using InstituteManagement.Application.Features.Operations;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
-using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
-public sealed class ClassroomOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentPeriodService periodService) : IOperationModuleReader
+public sealed class ClassroomOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentSourceService enrollmentSource) : IOperationModuleReader
 {
     public string Module => "classrooms";
 
@@ -15,66 +14,43 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
     {
         var context = await contextService.GetAsync(departmentId, cancellationToken);
         var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
-        var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
-        var classrooms = await db.ClassroomAssignments.AsNoTracking().Include(x => x.Classroom)
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
-                && x.Status != "Removed" && x.Status != "Unassigned"
-                && (!departmentId.HasValue || x.DepartmentId == null || x.DepartmentId == departmentId))
-            .OrderBy(x => x.Classroom!.ClassroomCode)
-            .ToListAsync(cancellationToken);
+        var source = await enrollmentSource.GetAsync(departmentId, cancellationToken);
+        var classrooms = source.Timetables
+            .GroupBy(enrollment => enrollment.ClassroomId)
+            .Select(group => group.First())
+            .OrderBy(enrollment => enrollment.Classroom!.ClassroomCode)
+            .ToList();
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(now);
         var shift = selection.Shift;
         var period = selection.Period;
-        var roomIds = classrooms.Select(room => room.ClassroomId).ToList();
-        var enrolledTimetableIds = await db.TimetableEnrollments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
-            .Select(x => x.ScheduleEntryId)
-            .ToListAsync(cancellationToken);
-        var courseAssignments = await db.CourseAssignments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
-                && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .ToListAsync(cancellationToken);
-        var enrolledCourseIds = courseAssignments.Select(x => x.CourseId).ToList();
-        var currentSchedules = await db.ScheduleEntries.AsNoTracking().Include(entry => entry.Course).Include(entry => entry.Teacher)
-            .Where(entry => entry.ClassroomId.HasValue && roomIds.Contains(entry.ClassroomId.Value)
-                && enrolledTimetableIds.Contains(entry.Id)
-                && entry.CourseId.HasValue && enrolledCourseIds.Contains(entry.CourseId.Value)
-                && entry.Status != "Cancelled"
-                && entry.DayOfWeek == selection.Date.DayOfWeek
-                && entry.StartsAt == period.StartsAt && entry.EndsAt == period.EndsAt)
-            .ToListAsync(cancellationToken);
-        if (!selection.IsRunning) currentSchedules.Clear();
-        var teacherIds = currentSchedules.Select(x => x.TeacherId).Distinct().ToList();
-        var teacherAssignments = await db.TeacherAssignments.AsNoTracking()
-            .Where(x => teacherIds.Contains(x.TeacherId) && x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
-                && x.Status != "Removed" && x.Status != "Unassigned")
-            .ToListAsync(cancellationToken);
+        var currentTimetables = source.Timetables
+            .Where(enrollment => enrollment.ScheduleEntry!.Shift == shift.Name
+                && enrollment.ScheduleEntry.DayOfWeek == selection.Date.DayOfWeek
+                && enrollment.ScheduleEntry.StartsAt == period.StartsAt
+                && enrollment.ScheduleEntry.EndsAt == period.EndsAt)
+            .ToList();
+        if (!selection.IsRunning) currentTimetables.Clear();
 
-        var rows = classrooms.Where(x => x.Classroom is not null).Select(x =>
+        var rows = classrooms.Select(enrollment =>
         {
-            var room = x.Classroom!;
-            var schedule = currentSchedules.FirstOrDefault(item => item.ClassroomId == x.ClassroomId);
+            var room = enrollment.Classroom!;
+            var current = currentTimetables.FirstOrDefault(item => item.ClassroomId == enrollment.ClassroomId);
             var fixedStatus = FixedStatus(room.Status, room.DeviceOnline);
-            var sourceCode = string.IsNullOrWhiteSpace(x.EnrollmentCode) ? room.ClassroomCode : x.EnrollmentCode;
-            if (schedule is null)
-                return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, codeFormat.Derive(sourceCode, "classroom", "operation"), room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? "Available", "No course in this period", "—", "Not scheduled", FixedStatusDetail(fixedStatus));
+            var operationCode = codeFormat.Derive(room.ClassroomCode, "classroom", "operation");
+            if (current is null)
+                return new ClassroomOperationDto(room.Id, room.ClassroomCode, operationCode, room.RoomType, Floor(room.ClassroomCode), room.Building, room.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? "Available", "No course in this period", "—", "Not scheduled", FixedStatusDetail(fixedStatus));
 
-            var department = courseAssignments.First(item => item.CourseId == schedule.CourseId).DepartmentId;
-            var teacherAssignment = teacherAssignments
-                .Where(item => item.TeacherId == schedule.TeacherId && (item.DepartmentId == department || item.DepartmentId == null))
-                .OrderByDescending(item => item.DepartmentId == department)
-                .FirstOrDefault();
-            var attendance = TeacherPresence.Attendance(schedule.Teacher?.Status, teacherAssignment?.Status);
+            var attendance = TeacherPresence.Attendance(current.Teacher!.Status);
             var running = fixedStatus is null && TeacherPresence.IsPresent(attendance);
             var detail = fixedStatus is not null
                 ? FixedStatusDetail(fixedStatus)
                 : running
-                ? $"{schedule.Course?.Name ?? "Course"} is running with {schedule.Teacher?.FullName ?? "the assigned teacher"}."
+                ? $"{current.Course!.Name} is running with {current.Teacher.FullName}."
                 : !TeacherPresence.IsPresent(attendance)
-                    ? $"{schedule.Course?.Name ?? "Course"} is assigned, but {schedule.Teacher?.FullName ?? "the teacher"} is {attendance.ToLowerInvariant()}; the course is not running."
-                    : $"{schedule.Course?.Name ?? "Course"} is assigned but is not running.";
-            return new ClassroomOperationDto(x.ClassroomId, room.ClassroomCode, codeFormat.Derive(sourceCode, "classroom", "operation"), room.RoomType, Floor(room.ClassroomCode), room.Building, x.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? (running ? "Running" : "Available"), schedule.Course?.Name ?? "Course", schedule.Teacher?.FullName ?? "—", attendance, detail);
+                    ? $"{current.Course!.Name} is enrolled, but {current.Teacher.FullName} is {attendance.ToLowerInvariant()}; the course is not running."
+                    : $"{current.Course!.Name} is enrolled but is not running.";
+            return new ClassroomOperationDto(room.Id, room.ClassroomCode, operationCode, room.RoomType, Floor(room.ClassroomCode), room.Building, room.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? (running ? "Running" : "Available"), current.Course!.Name, current.Teacher.FullName, attendance, detail);
         }).OrderBy(x => x.Room).ToList();
 
         var runningCount = rows.Count(x => x.Status == "Running");
@@ -89,7 +65,7 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
             new("Available", availableCount.ToString(), "No class running")
         };
         var timing = selection.IsRunning ? "current" : "next";
-        return new OperationDto(Module, $"Learning-space operations · {context.Scope}", $"Room status for the {timing} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). Available rooms follow the timetable; Maintenance and Unavailable remain fixed until changed in Classroom Management.", metrics, context.Activity, context.Attention, Classrooms: rows);
+        return new OperationDto(Module, $"Learning-space operations · {context.Scope}", $"Rooms come from matched Student Enrollment and Timetable Enrollment for the {timing} timetable period ({shift.Name}, {selection.Date:dddd} {period.StartsAt:HH:mm}–{period.EndsAt:HH:mm}). Maintenance, availability, and device state remain referenced classroom details.", metrics, context.Activity, context.Attention, Classrooms: rows);
     }
 
     private static string? FixedStatus(string managementStatus, bool deviceOnline) => managementStatus switch
@@ -104,7 +80,7 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
     {
         "Maintenance" => "Maintenance is fixed in Classroom Management and overrides the timetable.",
         "Unavailable" => "Unavailable is fixed in Classroom Management, or the attendance device is offline, and overrides the timetable.",
-        _ => "Available for an assigned timetable course."
+        _ => "Available for an enrolled timetable course."
     };
 
     private static int Floor(string code) => char.IsDigit(code.FirstOrDefault()) ? code[0] - '0' : 1;

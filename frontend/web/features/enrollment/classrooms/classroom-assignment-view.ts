@@ -3,7 +3,7 @@ import type { EnrollmentDisplayItem, EnrollmentItem } from "../common/enrollment
 
 export const classroomAssignmentCopy: EnrollmentCopy = {
   title: "Classroom Assign",
-  description: "Read-only view of each classroom-course assignment, capacity, and Classroom Management status.",
+  description: "Read-only classrooms and courses from Timetable Enrollment rows that match an active Student Enrollment cohort.",
   columns: ["EnrollmentCode", "Classroom", "Access", "Assigned course", "Capacity", "Status", "Create At"],
 };
 

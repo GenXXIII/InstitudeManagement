@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ManagementDataCell } from "@/components/management-data-cell";
 import { ManagementActions } from "@/features/management/components/management-actions";
@@ -23,8 +24,7 @@ export function TimetableBoard({ items, onEdit, onDeactivate }: { items: Timetab
       <label><span>Day</span><select value={selectedDay} onChange={event => setSelectedDay(event.target.value)}><option>All days</option>{days.map(day => <option key={day}>{day}</option>)}</select></label>
       <div className="timetable-data-count"><span>Showing</span><strong>{visible.length}</strong><small>permanent time slots</small></div>
     </div>
-    <div className="panel timetable-data-table schedule-master-table">
-      <div className="timetable-data-head"><span>Code</span><span>Shift</span><span>Time</span><span>Day</span><span>Created at</span><span>Actions</span></div>
+    <DataTable className="panel timetable-data-table schedule-master-table" headerClassName="timetable-data-head" rowSelector=".timetable-data-row" columns={["Code", "Shift", "Time", "Day", "Created at", "Actions"]}>
       <div className="timetable-data-body">{visible.map(item => <article className="timetable-data-row" key={item.id}>
         <ManagementDataCell label="Code"><strong className="management-code-value">{workflowCode(item.values.timetableCode, "timetable", "management")}</strong></ManagementDataCell>
         <ManagementDataCell label="Shift" className="timetable-detail-data"><strong>{item.values.shift}</strong></ManagementDataCell>
@@ -34,6 +34,6 @@ export function TimetableBoard({ items, onEdit, onDeactivate }: { items: Timetab
         <ManagementDataCell label="Actions" className="management-action-cell"><ManagementActions item={item} onEdit={onEdit} onDeactivate={onDeactivate}/></ManagementDataCell>
       </article>)}</div>
       {!visible.length && <div className="empty-state"><strong>No schedule rows found</strong><span>Change the day or search filter.</span></div>}
-    </div>
+    </DataTable>
   </section>;
 }

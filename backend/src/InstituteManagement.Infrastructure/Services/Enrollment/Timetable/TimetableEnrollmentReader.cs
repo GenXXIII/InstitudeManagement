@@ -26,27 +26,12 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                 && enrollment.Semester == period.Semester
                 && enrollment.Status == "Active")
             .ToListAsync(cancellationToken);
-        var courseIds = enrollments.Select(enrollment => enrollment.CourseId).Distinct().ToList();
-        var assignments = (await db.CourseAssignments
-            .AsNoTracking()
-            .Include(assignment => assignment.Department)
-            .Where(assignment =>
-                courseIds.Contains(assignment.CourseId)
-                && assignment.AcademicYear == period.AcademicYear
-                && assignment.Semester == period.Semester
-                && assignment.Status == "Active")
-            .OrderByDescending(assignment => assignment.UpdatedAtUtc)
-            .ToListAsync(cancellationToken))
-            .GroupBy(assignment => assignment.CourseId)
-            .ToDictionary(group => group.Key, group => group.First());
-
         return enrollments
             .Where(enrollment => enrollment.ScheduleEntry is not null)
             .Select(enrollment =>
             {
-                assignments.TryGetValue(enrollment.CourseId, out var assignment);
-                var resolvedDepartmentId = assignment?.DepartmentId ?? enrollment.Course?.DepartmentId;
-                var resolvedDepartmentName = assignment?.Department?.Name ?? enrollment.Course?.Department?.Name;
+                var resolvedDepartmentId = enrollment.Course?.DepartmentId;
+                var resolvedDepartmentName = enrollment.Course?.Department?.Name;
                 return new { Enrollment = enrollment, DepartmentId = resolvedDepartmentId, DepartmentName = resolvedDepartmentName };
             })
             .Where(row =>

@@ -77,7 +77,7 @@ export function buildEnrollmentOverview(data: EnrollmentOverviewData, selectedYe
     missingCourses: sourceCourses.filter(item => !activeCourseIds.has(item.id)).length,
     missingTimetables: sourceTimetable.filter(item => !enrolledTimetableIds.has(item.id)).length,
     attentionCohorts: cohorts.filter(cohort => !cohort.courses || cohort.missingCourses).length,
-    firstAttentionPath: firstAttention?.courses ? "/enrollment/timetable" : "/enrollment/courses",
+    firstAttentionPath: "/enrollment/timetable",
     firstAttentionDepartmentId: firstAttention?.departmentId ?? "",
     firstAttentionYear: firstAttention?.year ?? "",
   };

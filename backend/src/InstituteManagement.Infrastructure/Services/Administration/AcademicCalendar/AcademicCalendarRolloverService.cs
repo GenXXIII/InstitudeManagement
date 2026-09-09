@@ -11,6 +11,7 @@ public sealed class AcademicCalendarRolloverService(
     InstituteCache cache,
     AcademicCalendarClock clock,
     StudentAcademicYearAdvancer studentAdvancer,
+    AcademicPeriodEnrollmentAdvancer enrollmentAdvancer,
     ActivePeriodLedgerCreator ledgerCreator)
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -102,6 +103,12 @@ public sealed class AcademicCalendarRolloverService(
 
             if (!changed) return false;
             var activeYear = $"{academicStart.Year}\u2013{academicEnd.Year}";
+            var enrollmentAdvance = await enrollmentAdvancer.AdvanceAsync(
+                previousAcademicYear,
+                previousTerm,
+                activeYear,
+                activeTerm,
+                cancellationToken);
             var (attendanceCreated, gradesCreated) = await ledgerCreator.CreateAsync(activeYear, activeTerm, activeStart, cancellationToken);
             if (!string.IsNullOrWhiteSpace(previousAcademicYear)
                 && !string.IsNullOrWhiteSpace(previousTerm)
@@ -112,7 +119,9 @@ public sealed class AcademicCalendarRolloverService(
             db.Notifications.Add(new Notification
             {
                 Title = yearsAdvanced > 0 ? "Academic year advanced" : $"{activeTerm} activated",
-                Message = yearsAdvanced > 0 ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} students, graduated {graduated} Year 4 students, and created {attendanceCreated} attendance and {gradesCreated} grade rows." : $"{activeTerm} created {attendanceCreated} attendance and {gradesCreated} grade rows; the previous semester is archived in History.",
+                Message = yearsAdvanced > 0
+                    ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} students, graduated {graduated} Year 4 students, auto-enrolled {enrollmentAdvance.StudentsEnrolled} students, and created {attendanceCreated} attendance and {gradesCreated} grade rows."
+                    : $"{activeTerm} auto-enrolled {enrollmentAdvance.StudentsEnrolled} students and created {attendanceCreated} attendance and {gradesCreated} grade rows; the previous semester is preserved in History.",
                 Severity = "Info"
             });
             await db.SaveChangesAsync(cancellationToken);

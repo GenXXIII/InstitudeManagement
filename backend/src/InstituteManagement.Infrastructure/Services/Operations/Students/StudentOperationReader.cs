@@ -1,13 +1,15 @@
 using InstituteManagement.Application.Features.Dashboard;
 using InstituteManagement.Application.Features.Operations;
+using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Enrollment;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
-public sealed class StudentOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentPeriodService periodService) : IOperationModuleReader
+public sealed class StudentOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentSourceService enrollmentSource) : IOperationModuleReader
 {
     public string Module => "students";
 
@@ -19,33 +21,43 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(localNow);
         var shift = selection.Shift;
         var period = selection.Period;
-        var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
-        var currentTimetables = await db.TimetableEnrollments.AsNoTracking()
-            .Include(x => x.ScheduleEntry)
-            .Include(x => x.Teacher)
-            .Where(x =>
-                x.AcademicYear == enrollmentPeriod.AcademicYear
-                && x.Semester == enrollmentPeriod.Semester
-                && x.Status == "Active"
-                && x.ScheduleEntry != null
-                && x.ScheduleEntry.Status != "Cancelled"
-                && x.ScheduleEntry.Shift == shift.Name
+        var source = await enrollmentSource.GetAsync(departmentId, cancellationToken);
+        var enrollmentPeriod = source.Period;
+        var currentTimetables = source.Timetables
+            .Where(x => x.ScheduleEntry!.Shift == shift.Name
                 && x.ScheduleEntry.DayOfWeek == selection.Date.DayOfWeek
                 && x.ScheduleEntry.StartsAt == period.StartsAt
                 && x.ScheduleEntry.EndsAt == period.EndsAt)
-            .ToListAsync(cancellationToken);
+            .ToList();
         if (!selection.IsRunning) currentTimetables.Clear();
-        var currentYears = currentTimetables.Select(x => x.YearLevel).ToHashSet();
-        var runningYears = currentTimetables
-            .Where(x => TeacherPresence.IsPresent(TeacherPresence.Attendance(x.Teacher?.Status)))
-            .Select(x => x.YearLevel)
+        var currentCohorts = currentTimetables
+            .Select(OperationEnrollmentSourceService.TimetableCohort)
+            .Where(cohort => cohort.HasValue)
+            .Select(cohort => cohort!.Value)
             .ToHashSet();
-        var enrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student).Include(x => x.Department)
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
-                && x.Shift == shift.Name
-                && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .ToListAsync(cancellationToken);
-        enrollments = enrollments.Where(x => x.Student is not null && x.Student.Status != "Inactive" && currentYears.Contains(x.YearLevel)).OrderBy(x => x.Student!.StudentCode).ToList();
+        var runningCohorts = currentTimetables
+            .Where(x => TeacherPresence.IsPresent(TeacherPresence.Attendance(x.Teacher?.Status)))
+            .Select(OperationEnrollmentSourceService.TimetableCohort)
+            .Where(cohort => cohort.HasValue)
+            .Select(cohort => cohort!.Value)
+            .ToHashSet();
+        var coursesByCohort = currentTimetables
+            .Select(x => new
+            {
+                Cohort = OperationEnrollmentSourceService.TimetableCohort(x),
+                Course = x.Course!.Name
+            })
+            .Where(x => x.Cohort.HasValue)
+            .GroupBy(x => x.Cohort!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => string.Join(", ", group.Select(x => x.Course).Distinct().Order()));
+        var enrollments = source.Students
+            .Where(x =>
+                x.Shift == shift.Name
+                && currentCohorts.Contains(OperationEnrollmentSourceService.StudentCohort(x)))
+            .OrderBy(x => x.Student!.StudentCode)
+            .ToList();
         var ids = enrollments.Select(x => x.StudentId).ToList();
         var attendance = selection.IsRunning
             ? await db.AttendanceRecords.AsNoTracking()
@@ -62,9 +74,10 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
                 x.Student.StudentCode,
                 codeFormat.Derive(EnrollmentSource(x.EnrollmentCode, x.Student.StudentCode), "student", "operation"),
                 x.Department?.Name ?? "—",
+                coursesByCohort.GetValueOrDefault(OperationEnrollmentSourceService.StudentCohort(x), "—"),
                 x.YearLevel,
                 x.Shift,
-                runningYears.Contains(x.YearLevel) ? status.GetValueOrDefault(x.StudentId, defaultStatus) : "Class not running"))
+                runningCohorts.Contains(OperationEnrollmentSourceService.StudentCohort(x)) ? status.GetValueOrDefault(x.StudentId, defaultStatus) : "Class not running"))
             .OrderBy(x => AttendancePriority(x.AttendanceStatus))
             .ThenBy(x => x.StudentCode)
             .ToList();
@@ -106,4 +119,5 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
 
     private static string EnrollmentSource(string enrollmentCode, string managementCode) =>
         string.IsNullOrWhiteSpace(enrollmentCode) ? managementCode : enrollmentCode;
+
 }

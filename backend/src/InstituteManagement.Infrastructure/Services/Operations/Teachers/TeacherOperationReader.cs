@@ -3,11 +3,10 @@ using InstituteManagement.Application.Features.Operations;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
-using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
-public sealed class TeacherOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentPeriodService periodService) : IOperationModuleReader
+public sealed class TeacherOperationReader(InstituteDbContext db, OperationContextService contextService, OperationEnrollmentSourceService enrollmentSource) : IOperationModuleReader
 {
     public string Module => "teachers";
 
@@ -19,33 +18,31 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(now);
         var shift = selection.Shift;
         var period = selection.Period;
-        var enrollmentPeriod = await periodService.GetAsync(cancellationToken);
-        var courseAssignments = await db.CourseAssignments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active"
-                && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .Select(x => x.CourseId)
-            .ToListAsync(cancellationToken);
-        var enrolledTimetableIds = await db.TimetableEnrollments.AsNoTracking()
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester && x.Status == "Active")
-            .Select(x => x.ScheduleEntryId)
-            .ToListAsync(cancellationToken);
-        var currentTeacherIds = await db.ScheduleEntries.AsNoTracking()
-            .Where(x => x.Status != "Cancelled"
-                && enrolledTimetableIds.Contains(x.Id)
-                && x.CourseId.HasValue && courseAssignments.Contains(x.CourseId.Value)
-                && x.DayOfWeek == selection.Date.DayOfWeek
-                && x.StartsAt == period.StartsAt && x.EndsAt == period.EndsAt)
-            .Select(x => x.TeacherId)
-            .ToHashSetAsync(cancellationToken);
-        if (!selection.IsRunning) currentTeacherIds.Clear();
-        var teachers = await db.TeacherAssignments.AsNoTracking().Include(x => x.Teacher).Include(x => x.Department)
-            .Where(x => x.AcademicYear == enrollmentPeriod.AcademicYear && x.Semester == enrollmentPeriod.Semester
-                && x.Status != "Removed" && x.Status != "Unassigned"
-                && currentTeacherIds.Contains(x.TeacherId)
-                && (!departmentId.HasValue || x.DepartmentId == departmentId))
-            .OrderBy(x => x.Teacher!.TeacherCode)
-            .ToListAsync(cancellationToken);
-        var rows = teachers.Where(x => x.Teacher is not null).Select(x => new TeacherOperationDto(x.TeacherId, x.Teacher!.FullName, x.Teacher.TeacherCode, codeFormat.Derive(EnrollmentSource(x.EnrollmentCode, x.Teacher.TeacherCode), "teacher", "operation"), x.Department?.Name ?? "—", TeacherPresence.Attendance(x.Teacher.Status, x.Status)))
+        var source = await enrollmentSource.GetAsync(departmentId, cancellationToken);
+        var current = source.Timetables
+            .Where(enrollment => enrollment.ScheduleEntry!.Shift == shift.Name
+                && enrollment.ScheduleEntry.DayOfWeek == selection.Date.DayOfWeek
+                && enrollment.ScheduleEntry.StartsAt == period.StartsAt
+                && enrollment.ScheduleEntry.EndsAt == period.EndsAt)
+            .ToList();
+        if (!selection.IsRunning) current.Clear();
+        var rows = current
+            .GroupBy(enrollment => enrollment.TeacherId)
+            .Select(group =>
+            {
+                var enrollment = group.First();
+                var teacher = enrollment.Teacher!;
+                var departments = group.Select(item => item.Course!.Department?.Name ?? "—").Distinct().Order().ToList();
+                var courses = group.Select(item => item.Course!.Name).Distinct().Order().ToList();
+                return new TeacherOperationDto(
+                    teacher.Id,
+                    teacher.FullName,
+                    teacher.TeacherCode,
+                    codeFormat.Derive(teacher.TeacherCode, "teacher", "operation"),
+                    string.Join(", ", departments),
+                    string.Join(", ", courses),
+                    TeacherPresence.Attendance(teacher.Status));
+            })
             .OrderBy(x => AttendancePriority(x.Status))
             .ThenBy(x => x.TeacherCode)
             .ToList();
@@ -56,6 +53,4 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
 
     private static int AttendancePriority(string status) => status switch { "Present" => 0, "Permission" => 1, "Absent" => 2, _ => 3 };
 
-    private static string EnrollmentSource(string enrollmentCode, string managementCode) =>
-        string.IsNullOrWhiteSpace(enrollmentCode) ? managementCode : enrollmentCode;
 }

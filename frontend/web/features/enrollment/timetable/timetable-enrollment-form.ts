@@ -11,6 +11,7 @@ export function timetableEnrollmentFields(courses: EnrollmentItem[], teachers: E
     { key: "classroomId", label: "Classroom (Management)", type: "select", options: availableClassrooms.map(item => ({ id: item.id, label: `${item.values.classroomCode} - ${item.values.building} · ${item.values.roomType}` })), required: true },
     { key: "yearLevel", label: "Student year (from course)", type: "text", required: true, readOnly: true },
     { key: "semester", label: "Semester (from course)", type: "text", required: true, readOnly: true },
+    { key: "shift", label: "Shift (from schedule)", type: "text", required: true, readOnly: true },
   ];
 }
 

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { DataTable } from "@/components/data-table";
 import { workflowCode } from "@/lib/workflow-code";
 import type { References } from "../management-types";
 import type { DepartmentItem } from "@/features/management/departments/department-types";
@@ -7,7 +8,7 @@ import { ManagementActions } from "../components/management-actions";
 import { ManagementDataCell } from "@/components/management-data-cell";
 
 export function DepartmentDirectory({ items, references, onEdit, onDeactivate }: { items: DepartmentItem[]; references: References; onEdit: (item: DepartmentItem) => void; onDeactivate: (item: DepartmentItem) => void }) {
-  return <section className="panel horizontal-management-table department-horizontal"><div className="horizontal-management-head"><span>DepartmentCode</span><span>Department Name</span><span>Head Name</span><span>Create At</span><span>Actions</span></div>{items.map(item => {
+  return <DataTable as="section" className="panel horizontal-management-table department-horizontal" headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={["DepartmentCode", "Department Name", "Head Name", "Create At", "Actions"]}>{items.map(item => {
     const head = references.teachers.find(teacher => teacher.id === item.values.headTeacherId);
     return <article className="horizontal-management-row" key={item.id}>
       <ManagementDataCell label="DepartmentID"><strong className="management-code-value">{workflowCode(item.values.departmentCode, "department", "management")}</strong></ManagementDataCell>
@@ -16,5 +17,5 @@ export function DepartmentDirectory({ items, references, onEdit, onDeactivate }:
       <ManagementDataCell label="Create At" className="horizontal-detail"><strong>{item.values.createAt}</strong></ManagementDataCell>
       <ManagementDataCell label="Actions" className="management-action-cell"><ManagementActions item={item} onEdit={onEdit} onDeactivate={onDeactivate}/></ManagementDataCell>
     </article>;
-  })}</section>;
+  })}</DataTable>;
 }
