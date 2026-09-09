@@ -2,9 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { DataTable } from "@/components/data-table";
+import { DataTable, DataTableEmptyState, DataTableToolbar, PaginatedDataRegion } from "@/components/data-table";
 import { Icon } from "@/components/icon";
-import { DataPagination, useDataPagination } from "@/components/data-pagination";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { workflowSourceSearch } from "@/lib/workflow-code";
 import { RecordMetric } from "./components/record-metric";
@@ -37,7 +36,6 @@ function RecordRegister() {
     return (!departmentId || group.key.includes(departmentId) || group.entries.some(entry => entry.details.includes(departmentId))) && (!year || !yearValues.length || yearValues.includes(year));
   }), [departmentId, rows, year]);
   const visible = groups;
-  const pagination = useDataPagination(visible, `${resource}-${departmentId}-${year}-${query}`);
   const detailQuery = searchParams.toString();
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
@@ -46,7 +44,7 @@ function RecordRegister() {
     <PageHeading eyebrow="Institutional history register" title={config.title} description={config.description} actions={<button className="button secondary" onClick={() => exportCsv(rows)}><Icon name="archive" size={15}/>Export all snapshots</button>}/>
     <section className="record-lock-notice"><div><Icon name="archive" size={18}/></div><p><strong>Permanent read-only history</strong><span>History keeps the Management identity, semester Enrollment, operational evidence, final Record, and every captured change together.</span></p></section>
     <section className="record-overview-grid"><RecordMetric label="All records" value={groups.length} detail="individual profiles"/><RecordMetric label="History snapshots" value={rows.length} detail="complete captured changes" tone="violet"/></section>
-    <section className="record-toolbar panel"><label className="record-search management-search module-search-field"><Icon name="search" size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search all ${config.title.toLowerCase()}…`} aria-label={`Search ${config.title}`}/></label><span className="record-count">Showing {visible.length} of {groups.length} records</span></section>
-    {visible.length ? <section className="history-paginated-region"><DataTable className="record-register history-management-table panel" headerClassName="record-register-head history-management-head" rowSelector=".record-row-main" columns={["Record identity", "Latest management data", "Last updated"]}><div className="record-register-list">{pagination.pageItems.map(group => <RecordRow group={group} detailHref={`/records/${resource}/${encodeURIComponent(group.key)}${detailQuery ? `?${detailQuery}` : ""}`} key={group.key}/>)}</div></DataTable><DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visible.length} onPage={pagination.setPage}/></section> : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>No records found</strong><span>Try another search.</span></section>}
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder={`Search all ${config.title.toLowerCase()}…`} searchAriaLabel={`Search ${config.title}`} resultLabel={<>Showing {visible.length} of {groups.length} records</>} className="record-toolbar panel" searchClassName="record-search management-search module-search-field"/>
+    <PaginatedDataRegion items={visible} resetKey={`${resource}-${departmentId}-${year}-${query}`} className="history-paginated-region" empty={<DataTableEmptyState icon={<Icon name="archive" size={28}/>} title="No records found" description="Try another search."/>}>{pageItems => <DataTable className="record-register history-management-table panel" headerClassName="record-register-head history-management-head" rowSelector=".record-row-main" columns={["Record identity", "Latest management data", "Last updated"]}><div className="record-register-list">{pageItems.map(group => <RecordRow group={group} detailHref={`/records/${resource}/${encodeURIComponent(group.key)}${detailQuery ? `?${detailQuery}` : ""}`} key={group.key}/>)}</div></DataTable>}</PaginatedDataRegion>
   </div>;
 }

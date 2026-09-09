@@ -1,0 +1,10 @@
+.live-course-list>div{display:grid;grid-template-columns:48px 1.2fr 1fr 65px auto;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #edf1f6}
+.live-course-list>div>b{font-size:8px;color:#63728a}
+.live-course-head{display:grid;grid-template-columns:48px 1.2fr 1fr 65px auto;align-items:center;gap:10px;min-height:34px;border-top:1px solid #edf1f6;border-bottom:1px solid #e5ecf5;color:#8b98aa;text-transform:uppercase;letter-spacing:.55px;font-size:7px;font-weight:750}
+.operation-standard-page .live-course-head,.operation-standard-page .live-course-list>div{grid-template-columns:70px minmax(230px,1.2fr) minmax(190px,1fr) 100px 120px;gap:17px}
+.operation-standard-page .live-course-list>div{min-height:86px;padding:11px 0}
+.operation-standard-page .live-course-list>div>b{font-size:11px}
+.live-course-head,.live-course-list>div{grid-template-columns:100px minmax(0,1.2fr) minmax(0,1fr) 80px 65px auto}
+.operation-standard-page .live-course-head,.operation-standard-page .live-course-list>div{grid-template-columns:145px minmax(230px,1.2fr) minmax(190px,1fr) 105px 100px 120px}
+.operation-standard-page .live-course-list>div>div>strong{font-size:12px}
+.operation-standard-page .live-course-list>div>div>small{font-size:10px;line-height:1.4}

@@ -1,0 +1,19 @@
+.status-dot,.live-pill i,.mini-live i{width:8px;height:8px;border-radius:50%;background:#27bc85;box-shadow:0 0 0 4px rgba(39,188,133,.12);flex:none}
+.status-dot.offline{background:#d9646b;box-shadow:0 0 0 4px rgba(217,100,107,.12)}
+.live-pill,.mini-live{display:inline-flex;align-items:center;gap:7px;color:#2e8066;background:#edf9f5;border:1px solid #d8f0e7;border-radius:8px;padding:8px 11px;font-size:9.5px;font-weight:650;white-space:nowrap}
+.live-pill i,.mini-live i{width:6px;height:6px;box-shadow:none}
+.trend-pill{color:#7f9dcd;font-size:11px}
+.count-badge{background:#fff0f1;color:#d9505b;border-radius:7px;padding:4px 7px;font-size:8px;font-weight:700}
+.rule-pill{display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:7px;margin-top:7px;padding:8px;border-radius:8px;background:#f1f4f8}
+.rule-pill i{width:7px;height:7px;border-radius:50%;background:#aeb9c6}
+.rule-pill span,.rule-pill strong{font-size:7.5px}
+.rule-pill strong{color:#8794a6}
+.rule-pill.active{background:#eaf8f2}
+.rule-pill.active i{background:#32ad7e}
+.rule-pill.active strong{color:#278762}
+.initial-chip{width:29px;height:29px;border-radius:9px;background:#eaf2ff;color:#326fcf;display:grid;place-items:center;font-weight:750;font-size:8px}
+.grade-letter{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:#eaf8f2;color:#278764;font-size:9px;font-weight:800}
+.grade-letter.grade-c,.grade-letter.grade-d{background:#fff7e8;color:#bc811c}
+.grade-letter.grade-f{background:#fff0f1;color:#ce515b}
+.grade-letter.grade-e{background:#fff2e7;color:#b56c21}
+.grade-letter.grade-f{background:#fff0f1;color:#ce515b}

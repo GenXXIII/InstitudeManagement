@@ -1,0 +1,68 @@
+.sidebar-department-select{display:flex;width:100%;min-height:35px;margin:8px 0 2px;padding:0;border:0;background:transparent}
+.sidebar-department-select select{width:100%;height:35px;min-width:0;border:1px solid #e2eaf5;border-radius:9px;outline:0;background:white;color:#36506f;padding:0 10px;font-size:11.5px;font-weight:650;box-shadow:0 1px 5px rgba(45,82,135,.07);cursor:pointer}
+.sidebar-department-select select:focus{box-shadow:0 0 0 2px rgba(39,104,244,.15)}
+.department-mini-counts{display:flex;gap:12px}
+.department-mini-counts span{display:flex;flex-direction:column!important}
+.department-mini-counts b{font-size:10px;color:var(--ink)}
+.department-rule-preview{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.department-rule-preview>div{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 5px;border-radius:10px;background:white;color:#3c70be}
+.department-rule-preview strong{font-size:7.5px;color:#50627c}
+.department-rule-preview>i{width:20px;height:1px;background:#9ab9e6}
+.department-switcher,.management-search,.management-scope,.management-total{display:flex;flex-direction:column;gap:5px}
+.department-switcher>span,.management-scope>span,.management-total>span{font-size:7.5px;text-transform:uppercase;letter-spacing:.75px;color:#91a0b5;font-weight:700}
+.department-switcher select{height:38px;border:1px solid #dfe7f1;border-radius:9px;background:#f9fbfe;padding:0 11px;color:#304059;font-size:10px;outline:none}
+.department-overview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.department-overview-card{position:relative;overflow:hidden;padding:20px}
+.department-overview-card.selected{border-color:#8eb5fa;box-shadow:0 0 0 3px rgba(43,105,242,.08)}
+.department-code{position:absolute;right:-8px;top:-17px;font-size:72px;line-height:1;color:#edf4ff;font-weight:850;letter-spacing:-5px;pointer-events:none}
+.department-overview-head{display:flex;position:relative;justify-content:space-between;align-items:flex-start;gap:10px}
+.department-overview-head>div{display:flex;flex-direction:column}
+.department-overview-head>div>span{font-size:7.5px;text-transform:uppercase;letter-spacing:.8px;color:#92a0b4}
+.department-overview-head h2{font-size:15px;margin:5px 0;max-width:210px}
+.department-overview-card>.button{width:100%;margin-top:3px}
+.department-directory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.department-directory-card{position:relative;overflow:hidden}
+.department-ribbon{position:absolute;right:-18px;top:16px;transform:rotate(45deg);width:82px;text-align:center;padding:4px;background:#eaf2ff;color:#2b67ca;font-size:8px;font-weight:800}
+.department-title{display:flex;justify-content:space-between;align-items:flex-start;padding-right:35px}
+.department-title h2{font-size:14px;margin:0;max-width:190px}
+.department-head-person{display:flex;align-items:center;gap:10px;margin:18px 0 13px;padding:11px;background:#f7faff;border-radius:10px}
+.department-head-person>img,.department-head-person>span{width:40px;height:52px;object-fit:cover;border-radius:7px;background:#dceaff;color:#3169bc;display:grid;place-items:center;font-size:9px;font-weight:800}
+.department-head-person>div{display:flex;flex-direction:column;min-width:0}
+.department-head-person small{font-size:7px;color:#95a2b4}
+.department-head-person strong{font-size:9px;margin:3px 0}
+.department-head-person span{font-size:7px;color:#8996a8;overflow:hidden;text-overflow:ellipsis}
+.department-relations{display:flex;gap:6px;margin-bottom:13px}
+.department-relations span{padding:5px 7px;background:#f2f6fb;border-radius:6px;color:#728098;font-size:7.5px}
+.department-overview-grid{overflow:auto!important}
+.department-overview-card{min-width:950px}
+.department-overview-grid{grid-template-columns:1fr}
+.department-overview-card{display:grid;grid-template-columns:82px minmax(190px,1.25fr) minmax(150px,1fr) minmax(280px,1.25fr) auto 155px;align-items:center;gap:16px;padding:13px 15px}
+.department-code-cell{width:62px;height:52px;border-radius:11px;background:#edf4ff;color:#316bc5;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.department-code-cell strong{font-size:15px}
+.department-code-cell span{font-size:6.5px;text-transform:uppercase;color:#7e98bf}
+.department-overview-card .department-overview-head h2{margin:3px 0;font-size:12px}
+.department-overview-card .hod-line{padding:0;border:0}
+.department-overview-card .relationship-counts{margin:0}
+.department-overview-card>.button{width:auto;margin:0}
+.room-code-horizontal,.department-code-horizontal{width:58px;height:40px;border-radius:9px;background:#eaf3ff;color:#316cc5;display:grid;place-items:center;font-size:10px;font-weight:800}
+.department-horizontal .horizontal-management-head,.department-horizontal .horizontal-management-row{grid-template-columns:65px minmax(170px,1.2fr) minmax(210px,1.3fr) 75px 145px;min-width:760px}
+.department-head-horizontal{display:flex;align-items:center;gap:8px;min-width:0}
+.department-head-horizontal>img,.department-head-horizontal>span{width:32px;height:48px;object-fit:cover;border-radius:6px;background:#e4efff;display:grid;place-items:center;color:#3168bb;font-size:7px;font-weight:800}
+.department-head-horizontal>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.department-head-horizontal strong{font-size:8.5px}
+.department-head-horizontal small{font-size:7px;color:#93a0b1;overflow:hidden;text-overflow:ellipsis}
+.dashboard-department-card{grid-column:span 5}
+.dashboard-department-list>div{min-height:61px;display:grid;grid-template-columns:70px minmax(0,1fr) minmax(110px,.7fr);align-items:center;gap:12px;border-bottom:1px solid #e9eff5}
+.dashboard-department-list>div>span{color:#2d68bd;font-size:10px;font-weight:800}
+.dashboard-department-list>div>b{overflow:hidden;color:#657991;font-size:10px;text-align:right;text-overflow:ellipsis;white-space:nowrap}
+.department-horizontal .horizontal-management-head,.department-horizontal .horizontal-management-row{min-width:760px}
+.department-horizontal .horizontal-management-head,.department-horizontal .horizontal-management-row{grid-template-columns:repeat(5,minmax(130px,1fr))}
+.horizontal-primary strong,.horizontal-detail strong,.department-head-horizontal strong,.department-head-horizontal small{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.department-horizontal{grid-template-columns:repeat(5,minmax(max-content,1fr))}
+.management-department-head,.management-department-row{min-width:900px;display:grid;grid-template-columns:145px minmax(190px,1fr) minmax(180px,1fr) 80px 80px 80px 60px;align-items:center;gap:13px;padding:0 15px}
+.management-department-head{min-height:39px;border-bottom:1px solid #e2e9f2;background:#f3f7fb;color:#7e8da1;font-size:7.5px;font-weight:800;text-transform:uppercase}
+.management-department-row{min-height:58px;border-bottom:1px solid #e9eef5;color:#63748b;font-size:8.5px}
+.management-department-row:last-child{border-bottom:0}
+.management-department-row>strong{color:#2f69be;font-size:9px}
+.management-department-row>b{color:#344b69;font-size:10px}
+.structure-department{background:#eaf7f2;color:#287b60}

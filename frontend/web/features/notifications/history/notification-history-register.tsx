@@ -2,7 +2,7 @@ import { DataTable } from "@/components/data-table";
 import type { NotificationHistoryItem } from "./notification-history-types";
 
 export function NotificationHistoryRegister({ rows, onOpen }: { rows: NotificationHistoryItem[]; onOpen: (code: string) => void }) {
-  return <DataTable as="section" className="panel horizontal-management-table notification-history-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-history-row" columns={["Notification history code", "Notification code", "Type", "Title and preview", "Recorded", "Action"]}>
+  return <DataTable as="section" className="panel horizontal-management-table notification-history-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-history-row" columns={[{ key: "history-code", label: "Notification history code", align: "center" }, { key: "notification-code", label: "Notification code", align: "center" }, "Type", "Title and preview", "Recorded", "Action"]}>
     {rows.map(item => <article
       className="horizontal-management-row notification-history-row"
       role="link"

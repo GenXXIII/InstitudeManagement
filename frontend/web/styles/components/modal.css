@@ -1,0 +1,6 @@
+.modal{width:min(520px,100%);background:white;border:1px solid rgba(255,255,255,.8);border-radius:18px;box-shadow:0 28px 80px rgba(20,46,90,.23);padding:22px}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start}
+.modal h2{font-size:18px;margin:4px 0 0}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:15px;border-top:1px solid #edf1f6}
+.modal-head p{font-size:8px;color:#919daf;margin:6px 0 0}
+.modal-head p{font-size:9.5px}

@@ -1,0 +1,106 @@
+.student-record-ledger{display:grid;gap:11px}
+.student-record-row{padding:0;overflow:hidden}
+.student-record-row>header{min-height:58px;display:grid;grid-template-columns:34px minmax(170px,1fr) auto;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid #e7edf5;background:#f8fbfe}
+.student-record-row>header>div:nth-child(2){display:flex;min-width:0;flex-direction:column;gap:3px}
+.student-record-row>header>div:nth-child(2)>strong{font-size:9.5px}
+.student-record-row>header small{font-size:7px;color:#8b99ac}
+.student-record-summary,.grade-totals{display:flex;align-items:center;gap:7px}
+.student-record-summary>span,.grade-totals>span{display:flex;align-items:center;gap:5px;padding:6px 8px;border-radius:7px;background:white;color:#7e8da2;font-size:6.5px}
+.student-record-summary b,.grade-totals b{color:#2e65b6;font-size:8.5px}
+.student-record-cells{display:flex;gap:7px;padding:9px 12px;overflow:auto}
+.student-record-cells .management-actions{flex-direction:column;gap:2px}
+.student-record-cells .management-actions button{height:20px;padding:0 6px;font-size:5.5px}
+.student-record-ledger{gap:15px}
+.student-record-row>header{min-height:74px;padding:12px 16px}
+.student-record-row>header>div:nth-child(2)>strong{font-size:11px}
+.student-record-row>header small{font-size:8.5px}
+.student-record-summary>span,.grade-totals>span{padding:8px 10px;font-size:8px}
+.student-record-summary b,.grade-totals b{font-size:10px}
+.student-record-cells{gap:10px;padding:12px 15px}
+.student-record-cells .management-actions button{height:25px;padding:0 8px;font-size:7px}
+.student-record-row>header{grid-template-columns:minmax(105px,.55fr) 34px minmax(170px,1fr) auto}
+.record-business-id,.student-record-identity{display:flex;min-width:0;flex-direction:column;gap:3px}
+.student-record-identity>strong{font-size:9.5px;overflow-wrap:anywhere}
+.student-record-identity small{font-size:7px;color:#8b99ac}
+.workflow-ledger-code .student-record-code,.workflow-ledger-code .entity-record-code{padding:0}
+.student-semester-detail>.workflow-code-flow,.entity-semester-detail>.workflow-code-flow,.structure-semester-detail>.workflow-code-flow{margin-bottom:14px}
+.student-record-row>header{grid-template-columns:minmax(120px,.55fr) 70px minmax(190px,1fr) auto}
+.management-data-cell.student-record-summary,.management-data-cell.grade-totals{flex-direction:row!important;align-items:center!important;justify-content:flex-start;flex-wrap:wrap}
+.student-record-summary>.management-cell-label,.grade-totals>.management-cell-label{flex-basis:100%}
+.student-record-summary>span,.grade-totals>span{flex-direction:column;align-items:flex-start;gap:3px}
+.student-record-summary>span small,.grade-totals>span small{color:#7e8da2;font-size:8px}
+.management-viewport-page .student-record-row>header{position:sticky;top:0;z-index:2}
+.student-program-history-detail{gap:16px}
+.student-program-timeline{display:flex;flex-direction:column;gap:12px}
+.student-program-timeline>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid #d8e4f1;border-radius:12px;background:linear-gradient(105deg,#eaf3ff,#f8fbff 64%,#edf8f4)}
+.student-program-timeline>header>div{display:flex;flex-direction:column;gap:4px}
+.student-program-timeline>header strong{font-size:13px}
+.student-program-timeline>header span{color:#74869d;font-size:9px}
+.student-program-timeline>header>b{padding:7px 10px;border-radius:8px;background:#3472ca;color:white;font-size:9px}
+.student-program-period{overflow:hidden;border:1px solid #dce6f1;border-radius:13px;background:white}
+.student-program-period>header{min-height:66px;display:grid;grid-template-columns:minmax(210px,1fr) auto auto;align-items:center;gap:14px;padding:10px 15px;border-bottom:1px solid #dfe8f2;background:#f4f8fd}
+.student-program-period>header>div{display:flex;align-items:center;gap:10px}
+.student-program-period>header span{padding:6px 8px;border-radius:7px;background:#e3efff;color:#2f67b4;font-size:9px;font-weight:800}
+.student-program-period>header h3{margin:0;color:#2f557f;font-size:14px}
+.student-program-period>header>strong{color:#356bc0;font-size:10px}
+.student-program-period>header>small{color:#78899f;font-size:8px}
+.student-program-period>section{padding:14px 15px;border-bottom:1px solid #e5ecf4}
+.student-program-period>section:last-child{border-bottom:0}
+.student-program-period>section>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.student-program-period>section>div:first-child strong{font-size:11px}
+.student-program-period>section>div:first-child span{color:#7b8b9f;font-size:8px}
+.program-period-grade-grid>.student-record-detail-empty{grid-column:1/-1}
+.student-program-period section>footer{display:flex;align-items:center;justify-content:flex-end;gap:14px;margin-top:10px;padding:9px 11px;border-radius:8px;background:#eef5ff;color:#3467ad}
+.student-program-period section>footer span{font-size:8px}
+.student-program-period section>footer strong{font-size:14px}
+.student-program-period section>footer b{font-size:9px}
+.student-semester-record-ledger{padding:0!important;overflow:auto}
+.record-viewport-page>.student-semester-record-ledger{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.student-semester-record-head,.student-semester-record-row{display:grid;grid-template-columns:92px 56px minmax(170px,1fr) minmax(150px,.9fr) 205px 330px 125px;align-items:center;gap:12px;min-width:1200px;padding:0 17px}
+.student-semester-record-head{position:sticky;top:0;z-index:3;min-height:48px;border-bottom:1px solid #dfe7f1;background:#f2f6fb;color:#7d8ca1;font-size:9px;font-weight:800;letter-spacing:.55px;text-transform:uppercase}
+.student-semester-record-row{min-height:96px;border-bottom:1px solid #e6edf5;background:white}
+.student-semester-record-row:last-child{border-bottom:0}
+.student-record-code{color:#2e68be;font-size:11px;overflow-wrap:anywhere}
+.student-semester-photo{width:42px;height:58px;display:grid;place-items:center;border:1px solid #dce6f1;border-radius:9px;background:#e9f2ff;object-fit:cover;color:#3269bc;font-size:10px;font-weight:850}
+.student-record-name,.student-record-department{display:flex;min-width:0;flex-direction:column;gap:5px}
+.student-record-name strong,.student-record-department strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.student-record-name span,.student-record-department span{color:#8492a5;font-size:8px}
+.student-semester-detail{display:grid;gap:16px}
+.student-semester-detail>header{display:flex;align-items:center;gap:14px;padding:17px;border:1px solid #e0e8f2;border-radius:13px;background:#f7faff}
+.student-semester-detail>header .student-semester-photo{width:62px;height:84px}
+.student-semester-detail>header>div{display:flex;min-width:0;flex-direction:column;gap:5px}
+.student-semester-detail h2,.student-semester-detail p{margin:0}
+.student-semester-detail h2{font-size:20px}
+.student-semester-detail p{color:#74849a;font-size:10px}
+.student-detail-insights{display:grid;grid-template-columns:220px minmax(330px,1fr) 145px;gap:12px}
+.student-detail-insights>div{padding:10px;border:1px solid #e0e8f2;border-radius:12px;background:white}
+.student-record-detail-section{overflow:hidden;border:1px solid #dfe7f1;border-radius:13px;background:white}
+.student-record-detail-section>header{min-height:62px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #e4ebf4;background:#f6f9fd}
+.student-record-detail-section>header>div{display:flex;flex-direction:column;gap:4px}
+.student-record-detail-section>header strong{font-size:12px}
+.student-record-detail-section>header span{color:#8190a4;font-size:8px}
+.student-record-detail-section>header>b{padding:6px 9px;border-radius:7px;background:#e9f2ff;color:#316bc2;font-size:9px}
+.student-record-detail-empty{margin:0;padding:24px;color:#8694a7;font-size:9px;text-align:center}
+.student-grade-detail>div>.student-record-edit-button{margin-left:auto}
+.student-record-edit-button{height:30px;display:flex;align-items:center;gap:5px;border:1px solid #bdd0e7;border-radius:7px;background:white;padding:0 9px;color:#3268b5;font-size:8px;font-weight:750;cursor:pointer}
+.student-record-inline-editor{grid-template-columns:150px minmax(210px,1fr) 145px 125px auto;background:#f7faff}
+.student-record-inline-editor label{display:flex;flex-direction:column;gap:4px}
+.student-record-inline-editor label>span{color:#7e8da1;font-size:7px;font-weight:750}
+.student-record-inline-editor select,.student-record-inline-editor input,.student-grade-inline-editor input{height:35px;border:1px solid #d3deeb;border-radius:7px;background:white;padding:0 8px;font-size:9px}
+.operation-page-rows,.record-paginated-region>.session-record-list,.record-paginated-region>.session-semester-record-ledger,.record-paginated-region>.student-semester-record-ledger,.result-paginated-region>.semester-result-table,.history-paginated-region>.record-register,.management-paginated-region>:first-child{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.record-paginated-region>.student-semester-record-ledger{padding:0!important}
+.management-paginated-region .horizontal-management-head,.management-paginated-region .student-record-row>header,.result-paginated-region .semester-result-head,.history-paginated-region .record-register-head{position:sticky;top:0;z-index:3}
+.semester-history-group .session-semester-record-head,.semester-history-group .student-semester-record-head,.semester-history-group .entity-semester-record-head,.semester-history-group .structure-semester-record-head{position:static}
+.student-semester-record-head,.student-semester-record-row{grid-template-columns:var(--data-table-columns);min-width:0}
+.student-record-year,.entity-record-year{display:flex;min-width:0;flex-direction:column;gap:5px}
+.student-record-year strong,.entity-record-year strong{color:#385675;font-size:10px;overflow-wrap:anywhere}
+.student-record-year span,.entity-record-year span{color:#8492a5;font-size:7.5px}
+.semester-history-group .session-semester-record-head,.semester-history-group .student-semester-record-head,.semester-history-group .entity-semester-record-head,.semester-history-group .structure-semester-record-head{position:sticky;top:0;z-index:4}
+.record-detail-viewport-page :is(.student-record-detail-section,.entity-session-register,.structure-session-register)>header strong{font-size:13.5px}
+.record-detail-viewport-page :is(.student-record-detail-section,.entity-session-register,.structure-session-register)>header span{font-size:10.5px}
+.record-detail-viewport-page :is(.student-semester-detail,.entity-semester-detail,.structure-semester-detail)>header p{font-size:11.5px}
+.record-viewport-page :is(.session-semester-record-head,.student-semester-record-head,.entity-semester-record-head,.structure-semester-record-head){min-height:52px;font-size:10.5px}
+.record-viewport-page :is(.session-semester-record-row,.student-semester-record-row,.entity-semester-record-row,.structure-semester-record-row){min-height:108px}
+.record-viewport-page :is(.workflow-ledger-code,.student-record-name,.student-record-department,.student-record-year,.entity-record-name,.entity-record-department,.entity-record-year,.structure-record-context)>strong{font-size:12px}
+.record-viewport-page :is(.workflow-ledger-code,.student-record-name,.student-record-department,.student-record-year,.entity-record-name,.entity-record-department,.entity-record-year,.structure-record-context)>span,.record-viewport-page .workflow-ledger-code>small{font-size:9.5px}
+.record-viewport-page .entity-record-code,.record-viewport-page .student-record-code{font-size:12px}

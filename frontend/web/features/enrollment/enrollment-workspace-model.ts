@@ -61,11 +61,17 @@ export function buildEnrollmentDisplayItems(items: EnrollmentItem[], resource: E
     : items;
   return resource === "classrooms"
     ? classroomAssignmentDisplayItems(assignedItems)
-    : assignedItems.map(item => ({ ...item, rowKey: item.id }));
+    : assignedItems.map(item => ({ ...item, rowKey: periodRowKey(item) }));
 }
 
 export function sortEnrollmentItems<T extends EnrollmentItem>(items: T[], resource: EnrollmentResource) {
   return items.toSorted((left, right) => {
+    const stateDifference = periodStateOrder(left) - periodStateOrder(right);
+    if (stateDifference) return stateDifference;
+    const academicYearDifference = (right.values.academicYear || "").localeCompare(left.values.academicYear || "", undefined, { numeric: true, sensitivity: "base" });
+    if (academicYearDifference) return academicYearDifference;
+    const semesterDifference = (right.values.semester || "").localeCompare(left.values.semester || "", undefined, { numeric: true, sensitivity: "base" });
+    if (semesterDifference) return semesterDifference;
     const yearDifference = enrollmentYear(left, resource) - enrollmentYear(right, resource);
     if (yearDifference) return yearDifference;
     const codeDifference = enrollmentCode(left).localeCompare(enrollmentCode(right), undefined, { numeric: true, sensitivity: "base" });
@@ -103,4 +109,12 @@ function enrollmentCode(item: EnrollmentItem) {
 
 function assignedCourseName(item: EnrollmentItem) {
   return "assignedCourse" in item && typeof item.assignedCourse === "string" ? item.assignedCourse : "";
+}
+
+function periodStateOrder(item: EnrollmentItem) {
+  return item.values.periodState === "Retained" ? 1 : 0;
+}
+
+function periodRowKey(item: EnrollmentItem) {
+  return [item.id, item.values.academicYear, item.values.semester, item.values.enrollmentCode].filter(Boolean).join("-");
 }

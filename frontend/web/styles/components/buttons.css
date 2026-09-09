@@ -1,0 +1,16 @@
+.icon-button{width:36px;height:36px;border-radius:10px;border:1px solid #e5ebf3;background:white;color:#65738a;display:grid;place-items:center;cursor:pointer}
+.icon-button:hover{color:var(--blue);background:#f7faff}
+.button{min-height:36px;padding:0 14px;border-radius:9px;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:10.5px;font-weight:650;cursor:pointer;transition:.18s ease}
+.button.primary{background:linear-gradient(120deg,#276af4,#1b5ee9);color:white;box-shadow:0 8px 20px rgba(42,104,239,.21)}
+.button.primary:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(42,104,239,.28)}
+.button.secondary{color:#5b6980;background:white;border-color:#e1e8f1}
+.button:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.row-action button{width:27px;height:27px;border:0;border-radius:7px;display:grid;place-items:center;background:#fff1f2;color:#d55b64;cursor:pointer}
+.profile-popover>button{width:100%;height:39px;border:0;border-bottom:1px solid #edf1f6;background:white;padding:0 14px;text-align:left;color:#52637b;font-size:9px;cursor:pointer}
+.profile-popover>button:hover{background:#f7faff;color:var(--blue)}
+.student-inline-actions{display:flex!important;flex-direction:row!important;gap:6px!important}
+.student-inline-actions .button{min-height:34px;padding:0 10px;font-size:8px}
+.student-grade-inline-editor button{height:30px;border:1px solid #cbd8e7;border-radius:6px;background:white;padding:0 7px;color:#426184;font-size:7px;cursor:pointer}
+.code-recommendation button{min-height:38px;display:flex;align-items:center;gap:7px;border:1px solid #8cc8b3;border-radius:9px;background:white;padding:0 12px;color:#24785b;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
+.code-recommendation button:hover{border-color:#4ca582;background:#e8f8f1}
+.code-recommendation button:focus-visible{outline:3px solid rgba(52,151,112,.18);outline-offset:2px}

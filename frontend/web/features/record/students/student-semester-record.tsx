@@ -6,14 +6,11 @@ import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
 import { workflowCode, type WorkflowCodeStage } from "@/lib/workflow-code";
+import { RecordLedgerValue } from "../components/record-ledger-value";
 import { recordApi } from "../record-api";
 import type { OperationalRecord, OperationalRecordGrade, OperationalRecordInsights } from "../record-types";
 
 const emptyInsights: OperationalRecordInsights = { presentCount: 0, permissionCount: 0, absentCount: 0, grades: [], expectedCourses: 5, totalScore: 0, average: 0, result: "In progress", isFinal: false };
-
-export function StudentSemesterRecordHeader({ history = false }: { history?: boolean }) {
-  return <div className="student-semester-record-head"><span>{history ? "History code" : "Record code"}</span><span>Photo</span><span>Name</span><span>Department</span><span>{history ? "Completed level" : "Year"}</span><span>{history ? "Four-year attendance" : "Attendance"}</span><span>{history ? "Semester grade totals" : "Five course grades"}</span><span>{history ? "Program result" : "Semester result"}</span></div>;
-}
 
 export function StudentSemesterRecord({ row, stage = "record", detailHref, detailPage = false, editable = false, onUpdated }: { row: OperationalRecord; stage?: WorkflowCodeStage; detailHref?: string; detailPage?: boolean; editable?: boolean; onUpdated?: () => void }) {
   const router = useRouter();
@@ -21,15 +18,22 @@ export function StudentSemesterRecord({ row, stage = "record", detailHref, detai
   const gradeSlots = slots(insights);
   if (detailPage) return <StudentSemesterDetail row={row} stage={stage} insights={insights} gradeSlots={gradeSlots} editable={editable} onUpdated={onUpdated}/>;
   const open = () => { if (detailHref) router.push(detailHref); };
+  const history = stage === "history";
+  const totalScore = history ? programPeriods(row).reduce((total, period) => total + period.total, 0) : insights.totalScore;
   return <article className="student-semester-record-row record-row-clickable" role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
-    <div className="workflow-ledger-code"><strong className="student-record-code">{workflowCode(row.code || row.identifier.split(" · ")[0], "student", stage)}</strong><small>From {workflowCode(row.code, "student", "enrollment")}</small></div>
+    <div className="workflow-ledger-code"><strong className="student-record-code">{workflowCode(row.code || row.identifier.split(" · ")[0], "student", stage)}</strong></div>
     <StudentPhoto row={row}/>
-    <div className="student-record-name"><strong>{row.subject}</strong><span>{identityDetail(row.identifier)}</span></div>
-    <div className="student-record-department"><strong>{row.department || "Unassigned"}</strong><span>{row.academicYear} · {row.term}</span></div>
-    <div className="student-record-year"><strong>{stage === "history" ? "Year 1–4" : recordYear(row)}</strong><span>{stage === "history" ? "Completed Year 4 Semester 2" : recordShift(row)}</span></div>
-    <AttendanceCards insights={insights}/>
-    {stage === "history" ? <ProgramGradeTotals row={row}/> : <GradeCards grades={gradeSlots} stage={stage}/>}
-    {stage === "history" ? <ProgramResultCard insights={insights}/> : <ResultCard insights={insights}/>}
+    <div className="student-record-name"><strong>{row.subject}</strong></div>
+    <div className="student-record-department"><strong>{row.department || "Unassigned"}</strong></div>
+    <div className="student-record-year"><strong>{history ? "Year 4 Semester 2" : recordYear(row)}</strong></div>
+    {!history && <RecordLedgerValue value={recordShift(row)} className="record-value-neutral"/>}
+    <RecordLedgerValue value={insights.presentCount} className="record-value-present"/>
+    <RecordLedgerValue value={insights.permissionCount} className="record-value-permission"/>
+    <RecordLedgerValue value={insights.absentCount} className="record-value-absent"/>
+    {!history && gradeSlots.map((grade, index) => <RecordLedgerValue value={grade?.grade ?? "—"} className={`grade-${toneKey(grade?.grade ?? "pending")}`} title={grade ? `${workflowCode(grade.gradeCode, "grade", stage)} · ${grade.courseCode} · ${grade.courseName}` : `Course ${index + 1} grade pending`} key={grade?.courseCode ?? index}/>)}
+    <RecordLedgerValue value={totalScore.toFixed(1)} className="record-value-total"/>
+    <RecordLedgerValue value={insights.average.toFixed(2)} className="record-value-average"/>
+    <RecordLedgerValue value={history ? "Graduated" : insights.result} className={history ? "result-a" : `result-${toneKey(insights.result)}`}/>
   </article>;
 }
 

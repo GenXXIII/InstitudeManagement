@@ -1,0 +1,553 @@
+@media (max-width:1100px){
+  .app-frame{padding:0}
+  .sidebar{height:100vh;border-radius:0}
+  .workspace{height:100vh;border-radius:0}
+  .dashboard-grid{grid-template-columns:1fr 1fr}
+  .attendance-panel,.live-panel{grid-column:span 2}
+  .schedule-panel{grid-row:span 1}
+  .management-grid{grid-template-columns:1fr 1fr}
+  .insight-panel{grid-column:span 2}
+  .metrics-grid:has(.metric-card:nth-child(5)){grid-template-columns:repeat(3,1fr)}
+  .department-overview-grid{grid-template-columns:repeat(2,1fr)}
+  .department-directory,.room-management-grid{grid-template-columns:repeat(2,1fr)}
+  .management-toolbar{grid-template-columns:1fr 1fr}
+  .course-management-card{grid-template-columns:50px 1fr 120px auto}
+  .course-management-card>.management-actions{grid-column:2/5}
+}
+@media (max-width:800px){
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-102%);transition:.25s ease;border-radius:0 20px 20px 0;box-shadow:0 20px 60px rgba(30,59,99,.22)}
+  .sidebar.open{transform:translateX(0)}
+  .backdrop{display:block;position:fixed;z-index:15;inset:0;border:0;background:rgba(34,51,78,.25);backdrop-filter:blur(2px)}
+  .workspace{border:0}
+  .menu-button{display:grid}
+  .topbar{padding:0 16px;height:68px}
+  .term-chip{display:none}
+  .global-search{width:auto;flex:1}
+  .content{padding:22px 16px}
+  .operation-layout,.settings-layout{grid-template-columns:1fr}
+  .operation-side{grid-template-columns:1fr 1fr}
+  .metrics-grid,.metrics-grid:has(.metric-card:nth-child(5)){grid-template-columns:repeat(2,1fr)}
+  .management-grid{grid-template-columns:1fr}
+  .wide-chart,.insight-panel{grid-column:auto}
+  .insights{grid-template-columns:1fr}
+  .settings-form{grid-template-columns:1fr}
+  .toggle-field{grid-column:auto}
+  .timetable-day{grid-template-columns:1fr}
+  .timetable-day-title{flex-direction:row;align-items:center;gap:8px}
+  .timetable-day-title h3{margin:0}
+  .timetable-day-title small{margin-left:auto}
+  .history-day{grid-template-columns:1fr}
+  .history-date{align-items:flex-start}
+  .history-timeline{padding-left:0}
+  .history-entry-main{grid-template-columns:45px 1fr auto}
+  .history-details-button{grid-column:2/4;text-align:left}
+  .history-snapshot{grid-template-columns:1fr 1fr}
+}
+@media (max-width:800px){
+  .operations-visual-workspace{height:calc(100vh - 125px)}
+  .operations-visual-workspace>.page-heading{margin-bottom:9px}
+}
+@media (max-width:560px){
+  .page-heading{align-items:flex-start;flex-direction:column}
+  .heading-actions{width:100%;flex-wrap:wrap}
+  .heading-actions .button{flex:1}
+  .metrics-grid,.metrics-grid:has(.metric-card:nth-child(5)){grid-template-columns:1fr 1fr}
+  .metric-card{min-height:116px}
+  .dashboard-grid{grid-template-columns:1fr}
+  .attendance-panel,.live-panel{grid-column:auto}
+  .status-grid{grid-template-columns:1fr 1fr;gap:16px}
+  .status-grid>div{border:0;padding:0}
+  .operation-side{grid-template-columns:1fr}
+  .global-search kbd{display:none}
+  .top-actions{gap:7px}
+  .avatar{display:none}
+  .form-grid{grid-template-columns:1fr}
+  .record-toolbar{align-items:stretch;flex-wrap:wrap}
+  .record-search{min-width:100%}
+  .record-count{margin:5px 0 0}
+  .settings-actions{flex-wrap:wrap}
+  .save-message{width:100%}
+  .content{padding-left:12px;padding-right:12px}
+  .panel{padding:14px}
+  .attendance-panel{min-height:235px}
+  .donut-wrap{gap:15px}
+  .progress-row{grid-template-columns:105px 1fr 20px}
+  .management-toolbar{grid-template-columns:1fr}
+  .management-scope,.management-total{border:0;padding-left:0}
+  .department-overview-grid,.department-directory,.room-management-grid{grid-template-columns:1fr}
+  .course-management-card{grid-template-columns:42px 1fr auto}
+  .course-numbers{grid-column:2/4}
+  .course-management-card>.management-actions{grid-column:2/4}
+  .timetable-slot{grid-template-columns:70px 1fr}
+  .timetable-slot>.table-status,.timetable-slot>.management-actions{grid-column:2}
+  .management-form-grid{grid-template-columns:1fr}
+  .photo-upload-field{grid-row:auto;align-items:center}
+  .history-entry-main{grid-template-columns:1fr}
+  .history-entry-main>time{order:-1}
+  .history-details-button{grid-column:auto}
+  .history-snapshot{grid-template-columns:1fr}
+  .record-lock-notice{align-items:flex-start}
+}
+@media (max-width:1100px){
+  .department-overview-grid{grid-template-columns:1fr}
+}
+@media (max-width:1100px){
+  .record-overview-grid{grid-template-columns:repeat(2,1fr)}
+  .operation-dashboard-page .institute-operations-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:800px){
+  .institute-operations-grid{grid-template-columns:1fr}
+  .operation-dashboard-page{height:auto;min-height:0}
+  .operation-dashboard-page>.data-panel{height:auto}
+  .operational-record-summary{grid-template-columns:1fr}
+  .operational-activity-list{padding-left:15px}
+  .record-row-history{padding-left:15px}
+  .record-history-entry{grid-template-columns:115px 1fr}
+  .record-history-snapshot{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:560px){
+  .record-overview-grid{grid-template-columns:1fr 1fr}
+  .record-metric{min-height:88px}
+  .record-history-entry{grid-template-columns:1fr}
+  .record-history-meta{border-right:0;border-bottom:1px solid #e8eef6}
+  .record-history-snapshot{grid-template-columns:1fr}
+  .institute-operations-grid{padding:0 12px 12px}
+}
+@media (max-width:1000px){
+  .weekly-timetable{grid-template-columns:1fr;grid-template-rows:24px minmax(280px,1fr) minmax(220px,.75fr);overflow:auto}
+  .operations-visual-workspace:has(.operation-timetable){height:auto;min-height:calc(100vh - 134px);overflow:visible}
+  .operation-visual-page:has(.operation-timetable){min-height:650px}
+  .student-record-row>header{grid-template-columns:34px 1fr}
+  .student-record-summary,.grade-totals{grid-column:1/-1;justify-content:flex-end}
+}
+@media (max-width:1100px){
+  .weekly-timetable.room-timetable{overflow:auto}
+  .timetable-control-bar{grid-template-columns:1fr}
+  .timetable-day-tabs,.timetable-year-filter{overflow:auto}
+  .room-schedule-matrix{min-width:900px;min-height:420px}
+  .operation-visual-page:has(.operation-timetable){min-height:720px}
+}
+@media (max-width:1250px){
+  .dashboard-metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dashboard-trend-card,.dashboard-schedule-card,.dashboard-activity-card{grid-column:span 7}
+  .dashboard-breakdown-card,.dashboard-department-card,.dashboard-grade-card{grid-column:span 5}
+}
+@media (max-width:900px){
+  .dashboard-header{align-items:flex-start;flex-direction:column}
+  .dashboard-header-actions{width:100%}
+  .dashboard-period-control{flex:1}
+  .dashboard-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-layout>article{grid-column:1/-1}
+}
+@media (max-width:560px){
+  .dashboard-header h1{font-size:25px}
+  .dashboard-header-actions{align-items:stretch;flex-direction:column}
+  .dashboard-metric-grid{grid-template-columns:1fr}
+  .dashboard-metric{min-height:96px}
+  .dashboard-card{padding:15px}
+  .dashboard-trend-card{min-height:350px}
+  .dashboard-card-heading{flex-direction:column}
+  .dashboard-attention-card .activity-list{grid-template-columns:1fr}
+}
+@media (max-width:1000px){
+  .management-timetable-controls{grid-template-columns:1fr}
+  .management-timetable-summary i{display:none}
+  .management-room-matrix-body{max-height:560px}
+}
+@media (max-width:560px){
+  .topbar-popover{position:fixed;right:12px;top:62px;width:calc(100vw - 24px)}
+  .avatar-button{display:none}
+}
+@media (min-width:1100px){
+  .content{width:100%;zoom:1;padding:26px}
+  .content .page-heading{margin-bottom:28px}
+  .content .page-heading h1{font-size:30px}
+  .content .page-heading p{font-size:14px}
+  .content .eyebrow,.content .panel-kicker{font-size:10px}
+  .content .panel{padding:20px;border-radius:17px}
+  .content .settings-panel,.content .horizontal-management-table,.content .management-room-matrix,.content .operational-record-table,.content .record-register,.content .student-record-row,.content .data-panel{padding:0}
+  .content .button{min-height:43px;padding:0 17px;font-size:12.5px}
+  .content .table-status{font-size:9px;padding:6px 9px}
+  .content .metric-card{min-height:149px;padding:17px 18px 16px}
+  .content .metric-icon{width:34px;height:34px}
+  .content .metric-label{font-size:10px}
+  .content .metric-card>strong{font-size:24px}
+  .content .metric-card small{font-size:10px}
+  .content .panel-title h3{font-size:15px}
+  .content .panel-title>a{font-size:11px}
+  .content .live-pill,.content .mini-live{font-size:11.5px;padding:10px 13px}
+  .content .management-toolbar{padding:19px 22px;gap:16px}
+  .content .department-switcher select,.content .management-search{height:53px}
+  .content .department-switcher select,.content .management-search input{font-size:14px}
+  .content .management-scope>span,.content .management-total>span{font-size:10px}
+  .content .management-scope strong{font-size:14px}
+  .content .management-total strong{font-size:24px}
+  .content .horizontal-management-head,.content .horizontal-management-row{gap:19px;padding:13px 20px}
+  .content .horizontal-management-head{min-height:52px;font-size:10px}
+  .content .horizontal-management-row{min-height:110px;font-size:12px}
+  .content .horizontal-portrait img{width:58px;height:86px}
+  .content .horizontal-primary strong{font-size:14px}
+  .content .horizontal-primary span,.content .horizontal-detail span{font-size:10px}
+  .content .horizontal-detail strong{font-size:12px}
+  .content .relationship-number strong{font-size:19px}
+  .content .relationship-number span{font-size:10px}
+  .content .management-actions button{height:38px;padding:0 13px;font-size:11px}
+  .content .student-record-row>header{min-height:89px;padding:14px 19px}
+  .content .student-record-row>header>div:nth-child(2)>strong{font-size:13px}
+  .content .student-record-row>header small{font-size:10px}
+  .content .student-record-summary>span,.content .grade-totals>span{padding:10px 12px;font-size:10px}
+  .content .student-record-summary b,.content .grade-totals b{font-size:12px}
+  .content .student-record-cells{gap:12px;padding:14px 18px}
+  .content .attendance-record-cell,.content .grade-record-cell{min-width:276px;padding:13px 14px}
+  .content .attendance-record-cell time,.content .attendance-record-cell small,.content .grade-record-cell small{font-size:10px}
+  .content .attendance-record-cell strong,.content .grade-record-cell strong{font-size:11px}
+  .content .operational-record-summary article,.content .record-metric{min-height:115px}
+  .content .operational-record-summary span,.content .operational-record-summary small,.content .record-metric>span,.content .record-metric>small{font-size:9px}
+  .content .operational-record-summary strong,.content .record-metric>strong{font-size:24px}
+  .content .operational-record-head,.content .record-register-head{min-height:46px;font-size:8.5px}
+  .content .operational-record-main{min-height:84px}
+  .content .record-row-main{min-height:91px}
+  .content .operational-record-identity strong,.content .record-identity strong{font-size:11.5px}
+  .content .operational-record-main p,.content .record-latest-details span{font-size:9.5px}
+  .content .operational-activity-entry>div,.content .record-history-snapshot>div{padding:11px 12px}
+  .content .operational-activity-entry span,.content .record-history-snapshot span{font-size:8px}
+  .content .operational-activity-entry strong,.content .record-history-snapshot strong{font-size:9px}
+  .content .record-dropdown-button{height:37px;font-size:9px}
+  .content .settings-intro{padding:23px 24px}
+  .content .settings-intro h3{font-size:16px}
+  .content .settings-intro p{font-size:10px}
+  .content .settings-form{gap:20px 24px;padding:25px 24px}
+  .content .setting-field>span,.content .toggle-field strong{font-size:11.5px}
+  .content .setting-field input,.content .setting-field select{height:46px;font-size:11.5px}
+  .content .toggle-field span{font-size:10px}
+  .content .management-room-matrix>header{height:62px}
+  .content .management-room-row{min-height:144px}
+  .content .management-room-label strong{font-size:18px}
+  .content .management-room-label span{font-size:10px}
+  .content .management-room-label small{font-size:8.5px}
+  .content .management-class-card{padding:10px}
+  .content .management-class-card>strong{font-size:12px}
+  .content .management-class-card>span{font-size:10px}
+  .content .management-class-card>small{font-size:8.5px}
+  .workspace{overflow-y:auto;scrollbar-width:auto}
+}
+@media (max-width:1000px){
+  .timetable-data-filters{grid-template-columns:1fr 1fr}
+  .timetable-data-count{border-left:0}
+  .operational-time-timeline{padding-left:15px}
+  .operational-date-group{grid-template-columns:1fr}
+  .operational-date-label{border-right:0;border-bottom:1px solid #e0e8f2}
+  .unified-operation-summary{grid-template-columns:1fr 1fr}
+  .unified-summary-cell:nth-child(2){border-right:0}
+  .unified-summary-cell:nth-child(-n+2){border-bottom:1px solid #e4ebf4}
+}
+@media (max-width:600px){
+  .timetable-data-filters{grid-template-columns:1fr}
+  .operational-time-entry{grid-template-columns:1fr}
+  .operational-time-block{border-right:0;border-bottom:1px solid #e7edf4}
+  .unified-operation-summary{grid-template-columns:1fr}
+  .unified-summary-cell{border-right:0;border-bottom:1px solid #e4ebf4}
+}
+@media (max-width:1150px){
+  .session-timetable-trigger{grid-template-columns:180px 145px minmax(170px,1fr) minmax(160px,1fr) 110px}
+  .session-card-expand{grid-column:1/-1;min-height:38px;border-top:1px solid #e7edf5}
+  .session-card-attendance{border-right:0!important}
+}
+@media (max-width:800px){
+  .result-toolbar{grid-template-columns:1fr}
+  .result-rule-notice{align-items:flex-start}
+  .result-summary{grid-template-columns:1fr}
+}
+@media (max-width:900px){
+  .session-student-status-grid{grid-template-columns:1fr 1fr}
+  .session-attendance-head{grid-template-columns:130px 1fr}
+  .session-attendance-head>b{grid-column:1/-1;margin:0 12px 12px}
+  .history-management-row .record-row-history{padding-left:18px}
+}
+@media (max-width:600px){
+  .session-student-status-grid{grid-template-columns:1fr}
+  .session-attendance-head{grid-template-columns:1fr}
+  .session-attendance-head>.operational-time-block{border-bottom:1px solid #e3eaf3}
+  .session-record-edit-row{grid-template-columns:1fr 1fr}
+  .session-record-edit-row>div{grid-column:1/-1}
+}
+@media (max-width:1400px){
+  .topbar-term-button{display:none}
+  .global-search{width:min(440px,35vw)}
+  .topbar-scopes>label:first-child{width:170px}
+}
+@media (max-width:1050px){
+  .topbar-scopes>label:first-child{width:145px}
+  .topbar-scopes>label>span{display:none}
+  .global-search{width:min(350px,36vw)}
+}
+@media (max-width:960px){
+  .topbar{height:auto;min-height:68px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+  .global-search{order:1;width:calc(100% - 96px);flex:none}
+  .topbar-scopes{order:3;width:100%}
+  .topbar-scopes>label:first-child,.topbar-scopes>label:last-child{width:auto;flex:1}
+  .top-actions{margin-left:auto}
+  .workspace{padding-top:0}
+}
+@media (max-width:560px){
+  .global-search-scope{display:none}
+  .global-search-input{gap:7px}
+  .global-search-input input{font-size:12.5px}
+}
+@media (max-width:760px){
+  .global-filter-summary{grid-template-columns:1fr 1fr}
+  .global-filter-summary>p{grid-column:1/-1}
+}
+@media (max-width:460px){
+  .global-filter-summary{grid-template-columns:1fr}
+  .global-filter-summary>p{grid-column:auto}
+}
+@media (min-width:801px){
+  .operation-dashboard-page{min-height:calc(100vh - 205px)!important}
+  .operation-dashboard-page>.data-panel{min-height:inherit;display:flex;flex-direction:column}
+  .operation-dashboard-page .unified-operation-dashboard{flex:1;grid-template-rows:auto minmax(360px,1fr) auto}
+  .operation-dashboard-page .unified-operation-board{display:grid;grid-template-rows:48px 1fr}
+  .operation-dashboard-page .unified-operation-columns{height:100%}
+  .operation-dashboard-page .unified-operation-columns>section{min-height:100%}
+}
+@media (max-width:560px){
+  .settings-intro{gap:10px}
+  .settings-intro-actions{align-items:flex-end;flex-direction:column}
+  .settings-form-semester .setting-field-semester select,.settings-form-academic-year .setting-field-current-year input,.settings-form-academic-year .setting-field-current-year select{width:100%}
+}
+@media (max-width:1000px){
+  .student-record-row>header{grid-template-columns:minmax(100px,.6fr) 34px minmax(170px,1fr)}
+  .student-record-summary,.grade-totals{grid-column:1/-1;justify-content:flex-end}
+}
+@media (max-width:800px){
+  .student-profile-horizontal,.teacher-profile-horizontal{grid-template-columns:110px 100px 155px 190px 110px 160px;min-width:825px;overflow-x:auto}
+}
+@media (max-width:1250px){
+  .enrollment-overview-metrics{grid-template-columns:repeat(3,minmax(160px,1fr))}
+  .enrollment-overview-main{grid-template-columns:1fr}
+  .enrollment-attention-list{display:grid;grid-template-columns:1fr 1fr}
+  .enrollment-attention-list>a:nth-child(odd){border-right:1px solid #edf1f6}
+}
+@media (max-width:760px){
+  .enrollment-overview-scope{align-items:flex-start;flex-direction:column;gap:8px}
+  .enrollment-overview-metrics{grid-template-columns:1fr 1fr}
+  .enrollment-attention-list{grid-template-columns:1fr}
+  .enrollment-attention-list>a:nth-child(odd){border-right:0}
+  .enrollment-cohort-panel>header{align-items:flex-start;flex-direction:column}
+  .enrollment-cohort-panel>header .button{width:100%;justify-content:center}
+}
+@media (max-width:460px){
+  .enrollment-overview-metrics{grid-template-columns:1fr}
+}
+@media (min-width:1100px){
+  .enrollment-service-horizontal>.horizontal-management-row>*{min-height:110px}
+}
+@media (max-width:900px){
+  .workflow-code-flow>div{grid-template-columns:1fr}
+  .workflow-code-flow>div>div,.workflow-code-flow>div>div:first-child,.workflow-code-flow>div>div:last-child{border-radius:8px}
+  .workflow-code-flow>div>div i{right:12px;transform:rotate(90deg)}
+}
+@media (max-width:1150px){
+  .announce-alert-form{grid-template-columns:1fr 1fr}
+  .announce-alert-form label:nth-child(4){grid-column:1/-1}
+  .announce-alert-form>div{justify-content:flex-end}
+  .notification-center{position:fixed;right:12px;top:64px}
+}
+@media (max-width:560px){
+  .announce-alert-form{grid-template-columns:1fr}
+  .announce-alert-form label:nth-child(4){grid-column:auto}
+  .notification-center{left:12px;width:auto}
+}
+@media (max-width:900px){
+  .announce-alert-form{grid-template-columns:1fr 1fr}
+}
+@media (max-width:560px){
+  .announce-alert-form{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .notification-detail>section.notification-detail-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}
+}
+@media (max-width:560px){
+  .notification-detail{padding:16px}
+  .notification-detail h2{font-size:17px}
+  .notification-full-detail>header{flex-direction:column}
+  .notification-full-detail>header time{align-items:flex-start}
+  .notification-detail>section.notification-detail-grid{grid-template-columns:1fr}
+}
+@media (max-width:800px){
+  .viewport-data-page{height:100%}
+  .viewport-data-page>.page-heading{margin-bottom:12px}
+}
+@media (max-width:600px){
+  .history-detail-summary>header{align-items:flex-start;flex-direction:column}
+  .history-detail-summary>div{grid-template-columns:1fr}
+}
+@media (max-width:800px){
+  .announce-overview-metrics{grid-template-columns:1fr}
+  .administration-overview-summary{align-items:flex-start;flex-direction:column}
+  .administration-overview-grid{grid-template-columns:1fr}
+}
+@media (max-width:1150px){
+  .session-timetable-trigger{grid-template-columns:180px 145px minmax(170px,1fr) minmax(160px,1fr) minmax(130px,auto)}
+}
+@media (min-width:801px){
+  .operations-workspace:has(.operation-dashboard-page){height:calc(100vh - 134px);min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .operations-workspace:has(.operation-dashboard-page)>.page-heading{flex:none;margin-bottom:12px}
+  .operation-dashboard-page{height:calc(100vh - 205px)!important;flex:1;min-height:calc(100vh - 205px)!important}
+  .operation-dashboard-page>.data-panel{height:100%!important;min-height:0}
+  .operation-dashboard-page .unified-operation-dashboard{height:100%;min-height:0}
+}
+@media (max-width:850px){
+  .student-detail-insights{grid-template-columns:1fr}
+  .student-grade-detail-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}
+  .student-session-detail,.student-record-inline-editor{grid-template-columns:1fr 1fr}
+  .student-inline-actions{justify-content:flex-start}
+  .student-session-detail>.student-record-edit-button{justify-self:start}
+}
+@media (max-width:520px){
+  .student-grade-detail-grid{grid-template-columns:1fr}
+  .student-session-detail,.student-record-inline-editor{grid-template-columns:1fr}
+  .student-semester-detail>header{align-items:flex-start}
+  .student-semester-detail h2{font-size:17px}
+}
+@media (max-width:520px){
+  .data-pagination{align-items:stretch;flex-direction:column}
+  .data-pagination>div{justify-content:space-between}
+  .data-pagination button{flex:1}
+}
+@media (max-width:850px){
+  .entity-detail-insights{grid-template-columns:1fr}
+  .entity-session-main{grid-template-columns:1fr 1fr}
+  .entity-session-main>.entity-attendance-cards{grid-column:1/-1}
+  .entity-student-snapshot{grid-template-columns:repeat(2,minmax(150px,1fr))}
+}
+@media (max-width:520px){
+  .entity-session-main,.entity-student-snapshot{grid-template-columns:1fr}
+  .entity-session-main>.entity-attendance-cards{grid-column:auto}
+  .entity-semester-detail>header{align-items:flex-start}
+  .entity-semester-detail h2{font-size:17px}
+}
+@media (max-width:1250px){
+  .history-control-overview-page .enrollment-overview-metrics{grid-template-columns:repeat(2,minmax(170px,1fr))}
+  .history-data-map>div{grid-template-columns:repeat(2,minmax(190px,1fr))}
+}
+@media (max-width:1250px){
+  .record-overview-guide{grid-template-columns:1fr 1.55fr}
+  .record-retention-rules{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr auto}
+  .record-overview-main{grid-template-columns:1fr}
+  .record-resource-directory{min-height:380px}
+  .record-recent-evidence{min-height:280px}
+  .record-recent-evidence>div{display:grid;grid-template-columns:1fr 1fr}
+  .record-recent-evidence>div>a:nth-child(odd){border-right:1px solid #edf1f6}
+}
+@media (max-width:700px){
+  .management-department-coverage>header{align-items:flex-start;flex-direction:column}
+  .record-semester-switcher{align-items:flex-start;flex-direction:column}
+  .record-semester-switcher>nav{width:100%}
+  .history-data-map>div{grid-template-columns:1fr}
+}
+@media (max-width:800px){
+  .record-overview-guide{grid-template-columns:1fr}
+  .record-retention-rules{grid-column:auto;grid-template-columns:1fr}
+  .record-lifecycle-guide{justify-content:flex-start;overflow-x:auto;padding-bottom:3px}
+  .record-overview-metrics{grid-template-columns:1fr 1fr}
+  .record-resource-groups{grid-template-columns:1fr;height:auto}
+  .record-resource-directory{overflow:visible}
+  .record-recent-evidence>div{grid-template-columns:1fr}
+  .record-recent-evidence>div>a:nth-child(odd){border-right:0}
+}
+@media (max-width:480px){
+  .record-overview-metrics{grid-template-columns:1fr}
+  .record-resource-directory>header{align-items:flex-start}
+  .record-resource-groups a{grid-template-columns:32px minmax(0,1fr) auto}
+  .record-resource-groups a>svg{display:none}
+}
+@media (max-width:560px){
+  .announce-alert-form label>small{white-space:normal}
+  .announce-alert-form label{grid-template-rows:15px 42px minmax(15px,auto)}
+}
+@media (max-width:460px){
+  .history-control-overview-page .enrollment-overview-metrics{grid-template-columns:1fr}
+}
+@media (max-width:850px){
+  .record-semester-switcher>label{width:100%;min-width:0}
+  .semester-history-group>header{grid-template-columns:1fr auto}
+  .semester-history-group>header>small{grid-column:1/-1}
+  .structure-detail-metrics{grid-template-columns:1fr 1fr}
+  .structure-session-register>div>article{grid-template-columns:1fr 1fr}
+  .structure-session-register>div>article>p{grid-column:1/-1}
+}
+@media (max-width:520px){
+  .structure-detail-metrics{grid-template-columns:1fr}
+  .structure-session-register>div>article{grid-template-columns:1fr}
+  .structure-session-register>div>article>p{grid-column:auto}
+  .structure-semester-detail>header{align-items:flex-start}
+  .semester-history-group>header{grid-template-columns:1fr}
+  .semester-history-group>header>strong{justify-self:start}
+}
+@media (max-width:1100px){
+  .announce-alert-form{grid-template-columns:1fr 1fr 1fr}
+  .announce-alert-form label:nth-child(4){grid-column:1/-1}
+  .announce-alert-form>div{grid-column:1/-1;justify-content:flex-end}
+}
+@media (max-width:700px){
+  .announce-alert-form{grid-template-columns:1fr 1fr}
+  .announce-alert-form label:nth-child(4){grid-column:1/-1}
+}
+@media (max-width:560px){
+  .announce-alert-form{grid-template-columns:1fr}
+  .announce-alert-form label:nth-child(4),.announce-alert-form>div{grid-column:auto}
+}
+@media (max-width:620px){
+  .code-recommendation{grid-template-columns:38px 1fr}
+  .code-recommendation>div{grid-template-columns:1fr}
+  .code-recommendation p{grid-column:1;grid-row:auto}
+  .code-recommendation button{grid-column:1/-1;justify-content:center}
+}
+@media (max-width:720px){
+  .global-search-results{left:0;width:min(620px,calc(100vw - 24px))}
+  .global-search-preview-list,.global-search-pages>div{grid-template-columns:1fr}
+  .global-search-preview-list>.global-search-result:nth-child(odd){border-right:0}
+  .global-search-results-head{grid-template-columns:38px minmax(0,1fr)}
+  .global-search-result-totals{grid-column:1/-1;justify-content:flex-end}
+  .global-search-results-body{max-height:55vh}
+  .global-search-section-label>small{display:none}
+}
+@media (max-width:1100px){
+  .global-filter-workflow-tabs{grid-template-columns:repeat(3,1fr)}
+  .global-filter-workspace{grid-template-columns:190px minmax(0,1fr)}
+  .global-filter-command{grid-template-columns:1fr}
+  .global-filter-command>div{border-left:0;padding-left:0}
+  .global-filter-pages{grid-template-columns:155px minmax(0,1fr)}
+}
+@media (max-width:760px){
+  .global-filter-workflow-tabs{display:flex;overflow-x:auto}
+  .global-filter-workflow-tabs>a{min-width:180px}
+  .global-filter-workspace{display:flex;flex-direction:column;overflow:auto}
+  .global-filter-facets{flex:none;max-height:260px}
+  .global-filter-results{min-height:480px;overflow:visible}
+  .global-filter-command>form{grid-template-columns:20px minmax(0,1fr)}
+  .global-filter-command .button{grid-column:1/-1}
+  .global-filter-command>form{height:auto;padding:8px}
+  .global-filter-pages{grid-template-columns:1fr}
+  .global-filter-pages>header{border-right:0;border-bottom:1px solid #e1e8f1}
+}
+@media (max-width:1100px){
+  .global-filter-command>.global-filter-command-context{border-left:0;padding-left:0}
+}
+@media (max-width:620px){
+  .global-filter-command>.global-filter-command-context{grid-template-columns:1fr}
+  .content .module-search-field{min-width:100%}
+}
+@media (max-width:1100px){
+  .global-filter-command{grid-template-columns:1fr}
+}
+@media (max-width:620px){
+  .global-filter-command>form{grid-template-columns:1fr}
+  .global-filter-command>form>.button{grid-column:auto;width:100%;height:44px;min-height:44px}
+}
+@media (max-width:760px){
+  .global-filter-workflow-tabs.panel{display:flex;padding:6px}
+  .global-filter-workflow-tabs.panel>a{min-width:155px}
+  .global-filter-register.horizontal-management-table{grid-template-columns:170px 220px 155px minmax(280px,1fr) 70px}
+}

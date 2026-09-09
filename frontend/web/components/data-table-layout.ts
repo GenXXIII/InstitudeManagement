@@ -1,0 +1,185 @@
+export type DataTableAlignment = "left" | "center" | "right";
+
+export type DataTableLayoutColumn = {
+  label: unknown;
+  align?: DataTableAlignment;
+  minimumWidth?: number;
+};
+
+const minimumColumnWidth = 44;
+const minimumFontSize = 9;
+const textSelector = "strong, small, time, b, span, button, a, p";
+let measureContext: CanvasRenderingContext2D | null | undefined;
+
+export function observeDataTableLayout(root: HTMLElement, columns: DataTableLayoutColumn[], rowSelector: string) {
+  let frame = 0;
+  const resizeObserver = new ResizeObserver(schedule);
+  const mutationObserver = new MutationObserver(schedule);
+
+  function prepare() {
+    frame = 0;
+    const header = root.querySelector<HTMLElement>(":scope > .data-table-head");
+    if (!header) return;
+    const headerCells = elementChildren(header);
+    const rows = [...root.querySelectorAll<HTMLElement>(rowSelector)]
+      .filter(row => elementChildren(row).length === headerCells.length);
+
+    for (const row of rows) {
+      row.dataset.dataTableRow = "";
+      row.dataset.adaptiveTableRow = "";
+    }
+    alignColumns(columns, headerCells, rows);
+    sizeColumns(root, columns, headerCells, rows);
+  }
+
+  function schedule() {
+    if (!frame) frame = window.requestAnimationFrame(prepare);
+  }
+
+  resizeObserver.observe(root);
+  mutationObserver.observe(root, { childList: true, characterData: true, subtree: true });
+  schedule();
+
+  return () => {
+    if (frame) window.cancelAnimationFrame(frame);
+    resizeObserver.disconnect();
+    mutationObserver.disconnect();
+  };
+}
+
+export function getColumnAlignment(column?: DataTableLayoutColumn): DataTableAlignment {
+  if (column?.align) return column.align;
+  const label = String(column?.label ?? "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase();
+  const compact = label.replaceAll(" ", "");
+
+  if (/(?:code|codes|id|ids|identifier|identifiers)$/.test(compact)) return "center";
+  if (/\b(code|codes|id|ids|identifier|identity|status|state|type|types|category|categories|boolean|year|semester|term|shift|date|day|time|received|recorded|action|actions|open|checkbox|checkboxes|icon|icons|photo|image|device|create|created|updated)\b/.test(label)) return "center";
+  if (/\b(number|numbers|quantity|quantities|count|counts|amount|amounts|money|score|scores|percentage|percentages|percent|decimal|decimals|measurement|measurements|capacity|total|average|rate|coverage|attendance|grade|grades|students|teachers|rooms|seats)\b/.test(label)) return "right";
+  return "left";
+}
+
+function alignColumns(columns: DataTableLayoutColumn[], headerCells: HTMLElement[], rows: HTMLElement[]) {
+  headerCells.forEach((header, index) => {
+    const alignment = getColumnAlignment(columns[index]);
+    applyAlignment(header, alignment);
+    for (const row of rows) {
+      const cell = elementChildren(row)[index];
+      if (cell) applyAlignment(cell, alignment);
+    }
+  });
+}
+
+function sizeColumns(root: HTMLElement, columns: DataTableLayoutColumn[], headerCells: HTMLElement[], rows: HTMLElement[]) {
+  const desired = headerCells.map((header, index) => Math.max(
+    columns[index]?.minimumWidth ?? minimumColumnWidth,
+    naturalCellWidth(header, true),
+    ...rows.map(row => naturalCellWidth(elementChildren(row)[index])),
+  ));
+  const widths = distributeWidths(desired, availableTrackWidth(root, headerCells.length));
+  root.style.setProperty("--data-table-columns", widths.map(width => `${Math.floor(width * 10) / 10}px`).join(" "));
+  headerCells.forEach(cell => fitCellText(cell, true));
+  for (const row of rows) elementChildren(row).forEach(cell => fitCellText(cell));
+}
+
+function availableTrackWidth(root: HTMLElement, columnCount: number) {
+  const header = root.querySelector<HTMLElement>(":scope > .data-table-head");
+  const container = header && window.getComputedStyle(header).display !== "contents" ? header : root;
+  const style = window.getComputedStyle(container);
+  const gaps = Math.max(0, columnCount - 1) * numeric(style.columnGap);
+  return Math.max(columnCount, contentWidth(container) - gaps);
+}
+
+function applyAlignment(cell: HTMLElement, alignment: DataTableAlignment) {
+  cell.dataset.dataTableCell = "";
+  cell.dataset.cellAlign = alignment;
+  const style = window.getComputedStyle(cell);
+  if (style.display.includes("flex")) cell.dataset.cellFlow = style.flexDirection.startsWith("column") ? "column" : "row";
+  else if (style.display.includes("grid")) cell.dataset.cellFlow = "grid";
+  else delete cell.dataset.cellFlow;
+}
+
+function elementChildren(element?: Element) {
+  if (!element) return [];
+  return [...element.children].filter((child): child is HTMLElement => child instanceof HTMLElement);
+}
+
+function naturalCellWidth(cell?: HTMLElement, header = false) {
+  if (!cell) return minimumColumnWidth;
+  const style = window.getComputedStyle(cell);
+  const padding = numeric(style.paddingLeft) + numeric(style.paddingRight);
+  const text = Math.max(...textElements(cell, header).map(textWidth), 0);
+  const actions = cell.querySelector<HTMLElement>(".management-actions, .notification-row-actions");
+  const actionWidth = actions
+    ? [...actions.querySelectorAll<HTMLElement>("button, a")].reduce((total, action) => total + action.getBoundingClientRect().width, 0)
+      + Math.max(0, actions.children.length - 1) * numeric(window.getComputedStyle(actions).columnGap)
+    : 0;
+  const fixedVisual = Math.max(...[...cell.querySelectorAll<HTMLElement>("img, .initial-chip, .horizontal-portrait")]
+    .map(item => item.getBoundingClientRect().width), 0);
+  return Math.ceil(Math.max(text, actionWidth, fixedVisual, minimumColumnWidth - padding) + padding + 2);
+}
+
+function distributeWidths(desired: number[], available: number) {
+  const equal = available / desired.length;
+  const widths = desired.map(() => equal);
+  const floor = Math.min(minimumColumnWidth, equal);
+  const needs = desired.map((width, index) => ({ index, amount: Math.max(0, width - equal) })).filter(item => item.amount > 0);
+  const donors = desired.map((width, index) => ({ index, amount: Math.max(0, equal - Math.max(floor, width)) })).filter(item => item.amount > 0);
+  const totalNeed = needs.reduce((total, item) => total + item.amount, 0);
+  const totalAvailable = donors.reduce((total, item) => total + item.amount, 0);
+  const transfer = Math.min(totalNeed, totalAvailable);
+  if (transfer) {
+    for (const item of needs) widths[item.index] += transfer * item.amount / totalNeed;
+    for (const item of donors) widths[item.index] -= transfer * item.amount / totalAvailable;
+  }
+  return widths;
+}
+
+function fitCellText(cell: HTMLElement, header = false) {
+  const availableCellWidth = contentWidth(cell);
+  if (availableCellWidth <= 0) return;
+  const targets = textElements(cell, header);
+  for (const target of targets) target.style.removeProperty("font-size");
+  for (const target of targets) {
+    const style = window.getComputedStyle(target);
+    const normal = numeric(style.fontSize);
+    const required = textWidth(target);
+    const rendered = target.getBoundingClientRect().width - numeric(style.paddingLeft) - numeric(style.paddingRight);
+    const available = Math.min(availableCellWidth, rendered > 1 ? rendered : availableCellWidth);
+    if (normal && available && required > available) target.style.setProperty("font-size", `${Math.max(minimumFontSize, Math.floor((normal * available / required) * 10) / 10)}px`, "important");
+  }
+}
+
+function textElements(cell: HTMLElement, header = false) {
+  if (header) return [cell];
+  const targets = [...cell.querySelectorAll<HTMLElement>(textSelector)].filter(target => target.innerText.trim() && !target.classList.contains("management-cell-label") && !target.closest("svg"));
+  if (cell.matches(textSelector) && cell.innerText.trim()) targets.unshift(cell);
+  return [...new Set(targets)];
+}
+
+function textWidth(element: HTMLElement) {
+  const text = element.innerText.trim();
+  if (!text) return 0;
+  measureContext ??= document.createElement("canvas").getContext("2d");
+  if (!measureContext) return 0;
+  const style = window.getComputedStyle(element);
+  measureContext.font = `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const letterSpacing = numeric(style.letterSpacing);
+  return Math.max(...text.split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => {
+    const displayed = style.textTransform === "uppercase" ? line.toUpperCase() : line;
+    return measureContext!.measureText(displayed).width + Math.max(0, displayed.length - 1) * letterSpacing;
+  }), 0);
+}
+
+function contentWidth(element: HTMLElement) {
+  const style = window.getComputedStyle(element);
+  return element.clientWidth - numeric(style.paddingLeft) - numeric(style.paddingRight);
+}
+
+function numeric(value: string) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}

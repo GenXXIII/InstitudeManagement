@@ -1,0 +1,13 @@
+.empty-state{min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#95a2b4;gap:6px}
+.empty-state strong{color:#435168;font-size:12px}
+.empty-state span{font-size:9px}
+.global-search-empty{min-height:170px;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;text-align:center}
+.global-search-empty>span{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:#edf4fc;color:#6481a8}
+.global-search-empty strong{margin-top:11px;color:#344b67;font-size:13px}
+.global-search-empty small{max-width:390px;margin-top:5px;color:#8392a6;font-size:10.5px;line-height:1.45}
+.announce-viewport-page .empty-state strong{font-size:12px}
+.announce-viewport-page .empty-state span{font-size:10px}
+.notification-history-register>.empty-state{grid-column:1/-1}
+.notification-register>.empty-state{grid-column:1/-1}
+.global-filter-register.horizontal-management-table>.global-search-empty{grid-column:1/-1}
+.announce-overview-register>.empty-state,.alert-register>.empty-state{grid-column:1/-1}

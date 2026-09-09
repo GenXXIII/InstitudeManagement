@@ -22,9 +22,7 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
             .Include(enrollment => enrollment.Teacher)
             .Include(enrollment => enrollment.Classroom)
             .Where(enrollment =>
-                enrollment.AcademicYear == period.AcademicYear
-                && enrollment.Semester == period.Semester
-                && enrollment.Status == "Active")
+                enrollment.Status == "Active")
             .ToListAsync(cancellationToken);
         return enrollments
             .Where(enrollment => enrollment.ScheduleEntry is not null)
@@ -56,7 +54,8 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                     row.Enrollment.ScheduleEntry!,
                     row.Enrollment,
                     row.DepartmentId,
-                    row.DepartmentName);
+                    row.DepartmentName,
+                    period);
             })
             .ToList();
     }

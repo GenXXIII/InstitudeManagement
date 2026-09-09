@@ -29,6 +29,7 @@ internal sealed class DepartmentEnrollmentService(InstituteDbContext db, Enrollm
                 ("status", "Active"),
                 ("academicYear", period.AcademicYear),
                 ("semester", period.Semester),
+                ("periodState", "Current"),
                 ("createAt", department.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
     }

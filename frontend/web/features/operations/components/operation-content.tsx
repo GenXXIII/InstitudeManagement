@@ -1,4 +1,4 @@
-import { DataPagination, useDataPagination } from "@/components/data-pagination";
+import { PaginatedDataRegion } from "@/components/data-table";
 import type { Operation } from "../operations-types";
 import { AttendanceOperationList } from "../attendance/attendance-operation-list";
 import { ClassroomBuilding } from "../classrooms/classroom-building";
@@ -23,6 +23,5 @@ export function OperationContent({ data, departmentId, year }: { data: Operation
 }
 
 function PaginatedOperationList<T>({ rows, resetKey, children }: { rows: T[]; resetKey: string; children: (rows: T[]) => React.ReactNode }) {
-  const pagination = useDataPagination(rows, resetKey);
-  return <div className="operation-paginated-list"><div className="operation-page-rows">{children(pagination.pageItems)}</div><DataPagination page={pagination.page} pageCount={pagination.pageCount} total={rows.length} onPage={pagination.setPage}/></div>;
+  return <PaginatedDataRegion items={rows} resetKey={resetKey} className="operation-paginated-list">{pageItems => <div className="operation-page-rows">{children(pageItems)}</div>}</PaginatedDataRegion>;
 }

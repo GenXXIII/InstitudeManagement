@@ -14,29 +14,16 @@ internal sealed class TeacherAssignmentReader(InstituteDbContext db)
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
-        var rows = await db.Teachers
+        var teachers = await db.Teachers
             .AsNoTracking()
             .Where(teacher => teacher.Status != "Inactive")
-            .GroupJoin(
-                db.TeacherAssignments
-                    .AsNoTracking()
-                    .Where(assignment =>
-                        assignment.AcademicYear == period.AcademicYear
-                        && assignment.Semester == period.Semester
-                        && assignment.Status != "Removed"),
-                teacher => teacher.Id,
-                assignment => assignment.TeacherId,
-                (teacher, assignments) => new
-                {
-                    teacher,
-                    assignment = assignments.FirstOrDefault()
-                })
-            .Select(row => new
-            {
-                row.teacher,
-                row.assignment,
-                department = row.assignment == null ? null : row.assignment.Department
-            })
+            .ToListAsync(cancellationToken);
+        var teacherById = teachers.ToDictionary(teacher => teacher.Id);
+        var teacherIds = teachers.Select(teacher => teacher.Id).ToList();
+        var assignments = await db.TeacherAssignments
+            .AsNoTracking()
+            .Include(assignment => assignment.Department)
+            .Where(assignment => assignment.Status != "Removed" && teacherIds.Contains(assignment.TeacherId))
             .ToListAsync(cancellationToken);
         var schedules = await db.ScheduleEntries
             .AsNoTracking()
@@ -44,36 +31,41 @@ internal sealed class TeacherAssignmentReader(InstituteDbContext db)
             .Where(entry => entry.Status != "Cancelled")
             .ToListAsync(cancellationToken);
 
-        return rows
-            .Where(row =>
-                (!departmentId.HasValue || row.assignment?.DepartmentId == departmentId)
+        return assignments
+            .Where(assignment =>
+                (!departmentId.HasValue || assignment.DepartmentId == departmentId)
                 && (!year.HasValue || schedules.Any(entry =>
-                    entry.TeacherId == row.teacher.Id && entry.YearLevel == year))
-                && Matches(search, row.assignment?.EnrollmentCode, row.teacher.TeacherCode, row.teacher.FullName, row.department?.Name))
-            .Select(row =>
+                    entry.TeacherId == assignment.TeacherId && entry.YearLevel == year))
+                && Matches(search, assignment.EnrollmentCode, teacherById[assignment.TeacherId].TeacherCode, teacherById[assignment.TeacherId].FullName, assignment.Department?.Name))
+            .Select(assignment =>
             {
+                var teacher = teacherById[assignment.TeacherId];
                 var teacherSchedule = schedules
-                    .Where(entry => entry.TeacherId == row.teacher.Id)
+                    .Where(entry => entry.TeacherId == teacher.Id)
                     .ToList();
                 return Item(
-                    row.teacher.Id,
-                    ("enrollmentCode", row.assignment?.EnrollmentCode ?? ""),
-                    ("teacherCode", row.teacher.TeacherCode),
-                    ("name", row.teacher.FullName),
-                    ("email", row.teacher.Email),
-                    ("photoDataUrl", row.teacher.PhotoDataUrl),
-                    ("departmentId", row.assignment?.DepartmentId.ToString() ?? ""),
-                    ("department", row.department?.Name ?? "Unassigned"),
-                    ("status", row.assignment?.Status ?? "Unassigned"),
+                    teacher.Id,
+                    ("enrollmentCode", assignment.EnrollmentCode),
+                    ("teacherCode", teacher.TeacherCode),
+                    ("name", teacher.FullName),
+                    ("email", teacher.Email),
+                    ("photoDataUrl", teacher.PhotoDataUrl),
+                    ("departmentId", assignment.DepartmentId?.ToString() ?? ""),
+                    ("department", assignment.Department?.Name ?? "Unassigned"),
+                    ("status", assignment.Status),
                     ("courseCount", teacherSchedule.Select(entry => entry.CourseId).Distinct().Count().ToString()),
                     ("courses", string.Join(", ", teacherSchedule.Select(entry => entry.Course?.Name).Where(name => name is not null).Distinct())),
                     ("yearLevels", string.Join(", ", teacherSchedule.Select(entry => entry.YearLevel).Distinct().Order().Select(value => $"Year {value}"))),
                     ("weeklyClasses", teacherSchedule.Count.ToString()),
                     ("learningSpaces", teacherSchedule.Select(entry => entry.ClassroomId).Distinct().Count().ToString()),
-                    ("academicYear", period.AcademicYear),
-                    ("semester", period.Semester),
-                    ("createAt", row.assignment?.CreateAt.ToString("yyyy-MM-dd") ?? "Not assigned"));
+                    ("academicYear", assignment.AcademicYear),
+                    ("semester", assignment.Semester),
+                    ("periodState", IsCurrent(assignment.AcademicYear, assignment.Semester, period) ? "Current" : "Retained"),
+                    ("createAt", assignment.CreateAt.ToString("yyyy-MM-dd")));
             })
             .ToList();
     }
+
+    private static bool IsCurrent(string academicYear, string semester, EnrollmentPeriod period) =>
+        academicYear == period.AcademicYear && semester == period.Semester;
 }

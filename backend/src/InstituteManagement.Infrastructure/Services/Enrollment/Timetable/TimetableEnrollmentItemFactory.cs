@@ -10,7 +10,8 @@ internal static class TimetableEnrollmentItemFactory
         ScheduleEntry entry,
         TimetableEnrollment enrollment,
         Guid? departmentId,
-        string? departmentName) =>
+        string? departmentName,
+        EnrollmentPeriod? currentPeriod = null) =>
         Item(
             entry.Id,
             ("enrollmentCode", enrollment.EnrollmentCode),
@@ -38,5 +39,6 @@ internal static class TimetableEnrollmentItemFactory
             ("status", enrollment.Status),
             ("academicYear", enrollment.AcademicYear),
             ("semester", enrollment.Semester),
+            ("periodState", currentPeriod is null || enrollment.AcademicYear == currentPeriod.AcademicYear && enrollment.Semester == currentPeriod.Semester ? "Current" : "Retained"),
             ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
 }

@@ -1,0 +1,76 @@
+.eyebrow,.panel-kicker{text-transform:uppercase;letter-spacing:1.15px;font-size:8.5px;font-weight:750;color:#82a1cc}
+.panel{padding:17px;min-width:0}
+.attendance-panel{grid-column:span 2;min-height:255px}
+.live-panel{grid-column:span 2}
+.panel-head,.panel-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.panel-head h2{margin:5px 0 0;font-size:26px;letter-spacing:-.6px}
+.panel-title h3{margin:3px 0 0;font-size:12.5px;letter-spacing:-.15px}
+.panel-title>a{color:var(--blue);font-size:9px;font-weight:650}
+.data-panel{padding:0;overflow:hidden}
+.data-panel .panel-title{padding:17px}
+.insight-panel{grid-column:span 2}
+.records-panel{padding:0;overflow:hidden;min-height:320px}
+.help-panel{text-align:left;align-self:start}
+.help-panel h3{font-size:12px;margin:13px 0 6px}
+.help-panel>p{font-size:8.5px;line-height:1.6;color:#8a97a9;margin:0 0 17px}
+.error-panel{max-width:570px;margin:80px auto;background:white;border:1px solid #e1e9f3;border-radius:18px;padding:38px;text-align:center;box-shadow:var(--shadow)}
+.error-panel>span{color:#d25863;text-transform:uppercase;font-size:8px;font-weight:750;letter-spacing:1px}
+.error-panel h2{font-size:20px;margin:8px 0}
+.error-panel p{font-size:10px;color:#8592a5;margin:0 0 20px}
+.session-card-time{background:linear-gradient(145deg,#2262bd,#397de0)!important;color:white}
+.session-card-time>span,.session-card-time>small{color:#dbe9ff;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.55px}
+.session-card-time>strong{margin:6px 0 4px;font-size:17px;white-space:nowrap}
+.session-card-date{flex-direction:row!important;align-items:center;justify-content:flex-start!important;gap:11px}
+.session-card-calendar{width:38px;height:44px;display:grid;place-items:center;flex:none;border-radius:9px;background:#eaf2ff;color:#316bc2}
+.session-card-date>div,.session-card-course,.session-card-class{gap:4px}
+.session-card-date small,.session-card-course small,.session-card-class small{color:#8a98aa;font-size:8px;text-transform:uppercase;letter-spacing:.4px}
+.session-card-date strong,.session-card-course strong,.session-card-class strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.session-card-course>span,.session-card-class>span{color:#77869b;font-size:9px}
+.session-card-attendance{min-width:145px;gap:5px}
+.session-card-attendance>span{font-size:8px;white-space:nowrap}
+.session-card-attendance b{font-size:12px}
+.session-card-attendance .present{color:#267b5d}
+.session-card-attendance .absent{color:#c34e58}
+.session-card-attendance .permission{color:#626fc1}
+.session-card-expand{display:flex;align-items:center;justify-content:center;gap:8px;padding:0 15px;color:#336dc4}
+.session-card-expand small{font-size:8px;font-weight:750;white-space:nowrap}
+.session-card-expand b{width:27px;height:27px;display:grid;place-items:center;border-radius:8px;background:#e9f2ff;font-size:15px}
+.semester-availability-cards{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.semester-availability-cards span{display:flex;min-height:48px;flex-direction:column;align-items:center;justify-content:center;border:1px solid #d7e4ef;border-radius:8px}
+.semester-availability-cards b{font-size:14px}
+.semester-availability-cards small{font-size:7px;font-weight:750;text-transform:uppercase}
+.semester-availability-cards .running{border-color:#a7dbc2;background:#edf9f3;color:#23734d}
+.semester-availability-cards .available{border-color:#b9d5ed;background:#f0f7fd;color:#326c9f}
+.student-session-detail.class-not-held b,.entity-session-card.class-not-held .entity-session-not-held strong,.structure-session-register article.class-not-held>div strong{color:#b23d49}
+.semester-availability-cards small{font-size:9px}
+.student-attendance-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.student-attendance-cards>span{min-height:52px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;border-radius:8px}
+.student-attendance-cards b{font-size:15px}
+.student-attendance-cards small{font-size:7px;font-weight:750}
+.student-attendance-cards .present{background:#e9f7f1;color:#267b5e}
+.student-attendance-cards .permission{background:#fff4d8;color:#a06c16}
+.student-attendance-cards .absent{background:#ffebee;color:#bd4652}
+.student-grade-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.student-grade-cards>span{min-width:0;min-height:55px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;border-radius:8px}
+.student-grade-cards b{font-size:16px}
+.student-grade-cards small{max-width:100%;overflow:hidden;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+.entity-attendance-cards,.entity-state-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.entity-attendance-cards>span,.entity-state-cards>span{min-height:54px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;border-radius:8px;background:#f0f3f7;color:#7d8b9d}
+.entity-attendance-cards b,.entity-state-cards b{font-size:14px}
+.entity-attendance-cards small,.entity-state-cards small{font-size:6.5px;font-weight:750;white-space:nowrap}
+.entity-attendance-cards .present{background:#e8f7f0;color:#267b5d}
+.entity-attendance-cards .permission{background:#fff3d4;color:#9e6b16}
+.entity-attendance-cards .absent{background:#ffeaed;color:#bd4652}
+.entity-state-cards>span.active{box-shadow:inset 0 0 0 1px currentColor}
+.entity-state-cards .state-present.active,.entity-state-cards .state-in-study.active,.entity-state-cards .state-available.active{background:#e6f6ef;color:#257a5d}
+.entity-state-cards .state-permission.active{background:#fff3d4;color:#9e6b16}
+.entity-state-cards .state-absent.active,.entity-state-cards .state-unavailable.active{background:#ffeaed;color:#bd4652}
+.entity-session-card{border-bottom:1px solid #e5ebf3}
+.entity-session-card:last-child{border-bottom:0}
+.entity-session-main>div:not(.entity-attendance-cards){display:flex;min-width:0;flex-direction:column;gap:5px}
+.entity-session-card details{border-top:1px dashed #e1e8f1;background:#fbfdff}
+.entity-session-card summary{padding:9px 16px;color:#356bc0;font-size:8px;font-weight:750;cursor:pointer}
+.semester-availability-cards .available{border-color:#efb9bf;background:#fff0f1;color:#bd4652}
+.entity-session-card.class-running,.entity-session-card.teacher-present{border-left:4px solid #2d916d;background:#f1fbf6}
+.entity-session-card.teacher-permission{border-left:4px solid #d9a12d;background:#fff9e8}
+.entity-session-card.class-available,.entity-session-card.teacher-absent{border-left:4px solid #d1515c;background:#fff2f3}

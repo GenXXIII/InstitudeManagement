@@ -3,7 +3,6 @@ import { AppShell } from "@/features/shell/app-shell";
 import { AdministrationModeProvider } from "@/features/administration/administration-mode-context";
 import { InstituteSettingsProvider } from "@/features/administration/institute-settings-context";
 import "./globals.css";
-import "@/features/administration/administration.css";
 
 export const metadata: Metadata = {
   title: "Institude of New Khmer",

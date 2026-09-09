@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataPagination, useDataPagination } from "@/components/data-pagination";
+import { PaginatedDataRegion } from "@/components/data-table";
 import { CodeRecommendation } from "@/components/code-recommendation";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
@@ -44,9 +44,6 @@ export function AnnounceWorkspace({ module }: { module: string }) {
     } catch { setLoadError(true); }
   }, []);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
-  const notificationPages = useDataPagination(notifications, "notification-register");
-  const alertPages = useDataPagination(alerts, "alert-register");
-  const historyPages = useDataPagination(history, "notification-history-register");
   if (loadError) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
 
@@ -91,9 +88,9 @@ export function AnnounceWorkspace({ module }: { module: string }) {
     {recommendation ? <CodeRecommendation code={recommendation} onUse={() => { setAlertDraft(currentDraft => ({ ...currentDraft, announcementCode: recommendation })); setError(""); }}/>
       : error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
     {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts} history={history}/>}
-    {current === "notifications" && <section className="announce-paginated-region"><NotificationRegister rows={notificationPages.pageItems} editing={editingNotification} draft={notificationDraft} saving={saving} onDraft={setNotificationDraft} onOpen={id => router.push(`/announce/notifications/${id}`)} onEdit={item => { setEditingNotification(item.id); setNotificationDraft({ title: item.title, message: item.message, severity: item.severity, isRead: item.isRead }); }} onSave={saveNotification} onCancel={() => setEditingNotification(undefined)} onRemove={removeNotification}/><DataPagination page={notificationPages.page} pageCount={notificationPages.pageCount} total={notifications.length} onPage={notificationPages.setPage}/></section>}
-    {current === "alerts" && <section className="announce-paginated-region"><AlertRegister rows={alertPages.pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ announcementCode: item.announcementCode, type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/><DataPagination page={alertPages.page} pageCount={alertPages.pageCount} total={alerts.length} onPage={alertPages.setPage}/></section>}
-    {current === "history" && <section className="announce-paginated-region"><NotificationHistoryRegister rows={historyPages.pageItems} onOpen={code => router.push(`/announce/history/${encodeURIComponent(code)}`)}/><DataPagination page={historyPages.page} pageCount={historyPages.pageCount} total={history.length} onPage={historyPages.setPage}/></section>}
+    {current === "notifications" && <PaginatedDataRegion items={notifications} resetKey="notification-register" className="announce-paginated-region">{pageItems => <NotificationRegister rows={pageItems} editing={editingNotification} draft={notificationDraft} saving={saving} onDraft={setNotificationDraft} onOpen={id => router.push(`/announce/notifications/${id}`)} onEdit={item => { setEditingNotification(item.id); setNotificationDraft({ title: item.title, message: item.message, severity: item.severity, isRead: item.isRead }); }} onSave={saveNotification} onCancel={() => setEditingNotification(undefined)} onRemove={removeNotification}/>}</PaginatedDataRegion>}
+    {current === "alerts" && <PaginatedDataRegion items={alerts} resetKey="alert-register" className="announce-paginated-region">{pageItems => <AlertRegister rows={pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ announcementCode: item.announcementCode, type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/>}</PaginatedDataRegion>}
+    {current === "history" && <PaginatedDataRegion items={history} resetKey="notification-history-register" className="announce-paginated-region">{pageItems => <NotificationHistoryRegister rows={pageItems} onOpen={code => router.push(`/announce/history/${encodeURIComponent(code)}`)}/>}</PaginatedDataRegion>}
   </div>;
 }
 function message(reason: unknown) { return reason instanceof Error ? reason.message : "Could not apply this change."; }

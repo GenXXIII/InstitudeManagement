@@ -4,7 +4,7 @@ import type { EnrollmentDisplayItem, EnrollmentItem } from "../common/enrollment
 export const classroomAssignmentCopy: EnrollmentCopy = {
   title: "Classroom Assign",
   description: "Read-only classrooms and courses from Timetable Enrollment rows that match an active Student Enrollment cohort.",
-  columns: ["EnrollmentCode", "Classroom", "Access", "Assigned course", "Capacity", "Status", "Create At"],
+  columns: ["EnrollmentCode", "Classroom", "Access", "Assigned course", "Capacity", "Status", "Academic year", "Semester", "Period state", "Create At"],
 };
 
 export function classroomAssignmentDisplayItems(items: EnrollmentItem[]): EnrollmentDisplayItem[] {
@@ -14,14 +14,14 @@ export function classroomAssignmentDisplayItems(items: EnrollmentItem[]): Enroll
     return (assignedCourses.length ? assignedCourses : ["Not scheduled"]).map((assignedCourse, index) => ({
       ...item,
       assignedCourse,
-      rowKey: `${item.id}-${index}-${assignedCourse}`,
+      rowKey: `${item.id}-${item.values.academicYear}-${item.values.semester}-${index}-${assignedCourse}`,
     }));
   });
 }
 
 export function classroomAssignmentCells(item: EnrollmentDisplayItem) {
   const value = item.values;
-  return [value.enrollmentCode, `${value.building} - ${value.roomType}`, value.access, item.assignedCourse || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned", value.status || "Available", value.createAt];
+  return [value.enrollmentCode, `${value.building} - ${value.roomType}`, value.access, item.assignedCourse || "Not scheduled", value.capacity ? `${value.capacity} seats` : "Unassigned", value.status || "Available", value.academicYear, value.semester, value.periodState || "Current", value.createAt];
 }
 
 export function classroomEnrollmentStatusClass(status: string) {

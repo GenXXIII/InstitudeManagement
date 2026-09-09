@@ -1,0 +1,128 @@
+.live-course-list small,.live-timetable-list span:not(.table-status),.live-scan-list small,.live-department-list>div>div>span,.live-grade-list small{font-size:7.5px;color:#8f9caf}
+.table-wrap{width:100%;overflow:auto}
+.table-wrap table{width:100%;border-collapse:collapse;white-space:nowrap}
+.table-wrap th{padding:10px 14px;text-align:left;background:#f8fafd;border-top:1px solid #edf1f6;border-bottom:1px solid #e9eef5;color:#8a97aa;text-transform:uppercase;letter-spacing:.6px;font-size:7.5px}
+.table-wrap td{padding:12px 14px;border-bottom:1px solid #eff3f7;font-size:9.5px;color:#536178}
+.table-wrap tr:last-child td{border-bottom:0}
+.table-wrap tbody tr:hover{background:#fafcff}
+.table-wrap td:first-child{color:#202b41;font-weight:600}
+.table-status{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:6px;background:#edf8f4;color:#238b67;font-size:8px;font-weight:650}
+.table-status:before{content:"";width:4px;height:4px;border-radius:50%;background:currentColor}
+.table-status.offline,.table-status.absent,.table-status.inactive,.table-status.issue{background:#fff0f1;color:#d95762}
+.table-status.starting,.table-status.late,.table-status.on-leave,.table-status.watch{background:#fff7e7;color:#c88a18}
+.table-status.available,.table-status.upcoming{background:#edf4ff;color:#3972dc}
+.table-status.retained{background:#eef2f7;color:#697a90}
+.student-presence-row>.table-status{width:max-content;max-width:88px;justify-self:start}
+.teacher-operation-row>.table-status{width:max-content;max-width:112px;justify-self:start}
+.department-overview-card>.table-status{justify-self:start}
+.horizontal-management-table{padding:0;overflow:auto}
+.room-schedule-label .table-status{padding:2px 4px;font-size:4.5px}
+.table-status.in-study{background:#e7f8f0;color:#20805e}
+.dashboard-schedule-list .table-status{font-size:9px}
+.room-timetable .room-schedule-label .table-status{padding:3px 5px;font-size:6px}
+.horizontal-management-row .table-status{font-size:8px;padding:5px 8px}
+.management-room-label>.table-status{padding:4px 6px;font-size:7px}
+.management-class-title .table-status{padding:3px 5px;font-size:6.5px}
+.unified-summary-cell>.table-status{align-self:start;margin-top:4px}
+.unified-operation-columns article>.table-status{padding:4px 6px;font-size:7px}
+.operation-standard-page .student-presence-row>.table-status,.operation-standard-page .teacher-operation-row>.table-status{max-width:160px;padding:7px 10px;font-size:10px}
+.table-wrap table{table-layout:fixed}
+.table-wrap th,.table-wrap td{width:auto;white-space:normal;overflow-wrap:anywhere;vertical-align:top}
+.horizontal-management-table{display:grid;width:100%;grid-auto-rows:auto;align-content:start;column-gap:0;overflow:auto}
+.horizontal-management-table>.horizontal-management-head,.horizontal-management-table>.horizontal-management-row{display:contents}
+.horizontal-management-table>.horizontal-management-head>*{display:flex;min-height:43px;align-items:center;padding:11px 17px;border-bottom:1px solid #e5ecf5;background:#f6f9fd;color:#8795a9;text-transform:uppercase;letter-spacing:.55px;font-size:8.5px;font-weight:750;white-space:nowrap}
+.horizontal-management-table>.horizontal-management-row>*{display:flex;min-height:72px;align-items:center;padding:11px 17px;border-bottom:1px solid #edf1f6;background:white}
+.horizontal-management-table>.horizontal-management-row:last-child>*{border-bottom:0}
+.horizontal-management-table>.horizontal-management-row:hover>*{background:#fbfdff}
+.horizontal-management-table>.horizontal-management-row>.horizontal-primary,.horizontal-management-table>.horizontal-management-row>.horizontal-detail,.horizontal-management-table>.horizontal-management-row>.relationship-number{align-items:flex-start;justify-content:center}
+.horizontal-management-table>.horizontal-management-row>.management-actions{justify-content:flex-end}
+.horizontal-management-table .relationship-number>span,.horizontal-management-table .horizontal-primary>span,.horizontal-management-table .horizontal-detail>span,.horizontal-management-table .room-code-horizontal>span{order:-1}
+.operation-visual-page .floor-rooms .table-status{padding:5px 7px;font-size:9px}
+.operation-visual-page .room-timetable .room-schedule-label .table-status{font-size:8px}
+.enrollment-cohort-row>span:not(.table-status),.enrollment-cohort-row>b{color:#687991;font-size:8px}
+.enrollment-cohort-row>.table-status{justify-self:start;white-space:nowrap}
+.notification-detail-grid>div>strong:not(.table-status){color:#344b67;font-size:11px;overflow-wrap:anywhere}
+.table-status.notification-severity-warning{background:#fff7e7;color:#b77915}
+.table-status.notification-severity-critical{background:#fff0f1;color:#c34a56}
+.table-status.notification-severity-info{background:#edf4ff;color:#3972dc}
+.table-status.permission{background:#fff7e7;color:#b77915}
+.horizontal-management-table>.horizontal-management-row>.management-data-cell>.management-cell-label,.timetable-data-row>.management-data-cell>.management-cell-label{display:none!important}
+.horizontal-management-table>.horizontal-management-row>.horizontal-portrait{align-items:center!important}
+.dashboard-viewport-page>.dashboard-grid,.administration-viewport-page>.settings-layout,.management-viewport-page>.department-overview-grid,.management-viewport-page>.horizontal-management-table,.management-viewport-page>.student-record-ledger,.history-viewport-page>.record-register,.record-viewport-page>.session-record-list,.result-viewport-page>.semester-result-table,.announce-viewport-page>.notification-inbox,.announce-viewport-page>.announce-table{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.management-viewport-page .horizontal-management-table>.horizontal-management-head>*{position:sticky;top:0;z-index:3}
+.table-status.not-held{background:#ffe7ea;color:#b63e4b}
+.table-status.operation-classroom-status.running{background:#dff5e9;color:#207952}
+.table-status.operation-classroom-status.available{background:#f0f4f8;color:#65758a}
+.table-status.operation-classroom-status.maintenance{background:#fff0bf;color:#a66d00}
+.table-status.operation-classroom-status.unavailable{background:#ffe4e7;color:#c04450}
+.operation-standard-page .live-course-list>div>b,.operation-standard-page .live-course-list>div>.table-status{font-size:10px}
+.operation-visual-page .floor-rooms .table-status{font-size:10px}
+.operation-visual-page .timetable-day-tabs strong,.operation-visual-page .timetable-year-filter button,.operation-visual-page .concurrency-note strong,.operation-visual-page .room-timetable .room-schedule-matrix>header span,.operation-visual-page .room-timetable .room-schedule-label span,.operation-visual-page .room-timetable .room-schedule-label .table-status,.operation-visual-page .room-period-cell article b,.operation-visual-page .room-period-cell article span,.operation-visual-page .room-period-empty{font-size:10px}
+.management-paginated-region>.horizontal-management-table,.management-paginated-region>.student-record-ledger,.management-paginated-region>.management-timetable-data{margin:0}
+.announce-viewport-page .table-status{font-size:9px}
+.operation-standard-page .table-status.available,.operation-visual-page .table-status.available{background:#ffe4e7;color:#c04450}
+.table-status.operation-classroom-status.available{background:#ffe4e7;color:#c04450}
+.notification-detail-grid>div>strong:not(.table-status){font-size:12.5px}
+.global-filter-register.horizontal-management-table{display:grid;width:100%;grid-template-columns:185px 235px 165px minmax(300px,1fr) 78px;grid-auto-rows:auto;align-content:start;column-gap:0;overflow:auto;padding:0}
+.global-filter-register.horizontal-management-table>.global-filter-register-head,.global-filter-register.horizontal-management-table>.global-filter-register-row{display:contents}
+.global-filter-register.horizontal-management-table>.global-filter-register-head>*{position:sticky;top:0;z-index:7;min-height:52px;display:flex;align-items:center;border-bottom:1px solid #e5ecf5;background:#f6f9fd;padding:13px 20px;color:#8795a9;font-size:10px;font-weight:750;letter-spacing:.55px;text-transform:uppercase;white-space:nowrap}
+.global-filter-register.horizontal-management-table>.global-filter-register-row>*{min-height:92px;display:flex;align-items:center;border-bottom:1px solid #edf1f6;background:white;padding:13px 20px}
+.global-filter-register.horizontal-management-table>.global-filter-register-row:hover>*{background:#fbfdff}
+.global-filter-register.horizontal-management-table>.global-filter-register-row:last-of-type>*{border-bottom:0}
+.global-filter-register.horizontal-management-table .global-filter-workflow>span,.global-filter-register.horizontal-management-table .global-filter-identity,.global-filter-register.horizontal-management-table .global-filter-match-reason{justify-content:center}
+.horizontal-management-table:has(>.horizontal-management-head){--data-cell-font:12px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(1):last-child){--data-column-count:1;--data-cell-padding:14px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(2):last-child){--data-column-count:2;--data-cell-padding:13px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(3):last-child){--data-column-count:3;--data-cell-padding:12px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(4):last-child){--data-column-count:4;--data-cell-padding:11px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(5):last-child){--data-column-count:5;--data-cell-padding:10px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(6):last-child){--data-column-count:6;--data-cell-padding:9px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(7):last-child){--data-column-count:7;--data-cell-padding:8px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(8):last-child){--data-column-count:8;--data-cell-padding:7px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(9):last-child){--data-column-count:9;--data-cell-padding:7px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(10):last-child){--data-column-count:10;--data-cell-padding:6px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(11):last-child){--data-column-count:11;--data-cell-padding:5px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(12):last-child){--data-column-count:12;--data-cell-padding:5px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(13):last-child){--data-column-count:13;--data-cell-padding:4px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(14):last-child){--data-column-count:14;--data-cell-padding:4px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(15):last-child){--data-column-count:15;--data-cell-padding:3px}
+.horizontal-management-table:has(>.horizontal-management-head>:nth-child(16):last-child){--data-column-count:16;--data-cell-padding:3px}
+.horizontal-management-table:has(>.horizontal-management-head){width:100%;min-width:0!important;grid-template-columns:repeat(var(--data-column-count,1),minmax(0,auto))!important;overflow-x:hidden}
+.horizontal-management-table>.horizontal-management-head>*,.horizontal-management-table>.horizontal-management-row>*{min-width:0;padding-inline:var(--data-cell-padding)!important;text-align:left;overflow:hidden}
+.horizontal-management-table>.horizontal-management-head>*{font-size:calc(var(--data-cell-font) - 1px)!important;text-overflow:ellipsis;white-space:nowrap}
+.horizontal-management-table>.horizontal-management-row>* :is(strong,small,span,time,b),.horizontal-management-table>.horizontal-management-row> :is(strong,small,span,time,b){display:block;max-width:100%;font-size:var(--data-cell-font)!important;overflow:hidden!important;overflow-wrap:normal!important;text-overflow:ellipsis!important;white-space:nowrap!important;word-break:normal!important}
+.horizontal-management-table>.horizontal-management-row>* :is(.horizontal-primary,.horizontal-detail,.department-head-horizontal,.department-head-horizontal>div,.room-code-value,.management-actions){min-width:0;max-width:100%;align-items:flex-start;text-align:left}
+.horizontal-management-table .management-actions{gap:4px;flex-wrap:nowrap}
+.horizontal-management-table .management-actions button{min-width:0;height:28px;padding-inline:6px;font-size:var(--data-cell-font)}
+.table-wrap table{width:100%;table-layout:fixed}
+.table-wrap th,.table-wrap td{min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal;word-break:normal}
+[data-adaptive-table]{width:100%;min-width:0!important;overflow-x:hidden!important}
+[data-adaptive-table-head],[data-adaptive-table-row]{min-width:0!important;width:100%!important}
+[data-adaptive-table-head],[data-adaptive-table-row]{grid-template-columns:var(--data-table-columns)}
+[data-adaptive-table-head]>*,[data-adaptive-table-row]>*{min-width:0;vertical-align:middle!important}
+[data-adaptive-table-head]>*{align-self:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[data-adaptive-table-row]>*{align-self:center;justify-self:stretch;overflow:hidden}
+[data-adaptive-table-row]> :is(strong,small,span,time,b,a,p),[data-adaptive-table-row]>* :is(strong,small,span,time,b,a,p){max-width:100%;overflow:hidden!important;overflow-wrap:normal!important;text-align:inherit!important;text-overflow:ellipsis!important;white-space:nowrap!important;word-break:normal!important}
+[data-cell-align="center"] :is(.management-actions,.table-status),[data-cell-align="center"]>.management-actions{justify-content:center!important}
+[data-cell-align="right"] :is(.management-actions,.table-status),[data-cell-align="right"]>.management-actions{justify-content:flex-end!important}
+[data-cell-align="center"]:is(.table-status,.initial-chip){justify-self:center}
+[data-cell-align="right"]:is(.table-status,.initial-chip){justify-self:end}
+[data-cell-align="left"]{text-align:left!important}
+[data-cell-align="center"]{text-align:center!important}
+[data-cell-align="right"]{text-align:right!important}
+[data-cell-flow="row"]{align-items:center!important}
+[data-cell-align="left"][data-cell-flow="row"]{justify-content:flex-start!important}
+[data-cell-align="center"][data-cell-flow="row"]{justify-content:center!important}
+[data-cell-align="right"][data-cell-flow="row"]{justify-content:flex-end!important}
+[data-cell-align="left"][data-cell-flow="column"]{align-items:flex-start!important}
+[data-cell-align="center"][data-cell-flow="column"]{align-items:center!important}
+[data-cell-align="right"][data-cell-flow="column"]{align-items:flex-end!important}
+[data-cell-flow="grid"]{align-items:center!important}
+[data-cell-align="left"][data-cell-flow="grid"]{justify-items:start!important}
+[data-cell-align="center"][data-cell-flow="grid"]{justify-items:center!important}
+[data-cell-align="right"][data-cell-flow="grid"]{justify-items:end!important}
+.announce-overview-register.horizontal-management-table>.horizontal-management-head,.announce-overview-register.horizontal-management-table>.horizontal-management-row{display:contents!important}
+.shared-data-table .management-code-value{width:100%;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}
+/* Shared data regions keep the toolbar/header/pagination flow identical. */
+.shared-data-region{min-width:0;min-height:0}
+.shared-data-region > .shared-data-table{min-width:0}

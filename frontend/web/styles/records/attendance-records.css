@@ -1,0 +1,49 @@
+.attendance-record-cell.status-absent{border-color:#f0cdd0;background:#fff7f7}
+.attendance-record-cell.status-present{border-color:#cce8dc;background:#f7fcfa}
+.operational-time-timeline{padding:0 18px 18px 68px}
+.operational-time-timeline>header{display:flex;align-items:center;justify-content:space-between;padding:15px 0 11px;border-top:1px solid #e4ebf4}
+.operational-time-timeline>header>div{display:flex;flex-direction:column;gap:3px}
+.operational-time-timeline>header strong{font-size:12px}
+.operational-time-timeline>header span{color:#8795a8;font-size:9px}
+.operational-time-timeline>header>b{padding:6px 9px;border-radius:7px;background:#edf4ff;color:#326bc2;font-size:9px}
+.operational-time-list{min-width:0;background:#edf2f7}
+.operational-time-entry{display:grid;grid-template-columns:155px minmax(0,1fr);min-height:112px;margin-bottom:1px;background:white}
+.operational-time-entry:last-child{margin-bottom:0}
+.operational-time-entry.completed-class{box-shadow:inset 4px 0 #2d71df}
+.operational-time-block{display:flex;flex-direction:column;justify-content:center;gap:5px;padding:14px 18px;border-right:1px solid #e7edf4;background:#fbfdff}
+.operational-time-block time{color:#2366cf;font-size:15px;font-weight:850}
+.operational-time-block span{color:#8896a8;font-size:9px;text-transform:uppercase;letter-spacing:.65px}
+.session-attendance-visual{background:white}
+.session-attendance-head{min-height:105px;display:grid;grid-template-columns:155px minmax(220px,1fr) auto;align-items:center;border-bottom:1px solid #e3eaf3}
+.session-attendance-head>.operational-time-block{height:100%}
+.session-attendance-head>div:nth-child(2){display:flex;min-width:0;flex-direction:column;gap:5px;padding:13px 16px}
+.session-attendance-head>div:nth-child(2)>strong{font-size:14px}
+.session-attendance-head>div:nth-child(2)>small{color:#7f8da1;font-size:10px}
+.session-attendance-head>b{max-width:300px;margin-right:16px;padding:8px 10px;border-radius:8px;background:#edf7f3;color:#247d5e;font-size:10px}
+.session-record-actions{display:flex!important;align-items:center;gap:8px;flex-direction:row!important}
+.session-record-actions .button{height:34px}
+.session-record-editor{width:min(820px,100%)}
+.session-record-edit-list{display:flex;flex-direction:column;gap:1px;max-height:60vh;overflow:auto;margin-top:18px;border:1px solid #dfe7f1;background:#e7edf4}
+.session-record-edit-row{display:grid;grid-template-columns:minmax(180px,1fr) 150px 140px;gap:12px;align-items:end;padding:11px 13px;background:white}
+.session-record-edit-row>div{display:flex;min-width:0;flex-direction:column;gap:3px}
+.session-record-edit-row>div strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.session-record-edit-row>div span,.session-record-edit-row label>span{color:#718198;font-size:8.5px;font-weight:650}
+.session-record-edit-row label{display:flex;flex-direction:column;gap:5px}
+.session-record-edit-row select,.session-record-edit-row input{height:36px;border:1px solid #d8e2ee;border-radius:7px;padding:0 9px;background:#fbfcfe;color:var(--ink);font-size:10px}
+.session-record-edit-row input:disabled{background:#eef2f6;color:#9ba7b6}
+.session-record-card{margin:10px 12px;border:1px solid #dce6f1;border-radius:12px;overflow:hidden;box-shadow:0 5px 16px rgba(47,73,110,.06)}
+.session-record-card .operational-record-main{border-bottom:0}
+.session-record-card.open{border-color:#9fbff0;box-shadow:0 9px 24px rgba(45,99,181,.1)}
+.session-record-list{display:flex;flex-direction:column;gap:12px}
+.session-timetable-details>.session-attendance-visual{overflow:hidden;border:1px solid #dfe7f1;border-radius:11px}
+.attendance-record-cell.status-absent .record-field-grid>.management-data-cell{background:#fffafa}
+.attendance-record-cell.status-present .record-field-grid>.management-data-cell{background:#f9fdfb}
+.record-viewport-page>.session-record-list{padding:12px;border:1px solid #e4ebf4;border-radius:17px;background:white;box-shadow:var(--shadow)}
+.session-attendance-visual.class-not-held,.entity-session-card.class-not-held,.student-session-detail.class-not-held,.structure-session-register article.class-not-held{border-color:#efb5bc;background:#fff4f5}
+.session-attendance-visual.class-not-held .session-attendance-head{background:#fff0f2}
+.session-record-list>.session-timetable-card,.session-record-list>.operational-record-row{flex:none}
+.record-paginated-region>.session-record-list{padding:12px;border:1px solid #e4ebf4;border-radius:17px;background:white;box-shadow:var(--shadow)}
+.semester-history-group>.panel,.semester-history-group>.session-record-list{flex:none}
+.semester-history-group>.session-record-list{display:grid;gap:10px;padding:12px;border:1px solid #e4ebf4;border-radius:14px;background:white;box-shadow:var(--shadow)}
+.semester-history-group>.panel,.semester-history-group>.session-record-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.semester-history-group>.session-record-list{display:flex;flex-direction:column}

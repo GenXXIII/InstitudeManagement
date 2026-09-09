@@ -4,7 +4,7 @@ import type { EnrollmentDisplayItem } from "../common/enrollment-types";
 export const timetableEnrollmentCopy: EnrollmentCopy = {
   title: "Timetable Enrollment",
   description: "Select a permanent Management schedule, then assign its current-semester course, teacher, classroom, and student year.",
-  columns: ["EnrollmentCode", "Day / time", "Year", "Semester", "Shift", "Course", "Classroom", "Teacher", "Department", "Status", "Create At", "Actions"],
+  columns: ["EnrollmentCode", "Day / time", "Year", "Academic year", "Semester", "Shift", "Course", "Classroom", "Teacher", "Department", "Status", "Period state", "Create At", "Actions"],
 };
 
 export function timetableEnrollmentCells(item: EnrollmentDisplayItem) {
@@ -13,6 +13,7 @@ export function timetableEnrollmentCells(item: EnrollmentDisplayItem) {
     value.enrollmentCode,
     `${value.dayOfWeek} ${value.startsAt}-${value.endsAt}`,
     value.yearLevel ? `Year ${value.yearLevel}` : "Unassigned",
+    value.academicYear,
     value.semester,
     value.shift,
     value.course,
@@ -20,6 +21,7 @@ export function timetableEnrollmentCells(item: EnrollmentDisplayItem) {
     value.teacher,
     value.department,
     value.classroomStatus || "Maintenance",
+    value.periodState || "Current",
     value.createAt,
   ];
 }

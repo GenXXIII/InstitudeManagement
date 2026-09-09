@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { DataTable, type DataTableColumn } from "@/components/data-table";
-import { DataPagination, useDataPagination } from "@/components/data-pagination";
+import { DataTable, DataTableToolbar, PaginatedDataRegion, type DataTableColumn } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import type { EnrollmentResource } from "./common/enrollment-types";
@@ -41,7 +40,6 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
 
   const displayItems = useMemo(() => buildEnrollmentDisplayItems(items, resource), [items, resource]);
   const sortedItems = useMemo(() => sortEnrollmentItems(displayItems, resource), [displayItems, resource]);
-  const pagination = useDataPagination(sortedItems, `${resource}-enrollment-${departmentId}-${year}-${query}`);
   const details = enrollmentCopy[resource];
   const selectedDepartment = departments.find(department => department.id === departmentId)?.values.name ?? "All departments";
 
@@ -55,17 +53,16 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
       description={details.description}
       actions={resource === "students" || resource === "timetable" ? <button type="button" className="button primary" onClick={() => setEditing(null)}><Icon name="plus" size={16}/>{resource === "timetable" ? "Add timetable" : "Add student enrollment"}</button> : undefined}
     />
-    <section className="management-toolbar panel management-toolbar-global">
-      <label className="management-search module-search-field"><Icon name="search" size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${resource}...`} aria-label={`Search ${resource}`}/></label>
-      <div className="management-scope"><span>Enrollment scope</span><strong>{selectedDepartment}{year ? ` - Year ${year}` : " - All years"}</strong></div>
-    </section>
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder={`Search ${resource}...`} searchAriaLabel={`Search ${resource}`} contextLabel="Enrollment scope" contextValue={`${selectedDepartment}${year ? ` - Year ${year}` : " - All years"}`}/>
     {actionError && <section className="management-rule-error"><Icon name="bell" size={16}/><div><strong>Enrollment relationship protected</strong><span>{actionError}</span></div><button type="button" onClick={() => setActionError("")}>Dismiss</button></section>}
-    <section className="management-paginated-region">
+    <PaginatedDataRegion items={sortedItems} resetKey={`${resource}-enrollment-${departmentId}-${year}-${query}`} className="management-paginated-region">{pageItems => <>
       <DataTable as="section" className={`panel horizontal-management-table enrollment-service-horizontal enrollment-${resource}`} headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={enrollmentTableColumns(resource, details.columns)}>
-        {pagination.pageItems.map(item => <EnrollmentRow resource={resource} item={item} onEdit={isEditableEnrollment(resource) ? () => setEditing(item) : undefined} onRemove={isEditableEnrollment(resource) ? () => { void remove(item); } : undefined} key={item.rowKey}/>)}
+        {pageItems.map(item => {
+          const editable = isEditableEnrollment(resource) && item.values.periodState !== "Retained";
+          return <EnrollmentRow resource={resource} item={item} onEdit={editable ? () => setEditing(item) : undefined} onRemove={editable ? () => { void remove(item); } : undefined} key={item.rowKey}/>;
+        })}
       </DataTable>
-      <DataPagination page={pagination.page} pageCount={pagination.pageCount} total={sortedItems.length} onPage={pagination.setPage}/>
-    </section>
+    </>}</PaginatedDataRegion>
     {editing !== undefined && (resource === "students" || resource === "timetable") && <EnrollmentEditor
       resource={resource}
       item={editing}

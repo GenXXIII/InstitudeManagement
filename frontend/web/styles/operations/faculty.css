@@ -1,0 +1,23 @@
+.teacher-operation-board{padding:0 17px 10px;overflow:hidden}
+.teacher-operation-head,.teacher-operation-row{display:grid;grid-template-columns:36px minmax(0,1fr) 90px 112px;align-items:center;gap:12px}
+.teacher-operation-head{min-height:34px;border-top:1px solid #edf1f6;border-bottom:1px solid #e5ecf5;color:#8b98aa;text-transform:uppercase;letter-spacing:.55px;font-size:7px;font-weight:750}
+.teacher-operation-row{min-height:58px;border-bottom:1px solid #edf1f6}
+.teacher-operation-row:last-child{border-bottom:0}
+.teacher-operation-row>div{display:flex;min-width:0;flex-direction:column;gap:3px}
+.teacher-operation-row strong,.teacher-operation-row small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.teacher-operation-row strong{font-size:9px}
+.teacher-operation-row small{font-size:7px;color:#8d9aad}
+.teacher-operation-row>b{font-size:8px;color:#65758d}
+.operation-standard-page .student-presence-board,.operation-standard-page .teacher-operation-board,.operation-standard-page .live-course-list,.operation-standard-page .live-scan-list,.operation-standard-page .live-department-list,.operation-standard-page .live-grade-list{padding:0 24px 18px}
+.operation-standard-page .student-presence-board,.operation-standard-page .teacher-operation-board,.operation-standard-page .live-course-list{max-height:calc(100vh - 335px);overflow-y:auto;scrollbar-gutter:stable}
+.operation-standard-page .student-presence-head,.operation-standard-page .teacher-operation-head,.operation-standard-page .live-course-head{position:sticky;top:0;z-index:2;min-height:50px;background:white;font-size:10px}
+.operation-standard-page .teacher-operation-head,.operation-standard-page .teacher-operation-row{grid-template-columns:54px minmax(260px,1fr) 145px 165px;gap:18px}
+.operation-standard-page .student-presence-board .student-presence-row,.operation-standard-page .teacher-operation-row{min-height:88px}
+.operation-standard-page .student-presence-row strong,.operation-standard-page .teacher-operation-row strong{font-size:13px}
+.operation-standard-page .student-presence-row small,.operation-standard-page .teacher-operation-row small{font-size:10px}
+.operation-standard-page .student-presence-row>b,.operation-standard-page .teacher-operation-row>b{font-size:11px}
+.teacher-operation-head,.teacher-operation-row,.operation-standard-page .teacher-operation-head,.operation-standard-page .teacher-operation-row{grid-template-columns:repeat(5,minmax(130px,1fr))}
+.operation-standard-page .student-presence-board,.operation-standard-page .teacher-operation-board,.operation-standard-page .live-course-list{max-height:none}
+.teacher-operation-head,.teacher-operation-row{grid-template-columns:145px 54px minmax(220px,1fr) minmax(180px,.85fr) 165px!important}
+.operation-page-rows>.student-presence-board,.operation-page-rows>.teacher-operation-board,.operation-page-rows>.live-course-list,.operation-page-rows>.live-scan-list,.operation-page-rows>.live-department-list,.operation-page-rows>.live-grade-list{height:100%;max-height:none;align-content:start;overflow:auto}
+.operation-page-rows .student-presence-head,.operation-page-rows .teacher-operation-head,.operation-page-rows .live-course-head{top:0}

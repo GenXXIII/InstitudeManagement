@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DataTable } from "@/components/data-table";
-import { Icon } from "@/components/icon";
+import { DataTable, DataTableToolbar } from "@/components/data-table";
 import { ManagementDataCell } from "@/components/management-data-cell";
 import { ManagementActions } from "@/features/management/components/management-actions";
 import { workflowCode } from "@/lib/workflow-code";
@@ -19,11 +18,9 @@ export function TimetableBoard({ items, onEdit, onDeactivate }: { items: Timetab
       .some(value => value.toLowerCase().includes(search.toLowerCase())))
     .toSorted((left, right) => days.indexOf(left.values.dayOfWeek) - days.indexOf(right.values.dayOfWeek) || left.values.startsAt.localeCompare(right.values.startsAt) || left.values.timetableCode.localeCompare(right.values.timetableCode, undefined, { numeric: true }));
   return <section className="management-timetable-data">
-    <div className="panel timetable-data-filters">
-      <label className="management-search module-search-field timetable-module-search"><Icon name="search" size={16}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search code, shift, time, or day..." aria-label="Search schedule"/></label>
+    <DataTableToolbar query={search} onQueryChange={setSearch} searchPlaceholder="Search code, shift, time, or day..." searchAriaLabel="Search schedule" className="panel timetable-data-filters" searchClassName="management-search module-search-field timetable-module-search" resultClassName="timetable-data-count" resultLabel={<><span>Showing</span><strong>{visible.length}</strong><small>permanent time slots</small></>}>
       <label><span>Day</span><select value={selectedDay} onChange={event => setSelectedDay(event.target.value)}><option>All days</option>{days.map(day => <option key={day}>{day}</option>)}</select></label>
-      <div className="timetable-data-count"><span>Showing</span><strong>{visible.length}</strong><small>permanent time slots</small></div>
-    </div>
+    </DataTableToolbar>
     <DataTable className="panel timetable-data-table schedule-master-table" headerClassName="timetable-data-head" rowSelector=".timetable-data-row" columns={["Code", "Shift", "Time", "Day", "Created at", "Actions"]}>
       <div className="timetable-data-body">{visible.map(item => <article className="timetable-data-row" key={item.id}>
         <ManagementDataCell label="Code"><strong className="management-code-value">{workflowCode(item.values.timetableCode, "timetable", "management")}</strong></ManagementDataCell>

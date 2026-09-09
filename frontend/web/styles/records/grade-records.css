@@ -1,0 +1,74 @@
+.grade-totals .grade-letter{display:grid;color:#278764}
+.attendance-record-cell,.grade-record-cell{min-width:190px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border:1px solid #e3eaf3;border-radius:8px;background:white}
+.attendance-record-cell>div,.grade-record-cell>div{display:flex;min-width:0;flex-direction:column;gap:2px}
+.attendance-record-cell time,.attendance-record-cell small,.grade-record-cell small{font-size:6.5px;color:#8d9aac}
+.attendance-record-cell strong,.grade-record-cell strong{font-size:7.5px;white-space:nowrap}
+.grade-record-cell.pending-grade{min-width:125px;background:#f7f9fc;color:#8996a8}
+.grade-record-cell.pending-grade strong{color:#718095}
+.attendance-record-cell,.grade-record-cell{min-width:230px;padding:11px 12px}
+.attendance-record-cell time,.attendance-record-cell small,.grade-record-cell small{font-size:8px}
+.attendance-record-cell strong,.grade-record-cell strong{font-size:9px}
+.result-rule-notice{min-height:64px;display:flex;align-items:center;gap:13px;margin-bottom:13px;border:1px solid #cfe0f5;border-radius:13px;background:#edf5ff;padding:12px 15px;color:#2f69ba}
+.result-rule-notice>div{display:flex;flex-direction:column;gap:4px}
+.result-rule-notice strong{font-size:10px}
+.result-rule-notice span{color:#6c7f99;font-size:8.5px;line-height:1.5}
+.result-toolbar{grid-template-columns:minmax(260px,1fr) 150px 140px auto}
+.semester-result-table{padding:0;overflow-x:auto}
+.semester-result-head,.semester-result-row{min-width:1180px;display:grid;grid-template-columns:210px 130px 190px minmax(290px,1fr) 90px 95px 115px;align-items:center;gap:13px}
+.semester-result-head{min-height:46px;padding:0 17px;border-bottom:1px solid #e2e9f3;background:#f5f8fc;color:#8492a5;font-size:8px;font-weight:750;text-transform:uppercase;letter-spacing:.55px}
+.semester-result-row{min-height:108px;padding:13px 17px;border-bottom:1px solid #e7edf5}
+.semester-result-row:last-child{border-bottom:0}
+.result-student{display:flex;align-items:center;gap:10px;min-width:0}
+.result-student>span{width:40px;height:50px;display:grid;place-items:center;flex:none;border-radius:9px;background:#e8f1ff;color:#3069bf;font-size:10px;font-weight:800}
+.result-student>div,.result-period,.result-total,.result-average{display:flex;min-width:0;flex-direction:column;gap:4px}
+.result-student strong,.result-period strong{overflow:hidden;font-size:10.5px;text-overflow:ellipsis;white-space:nowrap}
+.result-student small,.result-period small,.result-period span,.result-total span,.result-average span{color:#8492a5;font-size:8px}
+.result-attendance{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.result-attendance>span{min-height:42px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;border-radius:8px;background:#eef8f4;color:#27795d;font-size:7px}
+.result-attendance b{font-size:12px}
+.result-attendance .absent{background:#fff0f1;color:#c44d57}
+.result-attendance .permission{background:#eef1ff;color:#626fc1}
+.result-course-grades{display:flex;gap:6px;overflow-x:auto;padding-bottom:3px}
+.result-course-grades>span{min-width:100px;display:flex;flex-direction:column;gap:3px;border:1px solid #dce6f2;border-radius:8px;background:#fbfdff;padding:8px}
+.result-course-grades strong{font-size:9px;white-space:nowrap}
+.result-course-grades small{overflow:hidden;color:#8694a7;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+.result-course-grades>i{color:#98a4b5;font-size:8px}
+.result-total strong,.result-average strong{font-size:15px;color:#286ac4}
+.result-final{display:grid;place-items:center;min-height:34px;border-radius:8px;background:#eaf7f1;color:#28795e;font-size:9px;font-weight:800;text-align:center}
+.result-final.result-fail{background:#ffedef;color:#c24854}
+.result-final.result-retake-exam{background:#fff3df;color:#ad721b}
+.result-final.result-pending{background:#eef2f7;color:#718096}
+.result-toolbar{grid-template-columns:minmax(240px,1fr) 145px 130px 135px auto}
+.grade-record-cell.pending-grade .cancel-pending-grade{height:25px;padding:0 8px;border:1px solid #efc8cc;border-radius:6px;background:#fff5f5;color:#c94f59;font-size:7px;font-weight:700;cursor:pointer}
+.grade-record-cell.pending-grade .cancel-pending-grade:hover{background:#ffe9eb}
+.semester-result-head,.semester-result-row{grid-template-columns:repeat(7,minmax(160px,1fr));min-width:1120px}
+.semester-result-row{min-height:0;align-items:start}
+.result-student strong,.result-period strong{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.attendance-record-cell,.grade-record-cell{min-width:980px;align-items:stretch}
+.attendance-record-cell>.record-field-grid,.grade-record-cell>.record-field-grid{display:grid;flex:1;grid-template-columns:repeat(6,minmax(120px,1fr));gap:1px;background:#e7edf5}
+.grade-record-cell>.grade-field-grid{grid-template-columns:repeat(7,minmax(120px,1fr))}
+.attendance-record-cell>.management-action-cell,.grade-record-cell>.management-action-cell{min-width:120px;padding-left:5px}
+.attendance-record-cell>.management-action-cell .management-actions,.grade-record-cell>.management-action-cell .management-actions{flex-direction:column}
+.grade-record-cell.pending-grade{min-width:360px}
+.grade-record-cell.pending-grade>.management-data-cell{flex:1}
+.program-grade-totals{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.program-grade-totals>span{min-height:27px;border:1px solid #d7e4f2;background:#eef5ff;color:#3267af}
+.program-grade-totals b{font-size:10px}
+.program-grade-totals small{font-size:6.5px}
+.program-history-insights>.program-grade-totals{align-self:stretch}
+.student-result-card{min-height:60px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;border-radius:9px;text-align:center}
+.student-result-card>strong{font-size:9px}
+.student-result-card>span{font-size:7px;opacity:.75}
+.student-result-card>b{font-size:16px}
+.result-a{background:#dff2e8!important;color:#176247!important}
+.result-b{background:#e7f6ef!important;color:#26845f!important}
+.result-c{background:#eef9f4!important;color:#4a9272!important}
+.result-d{background:#fff2cc!important;color:#a87313!important}
+.result-e{background:#fff8df!important;color:#9b7a25!important}
+.result-fail,.result-f{background:#ffeaed!important;color:#bd4450!important}
+.result-retake-exam{background:#fff1ce!important;color:#a56d12!important}
+.result-in-progress{background:#e9f2ff!important;color:#316bc2!important}
+.result-pending{background:#eef2f7!important;color:#718096!important}
+.operation-paginated-list,.record-paginated-region,.result-paginated-region,.history-paginated-region,.management-paginated-region{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.result-paginated-region>.semester-result-table,.history-paginated-region>.record-register{padding:0}
+.viewport-data-page>.record-paginated-region,.viewport-data-page>.result-paginated-region,.viewport-data-page>.history-paginated-region,.viewport-data-page>.management-paginated-region{flex:1;min-height:0}

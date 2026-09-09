@@ -1,0 +1,41 @@
+.chart-area{height:174px;margin:9px 2px 0;position:relative}
+.chart-area svg,.line-chart-large svg{position:absolute;left:0;right:0;bottom:21px;width:100%;height:145px;overflow:visible}
+.chart-area .line,.line-chart-large .line{fill:none;stroke:var(--blue);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 4px 4px rgba(37,102,242,.13))}
+.chart-area .area,.line-chart-large .area{fill:url(#fill);stroke:none}
+.chart-lines{position:absolute;inset:8px 0 26px;display:flex;flex-direction:column;justify-content:space-between}
+.chart-lines i{height:1px;background:#edf1f7}
+.chart-labels,.x-labels{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;color:#9aa6b8;font-size:8px}
+.bars{height:112px;margin-top:11px;display:flex;align-items:flex-end;justify-content:space-around;border-bottom:1px solid #edf1f6}
+.bars>div{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;width:18%}
+.bars i{display:block;width:19px;min-height:12px;border-radius:5px 5px 1px 1px;background:linear-gradient(180deg,#4d85f7,#2464ed)}
+.bars span,.bars b{font-size:8px}
+.bars b{color:#8391a6}
+.bars span{font-weight:700}
+.line-chart-large{position:relative;height:225px;margin-top:10px;padding-left:30px}
+.line-chart-large svg{left:34px;width:calc(100% - 34px);height:205px;bottom:18px}
+.line-chart-large .area{fill:url(#mgmtFill)}
+.horizontal-bars{display:grid;gap:15px;margin-top:22px}
+.horizontal-bars>div{display:grid;grid-template-columns:15px 1fr 25px;align-items:center;gap:8px;font-size:8px}
+.horizontal-bars>div>span{font-weight:750}
+.horizontal-bars>div>i{display:block;height:7px;background:#edf2f7;border-radius:5px;overflow:hidden}
+.horizontal-bars>div>i b{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#4c86f8,#2868f2)}
+.horizontal-bars strong{font-size:8px;color:#78869a}
+.dashboard-chart{position:relative;height:245px;margin-top:4px;padding-bottom:43px}
+.dashboard-chart>svg{position:absolute;inset:8px 3px 43px;width:calc(100% - 6px);height:194px;overflow:visible}
+.dashboard-chart-area{fill:url(#dashboardAttendanceFill)}
+.dashboard-chart-line{fill:none;stroke:#3474df;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 5px 5px rgba(41,103,205,.17))}
+.dashboard-chart circle{fill:white;stroke:#3474df;stroke-width:3;vector-effect:non-scaling-stroke}
+.dashboard-chart-grid{position:absolute;inset:12px 0 50px;display:flex;justify-content:space-between;flex-direction:column}
+.dashboard-chart-grid i{height:1px;background:#edf2f7}
+.dashboard-chart-labels{position:absolute;right:0;bottom:0;left:0;display:flex;justify-content:space-between;gap:5px}
+.dashboard-chart-labels span{display:flex;min-width:0;align-items:center;flex-direction:column;gap:3px;color:#73849a}
+.dashboard-chart-labels b{font-size:9px}
+.dashboard-chart-labels small{font-size:9px;color:#9aa7b7}
+.dashboard-grade-bars{height:180px;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:8px}
+.dashboard-grade-bars>div{height:100%;display:flex;align-items:center;flex:1;flex-direction:column;justify-content:flex-end;gap:5px}
+.dashboard-grade-bars b{font-size:9px}
+.dashboard-grade-bars small{color:#78899f;font-size:9px;font-weight:750}
+.dashboard-trend-card .dashboard-chart{height:245px}
+.dashboard-trend-card .dashboard-chart-labels{display:grid;align-items:start}
+.dashboard-trend-card .dashboard-chart-labels span{min-width:0}
+.dashboard-trend-card .dashboard-chart-labels b,.dashboard-trend-card .dashboard-chart-labels small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -1,0 +1,22 @@
+.live-scan-list>div{display:grid;grid-template-columns:43px 29px 1fr auto;align-items:center;gap:9px;min-height:49px;border-bottom:1px solid #edf1f6}
+.student-presence-board{padding:0 17px 10px;overflow:hidden}
+.student-presence-head,.student-presence-board .student-presence-row{display:grid;grid-template-columns:36px minmax(0,1fr) 78px 88px;align-items:center;gap:12px}
+.student-presence-head{min-height:34px;border-top:1px solid #edf1f6;border-bottom:1px solid #e5ecf5;color:#8b98aa;text-transform:uppercase;letter-spacing:.55px;font-size:7px;font-weight:750}
+.student-presence-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.student-presence-board .student-presence-row{min-height:58px}
+.student-presence-board .student-presence-row>div{display:flex;min-width:0;flex-direction:column;gap:3px}
+.student-presence-row strong,.student-presence-row small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.student-presence-board{display:grid}
+.student-presence-board article{display:grid;grid-template-columns:34px 1fr 60px auto;align-items:center;gap:10px;min-height:57px;border-bottom:1px solid #edf1f6}
+.student-presence-board article:last-child{border:0}
+.student-presence-board article>div{display:flex;flex-direction:column;gap:3px}
+.student-presence-board strong{font-size:9px}
+.student-presence-board small{font-size:7px;color:#8d9aad}
+.student-presence-board b{font-size:8px;color:#65758d}
+.operation-standard-page .student-presence-head,.operation-standard-page .student-presence-board .student-presence-row{grid-template-columns:54px minmax(260px,1fr) 120px 145px;gap:18px}
+.operation-standard-page .live-course-list strong,.operation-standard-page .live-scan-list strong,.operation-standard-page .live-department-list strong,.operation-standard-page .live-grade-list strong{font-size:13px}
+.operation-standard-page .live-course-list small,.operation-standard-page .live-scan-list small,.operation-standard-page .live-department-list>div>div>span,.operation-standard-page .live-grade-list small{font-size:10px}
+.operation-standard-page .live-scan-list>div{grid-template-columns:75px 48px minmax(240px,1fr) 120px;gap:15px;min-height:82px}
+.student-presence-head,.student-presence-board .student-presence-row,.operation-standard-page .student-presence-head,.operation-standard-page .student-presence-board .student-presence-row{grid-template-columns:repeat(6,minmax(130px,1fr))}
+.student-presence-head,.student-presence-board .student-presence-row{grid-template-columns:145px 54px minmax(220px,1fr) minmax(180px,.85fr) 130px 155px!important}
+.student-presence-board{align-content:start}

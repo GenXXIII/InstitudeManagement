@@ -37,7 +37,7 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
   const load = useCallback(() => {
     const candidateRequest: Promise<EnrollmentItem[]> = isSelectableEnrollment(resource)
       ? Promise.all([getCatalogCandidates(resource, departmentId, year), enrollmentApiFor(resource).get()]).then(([catalogItems, enrollmentItems]) => {
-          const assignedIds = new Set(enrollmentItems.filter(item => item.values.status !== "Unassigned").map(item => item.id));
+          const assignedIds = new Set(enrollmentItems.filter(item => item.values.status !== "Unassigned" && item.values.periodState !== "Retained").map(item => item.id));
           if (resource === "timetable") {
             return catalogItems.filter(item => !assignedIds.has(item.id)).map(item => ({
               ...item,

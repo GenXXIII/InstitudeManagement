@@ -1,0 +1,133 @@
+.schedule-panel{min-height:255px}
+.schedule-list{margin-top:12px;display:grid;gap:6px}
+.schedule-list>div{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #edf1f6}
+.schedule-list>div:last-child{border-bottom:0}
+.schedule-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:#eaf2ff;color:var(--blue);font-size:9px}
+.schedule-icon.s1{background:#f1edff;color:var(--violet)}
+.schedule-icon.s2{background:#eaf8f3;color:var(--green)}
+.schedule-icon.s3{background:#fff7e6;color:var(--amber)}
+.schedule-list div>div{display:flex;flex-direction:column;gap:2px}
+.schedule-list strong{font-size:9.5px}
+.schedule-list small{font-size:8px;color:#9aa6b8}
+.schedule-list b{font-size:12px}
+.live-course-list,.live-timetable-list,.live-scan-list,.live-department-list,.live-grade-list{padding:0 17px 10px}
+.live-course-list>div>div,.live-timetable-list>div>div,.live-scan-list>div>div,.live-grade-list>div>div{display:flex;flex-direction:column;gap:2px}
+.live-course-list strong,.live-timetable-list strong,.live-scan-list strong,.live-department-list strong,.live-grade-list strong{font-size:9px}
+.live-timetable-list>div{display:grid;grid-template-columns:90px 8px 1fr auto;align-items:center;gap:10px;min-height:51px;border-bottom:1px solid #edf1f6}
+.live-timetable-list time{font-size:8px;color:#3569b7;font-weight:700}
+.live-timetable-list i{width:7px;height:7px;border-radius:50%;background:#2d70ec;box-shadow:0 0 0 4px #eaf2ff}
+.timetable-management{display:grid;gap:13px}
+.timetable-day{display:grid;grid-template-columns:115px 1fr;padding:0;overflow:hidden}
+.timetable-day-title{padding:17px;background:linear-gradient(145deg,#edf5ff,#f8fbff);display:flex;flex-direction:column}
+.timetable-day-title>span{width:31px;height:31px;display:grid;place-items:center;border-radius:9px;background:var(--blue);color:white;font-size:8px;font-weight:750}
+.timetable-day-title h3{font-size:12px;margin:10px 0 3px}
+.timetable-day-title small{font-size:7.5px;color:#8e9baf}
+.timetable-slots{padding:7px 15px}
+.timetable-slot{min-height:58px;display:grid;grid-template-columns:92px 1fr auto 142px;align-items:center;gap:13px;border-bottom:1px solid #edf1f6}
+.timetable-slot:last-child{border:0}
+.timetable-slot time{font-size:9px;font-weight:700;color:#315f9f}
+.timetable-slot time span{padding:0 4px;color:#9aa8ba}
+.timetable-slot>div:nth-child(2){display:flex;flex-direction:column;gap:3px}
+.timetable-slot>div:nth-child(2) strong{font-size:9.5px}
+.timetable-slot>div:nth-child(2) span{font-size:7.5px;color:#8f9caf}
+.timetable-legend{grid-column:1/-1;display:flex;align-items:center;gap:14px;color:#77879d;font-size:6.5px}
+.timetable-legend span{display:flex;align-items:center;gap:5px}
+.timetable-legend i{width:7px;height:7px;border-radius:50%;background:#73a6ed}
+.timetable-legend i.afternoon{background:#51b994}
+.timetable-legend i.evening{background:#826dde}
+.timetable-legend i.meeting{background:#e0a93e}
+.timetable-period-row{min-height:0;border-bottom:1px solid #e9eef5}
+.timetable-period-row:last-child{border-bottom:0}
+.timetable-period-time{display:flex;flex-direction:column;justify-content:center;padding:4px 7px;border-right:1px solid #e4ebf4;background:#f8fafd}
+.timetable-period-time span{font-size:5.5px;text-transform:uppercase;letter-spacing:.45px;color:#7895bd}
+.timetable-period-time strong{margin-top:2px;font-size:6.5px;white-space:nowrap}
+.session-afternoon .timetable-period-time span{color:#2e936e}
+.session-evening .timetable-period-time span{color:#6952c4}
+.timetable-period-cell{display:flex;align-items:center;min-width:0;gap:3px;padding:3px;border-right:1px solid #e9eef5;overflow:auto}
+.timetable-period-cell:last-child{border-right:0}
+.timetable-period-cell.today{background:#f3fbf7}
+.timetable-period-cell article{flex:1;min-width:0;padding:4px 5px;border:1px solid #dfe8f3;border-radius:6px;background:white}
+.timetable-period-cell article>div{display:flex;align-items:center;justify-content:space-between;gap:3px}
+.timetable-period-cell article strong,.timetable-period-cell article span,.timetable-period-cell article small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timetable-period-cell article strong{font-size:6.5px}
+.timetable-period-cell article span,.timetable-period-cell article small{margin-top:1px;font-size:5.3px;color:#8493a8}
+.timetable-period-cell article b{padding:1px 3px;border-radius:3px;background:white;color:#258563;font-size:4.5px}
+.timetable-period-cell article.current-course{border-color:#2fa779;background:#2fa779;color:white}
+.timetable-period-cell article.current-course span,.timetable-period-cell article.current-course small{color:rgba(255,255,255,.8)}
+.custom-timetable-warning{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;background:#fff6e7;color:#a77117;font-size:6.5px}
+.custom-timetable-warning strong{font-size:7px}
+.timetable-period-note{display:flex;flex-direction:column;gap:3px;margin-top:11px;padding:9px 11px;border-radius:9px;background:#eef5ff;color:#3569b5}
+.timetable-period-note strong{font-size:8px}
+.timetable-period-note span{font-size:7px;color:#7188aa}
+.timetable-year-filter button{padding:0 8px;font-size:6.5px;font-weight:700}
+.dashboard-schedule-card{grid-column:span 7}
+.dashboard-schedule-list,.dashboard-department-list{display:grid;margin-top:14px}
+.dashboard-schedule-list>div{min-height:61px;display:grid;grid-template-columns:55px minmax(0,1fr) auto;align-items:center;gap:12px;border-bottom:1px solid #e9eff5}
+.dashboard-schedule-list time{color:#2d68bd;font-size:12px;font-weight:800}
+.dashboard-schedule-list>div>span,.dashboard-department-list>div>div{display:flex;min-width:0;flex-direction:column;gap:4px}
+.dashboard-schedule-list strong,.dashboard-department-list strong{font-size:12px}
+.dashboard-schedule-list small,.dashboard-department-list small{color:#8291a5;font-size:10px}
+.timetable-period-note strong{font-size:9.5px}
+.timetable-period-note span{font-size:8.5px}
+.management-timetable-workspace{display:grid;gap:13px}
+.management-timetable-days,.management-timetable-years{display:flex;gap:6px;overflow-x:auto}
+.management-timetable-days button,.management-timetable-years button{height:36px;padding:0 12px;border:1px solid #dfe7f1;border-radius:8px;background:#f8fafd;color:#60728a;font-size:9px;font-weight:700;white-space:nowrap;cursor:pointer}
+.management-timetable-days button.active,.management-timetable-years button.active{border-color:#3975cd;background:#3975cd;color:white}
+.management-timetable-summary{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:0 2px}
+.management-timetable-summary>span{display:flex;align-items:center;gap:5px;min-height:34px;padding:0 10px;border:1px solid #e0e8f2;border-radius:8px;background:white;color:#718198;font-size:8.5px;white-space:nowrap}
+.management-timetable-summary strong{font-size:12px;color:#3069bd}
+.management-timetable-summary i{margin-left:auto;color:#7187a7;font-size:8.5px;font-style:normal;white-space:nowrap}
+.management-timetable-data{display:grid;gap:14px}
+.timetable-data-filters{display:grid;grid-template-columns:minmax(260px,1.4fr) minmax(150px,.65fr) 130px;align-items:end;gap:14px}
+.timetable-data-filters label{display:flex;flex-direction:column;gap:7px}
+.timetable-data-filters label>span,.timetable-data-count>span{color:#8290a5;font-size:10px;font-weight:750;letter-spacing:.55px;text-transform:uppercase}
+.timetable-data-filters input,.timetable-data-filters select{height:46px;border:1px solid #dce6f1;border-radius:10px;background:#f9fbfe;padding:0 13px;color:#33435b;font-size:12px;outline:none}
+.timetable-data-filters input:focus,.timetable-data-filters select:focus{border-color:#91b7f6;box-shadow:0 0 0 3px rgba(43,105,237,.09);background:white}
+.timetable-data-count{min-height:46px;display:grid;grid-template-columns:1fr auto;align-items:center;padding-left:15px;border-left:1px solid #e4eaf2}
+.timetable-data-count>span{grid-column:1}
+.timetable-data-count strong{grid-column:2;grid-row:1/3;color:var(--blue);font-size:28px}
+.timetable-data-count small{grid-column:1;color:#8d9bad;font-size:9px}
+.timetable-data-table{padding:0!important;overflow-x:auto}
+.timetable-data-head,.timetable-data-row{display:grid;grid-template-columns:145px minmax(190px,1.15fr) minmax(180px,1fr) 135px 110px 135px 110px 120px 155px;align-items:center;gap:14px;min-width:1320px}
+.timetable-data-head{min-height:48px;padding:0 17px;border-bottom:1px solid #dfe7f1;background:#f2f6fb;color:#7e8da2;font-size:9px;font-weight:800;letter-spacing:.55px;text-transform:uppercase}
+.timetable-data-body{max-height:calc(100vh - 345px);min-height:260px;overflow-y:auto;scrollbar-gutter:stable}
+.timetable-data-row{min-height:98px;padding:11px 17px;border-bottom:1px solid #e7edf5;background:white}
+.timetable-data-row:hover{background:#f9fbff}
+.timetable-time-data,.timetable-course-data,.timetable-detail-data,.timetable-room-data,.timetable-student-count{display:flex;min-width:0;flex-direction:column;gap:4px}
+.timetable-time-data strong,.timetable-course-data strong,.timetable-detail-data strong,.timetable-room-data strong{overflow:hidden;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.timetable-time-data time{color:#2868cc;font-size:13px;font-weight:800}
+.timetable-time-data small,.timetable-course-data span,.timetable-detail-data span,.timetable-room-data span,.timetable-student-count span{color:#8c99ab;font-size:9px}
+.timetable-student-count strong{font-size:22px;color:#356dc2}
+.timetable-data-row>.management-actions{justify-content:flex-end}
+.session-timetable-card{overflow:hidden;border:1px solid #dce6f1;border-radius:15px;background:white;box-shadow:0 6px 19px rgba(47,73,110,.07);transition:border-color .18s,box-shadow .18s}
+.session-timetable-card.open{border-color:#8eb3eb;box-shadow:0 12px 30px rgba(45,99,181,.12)}
+.session-timetable-trigger{width:100%;min-height:105px;display:grid;grid-template-columns:190px 155px minmax(180px,1fr) minmax(180px,1fr) auto 105px;align-items:stretch;gap:0;border:0;background:white;padding:0;text-align:left;color:var(--ink);cursor:pointer}
+.session-timetable-trigger:hover{background:#f9fbff}
+.session-timetable-trigger>div{min-width:0;display:flex;justify-content:center;flex-direction:column;padding:16px 18px;border-right:1px solid #e7edf5}
+.session-timetable-details{border-top:1px solid #dfe8f3;background:#f8fbff;padding:14px}
+.session-timetable-details>header{min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 4px 12px}
+.session-timetable-details>header>div{display:flex;flex-direction:column;gap:4px}
+.session-timetable-details>header strong{font-size:12px}
+.session-timetable-details>header span{color:#7c8ba0;font-size:9px}
+.timetable-data-head,.timetable-data-row{grid-template-columns:145px minmax(190px,1.15fr) minmax(180px,1fr) 135px 110px 135px 110px 120px 155px;min-width:1320px}
+.timetable-data-row{min-height:0;align-items:start}
+.timetable-time-data strong,.timetable-course-data strong,.timetable-detail-data strong,.timetable-room-data strong{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.schedule-master-table .timetable-data-head,.schedule-master-table .timetable-data-row{grid-template-columns:150px 140px 180px 150px 150px 155px;min-width:925px}
+.operation-visual-page .timetable-year-filter button{height:34px;font-size:9px}
+.timetable-data-row>.management-data-cell{align-self:stretch}
+.timetable-data-row>.management-action-cell{justify-content:flex-start}
+.timetable-data-row .management-cell-label{font-size:9px!important}
+.management-viewport-page>.management-timetable-data{flex:1;min-height:0;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
+.management-viewport-page .timetable-data-table{min-height:0;display:flex;flex-direction:column}
+.management-viewport-page .timetable-data-head{flex:none}
+.management-viewport-page .timetable-data-body{flex:1;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.viewport-data-page.operations-visual-workspace:has(.operation-timetable){height:100%;min-height:0;overflow:hidden}
+.viewport-data-page .operation-visual-page:has(.operation-timetable){min-height:0}
+.session-timetable-static{cursor:default}
+.session-timetable-trigger{grid-template-columns:190px 155px minmax(180px,1fr) minmax(180px,1fr) minmax(145px,auto)}
+.management-paginated-region>.management-timetable-data{display:grid;grid-template-rows:auto minmax(0,1fr)}
+.management-paginated-region .timetable-data-table{min-height:0;display:flex;flex-direction:column}
+.management-paginated-region .timetable-data-body{flex:1;min-height:0;max-height:none;overflow:auto}
+.content .timetable-module-search{align-self:end}
+.schedule-master-table .timetable-data-head,.schedule-master-table .timetable-data-row{min-width:0;grid-template-columns:repeat(6,minmax(0,1fr))}
+.schedule-master-table .timetable-data-row :is(strong,small,span,time){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal;word-break:normal}

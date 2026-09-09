@@ -5,14 +5,9 @@ import { Icon } from "@/components/icon";
 import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
 import { workflowCode, workflowResource, type WorkflowCodeStage } from "@/lib/workflow-code";
 import type { OperationalRecord } from "../record-types";
+import { RecordLedgerValue } from "./record-ledger-value";
 
 type StructureModule = "Department" | "Timetable";
-
-export function StructureSemesterRecordHeader({ module }: { module: StructureModule }) {
-  return module === "Department"
-    ? <div className="structure-semester-record-head"><span>Department code</span><span>Type</span><span>Department</span><span>Head</span><span>Year</span><span>Students / teachers</span><span>Courses / rooms</span><span>Recorded periods</span></div>
-    : <div className="structure-semester-record-head"><span>Timetable code</span><span>Type</span><span>Course</span><span>Department</span><span>Year</span><span>Day / time</span><span>Teacher / classroom</span><span>Students / classes</span></div>;
-}
 
 export function StructureSemesterRecord({ row, stage = "record", detailHref, detailPage = false }: { row: OperationalRecord; stage?: WorkflowCodeStage; detailHref?: string; detailPage?: boolean }) {
   const router = useRouter();
@@ -22,14 +17,25 @@ export function StructureSemesterRecord({ row, stage = "record", detailHref, det
   const completed = completedSessions(row);
   const open = () => { if (detailHref) router.push(detailHref); };
   return <article className="structure-semester-record-row record-row-clickable" role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
-    <div className="workflow-ledger-code"><strong className="entity-record-code">{workflowCode(row.code, workflowResource(row.module), stage)}</strong><small>From {workflowCode(row.code, workflowResource(row.module), "enrollment")}</small></div>
+    <div className="workflow-ledger-code"><strong className="entity-record-code">{workflowCode(row.code, workflowResource(row.module), stage)}</strong></div>
     <span className={`structure-record-type structure-${recordModule.toLowerCase()}`}><Icon name={recordModule === "Department" ? "building" : "calendar"} size={17}/><small>{recordModule}</small></span>
-    <div className="entity-record-name"><strong>{row.subject}</strong><span>{row.academicYear} · {row.term}</span></div>
-    <div className="entity-record-department"><strong>{recordModule === "Department" ? row.identifier : row.department}</strong><span>{recordModule === "Department" ? "Department leadership" : summary["Course code"] || "Scheduled course"}</span></div>
-    <div className="entity-record-year"><strong>{yearLabels(row)}</strong><span>Semester level</span></div>
-    {recordModule === "Department" ? <PairMetric first={summary.Students} firstLabel="students" second={summary.Teachers} secondLabel="teachers"/> : <div className="structure-record-context"><strong>{summary.Day || "Weekly"}</strong><span>{summary.Time || "Time unavailable"}</span></div>}
-    {recordModule === "Department" ? <PairMetric first={summary.Courses} firstLabel="courses" second={summary.Classrooms} secondLabel="rooms"/> : <div className="structure-record-context"><strong>{summary.Teacher || "Not assigned"}</strong><span>Room {summary.Classroom || "—"}</span></div>}
-    {recordModule === "Department" ? <SingleMetric value={completed.length} label="recorded periods"/> : <PairMetric first={summary["Student count"]} firstLabel="students" second={completed.length.toString()} secondLabel="periods"/>}
+    <div className="entity-record-name"><strong>{row.subject}</strong></div>
+    <div className="entity-record-department"><strong>{recordModule === "Department" ? row.identifier : row.department}</strong></div>
+    <div className="entity-record-year"><strong>{yearLabels(row)}</strong></div>
+    {recordModule === "Department" ? <>
+      <RecordLedgerValue value={summary.Students || "0"} className="record-value-blue"/>
+      <RecordLedgerValue value={summary.Teachers || "0"} className="record-value-green"/>
+      <RecordLedgerValue value={summary.Courses || "0"} className="record-value-blue"/>
+      <RecordLedgerValue value={summary.Classrooms || "0"} className="record-value-green"/>
+      <RecordLedgerValue value={completed.length} className="record-value-activity"/>
+    </> : <>
+      <RecordLedgerValue value={summary.Day || "Weekly"} className="record-value-neutral"/>
+      <RecordLedgerValue value={summary.Time || "—"} className="record-value-neutral"/>
+      <RecordLedgerValue value={summary.Teacher || "Not assigned"} className="record-value-blue"/>
+      <RecordLedgerValue value={summary.Classroom || "—"} className="record-value-green"/>
+      <RecordLedgerValue value={summary["Student count"] || "0"} className="record-value-blue"/>
+      <RecordLedgerValue value={completed.length} className="record-value-activity"/>
+    </>}
   </article>;
 }
 
@@ -48,8 +54,6 @@ function StructureRecordDetail({ row, stage }: { row: OperationalRecord; stage: 
   </article>;
 }
 
-function PairMetric({ first, firstLabel, second, secondLabel }: { first?: string; firstLabel: string; second?: string; secondLabel: string }) { return <div className="structure-pair-metric"><span><b>{first || "0"}</b><small>{firstLabel}</small></span><span><b>{second || "0"}</b><small>{secondLabel}</small></span></div>; }
-function SingleMetric({ value, label }: { value: number; label: string }) { return <div className="structure-single-metric"><strong>{value}</strong><span>{label}</span></div>; }
 function Information({ label, value }: { label: string; value?: string }) { return <div><span>{label}</span><strong>{value || "Not recorded"}</strong></div>; }
 function Metric({ icon, label, value }: { icon: Parameters<typeof Icon>[0]["name"]; label: string; value?: string }) { return <article><span><Icon name={icon} size={16}/></span><div><small>{label}</small><strong>{value || "0"}</strong></div></article>; }
 function summaryActivity(row: OperationalRecord) { const activity = row.activities.find(item => item.Activity === (row.module === "Department" ? "Department semester" : "Timetable enrollment")); return activity ?? {}; }

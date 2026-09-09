@@ -1,0 +1,191 @@
+.record-row-history{padding:0 15px 15px 60px}
+.record-history-heading{display:flex;justify-content:space-between;padding:11px 0 8px;border-top:1px solid #e8eef6}
+.record-history-heading strong{font-size:8px}
+.record-history-heading span{font-size:7px;color:#909dae}
+.record-history-entry{display:grid;grid-template-columns:145px 1fr;border:1px solid #e6edf6;border-bottom:0;background:white}
+.record-history-entry:last-child{border-bottom:1px solid #e6edf6;border-radius:0 0 9px 9px}
+.record-history-entry:first-of-type{border-radius:9px 9px 0 0}
+.record-history-meta{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:11px;border-right:1px solid #e8eef6;background:#f7faff}
+.record-history-meta time{font-size:7px;color:#7f8da1}
+.record-history-snapshot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#eaf0f6}
+.record-history-snapshot>div{min-width:0;padding:9px 10px;background:white;display:flex;flex-direction:column;gap:3px}
+.record-history-snapshot span{font-size:6.5px;color:#96a3b4;text-transform:uppercase;letter-spacing:.35px}
+.record-history-snapshot strong{font-size:7.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.identity-history-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:17px}
+.identity-history-grid article{display:grid;grid-template-columns:38px 1fr;gap:9px;position:relative}
+.history-person-mark{width:38px;height:49px;border-radius:9px;background:#dfeeff;color:#3569ba;display:grid;place-items:center;font-size:8px;font-weight:800;grid-row:span 2}
+.history-teachers .history-person-mark{background:#ede9ff;color:#6855c3}
+.identity-history-grid article>div:nth-child(2)>span{font-size:6.5px;color:#8098bc}
+.identity-history-grid h3{font-size:9px;margin:3px 0}
+.identity-history-grid p{font-size:7px;color:#8d9aac;margin:0}
+.identity-history-grid article>strong{grid-column:2;font-size:7px;color:#2f8567}
+.room-history-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:17px}
+.room-history-strip article{position:relative}
+.room-history-strip article>span{font-size:7px;color:#8c9aad}
+.room-history-strip h3{font-size:17px;color:#346ab9;margin:4px 0 12px}
+.room-history-strip article>div{font-size:7px;color:#8d99aa}
+.room-history-strip b{font-size:13px;color:#2d3f58}
+.room-history-strip small{display:block;font-size:7px;color:#8290a4;margin-top:5px}
+.room-history-strip article>strong{position:absolute;right:12px;top:12px;font-size:7px;color:#bd7b18}
+.course-history-ledger{padding:0;overflow:hidden;margin-bottom:17px}
+.course-history-ledger article{display:grid;grid-template-columns:52px 1fr 70px 60px;align-items:center;gap:10px;min-height:52px;padding:8px 13px;border-bottom:1px solid #edf1f6}
+.course-history-ledger article:last-child{border:0}
+.course-history-ledger article>span{padding:8px 5px;border-radius:8px;background:#edf4ff;text-align:center;color:#376fc5;font-size:7px;font-weight:800}
+.course-history-ledger h3{font-size:9px;margin:0}
+.course-history-ledger p,.course-history-ledger small{font-size:7px;color:#8d9aac;margin:3px 0 0}
+.course-history-ledger article>strong{font-size:7px;color:#307f65}
+.schedule-history-board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:17px}
+.schedule-history-board article{display:grid;grid-template-columns:48px 1fr;gap:9px}
+.schedule-history-board time{font-size:10px;font-weight:750;color:#336dc3}
+.schedule-history-board span{font-size:6.5px;color:#8b9aae}
+.schedule-history-board h3{font-size:9px;margin:3px 0}
+.schedule-history-board p{font-size:7px;color:#8997aa;margin:0}
+.schedule-history-board article>strong{grid-column:2;font-size:7px;color:#b77c1b}
+.attendance-history-summary{display:grid;grid-template-columns:1fr 1.4fr;gap:17px;margin-bottom:17px}
+.attendance-history-counts{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.attendance-history-counts>div{display:flex;flex-direction:column;padding:9px;border-radius:9px;background:#edf8f4}
+.attendance-history-counts strong{font-size:14px;color:#278563}
+.attendance-history-counts span{font-size:7px;color:#71877f}
+.attendance-history-recent{display:grid}
+.attendance-history-recent>div{display:grid;grid-template-columns:70px 1fr auto;align-items:center;gap:8px;border-bottom:1px solid #edf1f6}
+.attendance-history-recent>div:last-child{border:0}
+.attendance-history-recent time,.attendance-history-recent span{font-size:7px;color:#8c99aa}
+.attendance-history-recent strong{font-size:8px}
+.department-history-tree{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:17px}
+.department-history-tree article{position:relative;overflow:hidden}
+.department-history-tree article>div{position:absolute;right:-5px;top:-12px;font-size:40px;font-weight:850;color:#edf4ff}
+.department-history-tree article>span{font-size:6.5px;color:#8498b7;text-transform:uppercase}
+.department-history-tree h3{font-size:10px;margin:6px 0}
+.department-history-tree p{font-size:7px;color:#8997aa;margin:0 0 11px}
+.department-history-tree article>strong{font-size:7px;color:#3671c8}
+.grade-history-board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:17px}
+.grade-history-board article{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:9px}
+.grade-history-board h3{font-size:9px;margin:0}
+.grade-history-board p{font-size:7px;color:#8b98aa;margin:4px 0 0}
+.grade-history-board article>b{font-size:8px;color:#52657e}
+.history-groups{display:grid;gap:20px}
+.history-day{display:grid;grid-template-columns:125px 1fr;gap:17px}
+.history-date{display:flex;flex-direction:column;align-items:flex-end;padding-top:4px}
+.history-date strong{font-size:9px;text-align:right}
+.history-date span{font-size:7px;color:#9ba7b7;margin-top:3px}
+.history-timeline{position:relative;display:grid;gap:9px}
+.history-timeline:before{content:"";position:absolute;left:15px;top:20px;bottom:20px;width:1px;background:#dce6f2}
+.history-entry{display:grid;grid-template-columns:31px 1fr;gap:11px;position:relative}
+.history-node{width:31px;height:31px;border-radius:9px;background:#eaf2ff;color:#326bc9;display:grid;place-items:center;z-index:1;border:3px solid #f6faff}
+.history-attendance .history-node{background:#e9f8f2;color:#258a66}
+.history-grade .history-node{background:#f1edff;color:#7158dc}
+.history-timetable .history-node{background:#fff6e5;color:#bd811b}
+.history-entry>.panel{padding:0;overflow:hidden}
+.history-entry-main{min-height:62px;display:grid;grid-template-columns:55px 1fr auto 90px;align-items:center;gap:12px;padding:10px 14px}
+.history-entry-main time{font-size:8px;color:#8f9daf}
+.history-entry-main>div{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:4px 8px}
+.history-entry-main>div>span{grid-row:span 2;padding:4px 6px;border-radius:5px;background:#edf4ff;color:#3a70c9;font-size:7px}
+.history-entry-main h3{font-size:9.5px;margin:0}
+.history-entry-main p{font-size:7.5px;color:#8c99ab;margin:0}
+.history-action{padding:4px 7px;border-radius:6px;background:#eef8f4;color:#258662;font-size:7.5px;font-weight:650}
+.history-action.action-removed,.history-action.action-deactivated{background:#fff0f1;color:#ca515b}
+.history-action.action-updated{background:#fff7e7;color:#b97b13}
+.history-details-button{border:0;background:transparent;color:#3a6fc5;font-size:7.5px;cursor:pointer}
+.history-snapshot{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#eaf0f6;border-top:1px solid #e7edf4}
+.history-snapshot>div{display:flex;flex-direction:column;gap:3px;padding:10px 12px;background:#f9fbfd;min-width:0}
+.history-snapshot span{font-size:7px;color:#96a3b4;text-transform:uppercase;letter-spacing:.4px}
+.history-snapshot strong{font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history-management-table{border-radius:15px}
+.history-management-head,.history-management-row .record-row-main{grid-template-columns:minmax(250px,1.2fr) minmax(310px,1.45fr) 125px 125px 135px;min-width:1040px}
+.history-management-head{min-height:52px;padding:0 18px;background:#eef4fa;font-size:9px}
+.history-management-row{min-width:1040px}
+.history-management-row .record-row-main{min-height:108px;padding:13px 18px}
+.history-management-row .record-profile-mark{width:48px;height:66px;border-radius:9px}
+.history-management-row .record-identity{gap:13px}
+.history-management-row .record-identity strong{font-size:13px}
+.history-management-row .record-identity span{font-size:8px}
+.history-management-row .record-identity small{font-size:9px}
+.history-management-row .record-latest-details{gap:5px}
+.history-management-row .record-latest-details span{font-size:10px}
+.history-management-row .record-lifecycle{padding:7px 10px;font-size:9px}
+.history-management-row .record-row-main>time{font-size:10px}
+.history-management-row .record-dropdown-button{height:39px;padding:0 11px;font-size:10px}
+.history-management-row .record-row-history{padding:0 18px 18px 79px}
+.operational-record-head,.operational-record-main,.record-register-head,.record-row-main,.history-management-head,.history-management-row .record-row-main{grid-template-columns:repeat(5,minmax(175px,1fr));min-width:875px}
+.operational-record-main,.record-row-main,.history-management-row .record-row-main{min-height:0;align-items:start}
+.program-history-insights{grid-template-columns:330px minmax(360px,1fr) 150px}
+.record-detail-scroll,.history-detail-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.history-detail-scroll{display:grid;align-content:start;gap:14px}
+.history-detail-summary{padding:0;overflow:hidden}
+.history-detail-summary>header{min-height:66px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 17px;border-bottom:1px solid #e4ebf4;background:#f7faff}
+.history-detail-summary>header>div{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.history-detail-summary>header span{color:#8290a4;font-size:8px;font-weight:750;text-transform:uppercase}
+.history-detail-summary>header time{color:#6f7f95;font-size:9px}
+.history-detail-summary>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:#e6edf5}
+.history-detail-summary>div>section{min-width:0;min-height:66px;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:11px 13px;background:white}
+.history-detail-summary>div>section>span{color:#8795a8;font-size:8px;font-weight:750;text-transform:uppercase}
+.history-detail-summary>div>section>strong{font-size:10px;overflow-wrap:anywhere}
+.history-detail-timeline{padding:0}
+.history-detail-timeline>.record-history-heading{position:sticky;top:0;z-index:3;padding:13px 15px;border:1px solid #e3eaf3;background:#f7faff}
+.history-viewport-page .record-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.history-management-head,.history-management-row .record-row-main{grid-template-columns:minmax(260px,1.2fr) minmax(360px,1.6fr) 170px;min-width:790px}
+.management-control-overview,.history-control-overview-scroll{flex:1;min-height:0;display:flex;flex-direction:column;gap:13px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:1px}
+.management-lifecycle-map,.management-department-coverage,.history-data-map,.history-semester-coverage{padding:0;overflow:hidden}
+.management-lifecycle-map>header,.management-department-coverage>header,.history-data-map>header,.history-semester-coverage>header{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #e4ebf4;background:#f7faff}
+.management-lifecycle-map header>div,.management-department-coverage header>div,.history-data-map header>div,.history-semester-coverage header>div{display:flex;flex-direction:column;gap:4px}
+.management-lifecycle-map header span,.management-department-coverage header span,.history-data-map header span,.history-semester-coverage header span{color:#8090a5;font-size:7px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+.management-lifecycle-map h2,.management-department-coverage h2,.history-data-map h2,.history-semester-coverage h2{margin:0;color:#2b3d57;font-size:12px}
+.management-lifecycle-map header p,.history-data-map header p{margin:0;color:#7e8da2;font-size:8px;line-height:1.45}
+.management-department-table,.history-semester-table{overflow-x:auto}
+.management-department-row>button,.history-semester-row>button{display:flex;align-items:center;gap:4px;border:0;background:transparent;color:#316bc2;font-size:8px;font-weight:800;cursor:pointer}
+.record-semester-switcher{flex:none;min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:13px;padding:10px 13px;background:linear-gradient(100deg,#edf5ff,#f9fbff 58%,#eef9f5)}
+.record-semester-switcher>div{display:flex;min-width:160px;flex-direction:column;gap:4px}
+.record-semester-switcher>div>span{color:#8090a5;font-size:7px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+.record-semester-switcher>div>strong{color:#2e64b5;font-size:10px}
+.record-semester-switcher>nav{display:flex;min-width:0;gap:6px;overflow-x:auto;padding:2px}
+.record-semester-switcher button{height:30px;flex:none;border:1px solid #d5e0ec;border-radius:7px;background:white;padding:0 10px;color:#687b94;font-size:8px;font-weight:750;cursor:pointer}
+.record-semester-switcher button.active{border-color:#3473ce;background:#3473ce;color:white}
+.history-control-overview-page>.record-semester-switcher{margin-bottom:13px}
+.history-control-overview-page .enrollment-overview-metrics{grid-template-columns:repeat(4,minmax(170px,1fr))}
+.history-data-map>div{display:grid;grid-template-columns:repeat(4,minmax(190px,1fr));gap:1px;background:#e4ebf4}
+.history-data-map>div>a{min-height:100px;display:grid;grid-template-columns:35px minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px;background:white;color:inherit;text-decoration:none}
+.history-data-map>div>a:hover{background:#f7faff}
+.history-data-map>div>a>span{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:#edf4ff;color:#326bc1}
+.history-data-map>div>a>div{display:flex;min-width:0;flex-direction:column;gap:3px}
+.history-data-map small{color:#8090a5;font-size:6.5px;font-weight:800;text-transform:uppercase}
+.history-data-map strong{font-size:9.5px}
+.history-data-map p{margin:0;color:#8290a3;font-size:7.5px;line-height:1.45}
+.history-data-map>a>svg,.history-data-map>div>a>svg{color:#7990af}
+.record-control-overview-page .history-data-map{flex:1;min-height:320px;display:flex;flex-direction:column}
+.record-control-overview-page .history-data-map>div{flex:1;grid-auto-rows:minmax(100px,1fr)}
+.history-semester-head,.history-semester-row{min-width:820px;display:grid;grid-template-columns:155px minmax(150px,1fr) 90px 90px 100px 90px 60px;align-items:center;gap:12px;padding:0 15px}
+.history-semester-head{min-height:39px;border-bottom:1px solid #e2e9f2;background:#f3f7fb;color:#7e8da1;font-size:7.5px;font-weight:800;text-transform:uppercase}
+.history-semester-row{min-height:58px;border-bottom:1px solid #e9eef5;color:#65758b;font-size:8.5px}
+.history-semester-row:last-child{border-bottom:0}
+.history-semester-row>strong{color:#2e65b7;font-size:9px}
+.history-semester-row>b{color:#344b69;font-size:10px}
+.record-semester-switcher>label{display:flex;min-width:270px;flex-direction:column;gap:5px}
+.record-semester-switcher>label>span{color:#7c8ca1;font-size:7px;font-weight:800;letter-spacing:.45px;text-transform:uppercase}
+.record-semester-switcher select{height:34px;border:1px solid #cbd9ea;border-radius:8px;background:white;padding:0 34px 0 10px;color:#355779;font-size:9px;font-weight:750;outline:0;cursor:pointer}
+.record-semester-switcher select:focus{border-color:#4c83cf;box-shadow:0 0 0 3px rgba(76,131,207,.12)}
+.record-paginated-region>.semester-history-scroll{flex:1;min-height:0;display:flex;flex-direction:column;gap:15px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:1px}
+.semester-history-group{display:flex;flex:none;flex-direction:column;gap:8px}
+.semester-history-group>header{min-height:60px;display:grid;grid-template-columns:minmax(180px,1fr) auto auto;align-items:center;gap:14px;padding:10px 15px;border:1px solid #d8e4f1;border-radius:12px;background:linear-gradient(105deg,#eaf3ff,#f8fbff 64%,#edf8f4);box-shadow:0 5px 14px rgba(65,102,147,.08)}
+.semester-history-group>header>div{display:flex;flex-direction:column;gap:3px}
+.semester-history-group>header span{color:#7b8da5;font-size:7px;font-weight:800;letter-spacing:.6px;text-transform:uppercase}
+.semester-history-group>header h2{margin:0;color:#2d62ad;font-size:15px}
+.semester-history-group>header>strong{padding:7px 10px;border-radius:8px;background:#3472ca;color:white;font-size:9px}
+.semester-history-group>header>small{color:#74869e;font-size:8px}
+.record-paginated-region>.semester-history-scroll{overflow:auto}
+.semester-history-group{flex:0 0 100%;min-height:0;box-sizing:border-box;overflow:hidden}
+.workflow-history>i{background:#f0ebff;color:#7052b1}
+.record-detail-viewport-page .page-heading p,.history-viewport-page .page-heading p,.history-control-overview-page .page-heading p{font-size:11.5px;line-height:1.55}
+.history-viewport-page .record-register-head{font-size:10.5px}
+.history-viewport-page .record-register-row :is(strong,span,time){font-size:11px}
+.history-viewport-page .record-register-row small{font-size:9.5px}
+.history-control-overview-page .history-data-map small{font-size:9px}
+.history-control-overview-page .history-data-map strong{font-size:12px}
+.history-control-overview-page .history-data-map p{font-size:10px;line-height:1.5}
+.history-control-overview-page .record-semester-switcher :is(span,small){font-size:9.5px}
+.history-control-overview-page .record-semester-switcher strong{font-size:12px}
+.record-viewport-page .semester-history-group>header span{font-size:9px}
+.record-viewport-page .semester-history-group>header h2{font-size:17px}
+.record-viewport-page .semester-history-group>header>strong{font-size:11px}
+.record-viewport-page .semester-history-group>header>small{font-size:10px}
+.record-viewport-page .record-semester-switcher>label>span{font-size:9px}
+.record-viewport-page .record-semester-switcher select{height:38px;font-size:10.5px}

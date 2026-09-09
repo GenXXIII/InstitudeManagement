@@ -1,0 +1,4 @@
+.students-horizontal .horizontal-management-head,.students-horizontal .horizontal-management-row{grid-template-columns:repeat(9,minmax(130px,1fr));min-width:1170px}
+.students-horizontal .horizontal-management-head,.students-horizontal .horizontal-management-row{grid-template-columns:minmax(130px,1fr) 80px repeat(7,minmax(130px,1fr))}
+.students-horizontal{grid-template-columns:minmax(max-content,1fr) 80px repeat(7,minmax(max-content,1fr))}
+.student-profile-horizontal,.teacher-profile-horizontal{grid-template-columns:minmax(105px,.75fr) 100px minmax(0,1.1fr) minmax(0,1.3fr) 110px 175px;min-width:0;overflow-x:hidden}

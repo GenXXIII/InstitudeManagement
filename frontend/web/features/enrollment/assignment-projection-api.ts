@@ -52,11 +52,10 @@ export function deriveAssignmentProjection(
     };
   });
 
-  const teacherAssignments = [...groupBy(matchedTimetable, item => item.values.teacherId).entries()]
-    .filter(([id]) => Boolean(id))
-    .map(([id, schedules]) => {
+  const teacherAssignments = [...groupBy(matchedTimetable.filter(item => Boolean(item.values.teacherId)), item => periodGroupKey(item, item.values.teacherId)).values()]
+    .map(schedules => {
       const first = schedules[0];
-      return item(id, {
+      return item(periodRowId(first, first.values.teacherId), {
         enrollmentCode: workflowCode(first.values.teacherCode, "teacher", "enrollment"),
         teacherCode: first.values.teacherCode,
         name: first.values.teacher,
@@ -68,15 +67,15 @@ export function deriveAssignmentProjection(
         yearLevels: uniqueValues(schedules, "yearLevel").map(value => `Year ${value}`).join(", "),
         academicYear: first.values.academicYear,
         semester: first.values.semester,
+        periodState: first.values.periodState || "Current",
         createAt: earliestDate(schedules),
       });
     });
 
-  const courseAssignments = [...groupBy(matchedTimetable, item => item.values.courseId).entries()]
-    .filter(([id]) => Boolean(id))
-    .map(([id, schedules]) => {
+  const courseAssignments = [...groupBy(matchedTimetable.filter(item => Boolean(item.values.courseId)), item => periodGroupKey(item, item.values.courseId)).values()]
+    .map(schedules => {
       const first = schedules[0];
-      return item(id, {
+      return item(periodRowId(first, first.values.courseId), {
         enrollmentCode: workflowCode(first.values.courseCode, "course", "enrollment"),
         courseCode: first.values.courseCode,
         name: first.values.course,
@@ -88,15 +87,15 @@ export function deriveAssignmentProjection(
         status: "Active",
         academicYear: first.values.academicYear,
         semester: first.values.semester,
+        periodState: first.values.periodState || "Current",
         createAt: earliestDate(schedules),
       });
     });
 
-  const classroomAssignments = [...groupBy(matchedTimetable, item => item.values.classroomId).entries()]
-    .filter(([id]) => Boolean(id))
-    .map(([id, schedules]) => {
+  const classroomAssignments = [...groupBy(matchedTimetable.filter(item => Boolean(item.values.classroomId)), item => periodGroupKey(item, item.values.classroomId)).values()]
+    .map(schedules => {
       const first = schedules[0];
-      return item(id, {
+      return item(periodRowId(first, first.values.classroomId), {
         enrollmentCode: workflowCode(first.values.classroom, "classroom", "enrollment"),
         classroomCode: first.values.classroom,
         building: first.values.building || first.values.classroom,
@@ -111,18 +110,19 @@ export function deriveAssignmentProjection(
         yearLevels: uniqueValues(schedules, "yearLevel").map(value => `Year ${value}`).join(", "),
         academicYear: first.values.academicYear,
         semester: first.values.semester,
+        periodState: first.values.periodState || "Current",
         createAt: earliestDate(schedules),
       });
     });
 
   const departmentById = new Map(departments.map(department => [department.id, department]));
-  const departmentAssignments = [...groupBy(matchedTimetable, item => item.values.departmentId).entries()]
-    .filter(([id]) => Boolean(id))
-    .map(([id, schedules]) => {
-      const source = departmentById.get(id);
+  const departmentAssignments = [...groupBy(matchedTimetable.filter(item => Boolean(item.values.departmentId)), item => periodGroupKey(item, item.values.departmentId)).values()]
+    .map(schedules => {
       const first = schedules[0];
-      const departmentStudents = matchedStudents.filter(student => student.values.departmentId === id);
-      return item(id, {
+      const id = first.values.departmentId;
+      const source = departmentById.get(id);
+      const departmentStudents = matchedStudents.filter(student => student.values.departmentId === id && student.values.academicYear === first.values.academicYear && student.values.semester === first.values.semester);
+      return item(periodRowId(first, id), {
         departmentCode: source?.values.departmentCode ?? "",
         name: source?.values.name ?? first.values.department,
         studentCount: departmentStudents.length.toString(),
@@ -131,6 +131,7 @@ export function deriveAssignmentProjection(
         status: "Active",
         academicYear: first.values.academicYear,
         semester: first.values.semester,
+        periodState: first.values.periodState || "Current",
         createAt: source?.values.createAt ?? earliestDate(schedules),
       });
     });
@@ -150,6 +151,14 @@ function cohortKey(item: EnrollmentItem, yearKey: "year" | "yearLevel") {
   return [values.departmentId, values[yearKey], values.shift, values.academicYear, values.semester]
     .map(value => value.trim().toUpperCase())
     .join(":");
+}
+
+function periodGroupKey(item: EnrollmentItem, resourceId: string) {
+  return [resourceId, item.values.academicYear, item.values.semester].join("|");
+}
+
+function periodRowId(item: EnrollmentItem, resourceId: string) {
+  return `${resourceId}-${item.values.academicYear}-${item.values.semester}`;
 }
 
 function groupBy(items: EnrollmentItem[], key: (item: EnrollmentItem) => string) {

@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DataTable } from "@/components/data-table";
-import { DataPagination, useDataPagination } from "@/components/data-pagination";
+import { DataTable, PaginatedDataRegion } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { managementApis } from "@/features/management/management-apis";
@@ -75,7 +74,6 @@ export function GlobalSearchResultsPage() {
   const visibleRows = useMemo(() => allRows.filter(row =>
     (workflowFilter === "all" || row.workflow === workflowFilter) &&
     (resourceFilter === "all" || row.resource.id === resourceFilter)), [allRows, resourceFilter, workflowFilter]);
-  const pagination = useDataPagination(visibleRows, `${query}-${departmentId}-${year}-${workflowFilter}-${resourceFilter}`);
 
   if (error) return <ErrorPage retry={load}/>;
   if (!groups) return <LoadingPage/>;
@@ -112,9 +110,9 @@ export function GlobalSearchResultsPage() {
     </nav>
 
     <section className="global-filter-results global-filter-results-direct">
-      <div className="global-filter-paginated-region">
+      <PaginatedDataRegion items={visibleRows} resetKey={`${query}-${departmentId}-${year}-${workflowFilter}-${resourceFilter}`} className="global-filter-paginated-region">{pageItems =>
         <DataTable className="panel horizontal-management-table global-filter-register" headerClassName="horizontal-management-head global-filter-register-head" rowSelector=":scope > .global-filter-register-row" columns={["Workflow / module", "Code and name", "Why it matched", "Record detail", "Open"]}>
-          {pagination.pageItems.map(row => <Link className="horizontal-management-row global-filter-register-row" href={workflowResultHref(row.workflow, row.resource.id, row.suggestion.code || row.suggestion.label, departmentId, year)} key={row.id}>
+          {pageItems.map(row => <Link className="horizontal-management-row global-filter-register-row" href={workflowResultHref(row.workflow, row.resource.id, row.suggestion.code || row.suggestion.label, departmentId, year)} key={row.id}>
             <span className={`global-filter-workflow workflow-${row.workflow}`}><i><Icon name={globalSearchWorkflows.find(item => item.id === row.workflow)?.icon ?? "folder"} size={14}/></i><span><strong>{workflowLabel(row.workflow)}</strong><small>{row.resource.label}</small></span></span>
             <span className="global-filter-identity"><strong>{row.suggestion.code}</strong><small>{row.suggestion.label}</small></span>
             <span className="global-filter-match-reason"><b>{row.match.label}</b><small>{row.match.field} field</small></span>
@@ -123,8 +121,7 @@ export function GlobalSearchResultsPage() {
           </Link>)}
           {!visibleRows.length && <div className="global-search-empty"><span><Icon name="search" size={20}/></span><strong>{query ? `No results match "${query}" in this filter` : "Enter a search above"}</strong><small>Try a shorter character group, another word, or select All workflows and All data.</small></div>}
         </DataTable>
-        {visibleRows.length > 0 && <DataPagination page={pagination.page} pageCount={pagination.pageCount} total={visibleRows.length} pageSize={pagination.pageSize} onPage={pagination.setPage}/>}
-      </div>
+      }</PaginatedDataRegion>
     </section>
   </div>;
 }

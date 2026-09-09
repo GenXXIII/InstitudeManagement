@@ -1,0 +1,22 @@
+.weekly-timetable{display:grid;grid-template-columns:minmax(0,5fr) minmax(260px,2fr);grid-template-rows:24px minmax(0,1fr);gap:8px;padding:0 12px 12px;overflow:hidden}
+.weekly-timetable.room-timetable{display:flex;flex-direction:column;gap:7px;padding:0 12px 12px;overflow:hidden}
+.timetable-control-bar{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}
+.timetable-day-tabs,.timetable-year-filter{display:flex;align-items:center;gap:4px}
+.timetable-day-tabs button,.timetable-year-filter button{height:28px;border:1px solid #e0e8f2;border-radius:7px;background:#f8fafd;color:#77869a;cursor:pointer}
+.timetable-day-tabs button{min-width:52px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.timetable-day-tabs strong{font-size:7px}
+.timetable-day-tabs span{font-size:5px}
+.timetable-day-tabs button.active,.timetable-year-filter button.active{border-color:#3975cd;background:#3975cd;color:white}
+.timetable-day-tabs button.today:not(.active){border-color:#9bd7c0;color:#278462;background:#f2fbf7}
+.room-timetable .room-period-cell{padding:4px}
+.room-timetable .room-period-cell article{padding:5px 6px}
+.room-timetable .room-period-cell article b{font-size:6.5px}
+.room-timetable .room-period-cell article strong{font-size:8.5px}
+.room-timetable .room-period-cell article span{margin-top:3px;font-size:7px}
+.room-timetable .room-period-cell article i{font-size:6px}
+.room-timetable .room-period-empty{font-size:7px}
+.management-timetable-controls{display:grid;grid-template-columns:1fr auto;gap:14px;padding:13px 15px}
+.operation-visual-page .timetable-day-tabs button{min-width:62px;height:34px}
+.operation-visual-page .timetable-day-tabs strong{font-size:10px}
+.operation-visual-page .timetable-day-tabs span{font-size:8px}
+.operation-visual-page .timetable-day-tabs span,.operation-visual-page .concurrency-note span,.operation-visual-page .concurrency-note i{font-size:10px}

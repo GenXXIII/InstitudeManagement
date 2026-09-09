@@ -6,14 +6,10 @@ import { Icon } from "@/components/icon";
 import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
 import { workflowCode, workflowResource, type WorkflowCodeStage } from "@/lib/workflow-code";
 import type { OperationalRecord } from "../record-types";
+import { RecordLedgerValue } from "./record-ledger-value";
 
 type RecordModule = "Teacher" | "Course" | "Classroom";
 type Counts = { present: number; permission: number; absent: number };
-
-export function EntitySemesterRecordHeader({ module, history = false }: { module: RecordModule; history?: boolean }) {
-  const relation = module === "Teacher" ? "Assigned courses" : module === "Course" ? "Students" : "Courses";
-  return <div className="entity-semester-record-head"><span>{history ? "History code" : "Record code"}</span><span>{module === "Teacher" ? "Photo" : "Type"}</span><span>{module === "Classroom" ? "Classroom" : `${module} name`}</span><span>{module === "Classroom" ? "Building" : "Department"}</span><span>{history ? "Completed level" : "Year"}</span><span>{relation}</span><span>{module === "Teacher" ? "Teacher attendance" : "Running / available"}</span><span>Semester activity</span></div>;
-}
 
 export function EntitySemesterRecord({ row, stage = "record", detailHref, detailPage = false }: { row: OperationalRecord; stage?: WorkflowCodeStage; detailHref?: string; detailPage?: boolean }) {
   const router = useRouter();
@@ -23,14 +19,21 @@ export function EntitySemesterRecord({ row, stage = "record", detailHref, detail
   const recordModule = row.module as RecordModule;
   const open = () => { if (detailHref) router.push(detailHref); };
   return <article className="entity-semester-record-row record-row-clickable" role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
-    <div className="workflow-ledger-code"><strong className="entity-record-code">{workflowCode(row.code || row.identifier, workflowResource(row.module), stage)}</strong><small>From {workflowCode(row.code || row.identifier, workflowResource(row.module), "enrollment")}</small></div>
+    <div className="workflow-ledger-code"><strong className="entity-record-code">{workflowCode(row.code || row.identifier, workflowResource(row.module), stage)}</strong></div>
     <EntityVisual row={row}/>
-    <div className="entity-record-name"><strong>{row.subject}</strong><span>{row.identifier}</span></div>
-    <div className="entity-record-department"><strong>{row.department || "Unassigned"}</strong><span>{row.academicYear} · {row.term}</span></div>
-    <div className="entity-record-year"><strong>{yearLabels(row)}</strong><span>Semester level</span></div>
-    {recordModule === "Teacher" ? <RelationCount value={relationCount(row)} label="assigned courses"/> : <RelationCount value={relationCount(row)} label={recordModule === "Course" ? "enrolled students" : "assigned courses"}/>}
-    {recordModule === "Teacher" ? <TeacherAttendanceCards counts={teacherCounts}/> : <SemesterAvailabilityCards counts={teacherCounts}/>}
-    <div className="entity-record-activity"><strong>{completedSessions(row).length}</strong><span>recorded periods</span><small>{row.lastActivityAt ? new Date(row.lastActivityAt).toLocaleDateString() : "No activity"}</small></div>
+    <div className="entity-record-name"><strong>{row.subject}</strong></div>
+    <div className="entity-record-department"><strong>{row.department || "Unassigned"}</strong></div>
+    <div className="entity-record-year"><strong>{yearLabels(row)}</strong></div>
+    <RecordLedgerValue value={relationCount(row)} className="record-value-blue"/>
+    {recordModule === "Teacher" ? <>
+      <RecordLedgerValue value={teacherCounts.present} className="record-value-present"/>
+      <RecordLedgerValue value={teacherCounts.permission} className="record-value-permission"/>
+      <RecordLedgerValue value={teacherCounts.absent} className="record-value-absent"/>
+    </> : <>
+      <RecordLedgerValue value={teacherCounts.present} className="record-value-running"/>
+      <RecordLedgerValue value={teacherCounts.permission + teacherCounts.absent} className="record-value-available"/>
+    </>}
+    <RecordLedgerValue value={completedSessions(row).length} className="record-value-activity"/>
   </article>;
 }
 
@@ -70,7 +73,6 @@ function EntityVisual({ row }: { row: OperationalRecord }) {
 }
 
 function Information({ label, value }: { label: string; value: string }) { return <div><span>{label}</span><strong>{value || "Not recorded"}</strong></div>; }
-function RelationCount({ value, label }: { value: number; label: string }) { return <div className="entity-relation-count"><strong>{value}</strong><span>{label}</span></div>; }
 function AttendanceCards({ counts }: { counts: Counts }) { return <div className="entity-attendance-cards"><span className="present"><b>{counts.present}</b><small>Present</small></span><span className="permission"><b>{counts.permission}</b><small>Permission</small></span><span className="absent"><b>{counts.absent}</b><small>Absent</small></span></div>; }
 function TeacherAttendanceCards({ counts }: { counts: Counts }) { return <div className="entity-attendance-cards"><span className="present"><b>{counts.present}</b><small>Present</small></span><span className="permission"><b>{counts.permission}</b><small>Permission</small></span><span className="absent"><b>{counts.absent}</b><small>Absent</small></span></div>; }
 function SemesterAvailabilityCards({ counts }: { counts: Counts }) { return <div className="semester-availability-cards"><span className="running"><b>{counts.present}</b><small>Running</small></span><span className="available"><b>{counts.permission + counts.absent}</b><small>Available</small></span></div>; }

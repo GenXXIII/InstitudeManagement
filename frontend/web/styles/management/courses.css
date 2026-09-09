@@ -1,0 +1,10 @@
+.course-management-list{display:grid;gap:10px}
+.course-management-card{display:grid;grid-template-columns:50px minmax(180px,1fr) 150px auto auto;align-items:center;gap:15px;padding:14px 16px}
+.course-management-card>.management-actions{justify-content:flex-end}
+.course-horizontal .horizontal-management-head,.course-horizontal .horizontal-management-row{grid-template-columns:62px minmax(170px,1.2fr) minmax(150px,1fr) 90px minmax(150px,1fr) 65px 75px 145px;min-width:1090px}
+.course-horizontal .course-code{width:48px;height:42px}
+.course-horizontal .horizontal-management-head,.course-horizontal .horizontal-management-row{min-width:1170px}
+.course-horizontal .horizontal-management-head,.course-horizontal .horizontal-management-row{grid-template-columns:repeat(8,minmax(130px,1fr))}
+.course-horizontal .course-code,.room-code-horizontal strong,.department-code-horizontal{font-size:12px}
+.course-horizontal{grid-template-columns:repeat(8,minmax(max-content,1fr))}
+.course-master-horizontal{grid-template-columns:minmax(150px,.8fr) minmax(240px,1.35fr) 130px 140px 140px 150px}

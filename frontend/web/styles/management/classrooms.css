@@ -1,0 +1,12 @@
+.classroom-rule-preview{display:grid;grid-template-columns:32px 1fr auto;align-items:center;gap:7px;padding:12px;border-radius:11px;background:white;margin-bottom:11px;color:#3971c2}
+.classroom-rule-preview strong{font-size:9px;color:#2d405a}
+.classroom-rule-preview b{font-size:17px}
+.classroom-rule-preview span{grid-column:3;font-size:7px;color:#8c99aa}
+.room-management-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.room-management-card{display:grid;grid-template-columns:1fr auto;gap:13px;align-items:start}
+.room-management-card>.management-actions{grid-column:span 2}
+.room-horizontal .horizontal-management-head,.room-horizontal .horizontal-management-row{grid-template-columns:90px 1fr 1.2fr .75fr 110px 80px 145px;min-width:960px}
+.room-horizontal .horizontal-management-head,.room-horizontal .horizontal-management-row{min-width:1040px}
+.room-horizontal .horizontal-management-head,.room-horizontal .horizontal-management-row{grid-template-columns:repeat(7,minmax(130px,1fr))}
+.room-horizontal{grid-template-columns:repeat(7,minmax(max-content,1fr))}
+.entity-type-classroom{background:#eaf8f3;color:#287c61}

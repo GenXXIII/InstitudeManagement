@@ -1,0 +1,5 @@
+/* Shared search, filter, scope, and count layout used by every data workspace. */
+.shared-data-toolbar{width:100%;min-width:0}
+.shared-data-toolbar > .module-search-field{min-width:min(240px, 100%)}
+.shared-data-context,
+.shared-data-count{min-width:0}

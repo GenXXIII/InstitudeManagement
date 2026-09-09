@@ -82,6 +82,7 @@ internal sealed class StudentEnrollmentEditor(
             ("status", enrollment.Status),
             ("academicYear", enrollment.AcademicYear),
             ("semester", enrollment.Semester),
+            ("periodState", "Current"),
             ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
     }
 

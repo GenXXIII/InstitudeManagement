@@ -1,0 +1,2 @@
+.enrollment-service-horizontal.enrollment-students{grid-template-columns:repeat(8,minmax(145px,1fr));min-width:1160px}
+.enrollment-service-horizontal.enrollment-student-assignments{grid-template-columns:repeat(6,minmax(145px,1fr));min-width:870px}

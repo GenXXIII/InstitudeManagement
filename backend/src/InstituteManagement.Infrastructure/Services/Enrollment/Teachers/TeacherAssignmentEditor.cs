@@ -67,6 +67,7 @@ internal sealed class TeacherAssignmentEditor(InstituteDbContext db, TeacherAssi
             ("status", assignment.Status),
             ("academicYear", assignment.AcademicYear),
             ("semester", assignment.Semester),
+            ("periodState", "Current"),
             ("createAt", assignment.CreateAt.ToString("yyyy-MM-dd")));
     }
 

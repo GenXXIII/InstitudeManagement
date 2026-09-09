@@ -14,29 +14,16 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
-        var rows = await db.Classrooms
+        var rooms = await db.Classrooms
             .AsNoTracking()
             .Where(room => room.Status != "Inactive")
-            .GroupJoin(
-                db.ClassroomAssignments
-                    .AsNoTracking()
-                    .Where(assignment =>
-                        assignment.AcademicYear == period.AcademicYear
-                        && assignment.Semester == period.Semester
-                        && assignment.Status != "Removed"),
-                room => room.Id,
-                assignment => assignment.ClassroomId,
-                (room, assignments) => new
-                {
-                    room,
-                    assignment = assignments.FirstOrDefault()
-                })
-            .Select(row => new
-            {
-                row.room,
-                row.assignment,
-                department = row.assignment == null ? null : row.assignment.Department
-            })
+            .ToListAsync(cancellationToken);
+        var roomById = rooms.ToDictionary(room => room.Id);
+        var roomIds = rooms.Select(room => room.Id).ToList();
+        var assignments = await db.ClassroomAssignments
+            .AsNoTracking()
+            .Include(assignment => assignment.Department)
+            .Where(assignment => assignment.Status != "Removed" && roomIds.Contains(assignment.ClassroomId))
             .ToListAsync(cancellationToken);
         var schedules = await db.ScheduleEntries
             .AsNoTracking()
@@ -45,40 +32,45 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
             .Where(entry => entry.Status != "Cancelled")
             .ToListAsync(cancellationToken);
 
-        return rows
-            .Where(row =>
+        return assignments
+            .Where(assignment =>
                 (!departmentId.HasValue
-                    || row.assignment?.DepartmentId == departmentId
-                    || row.assignment?.DepartmentId == null)
+                    || assignment.DepartmentId == departmentId
+                    || assignment.DepartmentId == null)
                 && (!year.HasValue || schedules.Any(entry =>
-                    entry.ClassroomId == row.room.Id && entry.YearLevel == year))
-                && Matches(search, row.assignment?.EnrollmentCode, row.room.ClassroomCode, row.room.Building, row.department?.Name, row.room.Status))
-            .Select(row =>
+                    entry.ClassroomId == assignment.ClassroomId && entry.YearLevel == year))
+                && Matches(search, assignment.EnrollmentCode, roomById[assignment.ClassroomId].ClassroomCode, roomById[assignment.ClassroomId].Building, assignment.Department?.Name, roomById[assignment.ClassroomId].Status))
+            .Select(assignment =>
             {
+                var room = roomById[assignment.ClassroomId];
                 var roomSchedule = schedules
                     .Where(entry =>
-                        entry.ClassroomId == row.room.Id
+                        entry.ClassroomId == room.Id
                         && (!year.HasValue || entry.YearLevel == year))
                     .ToList();
                 return Item(
-                    row.room.Id,
-                    ("enrollmentCode", row.assignment?.EnrollmentCode ?? ""),
-                    ("classroomCode", row.room.ClassroomCode),
-                    ("building", row.room.Building),
-                    ("roomType", row.room.RoomType),
-                    ("departmentId", row.assignment?.DepartmentId.ToString() ?? ""),
-                    ("department", row.department?.Name ?? "Shared institute"),
-                    ("capacity", row.assignment?.Capacity.ToString() ?? row.room.Capacity.ToString()),
-                    ("access", row.assignment?.Access ?? "Shared institute"),
-                    ("status", row.room.Status),
+                    room.Id,
+                    ("enrollmentCode", assignment.EnrollmentCode),
+                    ("classroomCode", room.ClassroomCode),
+                    ("building", room.Building),
+                    ("roomType", room.RoomType),
+                    ("departmentId", assignment.DepartmentId?.ToString() ?? ""),
+                    ("department", assignment.Department?.Name ?? "Shared institute"),
+                    ("capacity", assignment.Capacity.ToString()),
+                    ("access", assignment.Access),
+                    ("status", assignment.Status),
                     ("courses", string.Join(", ", roomSchedule.Select(entry => entry.Course?.Name).Where(name => name is not null).Distinct())),
                     ("teachers", string.Join(", ", roomSchedule.Select(entry => entry.Teacher?.FullName).Where(name => name is not null).Distinct())),
                     ("yearLevels", string.Join(", ", roomSchedule.Select(entry => entry.YearLevel).Distinct().Order().Select(value => $"Year {value}"))),
                     ("weeklyClasses", roomSchedule.Count.ToString()),
-                    ("academicYear", period.AcademicYear),
-                    ("semester", period.Semester),
-                    ("createAt", row.assignment?.CreateAt.ToString("yyyy-MM-dd") ?? "Not assigned"));
+                    ("academicYear", assignment.AcademicYear),
+                    ("semester", assignment.Semester),
+                    ("periodState", IsCurrent(assignment.AcademicYear, assignment.Semester, period) ? "Current" : "Retained"),
+                    ("createAt", assignment.CreateAt.ToString("yyyy-MM-dd")));
             })
             .ToList();
     }
+
+    private static bool IsCurrent(string academicYear, string semester, EnrollmentPeriod period) =>
+        academicYear == period.AcademicYear && semester == period.Semester;
 }

@@ -10,6 +10,7 @@ import type { ClassSessionAttendanceUpdate, OperationalRecord } from "../record-
 import { EntitySemesterRecord } from "./entity-semester-record";
 import { StudentSemesterRecord } from "../students/student-semester-record";
 import { StructureSemesterRecord } from "./structure-semester-record";
+import { RecordLedgerValue } from "./record-ledger-value";
 
 export function OperationalRecordRow({ row, stage = "record", editable = false, showStatus = true, onUpdated, detailHref, detailPage = false }: { row: OperationalRecord; stage?: WorkflowCodeStage; editable?: boolean; showStatus?: boolean; onUpdated?: () => void; detailHref?: string; detailPage?: boolean }) {
   const router = useRouter();
@@ -18,7 +19,9 @@ export function OperationalRecordRow({ row, stage = "record", editable = false, 
   const openDetails = () => detailHref ? router.push(detailHref) : setOpen(value => !value);
   const openFromKeyboard = (event: React.KeyboardEvent) => { if (detailHref && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); router.push(detailHref); } };
   const groups = useMemo(() => groupActivities(row.activities), [row.activities]);
-  if (row.module === "Session") return <SessionRecordCard row={row} stage={stage} open={expanded} editable={editable} showStatus={showStatus} detailPage={detailPage} onToggle={openDetails} onUpdated={onUpdated}/>;
+  if (row.module === "Session") return detailPage
+    ? <SessionRecordCard row={row} stage={stage} open={expanded} editable={editable} showStatus={showStatus} detailPage onToggle={openDetails} onUpdated={onUpdated}/>
+    : <SessionRecordRow row={row} stage={stage} detailHref={detailHref}/>;
   if (row.module === "Student") return <StudentSemesterRecord row={row} stage={stage} detailHref={detailHref} detailPage={detailPage} editable={editable} onUpdated={onUpdated}/>;
   if (row.module === "Teacher" || row.module === "Course" || row.module === "Classroom") return <EntitySemesterRecord row={row} stage={stage} detailHref={detailHref} detailPage={detailPage}/>;
   if (row.module === "Department" || row.module === "Timetable") return <StructureSemesterRecord row={row} stage={stage} detailHref={detailHref} detailPage={detailPage}/>;
@@ -29,6 +32,31 @@ export function OperationalRecordRow({ row, stage = "record", editable = false, 
       <time>{row.lastActivityAt ? new Date(row.lastActivityAt).toLocaleString() : "No activity yet"}</time>
     </div>
     {expanded && <div className="operational-time-timeline"><header><div><strong>{row.module === "Session" ? "Students recorded when this class ended" : "Completed teaching by timetable time"}</strong><span>{row.module === "Session" ? "Present, late, absent, and permission status frozen for this period" : "Only classes that reached their timetable end are shown"}</span></div><b>{row.activities.length} records</b></header>{groups.map(group => <section className="operational-date-group" key={group.date}><div className="operational-date-label"><Icon name="calendar" size={15}/><strong>{displayDate(group.date)}</strong><span>{group.items.length} action{group.items.length === 1 ? "" : "s"}</span></div><div className="operational-time-list">{groupByTime(group.items).map(timeGroup => <ActivitiesAtTime items={timeGroup.items} time={timeGroup.time} key={`${group.date}-${timeGroup.time}`}/>)}</div></section>)}</div>}
+  </article>;
+}
+
+function SessionRecordRow({ row, stage, detailHref }: { row: OperationalRecord; stage: WorkflowCodeStage; detailHref?: string }) {
+  const router = useRouter();
+  const summary = row.activities.find(activity => activity.Activity === "Completed class");
+  const students = row.activities.filter(activity => activity.Activity === "Student attendance");
+  const present = students.filter(student => student.Attendance === "Present" || student.Attendance === "Late").length;
+  const permission = students.filter(student => student.Attendance === "Excused" || student.Attendance === "Permission").length;
+  const absent = students.filter(student => student.Attendance === "Absent").length;
+  const sessionStatus = summary?.["Session status"] ?? (row.status === "Not held" ? "Not held" : "Held");
+  const held = sessionStatus === "Running" || sessionStatus === "Held";
+  const open = () => { if (detailHref) router.push(detailHref); };
+  return <article className="session-semester-record-row record-row-clickable" role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
+    <div className="workflow-ledger-code"><strong className="entity-record-code">{workflowCode(row.classSessionRecordCode, "session", stage)}</strong></div>
+    <RecordLedgerValue value={displayNumericDate(summary?.Date ?? "Date unavailable")} className="record-value-neutral"/>
+    <RecordLedgerValue value={summary?.Time ?? "—"} className="record-value-neutral"/>
+    <RecordLedgerValue value={summary?.Year ?? "—"} className="record-value-neutral"/>
+    <strong className="session-record-table-text">{summary?.Teacher ?? "Not assigned"}</strong>
+    <strong className="session-record-table-text">{summary?.Course ?? "Not assigned"}</strong>
+    <RecordLedgerValue value={summary?.["Classroom code"] ?? summary?.Classroom ?? "—"} className="record-value-blue"/>
+    <RecordLedgerValue value={present} className="record-value-present"/>
+    <RecordLedgerValue value={permission} className="record-value-permission"/>
+    <RecordLedgerValue value={absent} className="record-value-absent"/>
+    <RecordLedgerValue value={held ? "Held" : "Not held"} className={held ? "record-value-running" : "record-value-absent"}/>
   </article>;
 }
 

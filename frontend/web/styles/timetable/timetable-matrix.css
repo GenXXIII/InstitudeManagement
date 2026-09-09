@@ -1,0 +1,56 @@
+.timetable-matrix{min-width:0;overflow:hidden;border:1px solid #e0e9f3;border-radius:10px;background:#fbfdff}
+.timetable-matrix>header,.timetable-period-row{display:grid;grid-template-columns:82px repeat(var(--day-columns),minmax(0,1fr))}
+.timetable-matrix>header{height:38px;border-bottom:1px solid #e2eaf4;background:#f3f7fc}
+.timetable-matrix>header>div{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #e4ebf4}
+.timetable-matrix>header>div:last-child{border-right:0}
+.timetable-matrix>header strong{font-size:8px}
+.timetable-matrix>header span{font-size:5.5px;color:#8b98aa}
+.timetable-matrix>header .today{background:#35a978;color:white}
+.timetable-matrix>header .today span{color:rgba(255,255,255,.8)}
+.timetable-matrix-body{height:calc(100% - 38px);display:grid;grid-auto-rows:minmax(0,1fr)}
+.room-schedule-matrix{flex:1;min-height:0;overflow:hidden;border:1px solid #dfe8f2;border-radius:10px;background:white}
+.room-schedule-matrix>header,.room-schedule-row{display:grid;grid-template-columns:116px repeat(var(--period-columns),minmax(0,1fr))}
+.room-schedule-matrix>header{height:35px;border-bottom:1px solid #dfe7f1;background:#f3f7fc}
+.room-schedule-matrix>header>div{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #e1e9f2}
+.room-schedule-matrix>header>div:first-child{align-items:flex-start;padding-left:9px}
+.room-schedule-matrix>header>div:last-child{border-right:0}
+.room-schedule-matrix>header span{font-size:5.5px;color:#8392a6}
+.room-schedule-matrix>header strong{font-size:6.5px;white-space:nowrap}
+.room-schedule-matrix>header .session-morning span{color:#3b74c6}
+.room-schedule-matrix>header .session-afternoon span{color:#29906a}
+.room-schedule-matrix>header .session-evening span{color:#6a52c5}
+.room-schedule-body{height:calc(100% - 35px);display:grid;grid-auto-rows:minmax(27px,1fr);overflow:auto}
+.room-schedule-row{min-height:27px;border-bottom:1px solid #e9eef5}
+.room-schedule-row:last-child{border-bottom:0}
+.room-schedule-label{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:3px 6px 3px 8px;border-right:1px solid #e3eaf3;background:#f8fafd}
+.room-schedule-label>div{display:flex;min-width:0;flex-direction:column}
+.room-schedule-label strong{font-size:7.5px;color:#316cc1}
+.room-schedule-label span{font-size:5px;color:#8594a8}
+.room-schedule-label.meeting{background:#f1faf6}
+.room-schedule-label.meeting strong{color:#258563}
+.room-timetable .room-schedule-matrix{min-height:430px}
+.room-timetable .room-schedule-matrix>header{height:46px}
+.room-timetable .room-schedule-matrix>header,.room-timetable .room-schedule-row{grid-template-columns:148px repeat(var(--period-columns),minmax(0,1fr))}
+.room-timetable .room-schedule-matrix>header span{font-size:7px}
+.room-timetable .room-schedule-matrix>header strong{font-size:8px}
+.room-timetable .room-schedule-body{height:calc(100% - 46px);grid-auto-rows:minmax(54px,auto);overflow-y:auto;scrollbar-gutter:stable}
+.room-timetable .room-schedule-row{min-height:54px}
+.room-timetable .room-schedule-label{padding:6px 8px 6px 11px}
+.room-timetable .room-schedule-label strong{font-size:10px}
+.room-timetable .room-schedule-label span{font-size:7px}
+.management-room-matrix{padding:0;overflow-x:auto}
+.management-room-matrix>header,.management-room-row{display:grid;grid-template-columns:190px repeat(var(--management-periods),minmax(170px,1fr));min-width:1220px}
+.management-room-matrix>header{position:sticky;top:0;z-index:3;height:52px;border-bottom:1px solid #dfe7f1;background:#eef4fb}
+.management-room-matrix>header>div{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;padding:0 8px;border-right:1px solid #dce5ef}
+.management-room-matrix>header>div:first-child{align-items:flex-start;padding-left:13px}
+.management-room-matrix>header span{font-size:8px;color:#7f90a7}
+.management-room-matrix>header strong{font-size:9.5px;white-space:nowrap}
+.management-room-matrix-body{max-height:650px;overflow-y:auto;scrollbar-gutter:stable}
+.operation-visual-page .room-timetable .room-schedule-matrix>header{height:52px}
+.operation-visual-page .room-timetable .room-schedule-matrix>header strong{font-size:10px}
+.operation-visual-page .room-timetable .room-schedule-matrix>header span{font-size:9px}
+.operation-visual-page .room-timetable .room-schedule-body{height:calc(100% - 52px);grid-auto-rows:minmax(68px,auto)}
+.operation-visual-page .room-timetable .room-schedule-row{min-height:68px}
+.operation-visual-page .room-timetable .room-schedule-label strong{font-size:11px}
+.operation-visual-page .room-timetable .room-schedule-label span{font-size:8px}
+.operation-visual-page .room-timetable .room-schedule-matrix>header strong,.operation-visual-page .room-timetable .room-schedule-label strong,.operation-visual-page .room-period-cell article strong{font-size:11px}

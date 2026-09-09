@@ -22,13 +22,13 @@ export function EnrollmentRow({ resource, item, onEdit, onRemove }: {
       return <ManagementDataCell label={column} className={className} key={`${item.id}-${index}`}>
         {index === 0
           ? <strong className="management-code-value" title={cell}>{cell}</strong>
-          : column === "Status"
-            ? <span className={`table-status ${classroomEnrollmentStatusClass(cell)}`}>{cell}</span>
+          : column === "Status" || column === "Period state"
+            ? <span className={`table-status ${column === "Period state" ? cell.toLowerCase() : classroomEnrollmentStatusClass(cell)}`}>{cell}</span>
             : <strong className={relationship ? "enrollment-relationship-value" : undefined} title={cell || "Unassigned"}>{cell || "Unassigned"}</strong>}
       </ManagementDataCell>;
     })}
-    {onEdit && onRemove
-      ? <ManagementDataCell label="Actions" className="management-action-cell"><div className="management-actions"><button type="button" onClick={onEdit}>Edit</button><button type="button" className="danger" onClick={onRemove}>Remove</button></div></ManagementDataCell>
+    {resource === "students" || resource === "timetable"
+      ? <ManagementDataCell label="Actions" className="management-action-cell">{onEdit && onRemove ? <div className="management-actions"><button type="button" onClick={onEdit}>Edit</button><button type="button" className="danger" onClick={onRemove}>Remove</button></div> : <span className="table-status retained">Read only</span>}</ManagementDataCell>
       : null}
   </article>;
 }

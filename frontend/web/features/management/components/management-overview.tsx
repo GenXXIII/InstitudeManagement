@@ -49,13 +49,13 @@ export function ManagementOverview({ references, onSelect, selected, year }: { r
 
     <section className="panel management-department-coverage">
       <header><div><span>Source data coverage</span><h2>Departments and their master records</h2></div><Link className="button secondary" href={scopedHref("/management/departments", selected, year)}>Manage departments <Icon name="arrow" size={14}/></Link></header>
-      <DataTable className="management-department-table" headerClassName="management-department-head" rowSelector=":scope > .management-department-row" columns={["Department code", "Department", "Head", "Students", "Teachers", "Courses", "Open"]}>
+      <DataTable className="management-department-table" headerClassName="management-department-head" rowSelector=":scope > .management-department-row" columns={[{ key: "department-code", label: "Department code", align: "center" }, "Department", "Head", "Students", "Teachers", "Courses", "Open"]}>
         {departments.map(department => {
           const students = references.students.filter(student => student.values.departmentId === department.id).length;
           const teachers = references.teachers.filter(teacher => teacher.values.departmentId === department.id).length;
           const courses = references.courses.filter(course => course.values.departmentId === department.id).length;
           return <article className="management-department-row" key={department.id}>
-            <strong>{workflowCode(department.values.departmentCode, "department", "management")}</strong><span>{department.values.name}</span><span>{department.values.head || "Not appointed"}</span><b>{students}</b><b>{teachers}</b><b>{courses}</b><button type="button" onClick={() => onSelect(department.id)}>View <Icon name="arrow" size={12}/></button>
+            <strong className="management-code-value">{workflowCode(department.values.departmentCode, "department", "management")}</strong><span>{department.values.name}</span><span>{department.values.head || "Not appointed"}</span><b>{students}</b><b>{teachers}</b><b>{courses}</b><button type="button" onClick={() => onSelect(department.id)}>View <Icon name="arrow" size={12}/></button>
           </article>;
         })}
         {!departments.length && <div className="empty-state"><strong>No departments in this scope</strong><span>Add a DepartmentCode before linking other management records.</span></div>}

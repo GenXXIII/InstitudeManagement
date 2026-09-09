@@ -1,0 +1,6 @@
+.app-frame{min-height:100vh;display:flex;position:relative;isolation:isolate;padding:0;gap:0;overflow:hidden}
+.ambient{position:fixed;pointer-events:none;z-index:-2;filter:blur(1px);opacity:.72;border-radius:50%}
+.ambient-one{width:680px;height:680px;left:-300px;top:-280px;background:radial-gradient(circle at center,rgba(115,192,255,.42),transparent 67%)}
+.ambient-two{width:760px;height:760px;right:-300px;bottom:-380px;background:radial-gradient(circle at center,rgba(87,157,255,.22),transparent 70%)}
+.modal-backdrop{position:fixed;inset:0;z-index:100;background:rgba(20,36,64,.35);backdrop-filter:blur(5px);display:grid;place-items:center;padding:20px}
+.backdrop{display:none}

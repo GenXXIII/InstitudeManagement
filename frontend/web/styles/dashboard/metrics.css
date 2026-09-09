@@ -1,0 +1,26 @@
+.metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:15px}
+.metrics-grid:has(.metric-card:nth-child(5)){grid-template-columns:repeat(5,minmax(0,1fr))}
+.metric-card,.panel{background:var(--panel);border:1px solid rgba(225,234,246,.95);box-shadow:0 7px 25px rgba(64,101,154,.055);border-radius:14px}
+.metric-card{min-height:124px;padding:14px 15px 13px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.metric-card:after{content:"";width:70px;height:70px;position:absolute;right:-25px;top:-28px;border-radius:50%;background:rgba(53,112,240,.055)}
+.metric-top{display:flex;align-items:center;justify-content:space-between}
+.metric-icon{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--blue);background:var(--blue-pale)}
+.metric-label{margin-top:10px;color:#8290a6;text-transform:uppercase;letter-spacing:.55px;font-size:8px;font-weight:700}
+.metric-card>strong{font-size:20px;margin-top:3px;letter-spacing:-.5px}
+.metric-card small{color:#95a1b3;font-size:8.5px;margin-top:3px}
+.metric-card.tone-violet .metric-icon{color:var(--violet);background:#f0edff}
+.metric-card.tone-cyan .metric-icon{color:var(--cyan);background:#ebf8ff}
+.metric-card.tone-green .metric-icon{color:var(--green);background:#eaf8f4}
+.metric-card.tone-red .metric-icon{color:var(--red);background:#fff0f1}
+.metric-card.tone-amber .metric-icon{color:var(--amber);background:#fff8e8}
+.dashboard-metric-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.dashboard-metric{min-height:108px;display:grid;grid-template-columns:40px minmax(0,1fr);align-items:start;gap:12px;border:1px solid #dfe8f2;border-radius:14px;background:white;padding:15px;box-shadow:0 8px 24px rgba(48,86,133,.07)}
+.dashboard-metric>span{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#eaf2ff;color:#2b69c7}
+.dashboard-metric.tone-violet>span{background:#f1edff;color:#7158dd}
+.dashboard-metric.tone-cyan>span{background:#eaf8ff;color:#2787b9}
+.dashboard-metric.tone-green>span{background:#e9f8f2;color:#23835f}
+.dashboard-metric.tone-amber>span{background:#fff5df;color:#b87815}
+.dashboard-metric>div{display:flex;min-width:0;flex-direction:column}
+.dashboard-metric small{color:#708298;font-size:10px;font-weight:750}
+.dashboard-metric strong{margin-top:4px;font-size:23px;letter-spacing:-.4px}
+.dashboard-metric p{margin:4px 0 0;color:#8493a6;font-size:10.5px;line-height:1.35}

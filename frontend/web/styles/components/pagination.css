@@ -1,0 +1,11 @@
+.data-pagination{min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 16px;border-top:1px solid #dfe7f1;background:#f7faff;color:#77879c;font-size:9px}
+.data-pagination>div{display:flex;align-items:center;gap:8px}
+.data-pagination strong{min-width:62px;color:#3c526f;font-size:10px;text-align:center}
+.data-pagination button{height:32px;border:1px solid #cfdbea;border-radius:7px;background:white;padding:0 11px;color:#3567aa;font-size:8px;font-weight:750;cursor:pointer}
+.data-pagination button:hover:not(:disabled){border-color:#8fb2df;background:#eef5ff}
+.data-pagination button:disabled{opacity:.42;cursor:not-allowed}
+.semester-history-group>.data-pagination{border:1px solid #dfe7f1;border-radius:10px}
+.announce-paginated-region>.data-pagination{flex:none}
+.semester-history-group>header,.semester-history-group>.data-pagination{flex:none}
+.record-viewport-page .data-pagination,.record-viewport-page .data-pagination button{font-size:10px}
+.record-viewport-page .data-pagination strong{font-size:11px}

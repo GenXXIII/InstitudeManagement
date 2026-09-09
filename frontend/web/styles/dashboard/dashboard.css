@@ -1,0 +1,49 @@
+.dashboard-grid{display:grid;grid-template-columns:1.4fr .9fr .9fr;gap:15px;align-items:stretch}
+.dashboard-page{display:flex;min-height:calc(100vh - 120px);flex-direction:column;gap:16px}
+.dashboard-header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
+.dashboard-header>div:first-child{display:flex;min-width:0;flex-direction:column}
+.dashboard-header>div:first-child>span,.dashboard-card-heading span{color:#4f7fbd;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.dashboard-header h1{margin:7px 0 6px;font-size:30px;line-height:1.08;letter-spacing:-.8px}
+.dashboard-header p{max-width:720px;margin:0;color:#687b92;font-size:13px;line-height:1.55}
+.dashboard-header-actions{display:flex;align-items:flex-end;gap:9px;flex:none}
+.dashboard-period-control{display:flex;min-width:180px;flex-direction:column;gap:5px}
+.dashboard-period-control>span{color:#74859b;font-size:10px;font-weight:750}
+.dashboard-period-control select,.dashboard-refresh-button{height:42px;border:1px solid #d8e3ef;border-radius:10px;background:white;color:#29425f;font-size:12px;font-weight:750}
+.dashboard-period-control select{padding:0 34px 0 12px;cursor:pointer;outline:0}
+.dashboard-period-control select:focus{border-color:#77a7e7;box-shadow:0 0 0 3px rgba(55,116,207,.12)}
+.dashboard-refresh-button{display:flex;align-items:center;gap:7px;padding:0 14px;cursor:pointer}
+.dashboard-refresh-button:hover{border-color:#a8c5ea;background:#f5f9ff;color:#2465c4}
+.dashboard-refresh-button:disabled{opacity:.6;cursor:wait}
+.dashboard-layout{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;padding-bottom:18px}
+.dashboard-card{min-width:0;overflow:hidden;border:1px solid #dfe8f2;border-radius:16px;background:white;padding:18px;box-shadow:0 8px 28px rgba(48,86,133,.065)}
+.dashboard-trend-card{grid-column:span 8;min-height:382px}
+.dashboard-breakdown-card{grid-column:span 4}
+.dashboard-grade-card{grid-column:span 5}
+.dashboard-attention-card{grid-column:1/-1}
+.dashboard-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.dashboard-card-heading>div{display:flex;min-width:0;flex-direction:column}
+.dashboard-card-heading h2{margin:5px 0 4px;font-size:17px;letter-spacing:-.2px}
+.dashboard-card-heading p{margin:0;color:#7b8ca1;font-size:11px;line-height:1.45}
+.dashboard-card-heading>a{display:flex;align-items:center;gap:4px;flex:none;color:#2c68bd;font-size:10.5px;font-weight:750}
+.dashboard-trend-summary{display:flex;align-items:baseline;gap:12px;margin-top:20px}
+.dashboard-trend-summary>strong{font-size:28px}
+.dashboard-trend-summary>span{padding:5px 8px;border-radius:7px;font-size:10px;font-weight:750}
+.dashboard-trend-summary .positive{background:#eaf8f2;color:#25825f}
+.dashboard-trend-summary .negative{background:#fff0f1;color:#c9505b}
+.dashboard-trend-summary .neutral{background:#eef3f8;color:#718198}
+.dashboard-status-list{display:grid;gap:8px;margin-top:18px}
+.dashboard-status-list>div{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:62px;padding:10px 12px;border:1px solid #e5ecf4;border-radius:11px;background:#fafcff}
+.dashboard-status-dot{width:8px;height:8px;border-radius:50%;background:#2f9c74}
+.dashboard-status-dot.status-late{background:#dc9a25}
+.dashboard-status-dot.status-absent{background:#db5963}
+.dashboard-status-dot.status-excused{background:#7864d8}
+.dashboard-status-list>div>div{display:flex;flex-direction:column;gap:4px}
+.dashboard-status-list strong{font-size:12px}
+.dashboard-status-list small{color:#8291a5;font-size:10px}
+.dashboard-status-list b{font-size:19px}
+.dashboard-grade-average{display:flex;align-items:baseline;gap:8px;margin-top:15px}
+.dashboard-grade-average strong{font-size:28px}
+.dashboard-grade-average span{color:#7e8da1;font-size:10.5px}
+.dashboard-grade-track{width:100%;max-width:24px;height:118px;display:flex;align-items:flex-end;overflow:hidden;border-radius:7px;background:#edf2f8}
+.dashboard-grade-track i{display:block;width:100%;border-radius:7px;background:linear-gradient(180deg,#6195ef,#2d69c8)}
+.dashboard-empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#8292a7;font-size:11px}
