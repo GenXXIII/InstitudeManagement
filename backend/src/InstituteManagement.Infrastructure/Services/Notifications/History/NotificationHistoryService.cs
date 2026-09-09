@@ -10,7 +10,7 @@ public sealed class NotificationHistoryService(InstituteDbContext db) : INotific
 {
     public async Task<IReadOnlyList<NotificationHistoryItemDto>> GetAsync(CancellationToken cancellationToken) =>
         await db.NotificationHistory.AsNoTracking()
-            .Where(item => item.Kind == "Notification" && item.Action == "Read")
+            .Where(item => item.Kind == "Alert" || item.Kind == "Notification" && item.Type == "System")
             .OrderByDescending(item => item.CreateAt)
             .Select(item => new NotificationHistoryItemDto(
                 item.Id,

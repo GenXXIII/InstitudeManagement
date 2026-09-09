@@ -11,9 +11,9 @@ public sealed class NotificationService(InstituteDbContext db, InstituteCache ca
 {
     private static readonly string[] Severities = ["Info", "Warning", "Critical"];
 
-    public async Task<IReadOnlyList<NotificationItemDto>> GetUnreadAsync(CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<NotificationItemDto>> GetSystemAsync(CancellationToken cancellationToken) =>
         await db.Notifications.AsNoTracking()
-            .Where(item => !item.IsRead)
+            .Where(item => item.Type == "System")
             .OrderByDescending(item => item.CreateAt)
             .Select(item => new NotificationItemDto(
                 item.Id,
@@ -46,7 +46,7 @@ public sealed class NotificationService(InstituteDbContext db, InstituteCache ca
 
     public async Task<int> MarkAllReadAsync(CancellationToken cancellationToken)
     {
-        var unread = await db.Notifications.Where(item => !item.IsRead).ToListAsync(cancellationToken);
+        var unread = await db.Notifications.Where(item => item.Type == "System" && !item.IsRead).ToListAsync(cancellationToken);
         if (unread.Count == 0) return 0;
 
         var changedAt = DateTime.UtcNow;

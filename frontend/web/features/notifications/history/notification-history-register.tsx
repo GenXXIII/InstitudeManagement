@@ -2,7 +2,7 @@ import { DataTable } from "@/components/data-table";
 import type { NotificationHistoryItem } from "./notification-history-types";
 
 export function NotificationHistoryRegister({ rows, onOpen }: { rows: NotificationHistoryItem[]; onOpen: (code: string) => void }) {
-  return <DataTable as="section" className="panel horizontal-management-table notification-history-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-history-row" columns={[{ key: "history-code", label: "Notification history code", align: "center" }, { key: "notification-code", label: "Notification code", align: "center" }, "Type", "Title and preview", "Recorded", "Action"]}>
+  return <DataTable as="section" className="panel horizontal-management-table notification-history-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-history-row" columns={[{ key: "history-code", label: "Notification history code", align: "center" }, { key: "source-code", label: "Source code", align: "center" }, "Source", "Type", "Detail", "Recorded", "Action"]}>
     {rows.map(item => <article
       className="horizontal-management-row notification-history-row"
       role="link"
@@ -15,17 +15,17 @@ export function NotificationHistoryRegister({ rows, onOpen }: { rows: Notificati
     >
       <strong className="management-code-value">{item.notificationHistoryCode}</strong>
       <strong className="management-code-value">{item.sourceCode}</strong>
+      <span className="table-status">{item.kind}</span>
       <span className={`table-status alert-${item.type.toLowerCase()}`}>{item.type}</span>
       <div className="notification-inbox-copy">
-        <strong>{item.title}</strong>
         <span>{item.message}</span>
       </div>
       <time>{new Date(item.createAt).toLocaleDateString()}</time>
       <span className="table-status">{item.action}</span>
     </article>)}
     {!rows.length && <div className="empty-state">
-      <strong>No read history</strong>
-      <span>Notifications move here after they are opened.</span>
+      <strong>No notification history</strong>
+      <span>Notification and alert activity will appear here in recorded date order.</span>
     </div>}
   </DataTable>;
 }

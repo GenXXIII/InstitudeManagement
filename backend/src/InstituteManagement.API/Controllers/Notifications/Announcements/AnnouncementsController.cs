@@ -13,6 +13,10 @@ public sealed class AnnouncementsController(IAnnouncementService service) : Cont
     public async Task<IActionResult> Get(CancellationToken cancellationToken) =>
         Ok(await service.GetAsync(cancellationToken));
 
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.GetAsync(id, cancellationToken));
+
     [HttpPost]
     public async Task<IActionResult> Create(AnnouncementRequest request, CancellationToken cancellationToken)
     {
@@ -23,6 +27,10 @@ public sealed class AnnouncementsController(IAnnouncementService service) : Cont
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, AnnouncementRequest request, CancellationToken cancellationToken) =>
         Ok(await service.UpdateAsync(id, request.ToDto(), cancellationToken));
+
+    [HttpPut("{id:guid}/read")]
+    public async Task<IActionResult> MarkRead(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.MarkReadAsync(id, cancellationToken));
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)

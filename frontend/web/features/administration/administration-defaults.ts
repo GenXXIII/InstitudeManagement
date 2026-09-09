@@ -76,6 +76,7 @@ export const defaultSettings: InstituteSettings = {
     attendanceManagementPrefix: "ATT", attendanceEnrollmentPrefix: "EATT", attendanceOperationPrefix: "OPE", attendanceRecordPrefix: "REC", attendanceHistoryPrefix: "HIS",
     gradeManagementPrefix: "GRD", gradeEnrollmentPrefix: "EGRD", gradeOperationPrefix: "OPE", gradeRecordPrefix: "REC", gradeHistoryPrefix: "HIS",
     sessionManagementPrefix: "SES", sessionEnrollmentPrefix: "ESES", sessionOperationPrefix: "OPE", sessionRecordPrefix: "REC", sessionHistoryPrefix: "HIS",
+    alertCodePrefix: "ALT",
     notificationCodePrefix: "NOT",
     historyCodePrefix: "NHS",
   },

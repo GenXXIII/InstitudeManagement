@@ -16,7 +16,7 @@ import { notificationsApi } from "./notifications/notification-api";
 import { NotificationRegister } from "./notifications/notification-register";
 import type { NotificationDraft, NotificationItem } from "./notifications/notification-types";
 import { AnnounceOverview } from "./overview/announce-overview";
-import { formatNotificationCode } from "@/lib/workflow-code";
+import { formatAlertCode } from "@/lib/workflow-code";
 import { recommendedCodeFromError } from "@/lib/code-recommendation";
 
 const emptyAlert: AnnouncementDraft = { announcementCode: "", type: "General", title: "", message: "" };
@@ -58,14 +58,14 @@ export function AnnounceWorkspace({ module }: { module: string }) {
     try { await notificationsApi.remove(id); notifyBell(); await load(); } catch (reason) { setError(message(reason)); }
   }
   async function markAllNotificationsAsRead() {
-    if (!notifications.length || markingAll) return;
+    if (!notifications.some(item => !item.isRead) || markingAll) return;
     setMarkingAll(true); setError("");
     try { await notificationsApi.markAllRead(); notifyBell(); await load(); }
     catch (reason) { setError(message(reason)); } finally { setMarkingAll(false); }
   }
   async function saveAlert() {
     setSaving(true); setError("");
-    const submittedDraft = { ...alertDraft, announcementCode: formatNotificationCode(alertDraft.announcementCode) };
+    const submittedDraft = { ...alertDraft, announcementCode: formatAlertCode(alertDraft.announcementCode) };
     try { if (editingAlert) await announcementsApi.update(editingAlert, submittedDraft); else await announcementsApi.create(submittedDraft); notifyBell(); setEditingAlert(undefined); setAlertDraft(emptyAlert); await load(); }
     catch (reason) { setError(message(reason)); } finally { setSaving(false); }
   }
@@ -84,12 +84,12 @@ export function AnnounceWorkspace({ module }: { module: string }) {
   const recommendation = recommendedCodeFromError(error);
 
   return <div className="viewport-data-page announce-viewport-page">
-    <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={current === "notifications" ? <button className="button secondary notification-mark-all-button" disabled={!notifications.length || markingAll} onClick={() => void markAllNotificationsAsRead()}>{markingAll ? "Marking all as read..." : "Mark all as read"}</button> : undefined}/>
+    <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={current === "notifications" ? <button className="button secondary notification-mark-all-button" disabled={!notifications.some(item => !item.isRead) || markingAll} onClick={() => void markAllNotificationsAsRead()}>{markingAll ? "Marking all as read..." : "Mark all as read"}</button> : undefined}/>
     {recommendation ? <CodeRecommendation code={recommendation} onUse={() => { setAlertDraft(currentDraft => ({ ...currentDraft, announcementCode: recommendation })); setError(""); }}/>
       : error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
     {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts} history={history}/>}
     {current === "notifications" && <PaginatedDataRegion items={notifications} resetKey="notification-register" className="announce-paginated-region">{pageItems => <NotificationRegister rows={pageItems} editing={editingNotification} draft={notificationDraft} saving={saving} onDraft={setNotificationDraft} onOpen={id => router.push(`/announce/notifications/${id}`)} onEdit={item => { setEditingNotification(item.id); setNotificationDraft({ title: item.title, message: item.message, severity: item.severity, isRead: item.isRead }); }} onSave={saveNotification} onCancel={() => setEditingNotification(undefined)} onRemove={removeNotification}/>}</PaginatedDataRegion>}
-    {current === "alerts" && <PaginatedDataRegion items={alerts} resetKey="alert-register" className="announce-paginated-region">{pageItems => <AlertRegister rows={pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ announcementCode: item.announcementCode, type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/>}</PaginatedDataRegion>}
+    {current === "alerts" && <PaginatedDataRegion items={alerts} resetKey="alert-register" className="announce-paginated-region">{pageItems => <AlertRegister rows={pageItems} editing={editingAlert} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onOpen={id => router.push(`/announce/alerts/${id}`)} onSave={saveAlert} onCancel={() => { setEditingAlert(undefined); setAlertDraft(emptyAlert); }} onEdit={item => { setEditingAlert(item.id); setAlertDraft({ announcementCode: item.announcementCode, type: item.type, title: item.title, message: item.message }); }} onRemove={removeAlert}/>}</PaginatedDataRegion>}
     {current === "history" && <PaginatedDataRegion items={history} resetKey="notification-history-register" className="announce-paginated-region">{pageItems => <NotificationHistoryRegister rows={pageItems} onOpen={code => router.push(`/announce/history/${encodeURIComponent(code)}`)}/>}</PaginatedDataRegion>}
   </div>;
 }

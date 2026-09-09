@@ -1,0 +1,9 @@
+"use client";
+
+import { useParams } from "next/navigation";
+import { AlertDetail } from "@/features/notifications/announcements/alert-detail";
+
+export default function AlertDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  return <AlertDetail id={id}/>;
+}

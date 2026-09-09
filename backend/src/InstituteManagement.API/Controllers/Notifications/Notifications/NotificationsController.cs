@@ -10,8 +10,8 @@ namespace InstituteManagement.API.Controllers.Notifications.Notifications;
 public sealed class NotificationsController(INotificationService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetUnread(CancellationToken cancellationToken) =>
-        Ok(await service.GetUnreadAsync(cancellationToken));
+    public async Task<IActionResult> GetSystem(CancellationToken cancellationToken) =>
+        Ok(await service.GetSystemAsync(cancellationToken));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken) =>

@@ -6,6 +6,7 @@ public sealed class Announcement : Entity
     public string Type { get; set; } = "General";
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+    public bool IsRead { get; set; }
     public bool IsActive { get; set; } = true;
     public Guid? NotificationId { get; set; }
     public Notification? Notification { get; set; }

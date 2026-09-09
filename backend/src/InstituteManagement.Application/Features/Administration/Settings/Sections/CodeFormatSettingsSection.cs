@@ -18,6 +18,7 @@ public static partial class SettingsCatalog
             ..ResourceCodeFormat("attendance", "ATT", "EATT"),
             ..ResourceCodeFormat("grade", "GRD", "EGRD"),
             ..ResourceCodeFormat("session", "SES", "ESES"),
+            Code("alertCodePrefix", "ALT", 16),
             Code("notificationCodePrefix", "NOT", 16),
             Code("historyCodePrefix", "NHS", 16)
         ]);

@@ -8,12 +8,8 @@ public sealed partial class InstituteDbContext
     private void AssignSourceBusinessCodes(NotificationCodeFormat? format)
     {
         if (format is null) return;
-        var alertNotifications = ChangeTracker.Entries<Announcement>()
-            .Where(entry => entry.State == EntityState.Added && entry.Entity.Notification is not null)
-            .Select(entry => entry.Entity.Notification!)
-            .ToHashSet();
         var notifications = ChangeTracker.Entries<Notification>()
-            .Where(entry => entry.State == EntityState.Added && !alertNotifications.Contains(entry.Entity))
+            .Where(entry => entry.State == EntityState.Added)
             .OrderBy(entry => entry.Entity.CreateAt)
             .ThenBy(entry => entry.Entity.Id)
             .ToList();

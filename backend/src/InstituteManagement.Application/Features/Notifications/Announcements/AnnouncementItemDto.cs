@@ -7,4 +7,5 @@ public sealed record AnnouncementItemDto(
     string Type,
     string Title,
     string Message,
+    bool IsRead,
     DateTime CreateAt);

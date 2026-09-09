@@ -1,14 +1,15 @@
 import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
-import { formatNotificationCode, notificationCodeExample } from "@/lib/workflow-code";
+import { alertCodeExample, formatAlertCode } from "@/lib/workflow-code";
 import type { AnnouncementDraft, AnnouncementItem } from "./announcement-types";
 
-export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, onCancel, onEdit, onRemove }: {
+export function AlertRegister({ rows, editing, draft, saving, onDraft, onOpen, onSave, onCancel, onEdit, onRemove }: {
   rows: AnnouncementItem[];
   editing?: string;
   draft: AnnouncementDraft;
   saving: boolean;
   onDraft: (value: AnnouncementDraft) => void;
+  onOpen: (id: string) => void;
   onSave: () => void;
   onCancel: () => void;
   onEdit: (item: AnnouncementItem) => void;
@@ -26,9 +27,9 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, o
           placeholder="Enter sequence, for example 1"
           aria-label="Alert code sequence"
           onChange={event => onDraft({ ...draft, announcementCode: event.target.value })}
-          onBlur={() => { if (!editing && draft.announcementCode.trim()) onDraft({ ...draft, announcementCode: formatNotificationCode(draft.announcementCode) }); }}
+          onBlur={() => { if (!editing && draft.announcementCode.trim()) onDraft({ ...draft, announcementCode: formatAlertCode(draft.announcementCode) }); }}
         />
-        <small>{editing ? "Permanent code" : `Final code: ${draft.announcementCode.trim() ? formatNotificationCode(draft.announcementCode) : notificationCodeExample()}`}</small>
+        <small>{editing ? "Permanent code" : `Final code: ${draft.announcementCode.trim() ? formatAlertCode(draft.announcementCode) : alertCodeExample()}`}</small>
       </label>
       <label>
         <span>Alert type</span>
@@ -65,20 +66,26 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onSave, o
         </button>
       </div>
     </section>
-    <DataTable as="section" className="panel horizontal-management-table alert-register" headerClassName="horizontal-management-head" rowSelector=":scope > .alert-register-row" columns={["AnnouncementCode", "Title and detail", "Type", "Create At", "Actions"]}>
-      {rows.map(item => <article className="horizontal-management-row alert-register-row" key={item.id}>
+    <DataTable as="section" className="panel horizontal-management-table alert-register" headerClassName="horizontal-management-head" rowSelector=":scope > .alert-register-row" columns={["AnnouncementCode", "Detail", "Type", "Create At", "Actions"]}>
+      {rows.map(item => <article
+        className={`horizontal-management-row alert-register-row ${item.isRead ? "" : "unread"}`}
+        role="link"
+        tabIndex={0}
+        onClick={() => onOpen(item.id)}
+        onKeyDown={event => {
+          if (event.currentTarget === event.target && (event.key === "Enter" || event.key === " ")) onOpen(item.id);
+        }}
+        key={item.id}
+      >
         <strong className="management-code-value">{item.announcementCode}</strong>
-        <div>
-          <strong>{item.title}</strong>
-          <span>{item.message}</span>
-        </div>
+        <div><span>{item.message}</span></div>
         <span className={`table-status alert-${item.type.toLowerCase()}`}>{item.type}</span>
         <time>{new Date(item.createAt).toLocaleString()}</time>
         <div className="notification-row-actions">
-          <button title="Edit alert" aria-label="Edit alert" onClick={() => onEdit(item)}>
+          <button title="Edit alert" aria-label="Edit alert" onClick={event => { event.stopPropagation(); onEdit(item); }}>
             <Icon name="edit" size={14}/>
           </button>
-          <button title="Remove alert" aria-label="Remove alert" onClick={() => onRemove(item.id)}>
+          <button title="Remove alert" aria-label="Remove alert" onClick={event => { event.stopPropagation(); onRemove(item.id); }}>
             <Icon name="trash" size={14}/>
           </button>
         </div>

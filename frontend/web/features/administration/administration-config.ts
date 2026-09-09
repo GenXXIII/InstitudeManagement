@@ -30,7 +30,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   departments: ["defaultStatus", "requireDepartmentHead", "allowCrossDepartmentTeaching"],
   courses: ["defaultCapacity", "requireAssignedTeacher"],
   classrooms: ["defaultCapacity", "attendanceDeviceRequired"],
-  "code-formats": ["codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "studentManagementPrefix", "studentEnrollmentPrefix", "studentOperationPrefix", "studentRecordPrefix", "studentHistoryPrefix", "notificationCodePrefix", "notificationCodeExample", "historyCodePrefix", "historyCodeExample"],
+  "code-formats": ["codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "studentManagementPrefix", "studentEnrollmentPrefix", "studentOperationPrefix", "studentRecordPrefix", "studentHistoryPrefix", "alertCodePrefix", "alertCodeExample", "notificationCodePrefix", "notificationCodeExample", "historyCodePrefix", "historyCodeExample"],
   "users-access": ["defaultUserStatus", "availableRoles"],
   "student-rules": ["maximumCoursesPerSemester", "statuses"],
   "teacher-rules": ["statuses", "maximumCourses", "maximumClasses"],
@@ -92,7 +92,7 @@ export function configurationSummary(sectionName: SettingSection, values: Record
   if (sectionName === "departments") return `Assigned DepartmentCode · ${values.requireDepartmentHead === "true" ? "Head required" : "Head optional"}`;
   if (sectionName === "courses") return `Assigned CourseCode · ${values.defaultCapacity || "–"} default seats`;
   if (sectionName === "classrooms") return `Assigned ClassroomCode · ${values.defaultCapacity || "–"} default seats`;
-  if (sectionName === "code-formats") return `${values.studentManagementPrefix || "STU"} → ${values.studentEnrollmentPrefix || "ESTU"} · Alert and Notification ${values.notificationCodePrefix || "NOT"}`;
+  if (sectionName === "code-formats") return `${values.studentManagementPrefix || "STU"} → ${values.studentEnrollmentPrefix || "ESTU"} · Alert ${values.alertCodePrefix || "ALT"} · Notification ${values.notificationCodePrefix || "NOT"}`;
   if (sectionName === "users-access") return `${parseCsv(values.availableRoles).length} roles · ${parseCsv(values.permissionCatalog).length} permissions`;
   if (sectionName === "student-rules") return `Assigned StudentCode · ${values.maximumCoursesPerSemester || "–"} courses per term`;
   if (sectionName === "teacher-rules") return `Assigned TeacherCode · ${values.maximumCourses || "–"} courses maximum`;

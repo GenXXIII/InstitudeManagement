@@ -8,7 +8,11 @@ public sealed partial class InstituteDbContext
     private void CaptureNotificationHistory()
     {
         var history = new List<NotificationHistory>();
-        foreach (var entry in ChangeTracker.Entries<Notification>().Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        var alertNotifications = ChangeTracker.Entries<Announcement>()
+            .Where(entry => entry.Entity.Notification is not null)
+            .Select(entry => entry.Entity.Notification!)
+            .ToHashSet();
+        foreach (var entry in ChangeTracker.Entries<Notification>().Where(entry => (entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) && !alertNotifications.Contains(entry.Entity)))
         {
             var item = entry.Entity;
             var action = entry.State == EntityState.Added ? "Created" : entry.State == EntityState.Deleted ? "Removed" : entry.Property(x => x.IsRead).IsModified && item.IsRead ? "Read" : "Updated";
@@ -17,7 +21,7 @@ public sealed partial class InstituteDbContext
         foreach (var entry in ChangeTracker.Entries<Announcement>().Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
             var item = entry.Entity;
-            var action = entry.State == EntityState.Added ? "Announced" : entry.State == EntityState.Deleted || !item.IsActive ? "Removed" : "Updated";
+            var action = entry.State == EntityState.Added ? "Announced" : entry.State == EntityState.Deleted || !item.IsActive ? "Removed" : entry.Property(x => x.IsRead).IsModified && item.IsRead ? "Read" : "Updated";
             history.Add(new NotificationHistory { SourceId = item.Id, SourceCode = item.AnnouncementCode, Kind = "Alert", Type = item.Type, Title = item.Title, Message = item.Message, Action = action });
         }
         if (history.Count > 0) NotificationHistory.AddRange(history);

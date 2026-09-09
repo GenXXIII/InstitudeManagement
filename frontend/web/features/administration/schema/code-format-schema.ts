@@ -34,11 +34,13 @@ export const codeFormatGroups: readonly ConfigurationGroup[] = [
     ]),
   })),
   {
-    title: "Notification codes",
-    description: "Required Alert codes, automatic notifications, and permanent notification history use the same shared year, sequence, padding, and separator configured above.",
+    title: "Alert, notification, and history codes",
+    description: "Alerts and system notifications keep separate identities while using the shared year, padding, and separator configured above.",
     fields: [
-      field("notificationCodePrefix", "Alert and notification prefix", "Prefix used when a typed Alert sequence is formatted and when system notifications are assigned.", "text", { required: true }),
-      field("notificationCodeExample", "Alert and notification example", "Preview using the shared Code Formats rules.", "derived", { derive: values => standaloneExample(values, "notificationCodePrefix", "NOT") }),
+      field("alertCodePrefix", "Alert prefix", "Prefix used when a typed Alert sequence is formatted.", "text", { required: true }),
+      field("alertCodeExample", "Alert example", "Preview of the permanent Alert identity.", "derived", { derive: values => standaloneExample(values, "alertCodePrefix", "ALT") }),
+      field("notificationCodePrefix", "System notification prefix", "Prefix automatically assigned to system notifications.", "text", { required: true }),
+      field("notificationCodeExample", "System notification example", "Preview of the automatic Notification identity.", "derived", { derive: values => standaloneExample(values, "notificationCodePrefix", "NOT") }),
       field("historyCodePrefix", "Notification history prefix", "Prefix assigned to permanent notification lifecycle entries; this is separate from Record History.", "text", { required: true }),
       field("historyCodeExample", "Notification history example", "Preview using the shared Code Formats rules.", "derived", { derive: values => standaloneExample(values, "historyCodePrefix", "NHS") }),
     ],

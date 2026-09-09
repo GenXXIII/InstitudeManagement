@@ -9,7 +9,7 @@ public static class SettingsCatalogSeeder
 {
     private static readonly string[] LegacyNotificationCodeKeys =
     [
-        "notificationCodePrefix", "historyCodePrefix", "codeIncludeYear",
+        "alertCodePrefix", "notificationCodePrefix", "historyCodePrefix", "codeIncludeYear",
         "codeStartingNumber", "codePaddingWidth", "codeSeparator"
     ];
     private static readonly string[] ObsoleteAlertCodeKeys =
@@ -79,7 +79,7 @@ public static class SettingsCatalogSeeder
 
         foreach (var setting in legacy)
         {
-            var prefixBelongsInCodeFormats = setting.Key is "notificationCodePrefix" or "historyCodePrefix";
+            var prefixBelongsInCodeFormats = setting.Key is "alertCodePrefix" or "notificationCodePrefix" or "historyCodePrefix";
             if (prefixBelongsInCodeFormats && codeFormatKeys.Add(setting.Key)) setting.Section = "code-formats";
             else db.SystemSettings.Remove(setting);
         }

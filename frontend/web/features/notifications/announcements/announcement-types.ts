@@ -5,6 +5,7 @@ export type AnnouncementItem = {
   type: "General" | "Attendance" | "Emergency" | "Result";
   title: string;
   message: string;
+  isRead: boolean;
   createAt: string;
 };
 

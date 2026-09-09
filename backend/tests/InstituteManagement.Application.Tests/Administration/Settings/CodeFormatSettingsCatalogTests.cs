@@ -10,9 +10,11 @@ public sealed class CodeFormatSettingsCatalogTests
         var codeFormatKeys = SettingsCatalog.GetSection("code-formats").SettingsByKey.Keys;
         var notificationKeys = SettingsCatalog.GetSection("notifications").SettingsByKey.Keys;
 
+        Assert.Contains("alertCodePrefix", codeFormatKeys);
         Assert.Contains("notificationCodePrefix", codeFormatKeys);
         Assert.Contains("historyCodePrefix", codeFormatKeys);
         Assert.DoesNotContain("notificationCodePrefix", notificationKeys);
+        Assert.DoesNotContain("alertCodePrefix", notificationKeys);
         Assert.DoesNotContain("historyCodePrefix", notificationKeys);
         Assert.DoesNotContain("codePaddingWidth", notificationKeys);
         Assert.DoesNotContain("alertManagementPrefix", codeFormatKeys);
@@ -25,6 +27,7 @@ public sealed class CodeFormatSettingsCatalogTests
 
         var normalized = SettingsCatalog.NormalizeAndValidate("code-formats", defaults);
 
+        Assert.Equal("ALT", normalized["alertCodePrefix"]);
         Assert.Equal("NOT", normalized["notificationCodePrefix"]);
         Assert.Equal("NHS", normalized["historyCodePrefix"]);
     }

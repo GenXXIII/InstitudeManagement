@@ -14,12 +14,11 @@ export function NotificationRegister({ rows, editing, draft, saving, onDraft, on
   onCancel: () => void;
   onRemove: (id: string) => void;
 }) {
-  return <DataTable as="section" className="panel horizontal-management-table notification-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-current-row, :scope > .notification-edit-row" columns={["Notification code", "Type / severity", "Title and preview", "Received", "Status", "Actions"]}>
+  return <DataTable as="section" className="panel horizontal-management-table notification-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-current-row, :scope > .notification-edit-row" columns={["Notification code", "Severity", "Detail", "Received", "Actions"]}>
     {rows.map(item => editing === item.id && draft
       ? <article className="horizontal-management-row notification-edit-row" key={item.id}>
         <strong className="management-code-value">{item.notificationCode}</strong>
         <label className="notification-type-editor">
-          <span>{item.type}</span>
           <select
             aria-label="Severity"
             value={draft.severity}
@@ -43,14 +42,6 @@ export function NotificationRegister({ rows, editing, draft, saving, onDraft, on
           />
         </div>
         <time>{new Date(item.createAt).toLocaleDateString()}</time>
-        <label className="notification-read-editor">
-          <input
-            type="checkbox"
-            checked={draft.isRead}
-            onChange={event => onDraft({ ...draft, isRead: event.target.checked })}
-          />
-          <span>Read</span>
-        </label>
         <div className="notification-edit-actions">
           <button onClick={onCancel}>Cancel</button>
           <button disabled={saving} onClick={onSave}>Save</button>
@@ -68,15 +59,12 @@ export function NotificationRegister({ rows, editing, draft, saving, onDraft, on
       >
         <strong className="management-code-value">{item.notificationCode}</strong>
         <div className="notification-type-cell">
-          <span className={`table-status alert-${item.type.toLowerCase()}`}>{item.type}</span>
-          <small>{item.severity}</small>
+          <span className={`table-status notification-severity-${item.severity.toLowerCase()}`}>{item.severity}</span>
         </div>
         <div className="notification-inbox-copy">
-          <strong>{item.title}</strong>
           <span>{item.message}</span>
         </div>
         <time>{new Date(item.createAt).toLocaleDateString()}</time>
-        <span className={`table-status ${item.isRead ? "" : "watch"}`}>{item.isRead ? "Read" : "Unread"}</span>
         <div className="notification-row-actions">
           <button
             title="Edit notification"

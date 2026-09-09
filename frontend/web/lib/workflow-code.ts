@@ -41,10 +41,18 @@ export function formatAssignedCode(sourceCode: string | undefined, resource: Wor
 }
 
 export function formatNotificationCode(sourceCode: string | undefined) {
+  return formatStandaloneCode(sourceCode, "notificationCodePrefix", "NOT");
+}
+
+export function formatAlertCode(sourceCode: string | undefined) {
+  return formatStandaloneCode(sourceCode, "alertCodePrefix", "ALT");
+}
+
+function formatStandaloneCode(sourceCode: string | undefined, prefixKey: string, fallbackPrefix: string) {
   const raw = (sourceCode ?? "").trim();
   if (!raw) return "";
   const separator = configuredSeparator();
-  const prefix = runtimeValues.notificationCodePrefix?.trim().toUpperCase() || "NOT";
+  const prefix = runtimeValues[prefixKey]?.trim().toUpperCase() || fallbackPrefix;
   let sequence = stripPrefix(raw.toUpperCase(), [prefix]);
   if (runtimeValues.codeIncludeYear === "true" && sequence.startsWith(`${runtimeYear}${separator}`)) sequence = sequence.slice(runtimeYear.length + separator.length);
   if (/^\d+$/.test(sequence)) sequence = sequence.padStart(configuredPadding(), "0");
@@ -54,6 +62,10 @@ export function formatNotificationCode(sourceCode: string | undefined) {
 
 export function notificationCodeExample() {
   return formatNotificationCode(runtimeValues.codeStartingNumber || "1");
+}
+
+export function alertCodeExample() {
+  return formatAlertCode(runtimeValues.codeStartingNumber || "1");
 }
 
 export function workflowCode(sourceCode: string | undefined, resource: WorkflowCodeResource, stage: WorkflowCodeStage = "management") {
