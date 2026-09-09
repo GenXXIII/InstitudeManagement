@@ -72,7 +72,7 @@ export function AnnounceOverview({ notifications, alerts, history }: {
         <Icon name="arrow" size={14}/>
       </Link>)}
     </section>
-    <DataTable as="section" className="panel horizontal-management-table announce-overview-register" headerClassName="horizontal-management-head" rowSelector=":scope > .announce-overview-row" columns={[{ key: "feature-code", label: "FeatureCode", align: "center" }, "Feature", "Latest title and detail", "Create At", "Open"]}>
+    <DataTable as="section" className="panel horizontal-management-table announce-overview-register" headerClassName="horizontal-management-head" rowSelector=":scope > .announce-overview-row" columns={[{ key: "feature-code", label: "FeatureCode", align: "center" }, "Feature", { key: "latest-title", label: "Latest title and detail", align: "left" }, "Create At", { key: "open", label: "Open", align: "center" }]}>
       {recent.map(item => <Link className="horizontal-management-row announce-overview-row" href={item.href} key={`${item.kind}-${item.code}`}>
         <strong className="management-code-value">{item.code}</strong>
         <span className="table-status">{item.kind}</span>
@@ -81,7 +81,7 @@ export function AnnounceOverview({ notifications, alerts, history }: {
           <small>{item.detail}</small>
         </div>
         <time>{new Date(item.date).toLocaleString()}</time>
-        <Icon name="arrow" size={14}/>
+        <span className="announce-overview-open">View <Icon name="arrow" size={14}/></span>
       </Link>)}
       {!recent.length && <div className="empty-state">
         <strong>No announcement activity</strong>

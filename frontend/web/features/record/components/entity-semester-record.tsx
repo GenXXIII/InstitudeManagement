@@ -20,7 +20,7 @@ export function EntitySemesterRecord({ row, stage = "record", detailHref, detail
   const open = () => { if (detailHref) router.push(detailHref); };
   return <article className="entity-semester-record-row record-row-clickable" role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
     <div className="workflow-ledger-code"><strong className="entity-record-code">{workflowCode(row.code || row.identifier, workflowResource(row.module), stage)}</strong></div>
-    <EntityVisual row={row}/>
+    <EntityVisual row={row} table/>
     <div className="entity-record-name"><strong>{row.subject}</strong></div>
     <div className="entity-record-department"><strong>{row.department || "Unassigned"}</strong></div>
     <div className="entity-record-year"><strong>{yearLabels(row)}</strong></div>
@@ -66,9 +66,10 @@ function EntitySessionCard({ session, module }: { session: Record<string, string
   return <article className={`entity-session-card ${stateClass}`}><div className="entity-session-main"><div><time>{session.Date}</time><strong>{session.Time}</strong><span>{state}</span></div><div><strong>{title || "Recorded class"}</strong><span>{context}</span><small>{session.Reason}</small></div>{classHeld ? <AttendanceCards counts={counts}/> : <div className="entity-session-not-held"><strong>{availabilityState ? "Available" : "Not held"}</strong><span>{availabilityState ? `Teacher ${session["Teacher attendance"]?.toLowerCase() || "absent"}` : session["Teacher attendance"]}</span></div>}</div>{students.length > 0 && <details><summary>View {students.length} student attendance details</summary><div className="entity-student-snapshot">{students.map((student, index) => <span className={`attendance-${toneKey(student.status)}`} key={`${student.name}-${index}`}><strong>{student.name}</strong><b>{attendanceLabel(student.status)}</b></span>)}</div></details>}</article>;
 }
 
-function EntityVisual({ row }: { row: OperationalRecord }) {
+function EntityVisual({ row, table = false }: { row: OperationalRecord; table?: boolean }) {
   if (row.module === "Teacher" && row.photoDataUrl) return <Image className="entity-record-photo" src={row.photoDataUrl} alt={`${row.subject} portrait`} width={42} height={58} unoptimized/>;
   if (row.module === "Teacher") return <span className="entity-record-photo entity-record-fallback">{initials(row.subject)}</span>;
+  if (table) return <span className="record-type-text">{row.module === "Classroom" ? roomType(row.identifier) : "Course"}</span>;
   return <span className={`entity-record-type entity-type-${row.module.toLowerCase()}`}><Icon name={row.module === "Classroom" ? "room" : "book"} size={17}/><small>{row.module === "Classroom" ? roomType(row.identifier) : "Course"}</small></span>;
 }
 

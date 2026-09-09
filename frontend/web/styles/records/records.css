@@ -175,6 +175,7 @@
 .session-semester-record-row{min-height:96px;border-bottom:1px solid #e6edf5;background:white}
 .session-semester-record-row:last-child{border-bottom:0}
 .session-record-table-text{overflow:hidden;color:#354e6c;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.record-type-text{width:100%;min-height:42px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#edf4ff;color:#326ac0;font-size:10px;font-weight:800;text-align:center}
 .record-ledger-value{min-height:54px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#eef3f8;color:#49627e;font-size:15px;font-weight:850;text-align:center}
 .record-ledger-value.record-value-neutral{background:#f1f5f9;color:#5d7088}
 .record-ledger-value.record-value-blue,.record-ledger-value.record-value-total{background:#e9f2ff;color:#316bc2}

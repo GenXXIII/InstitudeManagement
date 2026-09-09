@@ -18,7 +18,7 @@ export function StructureSemesterRecord({ row, stage = "record", detailHref, det
   const open = () => { if (detailHref) router.push(detailHref); };
   return <article className="structure-semester-record-row record-row-clickable" role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
     <div className="workflow-ledger-code"><strong className="entity-record-code">{workflowCode(row.code, workflowResource(row.module), stage)}</strong></div>
-    <span className={`structure-record-type structure-${recordModule.toLowerCase()}`}><Icon name={recordModule === "Department" ? "building" : "calendar"} size={17}/><small>{recordModule}</small></span>
+    {recordModule === "Department" ? <span className="record-type-text">Department</span> : <span className="structure-record-type structure-timetable"><Icon name="calendar" size={17}/><small>Timetable</small></span>}
     <div className="entity-record-name"><strong>{row.subject}</strong></div>
     <div className="entity-record-department"><strong>{recordModule === "Department" ? row.identifier : row.department}</strong></div>
     <div className="entity-record-year"><strong>{yearLabels(row)}</strong></div>

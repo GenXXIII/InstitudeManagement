@@ -202,8 +202,10 @@
 .notification-full-detail>header>div>strong{font-size:17px}
 .notification-detail-grid>div>span{font-size:10px}
 .announce-overview-row>div,.alert-register-row>div:nth-child(2){display:flex;min-width:0;flex-direction:column;gap:4px}
+.announce-overview-register [data-cell-align="left"],.announce-overview-register [data-cell-align="left"]>*{text-align:left!important}
 .announce-overview-row>div>strong,.announce-overview-row>div>small,.alert-register-row>div:nth-child(2)>strong,.alert-register-row>div:nth-child(2)>span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .announce-overview-row>div>small,.announce-overview-row>time,.alert-register-row>div:nth-child(2)>span,.alert-register-row>time{color:#7f8da0}
-.announce-overview-row>svg{color:#4777bd}
+.announce-overview-open{width:100%;display:inline-flex;align-items:center;justify-content:center;justify-self:stretch;gap:4px;margin-inline:auto;color:#2f6dc7;font-size:10px;font-weight:800;text-align:center}
+.announce-overview-open>svg{flex:none;color:#4777bd}
 .announce-paginated-region>.alert-register{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .announce-overview-register>.horizontal-management-head>*,.announce-paginated-region>.alert-register>.horizontal-management-head>*{position:sticky;top:0;z-index:10}

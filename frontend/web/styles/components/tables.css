@@ -123,6 +123,7 @@
 [data-cell-align="right"][data-cell-flow="grid"]{justify-items:end!important}
 .announce-overview-register.horizontal-management-table>.horizontal-management-head,.announce-overview-register.horizontal-management-table>.horizontal-management-row{display:contents!important}
 .shared-data-table .management-code-value{width:100%;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}
+.shared-data-table .horizontal-management-row>time{width:100%;justify-content:center!important;text-align:center!important}
 /* Shared data regions keep the toolbar/header/pagination flow identical. */
 .shared-data-region{min-width:0;min-height:0}
 .shared-data-region > .shared-data-table{min-width:0}
