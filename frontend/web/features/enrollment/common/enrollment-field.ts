@@ -1,6 +1,7 @@
 export type EnrollmentFieldOption = {
   id: string;
   label: string;
+  submitValue?: string;
 };
 
 export type EnrollmentField = {

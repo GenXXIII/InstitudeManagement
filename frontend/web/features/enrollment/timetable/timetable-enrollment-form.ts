@@ -16,5 +16,6 @@ export function timetableEnrollmentFields(courses: EnrollmentItem[], teachers: E
 }
 
 export function timetableEnrollmentDefaults(year: string, semester = "Semester 1"): Record<string, string> {
-  return { courseId: "", teacherId: "", classroomId: "", yearLevel: year || "1", semester, status: "Active" };
+  void year; void semester;
+  return { courseId: "", teacherId: "", classroomId: "", yearLevel: "", semester: "", status: "Active" };
 }

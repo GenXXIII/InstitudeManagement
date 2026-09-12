@@ -8,4 +8,4 @@ export const classroomFields: Field[] = [
   { key: "status", label: "Status", type: "select", options: ["Available", "Maintenance"], required: true },
 ];
 
-export const classroomDefaults = () => ({ roomType: "Classroom", capacity: "40", status: "Available", deviceOnline: "true" });
+export const classroomDefaults = () => ({ roomType: "", capacity: "40", status: "", deviceOnline: "true" });

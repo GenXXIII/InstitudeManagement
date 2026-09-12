@@ -9,7 +9,7 @@ export function courseAssignmentFields(
 ): EnrollmentField[] {
   return [
     { key: "departmentId", label: "Department", type: "select", options: departments.map(department => ({ id: department.id, label: department.values.name })), required: true },
-    { key: "teacherId", label: "Assigned teacher", type: "select", options: [...(teacherRequired ? [] : [{ id: "", label: "Assign later" }]), ...availableTeachers.map(teacher => ({ id: teacher.id, label: `${teacher.values.teacherCode} - ${teacher.values.name}` }))], required: teacherRequired },
+    { key: "teacherId", label: "Assigned teacher", type: "select", options: [...(teacherRequired ? [] : [{ id: "__assign_later__", label: "Assign later", submitValue: "" }]), ...availableTeachers.map(teacher => ({ id: teacher.id, label: `${teacher.values.teacherCode} - ${teacher.values.name}` }))], required: teacherRequired },
     { key: "year", label: "Year level", type: "select", options: yearOptions(), required: true },
     { key: "capacity", label: "Student capacity", type: "number", required: true },
     { key: "status", label: "Assignment status", type: "select", options: ["Active", "Paused"].map(id => ({ id, label: id })), required: true },
@@ -17,5 +17,6 @@ export function courseAssignmentFields(
 }
 
 export function courseAssignmentDefaults(departmentId: string, year: string, capacity: string): Record<string, string> {
-  return { departmentId, teacherId: "", year: year || "1", capacity: capacity || "40", status: "Active" };
+  void departmentId; void year;
+  return { departmentId: "", teacherId: "", year: "", capacity: capacity || "40", status: "" };
 }

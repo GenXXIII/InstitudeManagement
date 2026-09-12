@@ -371,8 +371,12 @@
   .notification-detail{padding:16px}
   .notification-detail h2{font-size:17px}
   .notification-full-detail>header{flex-direction:column}
+  .notification-detail-header-side{width:100%;align-items:flex-start}
+  .notification-detail-header-actions{justify-content:flex-start}
   .notification-full-detail>header time{align-items:flex-start}
   .notification-detail>section.notification-detail-grid{grid-template-columns:1fr}
+  .notification-detail>section.notification-detail-editor{grid-template-columns:1fr}
+  .notification-detail-editor label:last-child{grid-column:auto}
 }
 @media (max-width:800px){
   .viewport-data-page{height:100%}

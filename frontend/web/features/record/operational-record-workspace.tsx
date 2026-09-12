@@ -29,7 +29,7 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
   const router = useRouter();
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
-  const year = isClassSessionModule ? "" : searchParams.get("year") ?? "";
+  const year = searchParams.get("year") ?? "";
   const selectedPeriod = isClassSessionModule ? "all" : searchParams.get("period") ?? "all";
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [rows, setRows] = useState<OperationalRecord[]>([]);
@@ -44,7 +44,7 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
     .map(activity => [`${activity["Academic year"]}|${activity.Term}`, { key: `${activity["Academic year"]}|${activity.Term}`, label: `${activity["Academic year"]} · ${activity.Term}` }] as const))).values()]
     .toSorted((left, right) => comparePeriod(right.key, left.key)), [isClassSessionModule, rows]);
   const visibleRows = useMemo(() => {
-    if (isClassSessionModule) return sortClassSessionRecords(rows);
+    if (isClassSessionModule) return sortClassSessionRecords(rows.filter(row => !year || recordYear(row) === Number(year)));
     return rows
       .filter(row => selectedPeriod === "all" || row.activities.some(activity => `${activity["Academic year"]}|${activity.Term}` === selectedPeriod))
       .filter(row => !year || JSON.stringify(row).toLowerCase().includes(`year ${year}`))
@@ -52,7 +52,7 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
   }, [isClassSessionModule, rows, selectedPeriod, year]);
   const routeModule = currentModule === "sessions" ? "class-sessions" : currentModule;
   const detailParams = new URLSearchParams(searchParams.toString());
-  if (isClassSessionModule) { detailParams.delete("year"); detailParams.delete("period"); }
+  if (isClassSessionModule) detailParams.delete("period");
   const detailQuery = detailParams.toString();
   const detailHref = (id: string) => `${history ? "/records" : "/record"}/${routeModule}/${encodeURIComponent(id)}${detailQuery ? `?${detailQuery}` : ""}`;
   const activityCount = visibleRows.reduce((total, row) => total + row.activities.length, 0);

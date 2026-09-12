@@ -36,6 +36,7 @@ export function TimetableEditor({ item, scopeDepartmentId, onClose, onSaved }: {
   useEffect(() => {
     timetableApi.getPeriods().then(result => {
       setPeriods(result);
+      if (!item) return;
       setValues(current => {
         const group = weekendDays.has(current.dayOfWeek) ? "Weekend" : "Weekday";
         const shift = group === "Weekend" ? "Weekend" : current.shift === "Weekend" ? "Morning" : current.shift;
@@ -45,7 +46,7 @@ export function TimetableEditor({ item, scopeDepartmentId, onClose, onSaved }: {
         return valid || !first ? { ...current, shift } : { ...current, shift, period: `${first.startsAt}|${first.endsAt}` };
       });
     }).catch(reason => setError(reason instanceof Error ? reason.message : "Could not load teaching periods."));
-  }, []);
+  }, [item]);
 
   function optionsFor(field: Field) {
     if (field.key === "period") return availablePeriods.map(period => ({ id: `${period.startsAt}|${period.endsAt}`, label: `${period.session} - ${period.startsAt}-${period.endsAt}` }));
@@ -64,11 +65,8 @@ export function TimetableEditor({ item, scopeDepartmentId, onClose, onSaved }: {
       return;
     }
     setValues(current => {
-      const dayOfWeek = field.key === "dayOfWeek" ? value : current.dayOfWeek;
-      const weekend = weekendDays.has(dayOfWeek);
-      const shift = weekend ? "Weekend" : field.key === "shift" ? value : current.shift === "Weekend" ? "Morning" : current.shift;
-      const first = periods.find(period => period.dayGroup === (weekend ? "Weekend" : "Weekday") && (weekend || period.session === shift));
-      return { ...current, dayOfWeek, shift, period: first ? `${first.startsAt}|${first.endsAt}` : "" };
+      if (field.key === "dayOfWeek") return { ...current, dayOfWeek: value, shift: "", period: "" };
+      return { ...current, shift: value, period: "" };
     });
   }
 

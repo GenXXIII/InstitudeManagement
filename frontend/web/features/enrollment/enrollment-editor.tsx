@@ -52,11 +52,14 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
     setError("");
     if (creating && isSelectableEnrollment(resource) && !resourceId) { setError(`${candidateName(resource)} is required.`); return; }
     const submittedValues = { ...values };
+    for (const field of fields) {
+      const option = field.options?.find(candidate => candidate.id === submittedValues[field.key]);
+      if (option?.submitValue !== undefined) submittedValues[field.key] = option.submitValue;
+    }
     const missing = fields.find(field => field.required && !submittedValues[field.key]?.trim());
     if (missing) { setError(`${missing.label} is required.`); return; }
     setSaving(true);
     try {
-      setValues(submittedValues);
       await enrollmentApiFor(resource).update(item?.id ?? resourceId, submittedValues);
       onSaved();
     } catch (reason) {
@@ -116,17 +119,29 @@ export function EnrollmentEditor({ resource, item, candidates, departments, teac
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><form className="modal management-modal" onSubmit={save} noValidate>
     <div className="modal-head"><div><span className="eyebrow">Academic enrollment service</span><h2>{creating ? createTitle : `Edit ${subject} assignment`}</h2><p>{creating ? createDescription : "This changes enrollment data only. Personal and master details remain in Academic Management."}</p></div><button type="button" className="icon-button" onClick={onClose}><Icon name="close"/></button></div>
     <div className="management-form-grid">
-      {creating && resource === "students" && <div className="editor-field relationship-editor-field enrollment-candidate-field"><span>{candidateName(resource)}</span><SearchableSelect value={resourceId} options={candidateOptions} placeholder={`Type to find ${candidateName(resource).toLowerCase()}...`} ariaLabel={candidateName(resource)} ariaInvalid={Boolean(error && !resourceId)} required onChange={selectCandidate}/>{candidates.length === 0 && <small className="enrollment-candidate-note">No available {candidateName(resource).toLowerCase()} records were found in Management.</small>}</div>}
+      {creating && resource === "students" && <div className="editor-field relationship-editor-field enrollment-candidate-field"><span>{candidateName(resource)}</span><SearchableSelect value={resourceId} options={candidateOptions} placeholder={`Select ${candidateName(resource).toLowerCase()}`} ariaLabel={candidateName(resource)} ariaInvalid={Boolean(error && !resourceId)} required onChange={selectCandidate}/>{candidates.length === 0 && <small className="enrollment-candidate-note">No available {candidateName(resource).toLowerCase()} records were found in Management.</small>}</div>}
       {creating && resource === "timetable" && <>
         <div className="editor-field relationship-editor-field"><span>Timetable code</span><SearchableSelect value={resourceId} options={candidateOptions} placeholder="Select Management timetable code..." ariaLabel="Timetable code" ariaInvalid={Boolean(error && !resourceId)} required onChange={selectCandidate}/></div>
         {candidates.length === 0 && <small className="enrollment-candidate-note enrollment-candidate-field">No Management schedules are available. Add a schedule in Management first.</small>}
       </>}
       {resourceId && <ManagementSelectionPreview resource={resource} values={values}/>}
-      {fields.map(field => <label className="editor-field" key={field.key}><span>{field.label}</span>{field.type === "select" ? <select value={values[field.key] ?? ""} onChange={event => changeField(field, event.target.value)}>{!field.options?.some(option => option.id === "") && <option value="">Select {field.label.toLowerCase()}</option>}{field.options?.map(option => <option value={option.id} key={option.id || "none"}>{option.label}</option>)}</select> : <input readOnly={field.readOnly} type={field.type === "time" ? "time" : field.type === "number" ? "number" : "text"} min={field.type === "number" ? "1" : undefined} value={values[field.key] ?? ""} onChange={event => changeField(field, event.target.value)}/>}</label>)}
+      {fields.map(field => <label className="editor-field" key={field.key}><span>{field.label}</span>{field.type === "select" ? <select value={displayedFieldValue(field, values, creating)} onChange={event => changeField(field, event.target.value)}><option value="" disabled hidden>{selectPlaceholder(field)}</option>{field.options?.map(option => <option value={option.id} key={option.id}>{option.label}</option>)}</select> : <input readOnly={field.readOnly} type={field.type === "time" ? "time" : field.type === "number" ? "number" : "text"} min={field.type === "number" ? "1" : undefined} value={values[field.key] ?? ""} onChange={event => changeField(field, event.target.value)}/>}</label>)}
     </div>
     {error && <div className="form-error" role="alert">{error}</div>}
     <div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={saving || (creating && isSelectableEnrollment(resource) && candidates.length === 0)}>{saving ? "Saving assignment..." : creating ? createTitle : "Save enrollment"}</button></div>
   </form></div>;
+}
+
+function displayedFieldValue(field: EnrollmentField, values: Record<string, string>, creating: boolean) {
+  const value = values[field.key] ?? "";
+  if (value || creating) return value;
+  return field.options?.find(option => option.submitValue === "")?.id ?? "";
+}
+
+function selectPlaceholder(field: EnrollmentField) {
+  if (field.key === "year" || field.key === "yearLevel") return "Select academic year";
+  if (field.key === "shift") return "Select shift";
+  return `Select ${field.label.toLowerCase()}`;
 }
 
 function ManagementSelectionPreview({ resource, values }: { resource: EnrollmentResource; values: Record<string, string> }) {

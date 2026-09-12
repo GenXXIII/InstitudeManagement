@@ -10,5 +10,6 @@ export function studentEnrollmentFields(departments: DepartmentItem[]): Enrollme
 }
 
 export function studentEnrollmentDefaults(departmentId: string, year: string): Record<string, string> {
-  return { departmentId, year: year || "1", shift: "Morning", status: "Active" };
+  void departmentId; void year;
+  return { departmentId: "", year: "", shift: "", status: "Active" };
 }

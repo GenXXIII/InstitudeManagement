@@ -28,6 +28,9 @@ export function ManagementEditor({ module, item, references, scopeDepartmentId, 
   if (module === "departments") defaults.status = settings.departments.defaultStatus || defaults.status;
   if (module === "courses") defaults.capacity = settings.courses.defaultCapacity || defaults.capacity;
   if (module === "classrooms") { defaults.capacity = settings.classrooms.defaultCapacity || defaults.capacity; defaults.deviceOnline = settings.classrooms.attendanceDeviceRequired === "true" ? "true" : defaults.deviceOnline; }
+  if (!item) {
+    for (const field of managementFields[module]) if (field.type === "select") defaults[field.key] = "";
+  }
   const [values, setValues] = useState<Record<string, string>>(item ? { ...defaults, ...item.values } : defaults);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");

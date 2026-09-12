@@ -3,17 +3,13 @@ import { Icon } from "@/components/icon";
 import { alertCodeExample, formatAlertCode } from "@/lib/workflow-code";
 import type { AnnouncementDraft, AnnouncementItem } from "./announcement-types";
 
-export function AlertRegister({ rows, editing, draft, saving, onDraft, onOpen, onSave, onCancel, onEdit, onRemove }: {
+export function AlertRegister({ rows, draft, saving, onDraft, onOpen, onSave }: {
   rows: AnnouncementItem[];
-  editing?: string;
   draft: AnnouncementDraft;
   saving: boolean;
   onDraft: (value: AnnouncementDraft) => void;
   onOpen: (id: string) => void;
   onSave: () => void;
-  onCancel: () => void;
-  onEdit: (item: AnnouncementItem) => void;
-  onRemove: (id: string) => void;
 }) {
   return <>
     <section className="panel announce-alert-form">
@@ -22,14 +18,13 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onOpen, o
         <input
           className="management-code-value"
           value={draft.announcementCode}
-          readOnly={Boolean(editing)}
           required
           placeholder="Enter sequence, for example 1"
           aria-label="Alert code sequence"
           onChange={event => onDraft({ ...draft, announcementCode: event.target.value })}
-          onBlur={() => { if (!editing && draft.announcementCode.trim()) onDraft({ ...draft, announcementCode: formatAlertCode(draft.announcementCode) }); }}
+          onBlur={() => { if (draft.announcementCode.trim()) onDraft({ ...draft, announcementCode: formatAlertCode(draft.announcementCode) }); }}
         />
-        <small>{editing ? "Permanent code" : `Final code: ${draft.announcementCode.trim() ? formatAlertCode(draft.announcementCode) : alertCodeExample()}`}</small>
+        <small>{`Final code: ${draft.announcementCode.trim() ? formatAlertCode(draft.announcementCode) : alertCodeExample()}`}</small>
       </label>
       <label>
         <span>Alert type</span>
@@ -37,6 +32,7 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onOpen, o
           value={draft.type}
           onChange={event => onDraft({ ...draft, type: event.target.value as AnnouncementDraft["type"] })}
         >
+          <option value="" disabled hidden>Select alert type</option>
           <option>General</option>
           <option>Attendance</option>
           <option>Emergency</option>
@@ -55,18 +51,17 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onOpen, o
         <small>Message shown in Notification</small>
       </label>
       <div>
-        {editing && <button className="button secondary" onClick={onCancel}>Cancel</button>}
         <button
           className="button primary"
-          disabled={saving || !draft.announcementCode.trim() || !draft.title.trim() || !draft.message.trim()}
+          disabled={saving || !draft.announcementCode.trim() || !draft.type || !draft.title.trim() || !draft.message.trim()}
           onClick={onSave}
         >
-          <Icon name={editing ? "edit" : "plus"} size={15}/>
-          {saving ? "Saving..." : editing ? "Save alert" : "Announce to all"}
+          <Icon name="plus" size={15}/>
+          {saving ? "Saving..." : "Announce to all"}
         </button>
       </div>
     </section>
-    <DataTable as="section" className="panel horizontal-management-table alert-register" headerClassName="horizontal-management-head" rowSelector=":scope > .alert-register-row" columns={["AnnouncementCode", "Detail", "Type", "Create At", "Actions"]}>
+    <DataTable as="section" className="panel horizontal-management-table alert-register" headerClassName="horizontal-management-head" rowSelector=":scope > .alert-register-row" columns={["AnnouncementCode", "Detail", "Type", "Create At"]}>
       {rows.map(item => <article
         className={`horizontal-management-row alert-register-row ${item.isRead ? "" : "unread"}`}
         role="link"
@@ -81,14 +76,6 @@ export function AlertRegister({ rows, editing, draft, saving, onDraft, onOpen, o
         <div><span>{item.message}</span></div>
         <span className={`table-status alert-${item.type.toLowerCase()}`}>{item.type}</span>
         <time>{new Date(item.createAt).toLocaleString()}</time>
-        <div className="notification-row-actions">
-          <button title="Edit alert" aria-label="Edit alert" onClick={event => { event.stopPropagation(); onEdit(item); }}>
-            <Icon name="edit" size={14}/>
-          </button>
-          <button title="Remove alert" aria-label="Remove alert" onClick={event => { event.stopPropagation(); onRemove(item.id); }}>
-            <Icon name="trash" size={14}/>
-          </button>
-        </div>
       </article>)}
       {!rows.length && <div className="empty-state">
         <strong>No active alerts</strong>

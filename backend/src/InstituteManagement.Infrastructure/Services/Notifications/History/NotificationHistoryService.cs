@@ -12,6 +12,7 @@ public sealed class NotificationHistoryService(InstituteDbContext db) : INotific
         await db.NotificationHistory.AsNoTracking()
             .Where(item => item.Kind == "Alert" || item.Kind == "Notification" && item.Type == "System")
             .OrderByDescending(item => item.CreateAt)
+            .ThenByDescending(item => item.Id)
             .Select(item => new NotificationHistoryItemDto(
                 item.Id,
                 item.NotificationHistoryCode,

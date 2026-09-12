@@ -2,7 +2,7 @@ import { DataTable } from "@/components/data-table";
 import type { NotificationHistoryItem } from "./notification-history-types";
 
 export function NotificationHistoryRegister({ rows, onOpen }: { rows: NotificationHistoryItem[]; onOpen: (code: string) => void }) {
-  return <DataTable as="section" className="panel horizontal-management-table notification-history-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-history-row" columns={[{ key: "history-code", label: "Notification history code", align: "center" }, { key: "source-code", label: "Source code", align: "center" }, "Source", "Type", "Detail", "Recorded", "Action"]}>
+  return <DataTable as="section" className="panel horizontal-management-table notification-history-register" headerClassName="horizontal-management-head" rowSelector=":scope > .notification-history-row" columns={[{ key: "history-code", label: "Notification history code", align: "center" }, { key: "source-code", label: "Source code", align: "center" }, "Source", "Type", "Detail", "Recorded at", "Action"]}>
     {rows.map(item => <article
       className="horizontal-management-row notification-history-row"
       role="link"
@@ -20,12 +20,12 @@ export function NotificationHistoryRegister({ rows, onOpen }: { rows: Notificati
       <div className="notification-inbox-copy">
         <span>{item.message}</span>
       </div>
-      <time>{new Date(item.createAt).toLocaleDateString()}</time>
+      <time>{new Date(item.createAt).toLocaleString()}</time>
       <span className="table-status">{item.action}</span>
     </article>)}
     {!rows.length && <div className="empty-state">
       <strong>No notification history</strong>
-      <span>Notification and alert activity will appear here in recorded date order.</span>
+      <span>Notification and alert activity will appear here in recorded time order.</span>
     </div>}
   </DataTable>;
 }

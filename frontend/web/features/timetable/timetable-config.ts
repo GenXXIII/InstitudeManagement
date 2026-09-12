@@ -7,4 +7,4 @@ export const timetableFields: Field[] = [
   { key: "period", label: "Teaching period", type: "select", required: true },
 ];
 
-export const timetableDefaults = (departmentId: string) => ({ departmentId, dayOfWeek: "Monday", shift: "Morning", period: "07:30|09:00", startsAt: "07:30", endsAt: "09:00", status: "Upcoming" });
+export const timetableDefaults = (departmentId: string) => ({ departmentId, dayOfWeek: "", shift: "", period: "", startsAt: "", endsAt: "", status: "Upcoming" });

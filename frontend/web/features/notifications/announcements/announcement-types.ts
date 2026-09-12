@@ -11,7 +11,7 @@ export type AnnouncementItem = {
 
 export type AnnouncementDraft = {
   announcementCode: string;
-  type: AnnouncementItem["type"];
+  type: AnnouncementItem["type"] | "";
   title: string;
   message: string;
 };

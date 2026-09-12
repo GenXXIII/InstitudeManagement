@@ -17,7 +17,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const institute = settings.institute;
   const system = settings.system;
   const settingsRoute = pathname.startsWith("/settings");
-  const classSessionRoute = pathname.startsWith("/record/class-sessions") || pathname.startsWith("/records/class-sessions");
   const maintenanceActive = ready && system.maintenanceEnabled === "true";
   const maintenanceSettingsRoute = pathname === "/settings/maintenance";
   const { live, events } = useLiveUpdates(ready && !maintenanceActive);
@@ -49,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       shortName={institute.shortName || "INK"}
       logoUrl={logoUrl}
       departmentScope={scopes.departmentScope}
-      yearScope={classSessionRoute ? "" : scopes.yearScope}
+      yearScope={scopes.yearScope}
       onClose={() => setNavigationOpen(false)}
     />
     {navigationOpen && <button className="backdrop" onClick={() => setNavigationOpen(false)} aria-label="Close navigation"/>}
@@ -65,9 +64,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onScopeChange={scopes.changeScope}
         semester={settings.semester}
         settingsRoute={settingsRoute}
-        showYearScope={!classSessionRoute}
+        showYearScope
         system={system}
-        yearScope={classSessionRoute ? "" : scopes.yearScope}
+        yearScope={scopes.yearScope}
       />
       <main className="content">{children}</main>
     </div>
