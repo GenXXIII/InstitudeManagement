@@ -12,7 +12,14 @@ public sealed class SubmitGradeCommandValidator : IRequestValidator<SubmitGradeC
         if (request.CourseId == Guid.Empty)
             yield return new ValidationError(nameof(request.CourseId), "CourseId is required.");
 
-        if (request.Score is < 0 or > 100)
-            yield return new ValidationError(nameof(request.Score), "Score must be between 0 and 100.");
+        foreach (var error in ComponentErrors(nameof(request.AssignmentScore), request.AssignmentScore)) yield return error;
+        foreach (var error in ComponentErrors(nameof(request.MidtermScore), request.MidtermScore)) yield return error;
+        foreach (var error in ComponentErrors(nameof(request.FinalExamScore), request.FinalExamScore)) yield return error;
+    }
+
+    private static IEnumerable<ValidationError> ComponentErrors(string field, decimal score)
+    {
+        if (score is < 0 or > 100)
+            yield return new ValidationError(field, $"{field} must be between 0 and its configured maximum.");
     }
 }

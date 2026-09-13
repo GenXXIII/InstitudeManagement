@@ -69,6 +69,51 @@
 .dashboard-schedule-list small,.dashboard-department-list small{color:#8291a5;font-size:10px}
 .timetable-period-note strong{font-size:9.5px}
 .timetable-period-note span{font-size:8.5px}
+.schedule-modal-backdrop{align-items:start;overflow-y:auto}
+.schedule-management-modal{margin:auto 0}
+.schedule-management-modal .management-form-grid{max-height:none;overflow:visible}
+.schedule-select-field,.clock-time-field{position:relative;align-self:start}
+.schedule-select-field.open,.clock-time-field.open{z-index:120}
+.schedule-select-trigger,.clock-time-trigger{width:100%;min-height:44px;border:1px solid #dfe7f0;border-radius:9px;background:#fbfcfe;color:var(--ink);outline:0;cursor:pointer}
+.schedule-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 11px;text-align:left;font-size:11px}
+.schedule-select-trigger svg{flex:none;transform:rotate(90deg);transition:transform .16s}
+.schedule-select-field.open .schedule-select-trigger svg{transform:rotate(-90deg)}
+.schedule-select-trigger .placeholder,.clock-time-trigger .placeholder{color:#8d9aad;font-weight:500}
+.schedule-select-trigger:focus,.clock-time-trigger:focus{border-color:#9ebffa;box-shadow:0 0 0 3px rgba(42,105,241,.08);background:white}
+.schedule-select-field.invalid .schedule-select-trigger,.clock-time-field.invalid .clock-time-trigger{border-color:#df6670;background:#fff8f8}
+.schedule-select-menu{position:absolute;z-index:121;top:calc(100% + 6px);left:0;right:0;display:grid;max-height:228px;overflow-y:auto;border:1px solid #dce6f1;border-radius:10px;background:white;box-shadow:0 13px 30px rgba(42,66,101,.16)}
+.schedule-select-menu>button{min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;border-bottom:1px solid #edf1f6;background:white;padding:0 11px;color:#43546c;text-align:left;font-size:10.5px;font-weight:700;cursor:pointer}
+.schedule-select-menu>button:last-child{border-bottom:0}
+.schedule-select-menu>button:hover,.schedule-select-menu>button.selected{background:#edf4ff;color:#2867c4}
+.clock-time-trigger{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:9px;padding:5px 10px;text-align:left}
+.clock-time-trigger>strong{font-size:12px}
+.clock-time-trigger>small{color:#6f84a2;font-size:8px;font-weight:700}
+.clock-time-mini{position:relative;width:30px;height:30px;border:2px solid #91afd7;border-radius:50%;background:white}
+.clock-time-mini:after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#2d6bc5;transform:translate(-50%,-50%)}
+.clock-time-mini i{position:absolute;left:50%;bottom:50%;width:2px;border-radius:2px;background:#4d75a8;transform-origin:50% 100%}
+.clock-time-mini-hour{height:7px}.clock-time-mini-minute{height:10px;background:#2d6bc5!important}
+.clock-time-mini.active{border-color:#4c83cf;background:#eef5ff}
+.clock-time-popover{position:absolute;z-index:121;top:calc(100% + 7px);left:0;width:min(300px,calc(100vw - 48px));box-sizing:border-box;padding:12px;border:1px solid #cfdef0;border-radius:14px;background:#fff;box-shadow:0 18px 42px rgba(36,65,105,.18)}
+.clock-time-popover>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.clock-time-popover>header>span{padding-top:5px;color:#718198;font-size:8px;font-weight:800;letter-spacing:.55px;text-transform:uppercase}
+.clock-time-display{display:flex;align-items:center;gap:3px}
+.clock-time-display>button{min-width:38px;height:38px;border:0;border-radius:8px;background:#edf3fa;color:#426083;font-size:18px;font-weight:800;cursor:pointer}
+.clock-time-display>button.active{background:#3975cd;color:white}
+.clock-time-display>b{font-size:18px;color:#526881}
+.clock-time-period{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-left:5px;padding:2px;border:1px solid #dce6f1;border-radius:7px;background:#f7faff}
+.clock-time-period button{height:30px;border:0;border-radius:5px;background:transparent;padding:0 6px;color:#8290a4;font-size:7.5px;font-weight:800;cursor:pointer}
+.clock-time-period button.active{background:#3975cd;color:white}
+.clock-dial{position:relative;width:230px;height:230px;margin:12px auto;border:1px solid #dce7f3;border-radius:50%;background:radial-gradient(circle at center,#fff 0 36%,#f7faff 37% 62%,#eef4fb 63% 100%);box-shadow:inset 0 0 0 7px #f8fbff}
+.clock-dial>button{position:absolute;z-index:3;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:#425872;font-size:8px;font-weight:800;transform:translate(-50%,-50%);cursor:pointer}
+.clock-dial>button:hover,.clock-dial>button.selected{background:#3975cd;color:white;box-shadow:0 4px 10px rgba(47,103,188,.24)}
+.clock-hand{position:absolute;z-index:1;left:50%;bottom:50%;width:3px;border-radius:3px 3px 0 0;background:#6b86a9;transform-origin:50% 100%}
+.clock-hand.hour{height:91px}.clock-hand.minute{height:91px;width:2px;background:#3975cd}
+.clock-pin{position:absolute;z-index:2;left:50%;top:50%;width:9px;height:9px;border:2px solid white;border-radius:50%;background:#3975cd;box-shadow:0 0 0 1px #3975cd;transform:translate(-50%,-50%)}
+.clock-exact-minute{display:flex;align-items:center;justify-content:center;gap:9px;color:#718198;font-size:8px;font-weight:700}
+.clock-exact-minute input{width:64px!important;height:34px!important;text-align:center;font-size:11px!important}
+.clock-time-popover>footer{display:flex;justify-content:flex-end;gap:7px;margin-top:11px;padding-top:10px;border-top:1px solid #edf1f6}
+.clock-time-popover>footer button{height:32px;border:1px solid #dce5ef;border-radius:8px;background:white;padding:0 11px;color:#5f7189;font-size:8.5px;font-weight:750;cursor:pointer}
+.clock-time-popover>footer button.apply{border-color:#3975cd;background:#3975cd;color:white}
 .management-timetable-workspace{display:grid;gap:13px}
 .management-timetable-days,.management-timetable-years{display:flex;gap:6px;overflow-x:auto}
 .management-timetable-days button,.management-timetable-years button{height:36px;padding:0 12px;border:1px solid #dfe7f1;border-radius:8px;background:#f8fafd;color:#60728a;font-size:9px;font-weight:700;white-space:nowrap;cursor:pointer}

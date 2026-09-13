@@ -17,20 +17,12 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
         var grades = await Db.GradeRecords.AsNoTracking().Include(grade => grade.Student).ThenInclude(student => student!.Department).Include(grade => grade.Course)
             .Where(grade => grade.AcademicYear == period.AcademicYear && grade.Term == period.Term && grade.Student!.Status != "Inactive" && grade.Course!.IsActive && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId))
             .ToListAsync(ct);
+        var sessions = await Db.ClassSessionRecords.AsNoTracking()
+            .Where(session => session.AcademicYear == period.AcademicYear && session.Term == period.Term)
+            .ToListAsync(ct);
+        var sessionsByCourse = sessions.ToLookup(session => session.CourseId);
         return grades.Where(grade => Matches(search, grade.GradeCode, grade.Student!.FullName, grade.Course!.Name, grade.LetterGrade))
-            .Select(grade => new GradeResponseDto(grade.Id, new GradeValuesDto(
-                grade.GradeCode,
-                grade.StudentId.ToString(),
-                grade.Student?.FullName ?? "—",
-                grade.CourseId.ToString(),
-                grade.Course?.Name ?? "—",
-                grade.Student?.DepartmentId.ToString() ?? "",
-                grade.Student?.Department?.Name ?? "—",
-                grade.Score.ToString("0.0"),
-                grade.LetterGrade,
-                grade.AcademicYear,
-                grade.Term,
-                grade.CreateAt.ToString("yyyy-MM-dd"))))
+            .Select(grade => Response(grade, sessionsByCourse[grade.CourseId]))
             .ToList();
     }
 
@@ -54,6 +46,16 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             Get(values, "course"),
             Get(values, "departmentId"),
             Get(values, "department"),
+            Get(values, "attendanceScore"),
+            Get(values, "attendanceMaximum", "10"),
+            Get(values, "attendancePresent", "0"),
+            Get(values, "attendanceSessions", "0"),
+            Get(values, "assignmentScore"),
+            Get(values, "assignmentMaximum", "20"),
+            Get(values, "midtermScore"),
+            Get(values, "midtermMaximum", "20"),
+            Get(values, "finalExamScore"),
+            Get(values, "finalExamMaximum", "50"),
             Get(values, "score"),
             Get(values, "grade"),
             Get(values, "academicYear"),
@@ -75,8 +77,20 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
         values["course"] = course.Name;
         values["departmentId"] = student.DepartmentId?.ToString() ?? "";
         values["department"] = student.Department?.Name ?? "";
-        entity.Score = DecimalInRange(values, "score", 0, 100);
-        entity.LetterGrade = await LetterAsync(entity.Score, ct);
+        var rules = await GradeCompositionCalculator.LoadRulesAsync(Db, ct);
+        var assignment = DecimalInRange(values, "assignmentScore", 0, rules.Weights.Assignment);
+        var midterm = DecimalInRange(values, "midtermScore", 0, rules.Weights.Midterm);
+        var finalExam = DecimalInRange(values, "finalExamScore", 0, rules.Weights.FinalExam);
+        var attendance = await GradeCompositionCalculator.AttendanceAsync(Db, entity.StudentId, entity.CourseId, entity.AcademicYear, entity.Term, rules.Weights.Attendance, ct);
+        GradeCompositionCalculator.Apply(entity, rules.Weights, rules.Thresholds, attendance, assignment, midterm, finalExam);
+        values["attendanceScore"] = entity.AttendanceScore.ToString("0.##");
+        values["attendanceMaximum"] = entity.AttendanceMaximum.ToString("0.##");
+        values["attendancePresent"] = attendance.Attended.ToString();
+        values["attendanceSessions"] = attendance.Sessions.ToString();
+        values["assignmentMaximum"] = entity.AssignmentMaximum.ToString("0.##");
+        values["midtermMaximum"] = entity.MidtermMaximum.ToString("0.##");
+        values["finalExamMaximum"] = entity.FinalExamMaximum.ToString("0.##");
+        values["score"] = entity.Score.ToString("0.##");
         values["grade"] = entity.LetterGrade;
         var period = await CurrentPeriodAsync(ct);
         entity.AcademicYear = period.AcademicYear;
@@ -91,7 +105,36 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
         if (entity.LetterGrade is "E" or "F" && (!bool.TryParse(reminders, out var enabled) || enabled)) Db.Notifications.Add(new Notification { Title = "Grade support reminder", Message = $"{student?.FullName ?? "Student"} received {entity.LetterGrade} in {course?.Name ?? "a course"}.", Severity = entity.LetterGrade == "F" ? "Warning" : "Info" });
         return entity;
     }
-    private async Task<string> LetterAsync(decimal score, CancellationToken ct) { var settings = await Db.SystemSettings.Where(x => x.Section == "grade-rules").ToDictionaryAsync(x => x.Key, x => x.Value, ct); return GradeThresholds.From(settings).Letter(score); }
+    private static GradeResponseDto Response(GradeRecord grade, IEnumerable<ClassSessionRecord> sessions)
+    {
+        var attendance = GradeCompositionCalculator.Attendance(
+            sessions,
+            grade.StudentId,
+            grade.AttendanceMaximum);
+        return new GradeResponseDto(grade.Id, new GradeValuesDto(
+            grade.GradeCode,
+            grade.StudentId.ToString(),
+            grade.Student?.FullName ?? "—",
+            grade.CourseId.ToString(),
+            grade.Course?.Name ?? "—",
+            grade.Student?.DepartmentId.ToString() ?? "",
+            grade.Student?.Department?.Name ?? "—",
+            grade.AttendanceScore.ToString("0.##"),
+            grade.AttendanceMaximum.ToString("0.##"),
+            attendance.Attended.ToString(),
+            attendance.Sessions.ToString(),
+            grade.AssignmentScore.ToString("0.##"),
+            grade.AssignmentMaximum.ToString("0.##"),
+            grade.MidtermScore.ToString("0.##"),
+            grade.MidtermMaximum.ToString("0.##"),
+            grade.FinalExamScore.ToString("0.##"),
+            grade.FinalExamMaximum.ToString("0.##"),
+            grade.Score.ToString("0.##"),
+            grade.LetterGrade,
+            grade.AcademicYear,
+            grade.Term,
+            grade.CreateAt.ToString("yyyy-MM-dd")));
+    }
     private async Task<(string AcademicYear, string Term)> CurrentPeriodAsync(CancellationToken ct)
     {
         var settings = await Db.SystemSettings.AsNoTracking().Where(x => (x.Section == "academic-year" && x.Key == "currentYear") || (x.Section == "semester" && x.Key == "currentTerm")).ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, ct);

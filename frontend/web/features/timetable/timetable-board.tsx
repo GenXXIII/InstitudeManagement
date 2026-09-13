@@ -5,9 +5,8 @@ import { DataTable, DataTableToolbar } from "@/components/data-table";
 import { ManagementDataCell } from "@/components/management-data-cell";
 import { ManagementActions } from "@/features/management/components/management-actions";
 import { workflowCode } from "@/lib/workflow-code";
+import { compareTimetableItems, timetableDays as days } from "./timetable-sorting";
 import type { TimetableItem } from "./timetable-types";
-
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export function TimetableBoard({ items, onEdit, onDeactivate }: { items: TimetableItem[]; onEdit: (item: TimetableItem) => void; onDeactivate: (item: TimetableItem) => void }) {
   const [selectedDay, setSelectedDay] = useState("All days");
@@ -16,17 +15,17 @@ export function TimetableBoard({ items, onEdit, onDeactivate }: { items: Timetab
     .filter(item => selectedDay === "All days" || item.values.dayOfWeek === selectedDay)
     .filter(item => !search || [item.values.timetableCode, item.values.shift, item.values.dayOfWeek, item.values.startsAt, item.values.endsAt, item.values.createAt]
       .some(value => value.toLowerCase().includes(search.toLowerCase())))
-    .toSorted((left, right) => days.indexOf(left.values.dayOfWeek) - days.indexOf(right.values.dayOfWeek) || left.values.startsAt.localeCompare(right.values.startsAt) || left.values.timetableCode.localeCompare(right.values.timetableCode, undefined, { numeric: true }));
+    .toSorted(compareTimetableItems);
   return <section className="management-timetable-data">
     <DataTableToolbar query={search} onQueryChange={setSearch} searchPlaceholder="Search code, shift, time, or day..." searchAriaLabel="Search schedule" className="panel timetable-data-filters" searchClassName="management-search module-search-field timetable-module-search" resultClassName="timetable-data-count" resultLabel={<><span>Showing</span><strong>{visible.length}</strong><small>permanent time slots</small></>}>
       <label><span>Day</span><select value={selectedDay} onChange={event => setSelectedDay(event.target.value)}><option>All days</option>{days.map(day => <option key={day}>{day}</option>)}</select></label>
     </DataTableToolbar>
-    <DataTable className="panel timetable-data-table schedule-master-table" headerClassName="timetable-data-head" rowSelector=".timetable-data-row" columns={["Code", "Shift", "Time", "Day", "Created at", "Actions"]}>
+    <DataTable className="panel timetable-data-table schedule-master-table" headerClassName="timetable-data-head" rowSelector=".timetable-data-row" columns={["Code", "Time", "Day", "Shift", "Created at", "Actions"]}>
       <div className="timetable-data-body">{visible.map(item => <article className="timetable-data-row" key={item.id}>
         <ManagementDataCell label="Code"><strong className="management-code-value">{workflowCode(item.values.timetableCode, "timetable", "management")}</strong></ManagementDataCell>
-        <ManagementDataCell label="Shift" className="timetable-detail-data"><strong>{item.values.shift}</strong></ManagementDataCell>
         <ManagementDataCell label="Time" className="timetable-time-data"><time>{item.values.startsAt} - {item.values.endsAt}</time></ManagementDataCell>
         <ManagementDataCell label="Day" className="timetable-detail-data"><strong>{item.values.dayOfWeek}</strong></ManagementDataCell>
+        <ManagementDataCell label="Shift" className="timetable-detail-data"><strong>{item.values.shift}</strong></ManagementDataCell>
         <ManagementDataCell label="Created at" className="timetable-detail-data"><strong>{item.values.createAt}</strong></ManagementDataCell>
         <ManagementDataCell label="Actions" className="management-action-cell"><ManagementActions item={item} onEdit={onEdit} onDeactivate={onDeactivate}/></ManagementDataCell>
       </article>)}</div>

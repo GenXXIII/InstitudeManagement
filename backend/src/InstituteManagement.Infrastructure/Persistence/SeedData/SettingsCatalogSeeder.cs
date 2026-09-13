@@ -16,11 +16,17 @@ public static class SettingsCatalogSeeder
     [
         "alertManagementPrefix", "alertEnrollmentPrefix", "alertOperationPrefix", "alertRecordPrefix", "alertHistoryPrefix"
     ];
+    private static readonly string[] ObsoleteGradeKeys =
+    [
+        "aPlusMinimum", "bPlusMinimum", "cPlusMinimum",
+        "aPlusGpa", "bPlusGpa", "cPlusGpa"
+    ];
 
     public static async Task SeedMissingAsync(InstituteDbContext db, CancellationToken cancellationToken = default)
     {
         await MoveNotificationCodeSettingsAsync(db, cancellationToken);
         await RemoveObsoleteAlertCodeSettingsAsync(db, cancellationToken);
+        await RemoveObsoleteGradeSettingsAsync(db, cancellationToken);
         var existing = await db.SystemSettings.AsNoTracking()
             .Select(setting => new { setting.Section, setting.Key })
             .ToListAsync(cancellationToken);
@@ -50,19 +56,27 @@ public static class SettingsCatalogSeeder
                 });
             }
 
-        if (missing.Count == 0 && obsoleteInstituteRegionalSettings.Count == 0) return;
         if (missing.Count > 0) db.SystemSettings.AddRange(missing);
         if (obsoleteInstituteRegionalSettings.Count > 0) db.SystemSettings.RemoveRange(obsoleteInstituteRegionalSettings);
-        if (!hadGradeRules)
+        if (missing.Count > 0 || obsoleteInstituteRegionalSettings.Count > 0)
+            await db.SaveChangesAsync(cancellationToken);
+
+        var hasLegacyGrades = await db.GradeRecords.AsNoTracking()
+            .AnyAsync(grade => grade.LetterGrade != "A" && grade.LetterGrade != "B" && grade.LetterGrade != "C" && grade.LetterGrade != "D" && grade.LetterGrade != "E" && grade.LetterGrade != "F", cancellationToken);
+        var addedGradeRules = missing.Any(setting => setting.Section == "grade-rules");
+        if (!hadGradeRules || addedGradeRules || hasLegacyGrades)
         {
-            var scale = GradeThresholds.From(SettingsCatalog.Defaults("grade-rules"));
+            var storedGradeRules = await db.SystemSettings.AsNoTracking()
+                .Where(setting => setting.Section == "grade-rules")
+                .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, cancellationToken);
+            var scale = GradeThresholds.From(storedGradeRules);
             foreach (var grade in await db.GradeRecords.ToListAsync(cancellationToken))
             {
                 grade.LetterGrade = scale.Letter(grade.Score);
                 grade.UpdatedAtUtc = now;
             }
+            await db.SaveChangesAsync(cancellationToken);
         }
-        await db.SaveChangesAsync(cancellationToken);
     }
 
     private static async Task MoveNotificationCodeSettingsAsync(InstituteDbContext db, CancellationToken cancellationToken)
@@ -91,6 +105,16 @@ public static class SettingsCatalogSeeder
     {
         var obsolete = await db.SystemSettings
             .Where(setting => setting.Section == "code-formats" && ObsoleteAlertCodeKeys.Contains(setting.Key))
+            .ToListAsync(cancellationToken);
+        if (obsolete.Count == 0) return;
+        db.SystemSettings.RemoveRange(obsolete);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task RemoveObsoleteGradeSettingsAsync(InstituteDbContext db, CancellationToken cancellationToken)
+    {
+        var obsolete = await db.SystemSettings
+            .Where(setting => setting.Section == "grade-rules" && ObsoleteGradeKeys.Contains(setting.Key))
             .ToListAsync(cancellationToken);
         if (obsolete.Count == 0) return;
         db.SystemSettings.RemoveRange(obsolete);

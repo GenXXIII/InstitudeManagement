@@ -60,20 +60,25 @@ public static partial class SettingsCatalog
     {
         var minimum = Decimal(values["minimumScore"]);
         var maximum = Decimal(values["maximumScore"]);
-        var thresholds = new[] { "aPlusMinimum", "aMinimum", "bPlusMinimum", "bMinimum", "cPlusMinimum", "cMinimum", "dMinimum" }
+        var thresholds = new[] { "aMinimum", "bMinimum", "cMinimum", "dMinimum", "eMinimum" }
             .Select(key => Decimal(values[key]))
             .ToArray();
         if (minimum >= maximum) errors.Add("minimumScore must be lower than maximumScore.");
         if (!(thresholds[0] <= maximum
             && thresholds.Zip(thresholds.Skip(1)).All(pair => pair.First > pair.Second)
             && thresholds[^1] >= minimum))
-            errors.Add("Grade thresholds must descend A+, A, B+, B, C+, C, D; lower scores are F.");
+            errors.Add("Grade thresholds must descend A, B, C, D, E; lower scores are F.");
+
+        var componentWeight = new[] { "attendanceWeight", "assignmentWeight", "midtermWeight", "finalExamWeight" }
+            .Sum(key => Decimal(values[key]));
+        if (componentWeight != 100)
+            errors.Add("Attendance, assignment, midterm, and final exam weights must total exactly 100%.");
 
         foreach (var key in new[] { "passMark", "overallPassMark", "coursePassMark", "finalExamMinimum" })
             if (Decimal(values[key]) < minimum || Decimal(values[key]) > maximum)
                 errors.Add($"{key} must be within the score range.");
         var maximumGpa = Decimal(values["maximumGpa"]);
-        foreach (var key in new[] { "aPlusGpa", "aGpa", "bPlusGpa", "bGpa", "cPlusGpa", "cGpa", "dGpa", "fGpa", "gpaScale" })
+        foreach (var key in new[] { "aGpa", "bGpa", "cGpa", "dGpa", "eGpa", "fGpa", "gpaScale" })
             if (Decimal(values[key]) > maximumGpa)
                 errors.Add($"{key} cannot exceed maximumGpa.");
     }

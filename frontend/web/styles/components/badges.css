@@ -14,6 +14,6 @@
 .initial-chip{width:29px;height:29px;border-radius:9px;background:#eaf2ff;color:#326fcf;display:grid;place-items:center;font-weight:750;font-size:8px}
 .grade-letter{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:#eaf8f2;color:#278764;font-size:9px;font-weight:800}
 .grade-letter.grade-c,.grade-letter.grade-d{background:#fff7e8;color:#bc811c}
-.grade-letter.grade-f{background:#fff0f1;color:#ce515b}
 .grade-letter.grade-e{background:#fff2e7;color:#b56c21}
+.grade-letter.grade-f{background:#fff0f1;color:#ce515b}
 .grade-letter.grade-f{background:#fff0f1;color:#ce515b}

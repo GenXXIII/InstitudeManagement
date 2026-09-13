@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useState } from "react";
 import { Icon } from "@/components/icon";
-import { WorkflowCodeFlow } from "@/components/workflow-code-flow";
 import { workflowCode, type WorkflowCodeStage } from "@/lib/workflow-code";
 import { RecordLedgerValue } from "../components/record-ledger-value";
 import { recordApi } from "../record-api";
@@ -42,11 +41,10 @@ function StudentSemesterDetail({ row, stage, insights, gradeSlots, editable, onU
   const sessions = row.activities.filter(activity => activity.Activity === "Class attendance");
   return <article className="student-semester-detail">
     <header><StudentPhoto row={row}/><div><span className="eyebrow">{row.academicYear} · {row.term}</span><h2>{row.subject}</h2><p>{workflowCode(row.code, "student", stage)} · {row.department} · {identityDetail(row.identifier)}</p></div></header>
-    <WorkflowCodeFlow sourceCode={row.code} resource="student" currentStage={stage}/>
     <section className="semester-record-information" aria-label="Student semester information"><Information label="Record code" value={workflowCode(row.code, "student", stage)}/><Information label="Enrollment source" value={workflowCode(row.code, "student", "enrollment")}/><Information label="Department" value={row.department}/><Information label="Year" value={recordYear(row)}/><Information label="Shift" value={recordShift(row)}/><Information label="Academic year" value={row.academicYear}/><Information label="Semester" value={row.term}/><Information label="Enrollment" value={enrollmentValue(row, "Enrollment status")}/></section>
     <div className="student-detail-insights"><AttendanceCards insights={insights}/><GradeCards grades={gradeSlots} stage={stage}/><ResultCard insights={insights}/></div>
+    <section className="student-record-detail-section student-course-grades-section"><header><div><strong>Course grades</strong><span>Five course-grade records preserved for this semester</span></div><b>{insights.grades.length}/5 assigned</b></header><div className="student-grade-detail-grid">{gradeSlots.map((grade, index) => <GradeDetailCard grade={grade} index={index} studentId={row.resourceId} stage={stage} editable={editable} onUpdated={onUpdated} key={grade?.courseCode ?? index}/>)}</div><footer className={`student-final-result result-${toneKey(insights.result)}`}><div><span>Total score</span><strong>{insights.totalScore.toFixed(1)} ÷ 5 = {insights.average.toFixed(2)}</strong></div><b>{insights.result}</b></footer></section>
     <section className="student-record-detail-section"><header><div><strong>Class-session attendance</strong><span>Every held or cancelled timetable period recorded for this semester</span></div><b>{sessions.length} sessions</b></header><div className="student-session-detail-list">{sessions.length ? sessions.map((session, index) => <AttendanceDetailRow session={session} studentId={row.resourceId} editable={editable} onUpdated={onUpdated} key={`${session.Date}-${session.Time}-${index}`}/>) : <p className="student-record-detail-empty">No recorded class sessions in this semester.</p>}</div></section>
-    <section className="student-record-detail-section"><header><div><strong>Course grades</strong><span>Five course-grade records preserved for this semester</span></div><b>{insights.grades.length}/5 assigned</b></header><div className="student-grade-detail-grid">{gradeSlots.map((grade, index) => <GradeDetailCard grade={grade} index={index} studentId={row.resourceId} stage={stage} editable={editable} onUpdated={onUpdated} key={grade?.courseCode ?? index}/>)}</div><footer className={`student-final-result result-${toneKey(insights.result)}`}><div><span>Total score</span><strong>{insights.totalScore.toFixed(1)} ÷ 5 = {insights.average.toFixed(2)}</strong></div><b>{insights.result}</b></footer></section>
   </article>;
 }
 
@@ -54,7 +52,6 @@ function StudentProgramHistoryDetail({ row, insights }: { row: OperationalRecord
   const periods = programPeriods(row);
   return <article className="student-semester-detail student-program-history-detail">
     <header><StudentPhoto row={row}/><div><span className="eyebrow">Graduated in {row.academicYear} · Year 4 Semester 2</span><h2>{row.subject}</h2><p>{workflowCode(row.code, "student", "history")} · {row.department} · Permanent read-only archive</p></div></header>
-    <WorkflowCodeFlow sourceCode={row.code} resource="student" currentStage="history"/>
     <section className="semester-record-information" aria-label="Completed student program information"><Information label="History code" value={workflowCode(row.code, "student", "history")}/><Information label="Enrollment source" value={workflowCode(row.code, "student", "enrollment")}/><Information label="Department" value={row.department}/><Information label="Completed level" value="Year 4 Semester 2"/><Information label="Graduation academic year" value={row.academicYear}/><Information label="Archived semesters" value={periods.length.toString()}/><Information label="State" value="Graduated"/><Information label="Editing" value="Permanent read-only"/></section>
     <div className="student-detail-insights program-history-insights"><AttendanceCards insights={insights}/><ProgramGradeTotals row={row}/><ProgramResultCard insights={insights}/></div>
     <section className="student-program-timeline"><header><div><strong>Complete Year 1–4 record</strong><span>Every semester retains its information, class attendance, grade codes, course results, and totals.</span></div><b>{periods.length} semesters</b></header>{periods.map(period => <article className="student-program-period" key={period.key}><header><div><span>{period.year}</span><h3>{period.academicYear}</h3></div><strong>{period.term}</strong><small>{period.attendance.length} sessions · {period.grades.length} grades · {period.total.toFixed(1)} total</small></header><section><div><strong>Attendance detail</strong><span>{period.attendance.filter(item => item.Attendance === "Present" || item.Attendance === "Late").length} present · {period.attendance.filter(item => item.Attendance === "Permission" || item.Attendance === "Excused").length} permission · {period.attendance.filter(item => item.Attendance === "Absent").length} absent</span></div><div className="student-session-detail-list">{period.attendance.length ? period.attendance.map((session, index) => <AttendanceDetailRow session={session} studentId={row.resourceId} editable={false} key={`${period.key}-${session.Date}-${session.Time}-${index}`}/>) : <p className="student-record-detail-empty">No class-session evidence for this semester.</p>}</div></section><section><div><strong>Grade detail</strong><span>Business codes, course scores, letter grades, and semester total</span></div><div className="program-period-grade-grid">{period.grades.length ? period.grades.map((grade, index) => <HistoryGradeCard grade={grade} key={`${period.key}-${grade["Grade code"]}-${index}`}/>) : <p className="student-record-detail-empty">No grade evidence for this semester.</p>}</div><footer><span>Semester total</span><strong>{period.total.toFixed(1)}</strong><b>Average {period.average.toFixed(2)}</b></footer></section></article>)}</section>
@@ -71,7 +68,16 @@ function ProgramResultCard({ insights }: { insights: OperationalRecordInsights }
 }
 
 function HistoryGradeCard({ grade }: { grade: Record<string, string> }) {
-  return <article className={`student-grade-detail grade-${toneKey(grade.Grade || "pending")}`}><span>{workflowCode(grade["Grade code"], "grade", "history")}</span><strong>{grade["Course code"] || "Course"}</strong><p>{grade.Course}</p><div><b>{Number(grade.Score || 0).toFixed(1)}</b><em>{grade.Grade || "—"}</em></div></article>;
+  return <article className={`student-grade-detail grade-${toneKey(grade.Grade || "pending")}`}>
+    <span>{workflowCode(grade["Grade code"], "grade", "history")}</span><strong>{grade["Course code"] || "Course"}</strong><p>{grade.Course}</p>
+    <div className="grade-component-list">
+      <GradeComponent label="Attendance" score={grade["Attendance score"]} maximum={grade["Attendance maximum"]} detail="Session evidence preserved"/>
+      <GradeComponent label="Assignment" score={grade["Assignment score"]} maximum={grade["Assignment maximum"]}/>
+      <GradeComponent label="Midterm" score={grade["Midterm score"]} maximum={grade["Midterm maximum"]}/>
+      <GradeComponent label="Final exam" score={grade["Final exam score"]} maximum={grade["Final exam maximum"]}/>
+    </div>
+    <div className="grade-total-line"><b>{Number(grade.Score || 0).toFixed(1)}/100</b><em>{grade.Grade || "—"}</em></div>
+  </article>;
 }
 
 function programPeriods(row: OperationalRecord) {
@@ -116,19 +122,47 @@ function AttendanceDetailRow({ session, studentId, editable, onUpdated }: { sess
 
 function GradeDetailCard({ grade, index, studentId, stage, editable, onUpdated }: { grade: OperationalRecordGrade | null; index: number; studentId: string; stage: WorkflowCodeStage; editable: boolean; onUpdated?: () => void }) {
   const [editing, setEditing] = useState(false);
-  const [score, setScore] = useState(grade?.score.toString() ?? "");
+  const [assignmentScore, setAssignmentScore] = useState(grade?.assignmentScore.toString() ?? "");
+  const [midtermScore, setMidtermScore] = useState(grade?.midtermScore.toString() ?? "");
+  const [finalExamScore, setFinalExamScore] = useState(grade?.finalExamScore.toString() ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   async function save() {
-    const value = Number(score);
-    if (!grade || !Number.isFinite(value) || value < 0 || value > 100) { setError("Score must be from 0 to 100."); return; }
+    if (!grade) return;
+    const values = { assignmentScore: Number(assignmentScore), midtermScore: Number(midtermScore), finalExamScore: Number(finalExamScore) };
+    if (!validComponent(values.assignmentScore, grade.assignmentMaximum) || !validComponent(values.midtermScore, grade.midtermMaximum) || !validComponent(values.finalExamScore, grade.finalExamMaximum)) { setError("Each score must be between 0 and its configured maximum."); return; }
     setSaving(true); setError("");
-    try { await recordApi.updateGrade(studentId, grade.courseId, value); setEditing(false); onUpdated?.(); }
+    try { await recordApi.updateGrade(studentId, grade.courseId, values); setEditing(false); onUpdated?.(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update grade."); }
     finally { setSaving(false); }
   }
-  return <article className={`student-grade-detail grade-${toneKey(grade?.grade ?? "pending")}`}><span>{grade ? workflowCode(grade.gradeCode, "grade", stage) : `Grade record ${index + 1}`}</span><strong>{grade?.courseCode ?? "Pending"}</strong><p>{grade?.courseName ?? "Grade has not been assigned"}</p>{editing ? <div className="student-grade-inline-editor"><input type="number" min="0" max="100" step="0.1" value={score} onChange={event => setScore(event.target.value)} aria-label={`Score for ${grade?.courseCode}`}/><button type="button" onClick={() => setEditing(false)} disabled={saving}>Cancel</button><button type="button" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>{error && <small>{error}</small>}</div> : <div><b>{grade ? grade.score.toFixed(1) : "—"}</b><em>{grade?.grade ?? "—"}</em>{editable && grade && <button type="button" className="student-record-edit-button" onClick={() => setEditing(true)}><Icon name="edit" size={13}/>Edit</button>}</div>}</article>;
+  return <article className={`student-grade-detail grade-${toneKey(grade?.grade ?? "pending")}`}>
+    <span>{grade ? workflowCode(grade.gradeCode, "grade", stage) : `Grade record ${index + 1}`}</span><strong>{grade?.courseCode ?? "Pending"}</strong><p>{grade?.courseName ?? "Grade has not been assigned"}</p>
+    {grade && <div className="grade-component-list">
+      <GradeComponent label="Attendance" score={grade.attendanceScore} maximum={grade.attendanceMaximum} detail={`${grade.attendancePresent}/${grade.attendanceSessions} held sessions present`}/>
+      {editing ? <>
+        <GradeComponentInput label="Assignment" value={assignmentScore} maximum={grade.assignmentMaximum} onChange={setAssignmentScore}/>
+        <GradeComponentInput label="Midterm" value={midtermScore} maximum={grade.midtermMaximum} onChange={setMidtermScore}/>
+        <GradeComponentInput label="Final exam" value={finalExamScore} maximum={grade.finalExamMaximum} onChange={setFinalExamScore}/>
+      </> : <>
+        <GradeComponent label="Assignment" score={grade.assignmentScore} maximum={grade.assignmentMaximum}/>
+        <GradeComponent label="Midterm" score={grade.midtermScore} maximum={grade.midtermMaximum}/>
+        <GradeComponent label="Final exam" score={grade.finalExamScore} maximum={grade.finalExamMaximum}/>
+      </>}
+    </div>}
+    {editing ? <div className="student-grade-inline-actions"><button type="button" onClick={() => setEditing(false)} disabled={saving}>Cancel</button><button type="button" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save components"}</button>{error && <small>{error}</small>}</div> : <div className="grade-total-line"><b>{grade ? `${grade.score.toFixed(1)}/100` : "—"}</b><em>{grade?.grade ?? "—"}</em>{editable && grade && <button type="button" className="student-record-edit-button" onClick={() => setEditing(true)}><Icon name="edit" size={13}/>Edit</button>}</div>}
+  </article>;
 }
+
+function GradeComponent({ label, score, maximum, detail }: { label: string; score?: number | string; maximum?: number | string; detail?: string }) {
+  return <span className="grade-component"><span>{label}</span><strong>{Number(score || 0).toFixed(1)}/{Number(maximum || 0).toFixed(1)}</strong>{detail && <small>{detail}</small>}</span>;
+}
+
+function GradeComponentInput({ label, value, maximum, onChange }: { label: string; value: string; maximum: number; onChange: (value: string) => void }) {
+  return <label className="grade-component grade-component-input"><span>{label}</span><span><input type="number" min="0" max={maximum} step="0.1" value={value} onChange={event => onChange(event.target.value)} aria-label={`${label} score`}/><b>/ {maximum}</b></span></label>;
+}
+
+function validComponent(value: number, maximum: number) { return Number.isFinite(value) && value >= 0 && value <= maximum; }
 
 function StudentPhoto({ row }: { row: OperationalRecord }) {
   return row.photoDataUrl ? <Image className="student-semester-photo" src={row.photoDataUrl} alt={`${row.subject} portrait`} width={42} height={58} unoptimized/> : <span className="student-semester-photo student-photo-fallback">{initials(row.subject)}</span>;

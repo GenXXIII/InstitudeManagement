@@ -13,6 +13,14 @@ public sealed class GradeRecordConfiguration : IEntityTypeConfiguration<GradeRec
         builder.HasIndex(x => new { x.AcademicYear, x.Term });
         builder.HasIndex(x => x.UpdatedAtUtc).IncludeProperties(x => x.Score);
         builder.Property(x => x.GradeCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.AttendanceScore).HasPrecision(5, 2);
+        builder.Property(x => x.AttendanceMaximum).HasPrecision(5, 2);
+        builder.Property(x => x.AssignmentScore).HasPrecision(5, 2);
+        builder.Property(x => x.AssignmentMaximum).HasPrecision(5, 2);
+        builder.Property(x => x.MidtermScore).HasPrecision(5, 2);
+        builder.Property(x => x.MidtermMaximum).HasPrecision(5, 2);
+        builder.Property(x => x.FinalExamScore).HasPrecision(5, 2);
+        builder.Property(x => x.FinalExamMaximum).HasPrecision(5, 2);
         builder.Property(x => x.Score).HasPrecision(5, 2);
         builder.Property(x => x.LetterGrade).HasMaxLength(4).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();

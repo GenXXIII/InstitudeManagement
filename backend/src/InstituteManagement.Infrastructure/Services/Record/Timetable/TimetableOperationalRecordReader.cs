@@ -1,5 +1,4 @@
 using InstituteManagement.Application.Features.Record;
-using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
@@ -32,12 +31,11 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
         {
             var scheduleEnrollments = enrollments.Where(x => x.ScheduleEntryId == schedule.Id).ToList();
             var completed = sessions.Where(x => x.ScheduleEntryId == schedule.Id).ToList();
-            var shift = AcademicTimetablePolicy.FindShift(schedule.DayOfWeek, schedule.StartsAt, schedule.EndsAt);
             var enrollmentEvents = scheduleEnrollments.Select(enrollment =>
             {
                 var codes = codeFormat.Chain(schedule.TimetableCode, enrollment.EnrollmentCode, "timetable");
                 var assignment = courseAssignments.FirstOrDefault(x => x.CourseId == schedule.CourseId && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester);
-                var enrolledStudents = assignment is null ? 0 : students.Count(x => x.DepartmentId == assignment.DepartmentId && x.YearLevel == schedule.YearLevel && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester && (shift == null || x.Shift == shift.Name));
+                var enrolledStudents = assignment is null ? 0 : students.Count(x => x.DepartmentId == assignment.DepartmentId && x.YearLevel == schedule.YearLevel && x.AcademicYear == enrollment.AcademicYear && x.Semester == enrollment.Semester && x.Shift == schedule.Shift);
                 return (enrollment.UpdatedAtUtc, Create(
                     ("Activity", "Timetable enrollment"),
                     ("Management code", codes.Management), ("Enrollment code", codes.Enrollment),
@@ -49,7 +47,7 @@ public sealed class TimetableOperationalRecordReader(InstituteDbContext db) : IO
                     ("Teacher", schedule.Teacher?.FullName ?? "Not assigned"), ("Teacher code", schedule.Teacher?.TeacherCode ?? "—"),
                     ("Classroom", schedule.Classroom?.ClassroomCode ?? "—"),
                     ("Department", assignment?.Department?.Name ?? schedule.Course?.Department?.Name ?? "Unassigned"),
-                    ("Shift", shift?.Name ?? "Unmatched"), ("Student count", enrolledStudents.ToString()),
+                    ("Shift", schedule.Shift), ("Student count", enrolledStudents.ToString()),
                     ("Enrollment status", enrollment.Status)));
             });
             var sessionEvents = completed.Select(x => (x.UpdatedAtUtc, Create(

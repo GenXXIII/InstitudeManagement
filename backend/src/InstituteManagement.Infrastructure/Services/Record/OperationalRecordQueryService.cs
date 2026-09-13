@@ -123,13 +123,7 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
                 : activity.GetValueOrDefault("Course code", "—"))
             .Select(group => group.First())
             .Take(fullProgram ? int.MaxValue : SemesterResultRules.ExpectedCourseCount)
-            .Select(activity => new OperationalRecordGradeDto(
-                Guid.TryParse(activity.GetValueOrDefault("CourseId"), out var courseId) ? courseId : Guid.Empty,
-                activity.GetValueOrDefault("Grade code", "GRD-NOT-RECORDED"),
-                activity.GetValueOrDefault("Course code", "—"),
-                activity.GetValueOrDefault("Course", "Course"),
-                ParseScore(activity.GetValueOrDefault("Score")),
-                activity.GetValueOrDefault("Grade", "F")))
+            .Select(activity => Grade(activity, record.Activities, fullProgram))
             .ToList();
         var present = attendance.Count(status => status is "Present" or "Late");
         var permission = attendance.Count(status => status is "Permission" or "Excused");
@@ -157,6 +151,39 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
 
     private static decimal ParseScore(string? value) =>
         decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var score) ? score : 0;
+
+    private static OperationalRecordGradeDto Grade(
+        IReadOnlyDictionary<string, string> activity,
+        IReadOnlyList<Dictionary<string, string>> activities,
+        bool fullProgram)
+    {
+        var courseIdText = activity.GetValueOrDefault("CourseId", "");
+        var courseAttendance = activities.Where(item =>
+            item.GetValueOrDefault("Activity") == "Class attendance"
+            && item.GetValueOrDefault("CourseId") == courseIdText
+            && item.GetValueOrDefault("Session status") == "Running"
+            && (!fullProgram
+                || item.GetValueOrDefault("Academic year") == activity.GetValueOrDefault("Academic year")
+                && item.GetValueOrDefault("Term") == activity.GetValueOrDefault("Term")))
+            .ToList();
+        return new OperationalRecordGradeDto(
+            Guid.TryParse(courseIdText, out var courseId) ? courseId : Guid.Empty,
+            activity.GetValueOrDefault("Grade code", "GRD-NOT-RECORDED"),
+            activity.GetValueOrDefault("Course code", "—"),
+            activity.GetValueOrDefault("Course", "Course"),
+            ParseScore(activity.GetValueOrDefault("Score")),
+            activity.GetValueOrDefault("Grade", "F"),
+            ParseScore(activity.GetValueOrDefault("Attendance score")),
+            ParseScore(activity.GetValueOrDefault("Attendance maximum", "10")),
+            courseAttendance.Count(item => item.GetValueOrDefault("Attendance") is "Present" or "Late"),
+            courseAttendance.Count,
+            ParseScore(activity.GetValueOrDefault("Assignment score")),
+            ParseScore(activity.GetValueOrDefault("Assignment maximum", "20")),
+            ParseScore(activity.GetValueOrDefault("Midterm score")),
+            ParseScore(activity.GetValueOrDefault("Midterm maximum", "20")),
+            ParseScore(activity.GetValueOrDefault("Final exam score")),
+            ParseScore(activity.GetValueOrDefault("Final exam maximum", "50")));
+    }
 
     private static Guid PeriodId(Guid resourceId, string academicYear, string term)
     {

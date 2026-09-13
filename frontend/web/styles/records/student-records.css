@@ -98,9 +98,28 @@
 .semester-history-group .session-semester-record-head,.semester-history-group .student-semester-record-head,.semester-history-group .entity-semester-record-head,.semester-history-group .structure-semester-record-head{position:sticky;top:0;z-index:4}
 .record-detail-viewport-page :is(.student-record-detail-section,.entity-session-register,.structure-session-register)>header strong{font-size:13.5px}
 .record-detail-viewport-page :is(.student-record-detail-section,.entity-session-register,.structure-session-register)>header span{font-size:10.5px}
+.record-detail-viewport-page .student-course-grades-section>header strong{font-size:18px}
+.record-detail-viewport-page .student-course-grades-section>header span{font-size:12px}
+.record-detail-viewport-page .student-course-grades-section>header>b{font-size:11px}
 .record-detail-viewport-page :is(.student-semester-detail,.entity-semester-detail,.structure-semester-detail)>header p{font-size:11.5px}
 .record-viewport-page :is(.session-semester-record-head,.student-semester-record-head,.entity-semester-record-head,.structure-semester-record-head){min-height:52px;font-size:10.5px}
 .record-viewport-page :is(.session-semester-record-row,.student-semester-record-row,.entity-semester-record-row,.structure-semester-record-row){min-height:108px}
 .record-viewport-page :is(.workflow-ledger-code,.student-record-name,.student-record-department,.student-record-year,.entity-record-name,.entity-record-department,.entity-record-year,.structure-record-context)>strong{font-size:12px}
 .record-viewport-page :is(.workflow-ledger-code,.student-record-name,.student-record-department,.student-record-year,.entity-record-name,.entity-record-department,.entity-record-year,.structure-record-context)>span,.record-viewport-page .workflow-ledger-code>small{font-size:9.5px}
 .record-viewport-page .entity-record-code,.record-viewport-page .student-record-code{font-size:12px}
+.student-grade-detail{min-height:285px}
+.student-grade-detail>.grade-component-list{display:grid;gap:5px}
+.grade-component{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3px;padding:6px 7px;border:1px solid rgba(126,147,174,.25);border-radius:7px;background:rgba(255,255,255,.72)}
+.grade-component>span{font-size:8px;font-weight:750}
+.grade-component>strong{font-size:9px}
+.grade-component>small{grid-column:1/-1;color:#718299;font-size:7px}
+.grade-component-input>span:last-child{display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.grade-component-input input{width:58px;height:27px;border:1px solid #cbd9e8;border-radius:6px;padding:0 6px;background:white;font-size:9px}
+.grade-component-input b{font-size:8px;white-space:nowrap}
+.student-grade-detail>.grade-total-line{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:4px}
+.student-grade-detail>.grade-total-line>b{font-size:17px}
+.student-grade-detail>.grade-total-line>em{font-size:17px;font-style:normal;font-weight:850}
+.student-grade-detail>.student-grade-inline-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.student-grade-inline-actions button{height:29px;border:1px solid #bfcfe3;border-radius:7px;background:white;padding:0 9px;color:#3569b1;font-size:8px;font-weight:800;cursor:pointer}
+.student-grade-inline-actions button:nth-of-type(2){border-color:#3472ca;background:#3472ca;color:white}
+.student-grade-inline-actions small{flex-basis:100%;color:#b33b45;font-size:7px}

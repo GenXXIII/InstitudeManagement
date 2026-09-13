@@ -15,8 +15,11 @@ public sealed class SettingsService(
 {
     private static readonly HashSet<string> GradeThresholdKeys =
     [
-        "aPlusMinimum", "aMinimum", "bPlusMinimum", "bMinimum",
-        "cPlusMinimum", "cMinimum", "dMinimum"
+        "aMinimum", "bMinimum", "cMinimum", "dMinimum", "eMinimum"
+    ];
+    private static readonly HashSet<string> GradeWeightKeys =
+    [
+        "attendanceWeight", "assignmentWeight", "midtermWeight", "finalExamWeight"
     ];
 
     public async Task<IReadOnlyList<SettingsDto>> GetAllAsync(CancellationToken cancellationToken)
@@ -78,11 +81,26 @@ public sealed class SettingsService(
 
         if (changedKeys.Count == 0) return CreateDto(definition, existing);
 
-        if (definition.Name == "grade-rules" && changedKeys.Any(GradeThresholdKeys.Contains))
+        if (definition.Name == "grade-rules" && changedKeys.Any(key => GradeThresholdKeys.Contains(key) || GradeWeightKeys.Contains(key)))
         {
             var scale = GradeThresholds.From(normalized);
-            foreach (var grade in await db.GradeRecords.ToListAsync(cancellationToken))
+            var weights = GradeWeights.From(normalized);
+            var currentYear = await db.SystemSettings.AsNoTracking().Where(setting => setting.Section == "academic-year" && setting.Key == "currentYear").Select(setting => setting.Value).FirstOrDefaultAsync(cancellationToken) ?? "2026–2027";
+            var currentTerm = await db.SystemSettings.AsNoTracking().Where(setting => setting.Section == "semester" && setting.Key == "currentTerm").Select(setting => setting.Value).FirstOrDefaultAsync(cancellationToken) ?? "Semester 1";
+            foreach (var grade in await db.GradeRecords.Where(item => item.AcademicYear == currentYear && item.Term == currentTerm).ToListAsync(cancellationToken))
             {
+                if (changedKeys.Any(GradeWeightKeys.Contains))
+                {
+                    grade.AttendanceScore = Rescale(grade.AttendanceScore, grade.AttendanceMaximum, weights.Attendance);
+                    grade.AssignmentScore = Rescale(grade.AssignmentScore, grade.AssignmentMaximum, weights.Assignment);
+                    grade.MidtermScore = Rescale(grade.MidtermScore, grade.MidtermMaximum, weights.Midterm);
+                    grade.FinalExamScore = Rescale(grade.FinalExamScore, grade.FinalExamMaximum, weights.FinalExam);
+                    grade.AttendanceMaximum = weights.Attendance;
+                    grade.AssignmentMaximum = weights.Assignment;
+                    grade.MidtermMaximum = weights.Midterm;
+                    grade.FinalExamMaximum = weights.FinalExam;
+                    grade.Score = weights.Score(grade.AttendanceScore, grade.AssignmentScore, grade.MidtermScore, grade.FinalExamScore);
+                }
                 grade.LetterGrade = scale.Letter(grade.Score);
                 grade.UpdatedAtUtc = changedAt;
             }
@@ -118,5 +136,8 @@ public sealed class SettingsService(
             SettingsCatalog.IsConfigured(definition.Name, allowed.Select(setting => setting.Key)),
             allowed.Count == 0 ? null : allowed.Max(setting => setting.UpdatedAtUtc));
     }
+
+    private static decimal Rescale(decimal score, decimal oldMaximum, decimal newMaximum) =>
+        oldMaximum <= 0 ? 0 : decimal.Round(score / oldMaximum * newMaximum, 2, MidpointRounding.AwayFromZero);
 
 }

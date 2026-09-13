@@ -4,6 +4,7 @@ using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Grades;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Record;
@@ -47,6 +48,7 @@ public sealed class OperationalRecordEditService(InstituteDbContext db, Institut
             Action = "Attendance corrected",
             Details = JsonSerializer.Serialize(new { session.ClassSessionRecordCode, session.AcademicYear, session.Term, session.SessionDate, Students = corrected })
         });
+        await GradeCompositionCalculator.RefreshGradesAsync(db, session.CourseId, session.AcademicYear, session.Term, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await cache.InvalidateDashboardAsync(cancellationToken);
     }

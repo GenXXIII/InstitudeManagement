@@ -1,0 +1,29 @@
+import type { MobileRole } from '@/features/auth/auth-context';
+
+export type CatalogItem<TValues extends Record<string, string>> = { id: string; values: TValues };
+
+export type TeacherValues = Record<string, string> & { photoDataUrl: string; teacherCode: string; name: string; email: string; departmentId: string; department: string; status: string };
+export type StudentValues = Record<string, string> & { photoDataUrl: string; studentCode: string; name: string; email: string; departmentId: string; department: string; year: string; shift: string; status: string };
+export type ScheduleValues = Record<string, string> & { timetableCode: string; enrollmentCode: string; courseId: string; courseCode: string; course: string; teacherId: string; teacherCode: string; teacher: string; classroomId: string; classroom: string; building: string; departmentId: string; department: string; yearLevel: string; shift: string; dayOfWeek: string; startsAt: string; endsAt: string; status: string; academicYear: string; semester: string };
+export type AttendanceValues = Record<string, string> & { attendanceCode: string; studentId: string; student: string; studentCode: string; date: string; checkedInAt: string; status: string; method: string; academicYear: string; term: string };
+export type GradeValues = Record<string, string> & { gradeCode: string; studentId: string; student: string; courseId: string; course: string; attendanceScore: string; attendanceMaximum: string; attendancePresent: string; attendanceSessions: string; assignmentScore: string; assignmentMaximum: string; midtermScore: string; midtermMaximum: string; finalExamScore: string; finalExamMaximum: string; score: string; grade: string; academicYear: string; term: string };
+export type GradeWeights = { attendance: number; assignment: number; midterm: number; finalExam: number };
+export type Announcement = { id: string; announcementCode: string; type: 'General' | 'Attendance' | 'Emergency' | 'Result'; title: string; message: string; isRead: boolean; createAt: string };
+
+export type TeacherItem = CatalogItem<TeacherValues>;
+export type StudentItem = CatalogItem<StudentValues>;
+export type ScheduleItem = CatalogItem<ScheduleValues>;
+export type AttendanceItem = CatalogItem<AttendanceValues>;
+export type GradeItem = CatalogItem<GradeValues>;
+export type PortalProfile = TeacherItem | StudentItem;
+
+export type PortalData = {
+  role: MobileRole;
+  profile: PortalProfile | null;
+  schedule: ScheduleItem[];
+  students: StudentItem[];
+  attendance: AttendanceItem[];
+  grades: GradeItem[];
+  gradeWeights: GradeWeights;
+  announcements: Announcement[];
+};

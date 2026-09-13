@@ -1,5 +1,7 @@
 import { managementCode } from "./management-id";
 import type { ManagementItem, ManagementModule, References } from "./management-types";
+import { compareTimetableItems } from "@/features/timetable/timetable-sorting";
+import type { TimetableItem } from "@/features/timetable/timetable-types";
 
 export function filterManagementItemsByYear(items: ManagementItem[], module: ManagementModule, year: string) {
   if (!year) return items;
@@ -19,6 +21,7 @@ export function filterManagementReferencesByYear(references: References, year: s
 }
 
 export function sortManagementItemsByYear(items: ManagementItem[], module: ManagementModule, references: References) {
+  if (module === "timetable") return items.toSorted((left, right) => compareTimetableItems(left as TimetableItem, right as TimetableItem));
   const studentDepartments = new Map<string, number>();
   for (const student of references.students) studentDepartments.set(student.values.departmentId, Math.min(studentDepartments.get(student.values.departmentId) ?? 99, Number(student.values.year)));
   const timetableYear = (field: "teacherId" | "courseId" | "classroomId", id: string) => references.timetable.filter(entry => entry.values[field] === id).reduce((minimum, entry) => Math.min(minimum, Number(entry.values.yearLevel)), 99);

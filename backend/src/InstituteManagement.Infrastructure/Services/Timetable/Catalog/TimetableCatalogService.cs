@@ -80,12 +80,7 @@ public sealed class TimetableCatalogService(InstituteDbContext db, InstituteCach
             ? endsAt
             : throw new ArgumentException("endsAt must be a valid time.");
         if (entry.EndsAt <= entry.StartsAt) throw new ArgumentException("Schedule end time must be after start time.");
-        var shift = AcademicTimetablePolicy.FindShift(entry.DayOfWeek, entry.StartsAt, entry.EndsAt)
-            ?? throw new ArgumentException("Select one of the institute's configured teaching periods for this day.");
-        var requestedShift = OneOf(values, "shift", shift.Name, AcademicTimetablePolicy.ShiftNames.ToArray());
-        if (!requestedShift.Equals(shift.Name, StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("Shift must match the selected day and teaching period.");
-        entry.Shift = shift.Name;
+        entry.Shift = OneOf(values, "shift", AcademicTimetablePolicy.DefaultShiftName, AcademicTimetablePolicy.ShiftNames.ToArray());
         values["shift"] = entry.Shift;
         entry.Status = OneOf(values, "status", "Upcoming", "Upcoming", "Running", "Completed", "Cancelled");
     }

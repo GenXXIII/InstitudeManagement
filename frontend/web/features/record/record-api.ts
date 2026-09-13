@@ -4,7 +4,7 @@ import type { ClassSessionAttendanceUpdate, OperationalRecord } from "./record-t
 export const recordApi = {
   get: (module: string, search = "", departmentId = "", history = false) => request<OperationalRecord[]>(`/api/operational-records/${module}?search=${encodeURIComponent(search)}${departmentId ? `&departmentId=${encodeURIComponent(departmentId)}` : ""}${history ? "&history=true" : ""}`),
   updateSession: (id: string, students: ClassSessionAttendanceUpdate[]) => request<void>(`/api/operational-records/sessions/${id}`, { method: "PUT", body: JSON.stringify({ students }) }),
-  updateGrade: (studentId: string, courseId: string, score: number) => request<void>("/api/grades", { method: "POST", body: JSON.stringify({ studentId, courseId, score }) }),
+  updateGrade: (studentId: string, courseId: string, scores: { assignmentScore: number; midtermScore: number; finalExamScore: number }) => request<void>("/api/grades", { method: "POST", body: JSON.stringify({ studentId, courseId, ...scores }) }),
   async updateStudentAttendance(sessionId: string, studentId: string, status: string, checkedInAt: string) {
     const sessions = await recordApi.get("sessions");
     const session = sessions.find(item => item.id === sessionId);

@@ -48,6 +48,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
             });
             var attendanceEvents = completed.Select(x => (At: x.Session.UpdatedAtUtc, Activity: Create(
                 ("Activity", "Class attendance"), ("ClassSessionId", x.Session.Id.ToString()),
+                ("CourseId", x.Session.CourseId.ToString()),
                 ("Class session code", SessionCode(x.Session)), ("Timetable code", x.Session.ScheduleEntry?.TimetableCode ?? "Not recorded"),
                 ("Academic year", x.Session.AcademicYear), ("Term", x.Session.Term),
                 ("Date", x.Session.SessionDate.ToString("yyyy-MM-dd")), ("Time", $"{x.Session.StartsAt:HH:mm} – {x.Session.EndsAt:HH:mm}"),
@@ -61,6 +62,14 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
                 ("Academic year", x.AcademicYear), ("Term", x.Term), ("Date", x.UpdatedAtUtc.ToString("yyyy-MM-dd")),
                 ("Time", x.UpdatedAtUtc.ToString("HH:mm")), ("Course code", x.Course?.CourseCode ?? "—"),
                 ("Course", x.Course?.Name ?? "Course"), ("Score", x.Score.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Attendance score", x.AttendanceScore.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Attendance maximum", x.AttendanceMaximum.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Assignment score", x.AssignmentScore.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Assignment maximum", x.AssignmentMaximum.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Midterm score", x.MidtermScore.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Midterm maximum", x.MidtermMaximum.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Final exam score", x.FinalExamScore.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Final exam maximum", x.FinalExamMaximum.ToString("0.##", CultureInfo.InvariantCulture)),
                 ("Grade", x.LetterGrade))));
             var events = enrollmentEvents.Concat(attendanceEvents).Concat(gradeEvents).OrderByDescending(x => x.At).ToList();
             var recordSource = studentEnrollments

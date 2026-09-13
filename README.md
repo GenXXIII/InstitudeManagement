@@ -24,6 +24,7 @@ The current milestone includes dashboard reporting, module-specific live operati
 ## Stack
 
 - Next.js 16, React 19, TypeScript, Tailwind CSS
+- Expo SDK 57 and React Native for the separate Teacher/Student iPhone app
 - ASP.NET Core 10, Clean Architecture, MediatR, REST, OpenAPI, SignalR
 - Entity Framework Core with SQL Server
 - Redis and Docker Compose infrastructure
@@ -56,6 +57,17 @@ Stop the application with:
 ```powershell
 docker compose down
 ```
+
+## Teacher and Student iPhone app
+
+Administrator continues to use the web workspace. The separate Expo Go client is under `frontend/mobile` and contains only Teacher and Student routes. With Docker running, keep the iPhone and computer on the same Wi-Fi network, then run:
+
+```powershell
+cd frontend/mobile
+npm start
+```
+
+Scan the LAN QR code in Expo Go. See [`frontend/mobile/README.md`](frontend/mobile/README.md) for the demo accounts and API-address fallback.
 
 The local data is preserved. Use `docker compose down -v` only when you intentionally want to erase the local database and cache.
 

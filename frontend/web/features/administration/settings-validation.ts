@@ -64,14 +64,16 @@ function validateAttendance(values: Record<string, string>, errors: string[]) {
 }
 
 function validateGrades(values: Record<string, string>, errors: string[]) {
-  const thresholdKeys = ["aPlusMinimum", "aMinimum", "bPlusMinimum", "bMinimum", "cPlusMinimum", "cMinimum", "dMinimum"];
+  const thresholdKeys = ["aMinimum", "bMinimum", "cMinimum", "dMinimum", "eMinimum"];
   const thresholds = thresholdKeys.map(key => Number(values[key]));
-  if (thresholds.every(Number.isFinite) && thresholds.some((value, index) => index > 0 && value >= thresholds[index - 1])) errors.push("Grade boundaries must descend from A+ through D without equal values.");
+  if (thresholds.every(Number.isFinite) && thresholds.some((value, index) => index > 0 && value >= thresholds[index - 1])) errors.push("Grade boundaries must descend from A through E without equal values.");
+  const componentTotal = ["attendanceWeight", "assignmentWeight", "midtermWeight", "finalExamWeight"].reduce((total, key) => total + Number(values[key]), 0);
+  if (Number.isFinite(componentTotal) && Math.abs(componentTotal - 100) > 0.0001) errors.push("Attendance, assignment, midterm, and final exam weights must total exactly 100%.");
   const minimum = Number(values.minimumScore);
   const maximum = Number(values.maximumScore);
   if (Number.isFinite(minimum) && Number.isFinite(maximum) && maximum <= minimum) errors.push("Maximum score must be greater than minimum score.");
   const scale = Number(values.gpaScale || values.maximumGpa);
-  const points = ["aPlusGpa", "aGpa", "bPlusGpa", "bGpa", "cPlusGpa", "cGpa", "dGpa", "fGpa"].map(key => Number(values[key]));
+  const points = ["aGpa", "bGpa", "cGpa", "dGpa", "eGpa", "fGpa"].map(key => Number(values[key]));
   if (Number.isFinite(scale) && points.some(value => Number.isFinite(value) && value > scale)) errors.push("Grade GPA points cannot exceed the configured GPA scale.");
 }
 

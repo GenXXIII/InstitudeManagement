@@ -1,6 +1,22 @@
 namespace InstituteManagement.Application.Features.Record;
 
-public sealed record OperationalRecordGradeDto(Guid CourseId, string GradeCode, string CourseCode, string CourseName, decimal Score, string Grade);
+public sealed record OperationalRecordGradeDto(
+    Guid CourseId,
+    string GradeCode,
+    string CourseCode,
+    string CourseName,
+    decimal Score,
+    string Grade,
+    decimal AttendanceScore,
+    decimal AttendanceMaximum,
+    int AttendancePresent,
+    int AttendanceSessions,
+    decimal AssignmentScore,
+    decimal AssignmentMaximum,
+    decimal MidtermScore,
+    decimal MidtermMaximum,
+    decimal FinalExamScore,
+    decimal FinalExamMaximum);
 
 public sealed record OperationalRecordInsightsDto(
     int PresentCount,

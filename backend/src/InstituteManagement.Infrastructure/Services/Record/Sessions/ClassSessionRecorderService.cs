@@ -1,8 +1,8 @@
 using System.Text.Json;
 using InstituteManagement.Domain.Entities;
-using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Grades;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Record;
@@ -65,15 +65,13 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                 foreach (var schedule in completed)
                 {
                     if (existingKeys.Contains((schedule.Id, date)) || schedule.Course is null || schedule.Teacher is null || schedule.Classroom is null) continue;
-                    var shift = AcademicTimetablePolicy.FindShift(schedule.DayOfWeek, schedule.StartsAt, schedule.EndsAt);
-                    if (shift is null) continue;
                     var courseAssignment = courseAssignments[schedule.CourseId!.Value];
                     var teacherAssignment = teacherAssignments.FirstOrDefault(x => x.TeacherId == schedule.TeacherId!.Value && (x.DepartmentId == courseAssignment.DepartmentId || x.DepartmentId == null));
                     var teacherAttendance = TeacherPresence.Attendance(schedule.Teacher.Status, teacherAssignment?.Status);
                     var classHeld = TeacherPresence.IsPresent(teacherAttendance);
                     var studentEnrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student)
                         .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status == "Active"
-                            && x.DepartmentId == courseAssignment.DepartmentId && x.YearLevel == schedule.YearLevel!.Value && x.Shift == shift.Name)
+                            && x.DepartmentId == courseAssignment.DepartmentId && x.YearLevel == schedule.YearLevel!.Value && x.Shift == schedule.Shift)
                         .OrderBy(x => x.Student!.FullName)
                         .ToListAsync(cancellationToken);
                     var students = studentEnrollments.Where(x => x.Student is not null && x.Student.Status != "Inactive").Select(x => x.Student!).ToList();
@@ -131,6 +129,13 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
             }
 
             if (recorded == 0) return 0;
+            var changedCourses = db.ChangeTracker.Entries<ClassSessionRecord>()
+                .Where(entry => entry.State == EntityState.Added)
+                .Select(entry => new { entry.Entity.CourseId, entry.Entity.AcademicYear, entry.Entity.Term })
+                .Distinct()
+                .ToList();
+            foreach (var changed in changedCourses)
+                await GradeCompositionCalculator.RefreshGradesAsync(db, changed.CourseId, changed.AcademicYear, changed.Term, cancellationToken);
             if (dailySummary) db.Notifications.Add(new Notification { Title = "Daily class summary", Message = $"{recorded:N0} timetable period{(recorded == 1 ? "" : "s")} recorded for {today:yyyy-MM-dd}.", Severity = "Info" });
             await db.SaveChangesAsync(cancellationToken);
             await cache.InvalidateDashboardAsync(cancellationToken);

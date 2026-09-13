@@ -74,6 +74,10 @@ services:
       ConnectionStrings__Database: "Server=sqlserver,1433;Database=${SQL_DATABASE:-INK_Manangement};User Id=sa;Password=${SQL_PASSWORD:-1234};TrustServerCertificate=True"
       ConnectionStrings__Redis: redis:6379
       Cors__Origins__0: http://localhost:${WEB_PORT:-3000}
+      Cors__Origins__1: http://localhost:8081
+      Cors__Origins__2: http://127.0.0.1:8081
+      Cors__Origins__3: http://localhost:8082
+      Cors__Origins__4: http://127.0.0.1:8082
     ports:
       - "${API_PORT:-5080}:8080"
     volumes:

@@ -43,11 +43,9 @@ export function useInstituteSettings() {
 
 export function configuredGrade(score: number, rules: Record<string, string>) {
   const minimum = (key: string, fallback: number) => Number.isFinite(Number(rules[key])) ? Number(rules[key]) : fallback;
-  if (score >= minimum("aPlusMinimum", 95)) return "A+";
   if (score >= minimum("aMinimum", 90)) return "A";
-  if (score >= minimum("bPlusMinimum", 85)) return "B+";
   if (score >= minimum("bMinimum", 80)) return "B";
-  if (score >= minimum("cPlusMinimum", 75)) return "C+";
   if (score >= minimum("cMinimum", 70)) return "C";
-  return score >= minimum("dMinimum", 60) ? "D" : "F";
+  if (score >= minimum("dMinimum", 60)) return "D";
+  return score >= minimum("eMinimum", 50) ? "E" : "F";
 }

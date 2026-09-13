@@ -14,7 +14,7 @@ public sealed class GradesController(ISender sender) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Submit(SubmitGradeRequest request, CancellationToken cancellationToken)
     {
-        await sender.Send(new SubmitGradeCommand(request.StudentId, request.CourseId, request.Score), cancellationToken);
+        await sender.Send(new SubmitGradeCommand(request.StudentId, request.CourseId, request.AssignmentScore, request.MidtermScore, request.FinalExamScore), cancellationToken);
         return Accepted();
     }
 }

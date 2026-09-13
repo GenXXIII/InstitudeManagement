@@ -35,7 +35,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   "student-rules": ["maximumCoursesPerSemester", "statuses"],
   "teacher-rules": ["statuses", "maximumCourses", "maximumClasses"],
   "attendance-rules": ["method", "attendanceRequired", "lateThresholdMinutes", "absentAfterMinutes", "autoAbsent", "teacherCanRecord", "notifyAdministrator"],
-  "grade-rules": ["gradingSystem", "maximumScore", "passMark", "gpaEnabled", "overallPassMark", "coursePassMark"],
+  "grade-rules": ["gradingSystem", "attendanceWeight", "assignmentWeight", "midtermWeight", "finalExamWeight", "passMark", "gpaEnabled"],
   notifications: ["emailEnabled", "inAppEnabled", "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary"],
   system: ["language", "dateFormat", "timeFormat", "timeZone", "autoRefreshSeconds"],
   security: ["passwordMinimumLength", "maximumLoginAttempts", "lockoutDurationMinutes", "twoFactorMode"],
@@ -53,7 +53,7 @@ export const administrationSections: readonly AdministrationSectionDefinition[] 
   section("student-rules", "Student settings", "Students", "Enrollment rules, statuses, and required information; a unique StudentCode sequence is required.", "people", "users"),
   section("teacher-rules", "Teacher settings", "Teachers", "Statuses, workloads, and assignment requirements; a unique TeacherCode sequence is required.", "people", "teacher"),
   section("attendance-rules", "Attendance settings", "Attendance", "Capture, threshold, absence, correction, audit, and alert rules.", "policies", "check"),
-  section("grade-rules", "Grading settings", "Grading", "Percentage, A+ through F boundaries, pass rules, and GPA behavior.", "policies", "grade"),
+  section("grade-rules", "Grading settings", "Grading", "Configurable attendance, assignment, midterm, and final-exam weights with A, B, C, D, E, and F boundaries.", "policies", "grade"),
   section("notifications", "Notification settings", "Notifications", "Email, SMS, in-app audiences, templates, and operational events.", "platform", "bell"),
   section("system", "System settings", "System", "Localization, time, live refresh, and logging policy.", "platform", "settings"),
   section("security", "Security policy", "Security", "Password, session, lockout, and two-factor policy readiness.", "platform", "archive"),
@@ -97,7 +97,7 @@ export function configurationSummary(sectionName: SettingSection, values: Record
   if (sectionName === "student-rules") return `Assigned StudentCode · ${values.maximumCoursesPerSemester || "–"} courses per term`;
   if (sectionName === "teacher-rules") return `Assigned TeacherCode · ${values.maximumCourses || "–"} courses maximum`;
   if (sectionName === "attendance-rules") return `${values.method || "Method required"} · late from ${values.lateThresholdMinutes || "0"} minutes`;
-  if (sectionName === "grade-rules") return `A+ from ${values.aPlusMinimum || "–"} · pass mark ${values.passMark || "–"}%`;
+  if (sectionName === "grade-rules") return `${values.attendanceWeight || "10"}/${values.assignmentWeight || "20"}/${values.midtermWeight || "20"}/${values.finalExamWeight || "50"}% · A from ${values.aMinimum || "–"}`;
   if (sectionName === "notifications") return `${values.emailEnabled === "true" ? "Email on" : "Email off"} · ${parseCsv(values.enabledTemplates).length} templates`;
   if (sectionName === "system") return `${values.language || "Language required"} · ${(values.timeZone || "Time zone required").replaceAll("_", " ")}`;
   return `${values.passwordMinimumLength || "–"}+ character passwords · ${values.twoFactorMode || "2FA policy required"}`;
