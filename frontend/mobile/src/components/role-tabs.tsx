@@ -1,25 +1,80 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
+import { StyleSheet, View, type ColorValue } from 'react-native';
 import type { MobileRole } from '@/features/auth/auth-context';
-import { PortalProvider } from '@/features/portal/portal-context';
+import { PortalProvider, usePortal } from '@/features/portal/portal-context';
 import { palette } from '@/constants/theme';
 
-type TabDefinition = { name: string; label: string; icon: keyof typeof Ionicons.glyphMap; selectedIcon: keyof typeof Ionicons.glyphMap };
+type TabDefinition = { label: string; icon: keyof typeof Ionicons.glyphMap; selectedIcon: keyof typeof Ionicons.glyphMap };
 
-const tabs: TabDefinition[] = [
-  { name: 'index', label: 'Home', icon: 'home-outline', selectedIcon: 'home' },
-  { name: 'schedule', label: 'Schedule', icon: 'calendar-outline', selectedIcon: 'calendar' },
-  { name: 'attendance', label: 'Attendance', icon: 'checkmark-circle-outline', selectedIcon: 'checkmark-circle' },
-  { name: 'results', label: 'Results', icon: 'ribbon-outline', selectedIcon: 'ribbon' },
-  { name: 'profile', label: 'Account', icon: 'person-circle-outline', selectedIcon: 'person-circle' },
-];
+const homeTab = { label: 'Home', icon: 'home-outline', selectedIcon: 'home' } satisfies TabDefinition;
+const classesTab = { label: 'Classes', icon: 'book-outline', selectedIcon: 'book' } satisfies TabDefinition;
+const assessmentTab = { label: 'Assessment', icon: 'clipboard-outline', selectedIcon: 'clipboard' } satisfies TabDefinition;
+const resultsTab = { label: 'Results', icon: 'ribbon-outline', selectedIcon: 'ribbon' } satisfies TabDefinition;
+const notificationsTab = { label: 'Notifications', icon: 'notifications-outline', selectedIcon: 'notifications' } satisfies TabDefinition;
+const profileTab = { label: 'Profile', icon: 'person-outline', selectedIcon: 'person' } satisfies TabDefinition;
 
 export function RoleTabs({ role }: { role: MobileRole }) {
-  return <PortalProvider role={role}><Tabs screenOptions={{
+  return <PortalProvider role={role}>{role === 'teacher' ? <TeacherTabs/> : <StudentTabs/>}</PortalProvider>;
+}
+
+function TeacherTabs() {
+  const unread = useUnreadCount();
+  return <Tabs screenOptions={navigatorOptions()}>
+    <Tabs.Screen name="index" options={tabOptions(homeTab)}/>
+    <Tabs.Screen name="classes" options={tabOptions(classesTab)}/>
+    <Tabs.Screen name="assessment" options={tabOptions(assessmentTab)}/>
+    <Tabs.Screen name="notifications" options={tabOptions(notificationsTab, unread)}/>
+    <Tabs.Screen name="profile" options={tabOptions(profileTab)}/>
+    <Tabs.Screen name="schedule" options={{ href: null }}/>
+    <Tabs.Screen name="attendance" options={{ href: null }}/>
+    <Tabs.Screen name="results" options={{ href: null }}/>
+  </Tabs>;
+}
+
+function StudentTabs() {
+  const unread = useUnreadCount();
+  return <Tabs screenOptions={navigatorOptions()}>
+    <Tabs.Screen name="index" options={tabOptions(homeTab)}/>
+    <Tabs.Screen name="classes" options={tabOptions(classesTab)}/>
+    <Tabs.Screen name="results" options={tabOptions(resultsTab)}/>
+    <Tabs.Screen name="notifications" options={tabOptions(notificationsTab, unread)}/>
+    <Tabs.Screen name="profile" options={tabOptions(profileTab)}/>
+    <Tabs.Screen name="schedule" options={{ href: null }}/>
+    <Tabs.Screen name="attendance" options={{ href: null }}/>
+  </Tabs>;
+}
+
+function useUnreadCount() {
+  return usePortal().announcements.filter(item => !item.isRead).length;
+}
+
+function navigatorOptions() {
+  return {
     headerShown: false,
     tabBarActiveTintColor: palette.blue,
     tabBarInactiveTintColor: '#8997AA',
-    tabBarLabelStyle: { fontSize: 9, fontWeight: '700', paddingTop: 1 },
-    tabBarStyle: { height: 78, paddingTop: 7, backgroundColor: '#FFFFFF', borderTopColor: palette.line },
-  }}>{tabs.map(tab => <Tabs.Screen name={tab.name} key={tab.name} options={{ title: role === 'teacher' && tab.name === 'results' ? 'Gradebook' : tab.label, tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? tab.selectedIcon : tab.icon} size={21} color={color}/> }}/>)}</Tabs></PortalProvider>;
+    tabBarHideOnKeyboard: true,
+    tabBarLabelStyle: styles.label,
+    tabBarItemStyle: styles.item,
+    tabBarStyle: styles.bar,
+  };
 }
+
+function tabOptions(tab: TabDefinition, unread = 0) {
+  return {
+    title: tab.label,
+    tabBarBadge: unread || undefined,
+    tabBarBadgeStyle: styles.badge,
+    tabBarIcon: ({ color, focused }: { color: ColorValue; focused: boolean }) => <View style={[styles.icon, focused && styles.iconActive]}><Ionicons name={focused ? tab.selectedIcon : tab.icon} size={20} color={color}/></View>,
+  };
+}
+
+const styles = StyleSheet.create({
+  bar: { height: 70, paddingTop: 6, paddingBottom: 6, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: palette.line },
+  item: { paddingVertical: 1 },
+  label: { fontSize: 9, fontWeight: '600', paddingTop: 1 },
+  icon: { width: 30, height: 27, alignItems: 'center', justifyContent: 'center', borderTopWidth: 2, borderTopColor: 'transparent' },
+  iconActive: { borderTopColor: palette.blue },
+  badge: { minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, fontSize: 8, fontWeight: '700', backgroundColor: palette.red, color: 'white' },
+});

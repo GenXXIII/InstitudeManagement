@@ -5,6 +5,8 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 type ClockMode = "hour" | "minute";
 
 const minuteValues = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+const clockDialRadius = 82;
+const clockInnerHandLength = 52;
 
 export function ClockTimeField({ label, value, required = false, error, onChange }: {
   label: string;
@@ -69,8 +71,8 @@ export function ClockTimeField({ label, value, required = false, error, onChange
   function positionFor(index: number): CSSProperties {
     const angle = index * Math.PI / 6;
     return {
-      left: `calc(50% + ${Math.sin(angle) * 91}px)`,
-      top: `calc(50% - ${Math.cos(angle) * 91}px)`,
+      left: `calc(50% + ${Math.sin(angle) * clockDialRadius}px)`,
+      top: `calc(50% - ${Math.cos(angle) * clockDialRadius}px)`,
     };
   }
 
@@ -98,7 +100,10 @@ export function ClockTimeField({ label, value, required = false, error, onChange
         </div>
       </header>
       <div className="clock-dial" aria-label={mode === "hour" ? "Select hour" : "Select minute"}>
-        {mode === "hour" && <i className="clock-hand hour" style={{ height: hour >= 12 ? 57 : 91, transform: `translateX(-50%) rotate(${hourAngle}deg)` }}/>} 
+        {mode === "hour" && <i
+          className="clock-hand hour"
+          style={{ height: hour >= 12 ? clockInnerHandLength : clockDialRadius, transform: `translateX(-50%) rotate(${hourAngle}deg)` }}
+        />}
         {mode === "minute" && <i className="clock-hand minute" style={{ transform: `translateX(-50%) rotate(${minuteAngle}deg)` }}/>} 
         <i className="clock-pin"/>
         {values.map((dialValue, index) => <button

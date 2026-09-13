@@ -8,8 +8,10 @@ public sealed class StudentConfiguration : IEntityTypeConfiguration<Student>
 {
     public void Configure(EntityTypeBuilder<Student> builder)
     {
+        builder.HasIndex(x => x.PublicId).IsUnique();
         builder.HasIndex(x => x.StudentCode).IsUnique();
         builder.HasIndex(x => x.DepartmentId);
+        builder.Property(x => x.PublicId).HasMaxLength(16).IsRequired();
         builder.Property(x => x.StudentCode).HasMaxLength(32).IsRequired();
         builder.Property(x => x.FullName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.Email).HasMaxLength(320).IsRequired();

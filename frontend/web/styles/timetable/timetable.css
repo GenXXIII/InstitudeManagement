@@ -103,11 +103,11 @@
 .clock-time-period{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-left:5px;padding:2px;border:1px solid #dce6f1;border-radius:7px;background:#f7faff}
 .clock-time-period button{height:30px;border:0;border-radius:5px;background:transparent;padding:0 6px;color:#8290a4;font-size:7.5px;font-weight:800;cursor:pointer}
 .clock-time-period button.active{background:#3975cd;color:white}
-.clock-dial{position:relative;width:230px;height:230px;margin:12px auto;border:1px solid #dce7f3;border-radius:50%;background:radial-gradient(circle at center,#fff 0 36%,#f7faff 37% 62%,#eef4fb 63% 100%);box-shadow:inset 0 0 0 7px #f8fbff}
+.clock-dial{position:relative;width:210px;height:210px;margin:10px auto;border:1px solid #dce7f3;border-radius:50%;background:radial-gradient(circle at center,#fff 0 36%,#f7faff 37% 62%,#eef4fb 63% 100%);box-shadow:inset 0 0 0 7px #f8fbff}
 .clock-dial>button{position:absolute;z-index:3;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:#425872;font-size:8px;font-weight:800;transform:translate(-50%,-50%);cursor:pointer}
 .clock-dial>button:hover,.clock-dial>button.selected{background:#3975cd;color:white;box-shadow:0 4px 10px rgba(47,103,188,.24)}
 .clock-hand{position:absolute;z-index:1;left:50%;bottom:50%;width:3px;border-radius:3px 3px 0 0;background:#6b86a9;transform-origin:50% 100%}
-.clock-hand.hour{height:91px}.clock-hand.minute{height:91px;width:2px;background:#3975cd}
+.clock-hand.hour{height:82px}.clock-hand.minute{height:82px;width:2px;background:#3975cd}
 .clock-pin{position:absolute;z-index:2;left:50%;top:50%;width:9px;height:9px;border:2px solid white;border-radius:50%;background:#3975cd;box-shadow:0 0 0 1px #3975cd;transform:translate(-50%,-50%)}
 .clock-exact-minute{display:flex;align-items:center;justify-content:center;gap:9px;color:#718198;font-size:8px;font-weight:700}
 .clock-exact-minute input{width:64px!important;height:34px!important;text-align:center;font-size:11px!important}

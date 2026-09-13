@@ -320,7 +320,7 @@
   .student-record-summary,.grade-totals{grid-column:1/-1;justify-content:flex-end}
 }
 @media (max-width:800px){
-  .student-profile-horizontal,.teacher-profile-horizontal{grid-template-columns:110px 100px 155px 190px 110px 160px;min-width:825px;overflow-x:auto}
+  .student-profile-horizontal,.teacher-profile-horizontal{grid-template-columns:110px 155px 100px 155px 190px 110px 160px;min-width:980px;overflow-x:auto}
 }
 @media (max-width:1250px){
   .enrollment-overview-metrics{grid-template-columns:repeat(3,minmax(160px,1fr))}

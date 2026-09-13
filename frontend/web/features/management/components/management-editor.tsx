@@ -16,9 +16,9 @@ import { formatAssignedCode, workflowCodeExample, workflowResourceForField } fro
 import { recommendedCodeFromError } from "@/lib/code-recommendation";
 
 type PersonEditorMode = "full" | "profile" | "enrollment";
-const studentProfileFields = new Set(["photoDataUrl", "studentCode", "name", "email"]);
+const studentProfileFields = new Set(["photoDataUrl", "studentCode", "publicId", "name", "email"]);
 const studentEnrollmentFields = new Set(["departmentId", "year", "shift"]);
-const teacherProfileFields = new Set(["photoDataUrl", "teacherCode", "name", "email"]);
+const teacherProfileFields = new Set(["photoDataUrl", "teacherCode", "publicId", "name", "email"]);
 const teacherEnrollmentFields = new Set(["departmentId"]);
 export function ManagementEditor({ module, item, references, scopeDepartmentId, scopeYear, studentMode = "full", teacherMode = "full", onClose, onSaved }: { module: Exclude<ManagementModule, "overview">; item: ManagementItem | null; references: References; scopeDepartmentId: string; scopeYear: string; studentMode?: PersonEditorMode; teacherMode?: PersonEditorMode; onClose: () => void; onSaved: () => void }) {
   const router = useRouter();
@@ -134,6 +134,7 @@ function formattedCodes(values: Record<string, string>, fields: Field[]) {
 }
 
 function codeHint(key: string, value: string | undefined, permanent: boolean) {
+  if (key === "publicId") return value ? "Use this ID to sign in to the mobile app. Initial password: 1234" : "Assigned automatically when this profile is saved. Initial password: 1234";
   const resource = workflowResourceForField(key);
   if (!resource) return undefined;
   if (permanent) return "Permanent code";

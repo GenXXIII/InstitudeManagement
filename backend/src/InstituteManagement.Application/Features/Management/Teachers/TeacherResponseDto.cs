@@ -5,6 +5,7 @@ public sealed record TeacherResponseDto(Guid Id, TeacherValuesDto Values);
 public sealed record TeacherValuesDto(
     string PhotoDataUrl,
     string TeacherCode,
+    string PublicId,
     string Name,
     string Email,
     string DepartmentId,

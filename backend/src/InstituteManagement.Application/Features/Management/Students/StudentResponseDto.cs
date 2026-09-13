@@ -5,6 +5,7 @@ public sealed record StudentResponseDto(Guid Id, StudentValuesDto Values);
 public sealed record StudentValuesDto(
     string PhotoDataUrl,
     string StudentCode,
+    string PublicId,
     string Name,
     string Email,
     string DepartmentId,

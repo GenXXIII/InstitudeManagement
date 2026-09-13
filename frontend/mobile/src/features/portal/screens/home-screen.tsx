@@ -35,9 +35,9 @@ function formatDate(value: string) {
 
 const styles = StyleSheet.create({
   announcementTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  announcementIcon: { width: 34, height: 34, borderRadius: radius.small, backgroundColor: palette.bluePale, alignItems: 'center', justifyContent: 'center' },
+  announcementIcon: { width: 32, height: 32, borderRadius: radius.small, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: palette.line, alignItems: 'center', justifyContent: 'center' },
   announcementCopy: { flex: 1 },
-  announcementTitle: { color: palette.ink, fontSize: 13, fontWeight: '900' },
+  announcementTitle: { color: palette.ink, fontSize: 13, fontWeight: '700' },
   announcementCode: { color: palette.muted, fontSize: 9, marginTop: 2 },
   announcementMessage: { color: palette.muted, fontSize: 12, lineHeight: 18, marginTop: 10 },
 });

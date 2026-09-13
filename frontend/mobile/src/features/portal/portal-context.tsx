@@ -3,12 +3,16 @@ import { useAuth, type MobileRole } from '@/features/auth/auth-context';
 import { loadPortalData, portalMutations } from './portal-api';
 import type { PortalData } from './portal-types';
 
+type GradeScores = { assignmentScore: number; midtermScore: number; finalExamScore: number };
+type GradeSubmission = { studentId: string; courseId: string; scores: GradeScores };
+
 type PortalContextValue = PortalData & {
   error: string;
   loading: boolean;
   refresh: () => Promise<void>;
   recordAttendance: (studentId: string, status: string) => Promise<void>;
-  submitGrade: (studentId: string, courseId: string, scores: { assignmentScore: number; midtermScore: number; finalExamScore: number }) => Promise<void>;
+  submitGrade: (studentId: string, courseId: string, scores: GradeScores) => Promise<void>;
+  submitGrades: (submissions: GradeSubmission[]) => Promise<void>;
 };
 
 const PortalContext = createContext<PortalContextValue | null>(null);
@@ -38,12 +42,21 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     await refresh();
   }, [refresh]);
 
-  const submitGrade = useCallback(async (studentId: string, courseId: string, scores: { assignmentScore: number; midtermScore: number; finalExamScore: number }) => {
+  const submitGrade = useCallback(async (studentId: string, courseId: string, scores: GradeScores) => {
     await portalMutations.submitGrade(studentId, courseId, scores);
     await refresh();
   }, [refresh]);
 
-  const value = useMemo(() => ({ ...data, error, loading, refresh, recordAttendance, submitGrade }), [data, error, loading, refresh, recordAttendance, submitGrade]);
+  const submitGrades = useCallback(async (submissions: GradeSubmission[]) => {
+    const batchSize = 8;
+    for (let index = 0; index < submissions.length; index += batchSize) {
+      const batch = submissions.slice(index, index + batchSize);
+      await Promise.all(batch.map(item => portalMutations.submitGrade(item.studentId, item.courseId, item.scores)));
+    }
+    await refresh();
+  }, [refresh]);
+
+  const value = useMemo(() => ({ ...data, error, loading, refresh, recordAttendance, submitGrade, submitGrades }), [data, error, loading, refresh, recordAttendance, submitGrade, submitGrades]);
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 

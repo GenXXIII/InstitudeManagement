@@ -8,8 +8,20 @@ const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, 
 export function getApiBaseUrl() {
   if (configuredApiUrl) return configuredApiUrl;
   if (Platform.OS === 'web' && typeof window !== 'undefined') return `http://${window.location.hostname}:5080`;
-  const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
+  const expoHost = readHost(Constants.expoConfig?.hostUri)
+    || readHost(Constants.expoGoConfig?.debuggerHost)
+    || readHost(Constants.linkingUri);
   return expoHost ? `http://${expoHost}:5080` : 'http://localhost:5080';
+}
+
+function readHost(value?: string | null) {
+  if (!value) return '';
+  try {
+    const url = new URL(value.includes('://') ? value : `http://${value}`);
+    return url.hostname.replace(/^\[|\]$/g, '');
+  } catch {
+    return value.split(':')[0];
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -20,7 +32,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...init?.headers },
     });
   } catch {
-    throw new Error(`Cannot connect to INK API at ${getApiBaseUrl()}. Keep the iPhone and computer on the same Wi-Fi network.`);
+    throw new Error(`Cannot connect to the Institute API at ${getApiBaseUrl()}. Keep the phone and computer on the same Wi-Fi network, then retry.`);
   }
   if (!response.ok) {
     const body = await response.text();
@@ -34,10 +46,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.status === 204 ? undefined as T : response.json() as Promise<T>;
 }
 
+export function signInMobile(publicId: string, password: string) {
+  return request<MobileSession>('/api/mobile/auth/sign-in', {
+    method: 'POST',
+    body: JSON.stringify({ publicId, password }),
+  });
+}
+
 export async function loadPortalData(session: MobileSession): Promise<PortalData> {
   const roleResource = session.role === 'teacher' ? 'teachers' : 'students';
-  const profiles = await request<TeacherItem[] | StudentItem[]>(`/api/catalog/${roleResource}?search=${encodeURIComponent(session.email)}`);
-  const baseProfile = profiles.find(item => item.values.email.trim().toLowerCase() === session.email) ?? null;
+  const profiles = await request<TeacherItem[] | StudentItem[]>(`/api/catalog/${roleResource}?search=${encodeURIComponent(session.publicId)}`);
+  const baseProfile = profiles.find(item => item.id === session.profileId && item.values.publicId === session.publicId) ?? null;
   const [announcements, gradeSettings] = await Promise.all([
     request<Announcement[]>('/api/notification-center/alerts'),
     request<{ values: Record<string, string> }>('/api/settings/grade-rules'),

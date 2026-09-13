@@ -1,6 +1,7 @@
 export type StudentValues = Record<string, string> & {
   photoDataUrl: string;
   studentCode: string;
+  publicId: string;
   name: string;
   email: string;
   departmentId: string;

@@ -6,8 +6,9 @@ import { ManagementActions } from "../components/management-actions";
 import { ManagementDataCell } from "@/components/management-data-cell";
 
 export function TeacherRoster({ items, onEdit, onDeactivate }: { items: TeacherItem[]; onEdit: (item: TeacherItem) => void; onDeactivate: (item: TeacherItem) => void }) {
-  return <DataTable as="section" className="panel horizontal-management-table people-horizontal teacher-profile-horizontal" headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={["TeacherCode", "Photo", "Teacher Name", "Email", "Create At", "Actions"]}>{items.map(item => <article className="horizontal-management-row" key={item.id}>
-      <ManagementDataCell label="TeacherID"><strong className="management-code-value">{workflowCode(item.values.teacherCode, "teacher", "management")}</strong></ManagementDataCell>
+  return <DataTable as="section" className="panel horizontal-management-table people-horizontal teacher-profile-horizontal" headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={["Teacher code", "Public ID", "Photo", "Teacher Name", "Email", "Create At", "Actions"]}>{items.map(item => <article className="horizontal-management-row" key={item.id}>
+      <ManagementDataCell label="Teacher code"><strong className="management-code-value">{workflowCode(item.values.teacherCode, "teacher", "management")}</strong></ManagementDataCell>
+      <ManagementDataCell label="Public ID"><strong className="management-code-value">{item.values.publicId}</strong></ManagementDataCell>
       <ManagementDataCell label="Photo" className="horizontal-portrait"><Image unoptimized width={48} height={72} src={item.values.photoDataUrl} alt={`${item.values.name} profile`}/></ManagementDataCell>
       <ManagementDataCell label="Teacher Name" className="horizontal-primary"><strong>{item.values.name}</strong></ManagementDataCell>
       <ManagementDataCell label="Email" className="horizontal-detail"><strong>{item.values.email}</strong></ManagementDataCell>

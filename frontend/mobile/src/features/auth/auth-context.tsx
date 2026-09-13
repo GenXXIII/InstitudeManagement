@@ -1,21 +1,17 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { signInMobile } from '@/features/portal/portal-api';
 import { clearStoredSession, readStoredSession, writeStoredSession } from './auth-storage';
 
 export type MobileRole = 'teacher' | 'student';
-export type MobileSession = { role: MobileRole; email: string };
+export type MobileSession = { role: MobileRole; publicId: string; profileId: string };
 
 type AuthContextValue = {
   ready: boolean;
   session: MobileSession | null;
-  signIn: (email: string, password: string) => Promise<MobileSession>;
+  signIn: (publicId: string, password: string) => Promise<MobileSession>;
   signOut: () => Promise<void>;
 };
-
-const accounts: MobileSession[] = [
-  { role: 'teacher', email: 'teacher@gmail.com' },
-  { role: 'student', email: 'studnet@gmail.com' },
-];
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -28,16 +24,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       .then(value => {
         if (!value) return;
         const saved = JSON.parse(value) as MobileSession;
-        if (accounts.some(account => account.role === saved.role && account.email === saved.email)) setSession(saved);
+        if (isMobileSession(saved)) setSession(saved);
       })
       .catch(() => undefined)
       .finally(() => setReady(true));
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const normalizedEmail = email.trim().toLowerCase();
-    const account = accounts.find(candidate => candidate.email === normalizedEmail);
-    if (!account || password !== '1234') throw new Error('Email or password is incorrect.');
+  const signIn = useCallback(async (publicId: string, password: string) => {
+    const account = await signInMobile(publicId.trim(), password);
     await writeStoredSession(JSON.stringify(account));
     setSession(account);
     return account;
@@ -50,6 +44,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const value = useMemo(() => ({ ready, session, signIn, signOut }), [ready, session, signIn, signOut]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function isMobileSession(value: MobileSession) {
+  return (value.role === 'teacher' || value.role === 'student')
+    && typeof value.publicId === 'string' && value.publicId.length > 0
+    && typeof value.profileId === 'string' && value.profileId.length > 0;
 }
 
 export function useAuth() {
