@@ -26,6 +26,11 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
                 && enrollment.ScheduleEntry.EndsAt == period.EndsAt)
             .ToList();
         if (!selection.IsRunning) current.Clear();
+        var startedScheduleIds = await ClassSessionStartStateReader.GetStartedScheduleIdsAsync(
+            db,
+            DateOnly.FromDateTime(now),
+            current.Select(enrollment => enrollment.ScheduleEntryId),
+            cancellationToken);
         var rows = current
             .GroupBy(enrollment => enrollment.TeacherId)
             .Select(group =>
@@ -41,7 +46,9 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
                     codeFormat.Derive(teacher.TeacherCode, "teacher", "operation"),
                     string.Join(", ", departments),
                     string.Join(", ", courses),
-                    TeacherPresence.Attendance(teacher.Status));
+                    TeacherPresence.ClassAttendance(
+                        group.Any(item => startedScheduleIds.Contains(item.ScheduleEntryId)),
+                        teacher.Status));
             })
             .OrderBy(x => AttendancePriority(x.Status))
             .ThenBy(x => x.TeacherCode)

@@ -82,6 +82,17 @@ export const organizationAcademicGroups = {
       fields: termFields("summer", "Summer Term"),
     },
   ],
+  finance: [
+    {
+      title: "Semester payment",
+      description: "The simulated amount shown to students and used by the semester enrollment payment check.",
+      fields: [
+        field("semesterPrice", "Semester price", "Amount each student confirms for one semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
+        field("currency", "Currency", "Currency displayed in Finance and the student mobile app.", "select", { required: true, options: options("USD", "KHR") }),
+        field("paymentDueDays", "Payment due after", "Number of days after enrollment before payment is due.", "number", { required: true, min: 0, max: 365, unit: "days" }),
+      ],
+    },
+  ],
   departments: [
     {
       title: "Department defaults",

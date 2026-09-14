@@ -6,8 +6,10 @@ public static class ApiRoutes
     public const string Attendance = "api/attendance";
     public const string Dashboard = "api/dashboard";
     public const string Grades = "api/grades";
+    public const string Finance = "api/finance";
     public const string History = "api/records";
     public const string MobileAccess = "api/mobile/auth";
+    public const string MobileClasses = "api/mobile/classes";
     public const string Operations = "api/operations";
     public const string OperationalRecords = "api/operational-records";
     public const string Results = "api/results";

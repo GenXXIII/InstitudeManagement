@@ -3,6 +3,7 @@ using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Finance;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.Enrollment.EnrollmentItemFactory;
 using static InstituteManagement.Infrastructure.Services.Enrollment.EnrollmentValueParser;
@@ -11,7 +12,8 @@ namespace InstituteManagement.Infrastructure.Services.Enrollment.Students;
 
 internal sealed class StudentEnrollmentEditor(
     InstituteDbContext db,
-    StudentEnrollmentRecordSynchronizer recordSynchronizer)
+    StudentEnrollmentRecordSynchronizer recordSynchronizer,
+    StudentPaymentSynchronizer paymentSynchronizer)
 {
     public async Task<EnrollmentItemDto> UpdateAsync(
         Guid id,
@@ -64,6 +66,7 @@ internal sealed class StudentEnrollmentEditor(
         student.DepartmentId = departmentId;
         student.YearLevel = year;
         student.Shift = shift;
+        var payment = await paymentSynchronizer.EnsureForEnrollmentAsync(enrollment, student, cancellationToken);
         db.AuditLogs.Add(EnrollmentAuditFactory.Create(
             id,
             "Student",
@@ -75,6 +78,7 @@ internal sealed class StudentEnrollmentEditor(
             id,
             ("enrollmentCode", enrollment.EnrollmentCode),
             ("studentCode", student.StudentCode),
+            ("publicId", student.PublicId),
             ("name", student.FullName),
             ("departmentId", departmentId.ToString()),
             ("year", year.ToString()),
@@ -83,6 +87,7 @@ internal sealed class StudentEnrollmentEditor(
             ("academicYear", enrollment.AcademicYear),
             ("semester", enrollment.Semester),
             ("periodState", "Current"),
+            ("paymentStatus", payment.Status),
             ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
     }
 

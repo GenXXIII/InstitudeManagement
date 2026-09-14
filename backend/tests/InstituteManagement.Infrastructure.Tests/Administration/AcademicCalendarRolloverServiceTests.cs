@@ -2,6 +2,7 @@ using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Administration;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Finance;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Tests.Administration;
@@ -17,7 +18,7 @@ public sealed class AcademicCalendarRolloverServiceTests
         var student = Student(department, 1, "Morning", "STU-1");
         var oldEnrollment = Enrollment(student, department, 1, "Morning", "2026\u20132027", "Semester 1");
         var oldTimetable = Timetable(department, "2026\u20132027", "Semester 1");
-        db.AddRange(department, student, oldEnrollment, oldTimetable);
+        db.AddRange(department, student, oldEnrollment, oldTimetable, Payment(oldEnrollment, student));
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
 
@@ -47,12 +48,16 @@ public sealed class AcademicCalendarRolloverServiceTests
         var department = Department();
         var firstYear = Student(department, 1, "Afternoon", "STU-1");
         var fourthYear = Student(department, 4, "Morning", "STU-4");
+        var firstYearEnrollment = Enrollment(firstYear, department, 1, "Afternoon", "2026\u20132027", "Semester 2");
+        var fourthYearEnrollment = Enrollment(fourthYear, department, 4, "Morning", "2026\u20132027", "Semester 2");
         db.AddRange(
             department,
             firstYear,
             fourthYear,
-            Enrollment(firstYear, department, 1, "Afternoon", "2026\u20132027", "Semester 2"),
-            Enrollment(fourthYear, department, 4, "Morning", "2026\u20132027", "Semester 2"));
+            firstYearEnrollment,
+            fourthYearEnrollment,
+            Payment(firstYearEnrollment, firstYear),
+            Payment(fourthYearEnrollment, fourthYear));
         await db.SaveChangesAsync();
 
         var changed = await Service(db).ApplyAsync(new DateOnly(2027, 7, 1), CancellationToken.None);
@@ -74,13 +79,43 @@ public sealed class AcademicCalendarRolloverServiceTests
         Assert.Equal(2, db.StudentEnrollments.Count(item => item.AcademicYear == "2026\u20132027"));
     }
 
-    private static AcademicCalendarRolloverService Service(InstituteDbContext db) => new(
-        db,
-        new InstituteCache(),
-        new AcademicCalendarClock(db),
-        new StudentAcademicYearAdvancer(db),
-        new AcademicPeriodEnrollmentAdvancer(db),
-        new ActivePeriodLedgerCreator(db));
+    [Fact]
+    public async Task Pending_payment_holds_student_sends_reminder_and_keeps_timetable_history()
+    {
+        await using var db = CreateContext();
+        AddCalendar(db, "Semester 1");
+        var department = Department();
+        var student = Student(department, 1, "Morning", "STU-PENDING");
+        var enrollment = Enrollment(student, department, 1, "Morning", "2026\u20132027", "Semester 1");
+        var timetable = Timetable(department, "2026\u20132027", "Semester 1");
+        var payment = Payment(enrollment, student, "Pending");
+        db.AddRange(department, student, enrollment, timetable, payment);
+        await db.SaveChangesAsync();
+
+        var changed = await Service(db).ApplyAsync(new DateOnly(2027, 2, 1), CancellationToken.None);
+
+        Assert.True(changed);
+        Assert.Single(db.StudentEnrollments);
+        Assert.Equal(1, student.YearLevel);
+        Assert.NotNull(payment.ReminderSentAtUtc);
+        Assert.Null(payment.ReminderReadAtUtc);
+        Assert.Equal(timetable.Id, Assert.Single(db.TimetableEnrollments).Id);
+        Assert.Contains(db.Notifications, notification => notification.Message.Contains("held and alerted 1 pending students"));
+    }
+
+    private static AcademicCalendarRolloverService Service(InstituteDbContext db)
+    {
+        var settings = new FinanceSettingsReader(db);
+        var synchronizer = new StudentPaymentSynchronizer(db, settings);
+        return new(
+            db,
+            new InstituteCache(),
+            new AcademicCalendarClock(db),
+            new StudentAcademicYearAdvancer(db),
+            new AcademicPeriodEnrollmentAdvancer(db),
+            new SemesterPaymentGate(db, synchronizer),
+            new ActivePeriodLedgerCreator(db));
+    }
 
     private static void AddCalendar(InstituteDbContext db, string currentTerm)
     {
@@ -174,6 +209,24 @@ public sealed class AcademicCalendarRolloverServiceTests
             Status = "Active"
         };
     }
+
+    private static StudentPayment Payment(StudentEnrollment enrollment, Student student, string status = "Paid") =>
+        new()
+        {
+            PaymentCode = $"PAY-{student.StudentCode}",
+            StudentEnrollmentId = enrollment.Id,
+            StudentEnrollment = enrollment,
+            StudentId = student.Id,
+            Student = student,
+            AcademicYear = enrollment.AcademicYear,
+            Semester = enrollment.Semester,
+            AmountDue = 500,
+            Currency = "USD",
+            DueOn = new DateOnly(2027, 1, 1),
+            Status = status,
+            ConfirmationMethod = status == "Paid" ? "Student QR scan" : string.Empty,
+            PaidAtUtc = status == "Paid" ? DateTime.UtcNow : null
+        };
 
     private static string Value(InstituteDbContext db, string section, string key) =>
         db.SystemSettings.Single(item => item.Section == section && item.Key == key).Value;

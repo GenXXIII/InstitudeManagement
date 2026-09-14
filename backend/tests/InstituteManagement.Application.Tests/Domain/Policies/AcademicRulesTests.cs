@@ -65,4 +65,18 @@ public sealed class AcademicRulesTests
         string? assignmentStatus,
         string expected) =>
         Assert.Equal(expected, TeacherPresence.Attendance(teacherStatus, assignmentStatus));
+
+    [Theory]
+    [InlineData(false, "Active", null, "Absent")]
+    [InlineData(false, "Available", null, "Absent")]
+    [InlineData(true, "Active", null, "Present")]
+    [InlineData(true, "Available", null, "Present")]
+    [InlineData(true, "Active", "Permission", "Permission")]
+    [InlineData(true, "Inactive", null, "Absent")]
+    public void Class_attendance_requires_an_explicit_class_start(
+        bool classStarted,
+        string? teacherStatus,
+        string? assignmentStatus,
+        string expected) =>
+        Assert.Equal(expected, TeacherPresence.ClassAttendance(classStarted, teacherStatus, assignmentStatus));
 }

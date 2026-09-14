@@ -9,11 +9,17 @@ public sealed record StudentYearAdvanceResult(int Promoted, int Graduated);
 
 public sealed class StudentAcademicYearAdvancer(InstituteDbContext db)
 {
-    public async Task<StudentYearAdvanceResult> AdvanceAsync(string oldYear, CancellationToken cancellationToken)
+    public async Task<StudentYearAdvanceResult> AdvanceAsync(
+        string oldYear,
+        IReadOnlySet<Guid> paidStudentIds,
+        CancellationToken cancellationToken)
     {
         var activeStudents = await db.Students
             .Include(student => student.Department)
-            .Where(student => student.Status != "Inactive" && student.YearLevel >= 1)
+            .Where(student =>
+                paidStudentIds.Contains(student.Id)
+                && student.Status != "Inactive"
+                && student.YearLevel >= 1)
             .ToListAsync(cancellationToken);
         var graduates = activeStudents.Where(student => student.YearLevel >= 4).ToList();
         var promoted = activeStudents.Where(student => student.YearLevel < 4).ToList();

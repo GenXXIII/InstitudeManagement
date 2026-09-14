@@ -25,12 +25,16 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
             .Include(enrollment => enrollment.Department)
             .Where(enrollment => enrollment.Status != "Removed" && studentIds.Contains(enrollment.StudentId))
             .ToListAsync(cancellationToken);
+        var enrollmentIds = enrollments.Select(enrollment => enrollment.Id).ToList();
+        var paymentByEnrollment = await db.StudentPayments.AsNoTracking()
+            .Where(payment => enrollmentIds.Contains(payment.StudentEnrollmentId))
+            .ToDictionaryAsync(payment => payment.StudentEnrollmentId, payment => payment.Status, cancellationToken);
 
         return enrollments
             .Where(enrollment =>
                 (!departmentId.HasValue || enrollment.DepartmentId == departmentId)
                 && (!year.HasValue || enrollment.YearLevel == year)
-                && Matches(search, enrollment.EnrollmentCode, studentById[enrollment.StudentId].StudentCode, studentById[enrollment.StudentId].FullName, enrollment.Department?.Name))
+                && Matches(search, enrollment.EnrollmentCode, studentById[enrollment.StudentId].StudentCode, studentById[enrollment.StudentId].PublicId, studentById[enrollment.StudentId].FullName, enrollment.Department?.Name))
             .Select(enrollment =>
             {
                 var student = studentById[enrollment.StudentId];
@@ -38,6 +42,7 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
                     student.Id,
                     ("enrollmentCode", enrollment.EnrollmentCode),
                     ("studentCode", student.StudentCode),
+                    ("publicId", student.PublicId),
                     ("name", student.FullName),
                     ("email", student.Email),
                     ("photoDataUrl", student.PhotoDataUrl),
@@ -49,6 +54,7 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
                     ("academicYear", enrollment.AcademicYear),
                     ("semester", enrollment.Semester),
                     ("periodState", IsCurrent(enrollment.AcademicYear, enrollment.Semester, period) ? "Current" : "Retained"),
+                    ("paymentStatus", paymentByEnrollment.GetValueOrDefault(enrollment.Id, "Pending")),
                     ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
             })
             .ToList();

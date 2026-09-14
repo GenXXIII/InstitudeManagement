@@ -12,6 +12,8 @@
 .table-status.starting,.table-status.late,.table-status.on-leave,.table-status.watch{background:#fff7e7;color:#c88a18}
 .table-status.available,.table-status.upcoming{background:#edf4ff;color:#3972dc}
 .table-status.retained{background:#eef2f7;color:#697a90}
+.table-status.pending{background:#fff7e7;color:#b77915}
+.table-status.paid{background:#e7f8f0;color:#20805e}
 .student-presence-row>.table-status{width:max-content;max-width:88px;justify-self:start}
 .teacher-operation-row>.table-status{width:max-content;max-width:112px;justify-self:start}
 .department-overview-card>.table-status{justify-self:start}

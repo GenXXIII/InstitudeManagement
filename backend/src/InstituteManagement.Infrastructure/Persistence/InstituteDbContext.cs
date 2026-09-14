@@ -13,6 +13,7 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<ScheduleEntry> ScheduleEntries => Set<ScheduleEntry>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+    public DbSet<ClassSessionStart> ClassSessionStarts => Set<ClassSessionStart>();
     public DbSet<GradeRecord> GradeRecords => Set<GradeRecord>();
     public DbSet<ClassSessionRecord> ClassSessionRecords => Set<ClassSessionRecord>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -25,6 +26,7 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
     public DbSet<CourseAssignment> CourseAssignments => Set<CourseAssignment>();
     public DbSet<ClassroomAssignment> ClassroomAssignments => Set<ClassroomAssignment>();
     public DbSet<TimetableEnrollment> TimetableEnrollments => Set<TimetableEnrollment>();
+    public DbSet<StudentPayment> StudentPayments => Set<StudentPayment>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

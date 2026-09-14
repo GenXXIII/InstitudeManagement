@@ -7,15 +7,15 @@ import type { MobileRole } from '@/features/auth/auth-context';
 import { AttendanceContent } from './attendance-screen';
 import { ScheduleContent } from './schedule-screen';
 
-type ClassesView = 'schedule' | 'attendance';
+type ClassesView = 'attendance' | 'schedule';
 
 const views = [
-  { id: 'schedule', label: 'Schedule', icon: 'calendar-outline' },
   { id: 'attendance', label: 'Attendance', icon: 'checkmark-circle-outline' },
+  { id: 'schedule', label: 'Schedule', icon: 'calendar-outline' },
 ] as const;
 
 export function ClassesScreen({ role }: { role: MobileRole }) {
-  const [view, setView] = useState<ClassesView>('schedule');
+  const [view, setView] = useState<ClassesView>('attendance');
   const accent = palette.blue;
 
   return <PortalPage
@@ -42,9 +42,9 @@ export function ClassesScreen({ role }: { role: MobileRole }) {
 }
 
 const styles = StyleSheet.create({
-  switcher: { flexDirection: 'row', borderWidth: 1, borderColor: palette.line, borderRadius: radius.medium, backgroundColor: '#FFFFFF', overflow: 'hidden' },
-  switcherItem: { minHeight: 43, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  switcherItemActive: { borderBottomColor: palette.blue, backgroundColor: '#F8FAFD' },
-  switcherLabel: { color: palette.muted, fontSize: 11, fontWeight: '600' },
-  switcherLabelActive: { color: palette.blue, fontWeight: '700' },
+  switcher: { flexDirection: 'row', padding: 4, borderWidth: 1, borderColor: palette.line, borderRadius: radius.medium, backgroundColor: '#FFFFFF' },
+  switcherItem: { minHeight: 45, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: radius.small },
+  switcherItemActive: { backgroundColor: palette.bluePale },
+  switcherLabel: { color: palette.muted, fontSize: 12, fontWeight: '700' },
+  switcherLabelActive: { color: palette.blueDark, fontWeight: '800' },
 });

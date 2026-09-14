@@ -22,8 +22,8 @@ export function EnrollmentRow({ resource, item, onEdit, onRemove }: {
       return <ManagementDataCell label={column} className={className} key={`${item.id}-${index}`}>
         {index === 0
           ? <strong className="management-code-value" title={cell}>{cell}</strong>
-          : column === "Status" || column === "Period state"
-            ? <span className={`table-status ${column === "Period state" ? cell.toLowerCase() : classroomEnrollmentStatusClass(cell)}`}>{cell}</span>
+          : column === "Status" || column === "Period state" || column === "Payment"
+            ? <span className={`table-status ${column === "Period state" ? cell.toLowerCase() : column === "Payment" ? cell.toLowerCase() : classroomEnrollmentStatusClass(cell)}`}>{cell}</span>
             : <strong className={relationship ? "enrollment-relationship-value" : undefined} title={cell || "Unassigned"}>{cell || "Unassigned"}</strong>}
       </ManagementDataCell>;
     })}

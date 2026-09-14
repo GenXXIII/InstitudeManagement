@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card, EmptyBlock, Identity, MetricCard, PortalPage, portalStyles, SectionHeading, StatusPill } from '@/components/portal-ui';
 import { palette, radius } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
+import type { ScheduleItem } from '../portal-types';
 import { usePortal } from '../portal-context';
 
 const attendanceOptions = ['Present', 'Late', 'Absent'] as const;
@@ -20,13 +22,22 @@ export function AttendanceContent({ role }: { role: MobileRole }) {
 function TeacherAttendance() {
   const portal = usePortal();
   const [savingId, setSavingId] = useState('');
+  const [startingId, setStartingId] = useState('');
+  const [startedScheduleId, setStartedScheduleId] = useState('');
+  const [now, setNow] = useState(() => new Date());
   const todayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
-  const todaySchedules = portal.schedule.filter(item => item.values.dayOfWeek === todayName);
-  const roster = useMemo(() => {
-    if (!todaySchedules.length) return portal.students;
-    return portal.students.filter(student => todaySchedules.some(schedule =>
-      (!schedule.values.departmentId || schedule.values.departmentId === student.values.departmentId) && schedule.values.yearLevel === student.values.year));
-  }, [portal.students, todaySchedules]);
+  const todaySchedules = portal.schedule.filter(item => item.values.dayOfWeek === todayName && item.values.status !== 'Cancelled').sort((a, b) => a.values.startsAt.localeCompare(b.values.startsAt));
+  const activeSchedule = todaySchedules.find(item => item.id === startedScheduleId && isWithinTimetable(item, now))
+    ?? todaySchedules.find(item => portal.startedScheduleIds.includes(item.id) && isWithinTimetable(item, now));
+  const roster = !activeSchedule ? [] : portal.students.filter(student =>
+      (!activeSchedule.values.departmentId || activeSchedule.values.departmentId === student.values.departmentId)
+      && activeSchedule.values.yearLevel === student.values.year
+      && (!activeSchedule.values.shift || activeSchedule.values.shift === student.values.shift));
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   async function save(studentId: string, status: string) {
     setSavingId(studentId);
@@ -35,14 +46,51 @@ function TeacherAttendance() {
     finally { setSavingId(''); }
   }
 
+  async function start(item: ScheduleItem) {
+    if (!portal.profile) return;
+    setStartingId(item.id);
+    try {
+      await portal.startClass(item.id, portal.profile.id);
+      setStartedScheduleId(item.id);
+    } catch (reason) {
+      Alert.alert('Class not started', reason instanceof Error ? reason.message : 'Try again.');
+    } finally {
+      setStartingId('');
+    }
+  }
+
+  if (!activeSchedule) return <>
+    <View style={portalStyles.grid}><MetricCard icon="calendar-outline" label="Classes today" value={todaySchedules.length}/><MetricCard icon="time-outline" label="Current time" value={formatClock(now)} tone="violet"/></View>
+    <SectionHeading title="Today’s timetable" detail={todayName}/>
+    <View style={portalStyles.stack}>{todaySchedules.length ? todaySchedules.map(item => <ClassStartCard item={item} now={now} started={portal.startedScheduleIds.includes(item.id)} starting={startingId === item.id} onStart={() => void start(item)} onView={() => setStartedScheduleId(item.id)} key={item.id}/>) : <EmptyBlock icon="calendar-clear-outline" title="No class to start today" detail="A Start class action appears when the Teacher has an active timetable enrollment for today."/>}</View>
+  </>;
+
   return <>
-    <View style={portalStyles.grid}><MetricCard icon="people-outline" label="Students today" value={roster.length}/><MetricCard icon="calendar-outline" label="Classes today" value={todaySchedules.length} tone="violet"/></View>
-    <SectionHeading title="Today’s roster" detail={todayName}/>
+    <RunningClassBanner item={activeSchedule} now={now}/>
+    <SectionHeading title="Student attendance" detail={`${roster.length} students`}/>
     <View style={portalStyles.stack}>{roster.length ? roster.map(student => {
       const latest = portal.attendance.filter(item => item.values.studentId === student.id).sort((a, b) => b.values.date.localeCompare(a.values.date))[0];
-      return <Card key={student.id}><Identity photo={student.values.photoDataUrl} name={student.values.name} detail={`${student.values.studentCode} · Year ${student.values.year || '—'}`} trailing={latest ? <StatusPill value={latest.values.status}/> : undefined}/><View style={styles.actions}>{attendanceOptions.map(status => <Pressable disabled={savingId === student.id} onPress={() => void save(student.id, status)} style={({ pressed }) => [styles.action, status === 'Present' ? styles.present : status === 'Late' ? styles.late : styles.absent, pressed && styles.pressed]} key={status}><Text style={[styles.actionText, status === 'Present' ? styles.presentText : status === 'Late' ? styles.lateText : styles.absentText]}>{savingId === student.id ? 'Saving…' : status}</Text></Pressable>)}</View></Card>;
-    }) : <EmptyBlock icon="people-outline" title="No assigned students" detail="Students appear after Administrator completes Teacher, Student, Course, and Timetable Enrollment relationships."/>}</View>
+      return <Card key={student.id}><Identity photo={student.values.photoDataUrl} name={student.values.name} detail={`Public ID ${student.values.publicId || 'not assigned'} · Year ${student.values.year || '—'}`} trailing={latest ? <StatusPill value={latest.values.status}/> : undefined}/><View style={styles.actions}>{attendanceOptions.map(status => <Pressable disabled={savingId === student.id} onPress={() => void save(student.id, status)} style={({ pressed }) => [styles.action, status === 'Present' ? styles.present : status === 'Late' ? styles.late : styles.absent, pressed && styles.pressed]} key={status}><Text style={[styles.actionText, status === 'Present' ? styles.presentText : status === 'Late' ? styles.lateText : styles.absentText]}>{savingId === student.id ? 'Saving…' : status}</Text></Pressable>)}</View></Card>;
+    }) : <EmptyBlock icon="people-outline" title="No students in this class" detail="Students appear after Administrator completes Student and Timetable Enrollment for this class’s department, year, and shift."/>}</View>
   </>;
+}
+
+function ClassStartCard({ item, now, started, starting, onStart, onView }: { item: ScheduleItem; now: Date; started: boolean; starting: boolean; onStart: () => void; onView: () => void }) {
+  const canStart = isWithinTimetable(item, now);
+  const actionLabel = started && canStart ? 'View attendance' : starting ? 'Starting\u2026' : canStart ? 'Start class now' : timetableActionLabel(item, now);
+  return <Card>
+    <View style={styles.classStartHeader}><View style={styles.classStartIcon}><Ionicons name="school-outline" size={20} color={palette.blue}/></View><View style={styles.classStartCopy}><Text style={styles.classStartCourse}>{item.values.course}</Text><Text style={styles.classStartTime}>{item.values.startsAt} – {item.values.endsAt}</Text></View></View>
+    <Text style={styles.classStartMeta}>{item.values.classroom} · Year {item.values.yearLevel} · {item.values.shift}</Text>
+    <Pressable disabled={!canStart || starting} accessibilityRole="button" accessibilityLabel={`${actionLabel}: ${item.values.course}`} onPress={started ? onView : onStart} style={({ pressed }) => [styles.startClassButton, !canStart && styles.startClassButtonDisabled, pressed && styles.pressed]}><Ionicons name={started && canStart ? 'people' : 'play'} size={17} color="#FFFFFF"/><Text style={styles.startClassText}>{actionLabel}</Text></Pressable>
+  </Card>;
+}
+
+function RunningClassBanner({ item, now }: { item: ScheduleItem; now: Date }) {
+  return <View style={styles.runningBanner}>
+    <View style={styles.runningHeader}><View style={styles.runningState}><View style={styles.runningDot}/><Text style={styles.runningLabel}>RUNNING CLASS</Text></View><Text style={styles.runningClock}>{formatClock(now)}</Text></View>
+    <Text style={styles.runningCourse}>{item.values.course}</Text>
+    <Text style={styles.runningMeta}>{item.values.startsAt} – {item.values.endsAt} · {item.values.classroom} · Year {item.values.yearLevel} · {item.values.shift}</Text>
+  </View>;
 }
 
 function StudentAttendance() {
@@ -61,19 +109,50 @@ function formatDate(value: string) {
   return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 }
 
+function formatClock(value: Date) {
+  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(value);
+}
+
+function isWithinTimetable(item: ScheduleItem, now: Date) {
+  const current = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  return current >= item.values.startsAt && current < item.values.endsAt;
+}
+
+function timetableActionLabel(item: ScheduleItem, now: Date) {
+  const current = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  return current < item.values.startsAt ? `Starts at ${item.values.startsAt}` : 'Class ended';
+}
+
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', gap: 7, marginTop: 13, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.line },
-  action: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: radius.small, borderWidth: 1 },
+  classStartHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  classStartIcon: { width: 42, height: 42, borderRadius: radius.small, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.bluePale },
+  classStartCopy: { flex: 1 },
+  classStartCourse: { color: palette.ink, fontSize: 16, fontWeight: '800' },
+  classStartTime: { color: palette.blue, fontSize: 12, fontWeight: '700', marginTop: 4 },
+  classStartMeta: { color: palette.muted, fontSize: 11, marginTop: 12 },
+  startClassButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 15, borderRadius: radius.small, backgroundColor: palette.blue },
+  startClassButtonDisabled: { backgroundColor: '#9AA4C7' },
+  startClassText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  runningBanner: { overflow: 'hidden', padding: 19, borderRadius: radius.large, backgroundColor: palette.blueDark },
+  runningHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  runningState: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  runningDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#55D8A4' },
+  runningLabel: { color: '#DDE3FF', fontSize: 10, fontWeight: '800', letterSpacing: 0.9 },
+  runningClock: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  runningCourse: { color: '#FFFFFF', fontSize: 23, lineHeight: 29, fontWeight: '800', marginTop: 19 },
+  runningMeta: { color: '#C8D1F3', fontSize: 11, lineHeight: 18, marginTop: 7 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 15, paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line },
+  action: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.small, borderWidth: 1 },
   present: { backgroundColor: '#FFFFFF', borderColor: '#8DCEB4' },
   late: { backgroundColor: '#FFFFFF', borderColor: '#E2BE68' },
   absent: { backgroundColor: '#FFFFFF', borderColor: '#E3AEB7' },
-  actionText: { fontSize: 10, fontWeight: '700' },
+  actionText: { fontSize: 12, fontWeight: '800' },
   presentText: { color: palette.green },
   lateText: { color: palette.amber },
   absentText: { color: palette.red },
   pressed: { opacity: 0.65 },
   recordTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  recordDate: { color: palette.ink, fontWeight: '700', fontSize: 13 },
-  recordCode: { color: palette.blue, fontSize: 9, marginTop: 3 },
-  recordMeta: { color: palette.muted, fontSize: 11, marginTop: 11 },
+  recordDate: { color: palette.ink, fontWeight: '800', fontSize: 15 },
+  recordCode: { color: palette.blue, fontSize: 10, fontWeight: '700', marginTop: 4 },
+  recordMeta: { color: palette.muted, fontSize: 12, marginTop: 12 },
 });

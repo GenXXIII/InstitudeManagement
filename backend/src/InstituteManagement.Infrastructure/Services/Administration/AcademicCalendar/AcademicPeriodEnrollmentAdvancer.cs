@@ -13,6 +13,7 @@ public sealed class AcademicPeriodEnrollmentAdvancer(InstituteDbContext db)
         string previousSemester,
         string nextAcademicYear,
         string nextSemester,
+        IReadOnlySet<Guid> paidStudentIds,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(previousAcademicYear)
@@ -27,6 +28,7 @@ public sealed class AcademicPeriodEnrollmentAdvancer(InstituteDbContext db)
             .Where(enrollment =>
                 enrollment.AcademicYear == previousAcademicYear
                 && enrollment.Semester == previousSemester
+                && paidStudentIds.Contains(enrollment.StudentId)
                 && enrollment.Status == "Active")
             .OrderBy(enrollment => enrollment.StudentId)
             .ToListAsync(cancellationToken);

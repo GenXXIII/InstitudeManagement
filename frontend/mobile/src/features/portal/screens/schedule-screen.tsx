@@ -22,7 +22,7 @@ export function ScheduleContent() {
 }
 
 const styles = StyleSheet.create({
-  note: { padding: 13, borderWidth: 1, borderLeftWidth: 3, borderColor: palette.line, borderLeftColor: palette.blue, borderRadius: 5, backgroundColor: '#FFFFFF' },
-  noteTitle: { color: palette.ink, fontSize: 12, fontWeight: '700' },
-  noteCopy: { color: palette.muted, fontSize: 11, lineHeight: 17, marginTop: 3 },
+  note: { padding: 16, borderWidth: 1, borderLeftWidth: 4, borderColor: palette.line, borderLeftColor: palette.blue, borderRadius: 12, backgroundColor: '#FFFFFF' },
+  noteTitle: { color: palette.ink, fontSize: 14, fontWeight: '800' },
+  noteCopy: { color: palette.muted, fontSize: 12, lineHeight: 19, marginTop: 4 },
 });

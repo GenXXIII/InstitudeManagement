@@ -49,6 +49,11 @@ export const defaultSettings: InstituteSettings = {
     summerEndsOn: "2027-08-31",
     summerStatus: "Upcoming",
   },
+  finance: {
+    semesterPrice: "500.00",
+    currency: "USD",
+    paymentDueDays: "14",
+  },
   departments: {
     defaultStatus: "Active",
     requireDepartmentHead: "true",

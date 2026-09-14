@@ -1,0 +1,27 @@
+namespace InstituteManagement.Application.Features.Finance;
+
+public sealed record StudentPaymentDto(
+    Guid Id,
+    string PaymentCode,
+    Guid StudentId,
+    string StudentCode,
+    string PublicId,
+    string StudentName,
+    string Department,
+    string EnrollmentCode,
+    int YearLevel,
+    string Shift,
+    string AcademicYear,
+    string Semester,
+    decimal AmountDue,
+    string Currency,
+    DateOnly DueOn,
+    string Status,
+    string ConfirmationMethod,
+    DateTime? PaidAtUtc,
+    DateTime? ReminderSentAtUtc,
+    DateTime? ReminderReadAtUtc,
+    string TimetableStatus,
+    string PeriodState,
+    string QrPayload,
+    DateTime CreateAt);

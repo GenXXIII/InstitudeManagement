@@ -26,9 +26,16 @@ public sealed class TimetableOperationReader(
 
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var time = TimeOnly.FromDateTime(now);
+        var startedScheduleIds = await ClassSessionStartStateReader.GetStartedScheduleIdsAsync(
+            db,
+            DateOnly.FromDateTime(now),
+            timetableEnrollments.Select(enrollment => enrollment.ScheduleEntryId),
+            cancellationToken);
         var teacherAttendance = timetableEnrollments.ToDictionary(
             enrollment => enrollment.ScheduleEntryId,
-            enrollment => TeacherPresence.Attendance(enrollment.Teacher?.Status));
+            enrollment => TeacherPresence.ClassAttendance(
+                startedScheduleIds.Contains(enrollment.ScheduleEntryId),
+                enrollment.Teacher?.Status));
         var runnableRoomIds = timetableEnrollments
             .Where(enrollment =>
                 enrollment.Classroom is not null

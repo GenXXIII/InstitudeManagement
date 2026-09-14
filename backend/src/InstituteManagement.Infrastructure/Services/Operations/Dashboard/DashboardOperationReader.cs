@@ -29,13 +29,20 @@ public sealed class DashboardOperationReader(InstituteDbContext db, OperationCon
                 && enrollment.ScheduleEntry.EndsAt == period.EndsAt)
             .ToList();
         if (!selection.IsRunning) focusedSchedules.Clear();
+        var startedScheduleIds = await ClassSessionStartStateReader.GetStartedScheduleIdsAsync(
+            db,
+            DateOnly.FromDateTime(localNow),
+            focusedSchedules.Select(enrollment => enrollment.ScheduleEntryId),
+            cancellationToken);
         var runnableRoomIds = timetables
             .Where(enrollment => enrollment.Classroom!.DeviceOnline && NormalizeClassroomStatus(enrollment.Classroom.Status) == "Available")
             .Select(enrollment => enrollment.ClassroomId)
             .ToHashSet();
         var teacherPresenceBySchedule = focusedSchedules.ToDictionary(
             enrollment => enrollment.ScheduleEntryId,
-            enrollment => TeacherPresence.IsPresent(TeacherPresence.Attendance(enrollment.Teacher!.Status)));
+            enrollment => TeacherPresence.IsPresent(TeacherPresence.ClassAttendance(
+                startedScheduleIds.Contains(enrollment.ScheduleEntryId),
+                enrollment.Teacher!.Status)));
         var runningSchedules = focusedSchedules
             .Where(enrollment => runnableRoomIds.Contains(enrollment.ClassroomId) && teacherPresenceBySchedule[enrollment.ScheduleEntryId])
             .ToList();

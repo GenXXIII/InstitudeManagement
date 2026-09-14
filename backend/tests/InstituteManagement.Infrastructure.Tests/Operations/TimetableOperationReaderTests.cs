@@ -8,6 +8,71 @@ namespace InstituteManagement.Infrastructure.Tests.Operations;
 public sealed class TimetableOperationReaderTests
 {
     [Fact]
+    public async Task Current_class_is_available_until_teacher_starts_then_becomes_running()
+    {
+        await using var db = CreateContext();
+        var now = DateTime.UtcNow;
+        var department = new Department { DepartmentCode = "IT-LIVE", Name = "Live Information Technology" };
+        var student = new Student
+        {
+            StudentCode = "STU-LIVE",
+            FullName = "Live Student",
+            DepartmentId = department.Id,
+            YearLevel = 1,
+            Shift = "Morning"
+        };
+        var timetable = Timetable(
+            department,
+            "LIVE-1",
+            1,
+            "Morning",
+            "Semester 2",
+            now.DayOfWeek,
+            TimeOnly.MinValue,
+            TimeOnly.MaxValue);
+        db.AddRange(
+            department,
+            student,
+            new StudentEnrollment
+            {
+                EnrollmentCode = "STU-LIVE-ESTU-1",
+                StudentId = student.Id,
+                DepartmentId = department.Id,
+                YearLevel = 1,
+                Shift = "Morning",
+                AcademicYear = "2026–2027",
+                Semester = "Semester 2",
+                Status = "Active"
+            },
+            Setting("academic-year", "currentYear", "2026–2027"),
+            Setting("semester", "currentTerm", "Semester 2"),
+            Setting("system", "timeZone", "UTC"),
+            timetable);
+        await db.SaveChangesAsync();
+        var reader = new TimetableOperationReader(
+            db,
+            new OperationContextService(db),
+            new OperationEnrollmentSourceService(db, new OperationEnrollmentPeriodService(db)));
+
+        var before = Assert.Single((await reader.GetAsync(null, CancellationToken.None)).WeeklySchedule!);
+        Assert.Equal("Absent", before.TeacherAttendance);
+        Assert.Equal("Available", before.Status);
+
+        db.ClassSessionStarts.Add(new ClassSessionStart
+        {
+            ScheduleEntryId = timetable.ScheduleEntryId,
+            TeacherId = timetable.TeacherId,
+            SessionDate = DateOnly.FromDateTime(now),
+            StartedAtUtc = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var after = Assert.Single((await reader.GetAsync(null, CancellationToken.None)).WeeklySchedule!);
+        Assert.Equal("Present", after.TeacherAttendance);
+        Assert.Equal("Running", after.Status);
+    }
+
+    [Fact]
     public async Task Weekly_rows_require_matching_student_year_semester_shift_and_department()
     {
         await using var db = CreateContext();
@@ -75,7 +140,10 @@ public sealed class TimetableOperationReaderTests
         string code,
         int year,
         string shift,
-        string semester)
+        string semester,
+        DayOfWeek? dayOfWeek = null,
+        TimeOnly? startsAt = null,
+        TimeOnly? endsAt = null)
     {
         var course = new Course
         {
@@ -97,9 +165,9 @@ public sealed class TimetableOperationReaderTests
         {
             TimetableCode = $"TIM-{code}",
             Shift = shift,
-            DayOfWeek = DayOfWeek.Monday,
-            StartsAt = shift == "Afternoon" ? new TimeOnly(13, 0) : new TimeOnly(7, 30),
-            EndsAt = shift == "Afternoon" ? new TimeOnly(14, 30) : new TimeOnly(9, 0),
+            DayOfWeek = dayOfWeek ?? DayOfWeek.Monday,
+            StartsAt = startsAt ?? (shift == "Afternoon" ? new TimeOnly(13, 0) : new TimeOnly(7, 30)),
+            EndsAt = endsAt ?? (shift == "Afternoon" ? new TimeOnly(14, 30) : new TimeOnly(9, 0)),
             Status = "Upcoming"
         };
         return new TimetableEnrollment

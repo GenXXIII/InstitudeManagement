@@ -26,6 +26,11 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
                 && enrollment.ScheduleEntry.EndsAt == period.EndsAt)
             .ToList();
         if (!selection.IsRunning) current.Clear();
+        var startedScheduleIds = await ClassSessionStartStateReader.GetStartedScheduleIdsAsync(
+            db,
+            DateOnly.FromDateTime(now),
+            current.Select(enrollment => enrollment.ScheduleEntryId),
+            cancellationToken);
 
         var rows = current.GroupBy(enrollment => enrollment.CourseId).Select(group =>
         {
@@ -34,7 +39,9 @@ public sealed class CourseOperationReader(InstituteDbContext db, OperationContex
             var teacher = enrollment.Teacher!;
             var classroom = enrollment.Classroom!;
             var classrooms = group.Select(item => item.Classroom!.ClassroomCode).Distinct().Order().ToList();
-            var attendance = TeacherPresence.Attendance(teacher.Status);
+            var attendance = TeacherPresence.ClassAttendance(
+                group.Any(item => startedScheduleIds.Contains(item.ScheduleEntryId)),
+                teacher.Status);
             var fixedClassroomStatus = FixedClassroomStatus(classroom.Status, classroom.DeviceOnline);
             var status = fixedClassroomStatus ?? (TeacherPresence.IsPresent(attendance) ? "Running" : "Available");
             var detail = fixedClassroomStatus is null

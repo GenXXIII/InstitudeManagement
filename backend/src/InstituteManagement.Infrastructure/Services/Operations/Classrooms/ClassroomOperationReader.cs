@@ -31,6 +31,11 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
                 && enrollment.ScheduleEntry.EndsAt == period.EndsAt)
             .ToList();
         if (!selection.IsRunning) currentTimetables.Clear();
+        var startedScheduleIds = await ClassSessionStartStateReader.GetStartedScheduleIdsAsync(
+            db,
+            DateOnly.FromDateTime(now),
+            currentTimetables.Select(enrollment => enrollment.ScheduleEntryId),
+            cancellationToken);
 
         var rows = classrooms.Select(enrollment =>
         {
@@ -41,7 +46,9 @@ public sealed class ClassroomOperationReader(InstituteDbContext db, OperationCon
             if (current is null)
                 return new ClassroomOperationDto(room.Id, room.ClassroomCode, operationCode, room.RoomType, Floor(room.ClassroomCode), room.Building, room.Capacity, room.DeviceOnline ? "Online" : "Offline", fixedStatus ?? "Available", "No course in this period", "—", "Not scheduled", FixedStatusDetail(fixedStatus));
 
-            var attendance = TeacherPresence.Attendance(current.Teacher!.Status);
+            var attendance = TeacherPresence.ClassAttendance(
+                startedScheduleIds.Contains(current.ScheduleEntryId),
+                current.Teacher!.Status);
             var running = fixedStatus is null && TeacherPresence.IsPresent(attendance);
             var detail = fixedStatus is not null
                 ? FixedStatusDetail(fixedStatus)

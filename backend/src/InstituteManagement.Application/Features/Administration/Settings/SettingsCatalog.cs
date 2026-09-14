@@ -7,6 +7,7 @@ public static partial class SettingsCatalog
         InstituteSection,
         AcademicYearSection,
         SemesterSection,
+        FinanceSection,
         DepartmentsSection,
         CoursesSection,
         ClassroomsSection,

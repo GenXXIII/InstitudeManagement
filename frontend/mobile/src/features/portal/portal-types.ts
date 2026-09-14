@@ -8,7 +8,9 @@ export type ScheduleValues = Record<string, string> & { timetableCode: string; e
 export type AttendanceValues = Record<string, string> & { attendanceCode: string; studentId: string; student: string; studentCode: string; date: string; checkedInAt: string; status: string; method: string; academicYear: string; term: string };
 export type GradeValues = Record<string, string> & { gradeCode: string; studentId: string; student: string; courseId: string; course: string; attendanceScore: string; attendanceMaximum: string; attendancePresent: string; attendanceSessions: string; assignmentScore: string; assignmentMaximum: string; midtermScore: string; midtermMaximum: string; finalExamScore: string; finalExamMaximum: string; score: string; grade: string; academicYear: string; term: string };
 export type GradeWeights = { attendance: number; assignment: number; midterm: number; finalExam: number };
-export type Announcement = { id: string; announcementCode: string; type: 'General' | 'Attendance' | 'Emergency' | 'Result'; title: string; message: string; isRead: boolean; createAt: string };
+export type Announcement = { id: string; announcementCode: string; type: 'General' | 'Attendance' | 'Emergency' | 'Result' | 'Finance'; title: string; message: string; isRead: boolean; createAt: string; source: 'announcement' | 'finance'; sourceId: string };
+export type StudentPayment = { id: string; paymentCode: string; studentId: string; academicYear: string; semester: string; amountDue: number; currency: string; dueOn: string; status: 'Pending' | 'Paid'; confirmationMethod: string; paidAtUtc: string | null; reminderSentAtUtc: string | null; reminderReadAtUtc: string | null; timetableStatus: 'Ready' | 'Waiting'; qrPayload: string };
+export type ClassSessionStartItem = { id: string; scheduleEntryId: string; teacherId: string; sessionDate: string; startedAtUtc: string };
 
 export type TeacherItem = CatalogItem<TeacherValues>;
 export type StudentItem = CatalogItem<StudentValues>;
@@ -26,4 +28,6 @@ export type PortalData = {
   grades: GradeItem[];
   gradeWeights: GradeWeights;
   announcements: Announcement[];
+  payments: StudentPayment[];
+  startedScheduleIds: string[];
 };

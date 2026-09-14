@@ -2,6 +2,7 @@ using System.Text.Json;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Finance;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Administration;
@@ -12,6 +13,7 @@ public sealed class AcademicCalendarRolloverService(
     AcademicCalendarClock clock,
     StudentAcademicYearAdvancer studentAdvancer,
     AcademicPeriodEnrollmentAdvancer enrollmentAdvancer,
+    SemesterPaymentGate paymentGate,
     ActivePeriodLedgerCreator ledgerCreator)
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -48,10 +50,17 @@ public sealed class AcademicCalendarRolloverService(
             var promoted = 0;
             var graduated = 0;
             var yearsAdvanced = 0;
+            var financeGate = new SemesterPaymentGateResult(new HashSet<Guid>(), 0);
+            var financeEvaluated = false;
+            if (today > yearRolloverEnd)
+            {
+                financeGate = await paymentGate.EvaluateAsync(previousAcademicYear, previousTerm, cancellationToken);
+                financeEvaluated = true;
+            }
             while (today > yearRolloverEnd)
             {
                 var oldYear = values.GetValueOrDefault("academic-year:currentYear", $"{academicStart.Year}\u2013{academicEnd.Year}");
-                var advance = await studentAdvancer.AdvanceAsync(oldYear, cancellationToken);
+                var advance = await studentAdvancer.AdvanceAsync(oldYear, financeGate.PaidStudentIds, cancellationToken);
                 graduated += advance.Graduated;
                 promoted += advance.Promoted;
                 yearsAdvanced++;
@@ -103,11 +112,19 @@ public sealed class AcademicCalendarRolloverService(
 
             if (!changed) return false;
             var activeYear = $"{academicStart.Year}\u2013{academicEnd.Year}";
+            if (!financeEvaluated
+                && !string.IsNullOrWhiteSpace(previousAcademicYear)
+                && !string.IsNullOrWhiteSpace(previousTerm)
+                && (previousAcademicYear != activeYear || previousTerm != activeTerm))
+            {
+                financeGate = await paymentGate.EvaluateAsync(previousAcademicYear, previousTerm, cancellationToken);
+            }
             var enrollmentAdvance = await enrollmentAdvancer.AdvanceAsync(
                 previousAcademicYear,
                 previousTerm,
                 activeYear,
                 activeTerm,
+                financeGate.PaidStudentIds,
                 cancellationToken);
             var (attendanceCreated, gradesCreated) = await ledgerCreator.CreateAsync(activeYear, activeTerm, activeStart, cancellationToken);
             if (!string.IsNullOrWhiteSpace(previousAcademicYear)
@@ -120,8 +137,8 @@ public sealed class AcademicCalendarRolloverService(
             {
                 Title = yearsAdvanced > 0 ? "Academic year advanced" : $"{activeTerm} activated",
                 Message = yearsAdvanced > 0
-                    ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} students, graduated {graduated} Year 4 students, auto-enrolled {enrollmentAdvance.StudentsEnrolled} students, and created {attendanceCreated} attendance and {gradesCreated} grade rows."
-                    : $"{activeTerm} auto-enrolled {enrollmentAdvance.StudentsEnrolled} students and created {attendanceCreated} attendance and {gradesCreated} grade rows; the previous semester is preserved in History.",
+                    ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} paid students, graduated {graduated} paid Year 4 students, held {financeGate.HeldStudents} pending students, auto-enrolled {enrollmentAdvance.StudentsEnrolled} students, and created {attendanceCreated} attendance and {gradesCreated} grade rows."
+                    : $"{activeTerm} auto-enrolled {enrollmentAdvance.StudentsEnrolled} paid students, held and alerted {financeGate.HeldStudents} pending students, and created {attendanceCreated} attendance and {gradesCreated} grade rows; previous enrollment and timetable rows are preserved in History.",
                 Severity = "Info"
             });
             await db.SaveChangesAsync(cancellationToken);

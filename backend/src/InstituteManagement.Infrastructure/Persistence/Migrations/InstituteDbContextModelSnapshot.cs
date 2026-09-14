@@ -320,6 +320,43 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("ClassSessionRecords");
                 });
 
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.ClassSessionStart", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAtUtc");
+
+                    b.Property<Guid>("ScheduleEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("SessionDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAtUtc");
+
+                    b.HasIndex("ScheduleEntryId", "SessionDate")
+                        .IsUnique();
+
+                    b.HasIndex("TeacherId", "SessionDate");
+
+                    b.ToTable("ClassSessionStarts", "Attendance");
+                });
+
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Classroom", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1013,6 +1050,87 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("StudentEnrollments", "Enrollment");
                 });
 
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.StudentPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcademicYear")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<decimal>("AmountDue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ConfirmationMethod")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAtUtc");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<DateOnly>("DueOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("PaidAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("ReminderReadAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ReminderSentAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Semester")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("StudentEnrollmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentEnrollmentId")
+                        .IsUnique();
+
+                    b.HasIndex("PaymentCode", "AcademicYear", "Semester")
+                        .IsUnique();
+
+                    b.HasIndex("StudentId", "AcademicYear", "Semester")
+                        .IsUnique();
+
+                    b.HasIndex("AcademicYear", "Semester", "Status", "DueOn");
+
+                    b.ToTable("StudentPayments", "Finance");
+                });
+
             modelBuilder.Entity("InstituteManagement.Domain.Entities.SystemSetting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1298,6 +1416,25 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Teacher");
                 });
 
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.ClassSessionStart", b =>
+                {
+                    b.HasOne("InstituteManagement.Domain.Entities.ScheduleEntry", "ScheduleEntry")
+                        .WithMany()
+                        .HasForeignKey("ScheduleEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("InstituteManagement.Domain.Entities.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ScheduleEntry");
+
+                    b.Navigation("Teacher");
+                });
+
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Classroom", b =>
                 {
                     b.HasOne("InstituteManagement.Domain.Entities.Department", "Department")
@@ -1449,6 +1586,25 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Department");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.StudentPayment", b =>
+                {
+                    b.HasOne("InstituteManagement.Domain.Entities.StudentEnrollment", "StudentEnrollment")
+                        .WithOne()
+                        .HasForeignKey("InstituteManagement.Domain.Entities.StudentPayment", "StudentEnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("InstituteManagement.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+
+                    b.Navigation("StudentEnrollment");
                 });
 
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Teacher", b =>

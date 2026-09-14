@@ -27,6 +27,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   institute: ["name", "shortName", "code", "logoUrl", "email", "phone", "address"],
   "academic-year": ["currentYear", "code", "startsOn", "endsOn", "status"],
   semester: ["currentTerm"],
+  finance: ["semesterPrice", "currency", "paymentDueDays"],
   departments: ["defaultStatus", "requireDepartmentHead", "allowCrossDepartmentTeaching"],
   courses: ["defaultCapacity", "requireAssignedTeacher"],
   classrooms: ["defaultCapacity", "attendanceDeviceRequired"],
@@ -45,6 +46,7 @@ export const administrationSections: readonly AdministrationSectionDefinition[] 
   section("institute", "General settings", "General", "Institute identity, branding, contact details, and address.", "general", "building"),
   section("academic-year", "Academic year", "Academic year", "Active academic-year identity, dates, and lifecycle status.", "academic", "calendar"),
   section("semester", "Semester and term", "Terms", "Current term plus Semester 1, Semester 2, and Summer Term windows.", "academic", "calendar"),
+  section("finance", "Finance settings", "Finance", "Configure the semester price used by the simulated student payment and enrollment gate.", "academic", "finance"),
   section("departments", "Department rules", "Departments", "Defaults and governance rules; a DepartmentCode sequence is required during creation and remains permanent.", "academic", "building"),
   section("courses", "Course rules", "Courses", "Defaults and assignment requirements; a CourseCode sequence is required during creation and remains permanent.", "academic", "book"),
   section("classrooms", "Classroom rules", "Classrooms", "Learning-space defaults; a ClassroomCode sequence is required during creation and remains permanent.", "academic", "room"),
@@ -89,6 +91,7 @@ export function configurationSummary(sectionName: SettingSection, values: Record
   if (sectionName === "institute") return `${values.shortName || values.code || "Institute"} · ${values.city || values.country || "Address required"}`;
   if (sectionName === "academic-year") return `${values.currentYear || "Year required"} · ${values.status || "Status required"}`;
   if (sectionName === "semester") return `${values.currentTerm || "Term required"} · ${values.startsOn || "Start date required"}`;
+  if (sectionName === "finance") return `${values.semesterPrice || "0"} ${values.currency || "USD"} per semester · due in ${values.paymentDueDays || "0"} days`;
   if (sectionName === "departments") return `Assigned DepartmentCode · ${values.requireDepartmentHead === "true" ? "Head required" : "Head optional"}`;
   if (sectionName === "courses") return `Assigned CourseCode · ${values.defaultCapacity || "–"} default seats`;
   if (sectionName === "classrooms") return `Assigned ClassroomCode · ${values.defaultCapacity || "–"} default seats`;

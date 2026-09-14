@@ -55,6 +55,11 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                 .ToListAsync(cancellationToken);
             var existing = await db.ClassSessionRecords.AsNoTracking().Where(x => x.SessionDate >= firstDate && x.SessionDate <= today).Select(x => new { x.ScheduleEntryId, x.SessionDate }).ToListAsync(cancellationToken);
             var existingKeys = existing.Select(x => (x.ScheduleEntryId, x.SessionDate)).ToHashSet();
+            var starts = await db.ClassSessionStarts.AsNoTracking()
+                .Where(x => x.SessionDate >= firstDate && x.SessionDate <= today)
+                .Select(x => new { x.ScheduleEntryId, x.SessionDate })
+                .ToListAsync(cancellationToken);
+            var startedKeys = starts.Select(x => (x.ScheduleEntryId, x.SessionDate)).ToHashSet();
             var possibleSessions = Math.Max(1, schedules.Count * (today.DayNumber - firstDate.DayNumber + 1));
             var sessionCodes = new Queue<string>(await BusinessCodeFormatter.GenerateManyAsync(db, "session", possibleSessions, cancellationToken));
             var recorded = 0;
@@ -67,7 +72,10 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                     if (existingKeys.Contains((schedule.Id, date)) || schedule.Course is null || schedule.Teacher is null || schedule.Classroom is null) continue;
                     var courseAssignment = courseAssignments[schedule.CourseId!.Value];
                     var teacherAssignment = teacherAssignments.FirstOrDefault(x => x.TeacherId == schedule.TeacherId!.Value && (x.DepartmentId == courseAssignment.DepartmentId || x.DepartmentId == null));
-                    var teacherAttendance = TeacherPresence.Attendance(schedule.Teacher.Status, teacherAssignment?.Status);
+                    var teacherAttendance = TeacherPresence.ClassAttendance(
+                        startedKeys.Contains((schedule.Id, date)),
+                        schedule.Teacher.Status,
+                        teacherAssignment?.Status);
                     var classHeld = TeacherPresence.IsPresent(teacherAttendance);
                     var studentEnrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student)
                         .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status == "Active"

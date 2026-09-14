@@ -33,7 +33,13 @@
           "imageWidth": 112
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow INK Student Finance to scan the institute payment QR code."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

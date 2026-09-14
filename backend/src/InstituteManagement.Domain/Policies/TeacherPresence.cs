@@ -15,6 +15,14 @@ public static class TeacherPresence
 
     public static bool IsPresent(string attendance) => attendance is "Present" or "Late";
 
+    public static string ClassAttendance(bool classStarted, string? teacherStatus, string? assignmentStatus = null)
+    {
+        var availability = Attendance(teacherStatus, assignmentStatus);
+        return availability is "Permission" or "Absent"
+            ? availability
+            : classStarted ? "Present" : "Absent";
+    }
+
     public static string SessionStatus(string attendance) => IsPresent(attendance) ? "Running" : "Not running";
 
     public static string Reason(string attendance) => attendance switch

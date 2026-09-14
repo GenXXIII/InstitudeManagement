@@ -10,16 +10,19 @@ type PortalContextValue = PortalData & {
   error: string;
   loading: boolean;
   refresh: () => Promise<void>;
+  startClass: (scheduleEntryId: string, teacherId: string) => Promise<void>;
   recordAttendance: (studentId: string, status: string) => Promise<void>;
   submitGrade: (studentId: string, courseId: string, scores: GradeScores) => Promise<void>;
   submitGrades: (submissions: GradeSubmission[]) => Promise<void>;
+  markAnnouncementRead: (announcementId: string) => Promise<void>;
+  confirmPayment: (paymentId: string, qrPayload: string) => Promise<void>;
 };
 
 const PortalContext = createContext<PortalContextValue | null>(null);
 
 export function PortalProvider({ role, children }: PropsWithChildren<{ role: MobileRole }>) {
   const { session } = useAuth();
-  const [data, setData] = useState<PortalData>({ role, profile: null, schedule: [], students: [], attendance: [], grades: [], gradeWeights: { attendance: 10, assignment: 20, midterm: 20, finalExam: 50 }, announcements: [] });
+  const [data, setData] = useState<PortalData>({ role, profile: null, schedule: [], students: [], attendance: [], grades: [], gradeWeights: { attendance: 10, assignment: 20, midterm: 20, finalExam: 50 }, announcements: [], payments: [], startedScheduleIds: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -56,7 +59,44 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     await refresh();
   }, [refresh]);
 
-  const value = useMemo(() => ({ ...data, error, loading, refresh, recordAttendance, submitGrade, submitGrades }), [data, error, loading, refresh, recordAttendance, submitGrade, submitGrades]);
+  const startClass = useCallback(async (scheduleEntryId: string, teacherId: string) => {
+    const started = await portalMutations.startClass(scheduleEntryId, teacherId);
+    setData(current => ({
+      ...current,
+      startedScheduleIds: current.startedScheduleIds.includes(started.scheduleEntryId)
+        ? current.startedScheduleIds
+        : [...current.startedScheduleIds, started.scheduleEntryId],
+    }));
+  }, []);
+
+  const markAnnouncementRead = useCallback(async (announcementId: string) => {
+    const announcement = data.announcements.find(item => item.id === announcementId);
+    if (!announcement || announcement.isRead) return;
+
+    setData(current => ({
+      ...current,
+      announcements: current.announcements.map(item => item.id === announcementId ? { ...item, isRead: true } : item),
+    }));
+    try {
+      if (announcement.source === 'finance' && data.profile) await portalMutations.markFinanceReminderRead(data.profile.id, announcement.sourceId);
+      else await portalMutations.markAnnouncementRead(announcement.sourceId);
+    }
+    catch (reason) {
+      setData(current => ({
+        ...current,
+        announcements: current.announcements.map(item => item.id === announcementId ? { ...item, isRead: false } : item),
+      }));
+      setError(reason instanceof Error ? reason.message : 'Could not mark the notification as read.');
+    }
+  }, [data.announcements, data.profile]);
+
+  const confirmPayment = useCallback(async (paymentId: string, qrPayload: string) => {
+    if (role !== 'student' || !data.profile) throw new Error('Only a signed-in student can confirm this payment.');
+    await portalMutations.confirmPayment(data.profile.id, paymentId, qrPayload);
+    await refresh();
+  }, [data.profile, refresh, role]);
+
+  const value = useMemo(() => ({ ...data, error, loading, refresh, startClass, recordAttendance, submitGrade, submitGrades, markAnnouncementRead, confirmPayment }), [data, error, loading, refresh, startClass, recordAttendance, submitGrade, submitGrades, markAnnouncementRead, confirmPayment]);
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 

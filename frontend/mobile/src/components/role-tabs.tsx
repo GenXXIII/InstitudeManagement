@@ -12,6 +12,7 @@ const classesTab = { label: 'Classes', icon: 'book-outline', selectedIcon: 'book
 const assessmentTab = { label: 'Assessment', icon: 'clipboard-outline', selectedIcon: 'clipboard' } satisfies TabDefinition;
 const resultsTab = { label: 'Results', icon: 'ribbon-outline', selectedIcon: 'ribbon' } satisfies TabDefinition;
 const notificationsTab = { label: 'Notifications', icon: 'notifications-outline', selectedIcon: 'notifications' } satisfies TabDefinition;
+const financeTab = { label: 'Finance', icon: 'card-outline', selectedIcon: 'card' } satisfies TabDefinition;
 const profileTab = { label: 'Profile', icon: 'person-outline', selectedIcon: 'person' } satisfies TabDefinition;
 
 export function RoleTabs({ role }: { role: MobileRole }) {
@@ -38,6 +39,7 @@ function StudentTabs() {
     <Tabs.Screen name="index" options={tabOptions(homeTab)}/>
     <Tabs.Screen name="classes" options={tabOptions(classesTab)}/>
     <Tabs.Screen name="results" options={tabOptions(resultsTab)}/>
+    <Tabs.Screen name="finance" options={tabOptions(financeTab)}/>
     <Tabs.Screen name="notifications" options={tabOptions(notificationsTab, unread)}/>
     <Tabs.Screen name="profile" options={tabOptions(profileTab)}/>
     <Tabs.Screen name="schedule" options={{ href: null }}/>
@@ -71,10 +73,10 @@ function tabOptions(tab: TabDefinition, unread = 0) {
 }
 
 const styles = StyleSheet.create({
-  bar: { height: 70, paddingTop: 6, paddingBottom: 6, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: palette.line },
+  bar: { height: 78, paddingTop: 8, paddingBottom: 8, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: palette.line },
   item: { paddingVertical: 1 },
-  label: { fontSize: 9, fontWeight: '600', paddingTop: 1 },
-  icon: { width: 30, height: 27, alignItems: 'center', justifyContent: 'center', borderTopWidth: 2, borderTopColor: 'transparent' },
-  iconActive: { borderTopColor: palette.blue },
-  badge: { minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, fontSize: 8, fontWeight: '700', backgroundColor: palette.red, color: 'white' },
+  label: { fontSize: 10, fontWeight: '700', paddingTop: 2 },
+  icon: { width: 38, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  iconActive: { backgroundColor: palette.bluePale },
+  badge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, fontSize: 8, fontWeight: '800', backgroundColor: palette.gold, color: 'white' },
 });

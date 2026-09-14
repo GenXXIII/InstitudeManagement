@@ -1,26 +1,31 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import type { PropsWithChildren, ReactNode } from 'react';
-import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { palette, radius, shadow } from '@/constants/theme';
 import { usePortal } from '@/features/portal/portal-context';
 import type { ScheduleItem } from '@/features/portal/portal-types';
 
-export function PortalPage({ title, subtitle, children, showChildrenWhenUnavailable = false }: PropsWithChildren<{ title: string; subtitle: string; showChildrenWhenUnavailable?: boolean }>) {
+export function PortalPage({ children, showChildrenWhenUnavailable = false }: PropsWithChildren<{ title: string; subtitle?: string; eyebrow?: string; showChildrenWhenUnavailable?: boolean }>) {
+  const router = useRouter();
   const portal = usePortal();
   const values = portal.profile?.values;
-  const code = values && ('teacherCode' in values ? values.teacherCode : values.studentCode);
-  const accent = palette.blue;
+  const unread = portal.announcements.filter(item => !item.isRead).length;
+  const supportedPhoto = values?.photoDataUrl && (/^data:image\/(png|jpeg|webp);/i.test(values.photoDataUrl) || /^https?:\/\//i.test(values.photoDataUrl));
+  const notificationsRoute = portal.role === 'teacher' ? '/(teacher)/notifications' : '/(student)/notifications';
+  const profileRoute = portal.role === 'teacher' ? '/(teacher)/profile' : '/(student)/profile';
 
   return <SafeAreaView style={styles.safeArea} edges={['top']}>
     <View style={styles.topbar}>
       <View style={styles.brandMark}><Image source={require('../../assets/images/ink-logo.png')} style={styles.brandLogo} resizeMode="contain"/></View>
-      <View style={styles.topbarCopy}><Text style={styles.institute}>Institute of New Khmer</Text><Text style={styles.role}>{portal.role} app</Text></View>
-      <View style={styles.roleBadge}><Ionicons name={portal.role === 'teacher' ? 'school-outline' : 'person-outline'} size={13} color={accent}/><Text style={styles.roleBadgeText}>{portal.role === 'teacher' ? 'Teacher' : 'Student'}</Text></View>
-      <View style={[styles.connectionDot, portal.error ? styles.connectionOffline : undefined]}/>
+      <View style={styles.topbarCopy}><Text style={styles.institute}>Institude of New Khmer</Text><View style={styles.roleLine}><View style={[styles.connectionDot, portal.error ? styles.connectionOffline : undefined]}/><Text style={styles.role}>{portal.role} portal</Text></View></View>
+      <View style={styles.topbarActions}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open notifications" onPress={() => router.push(notificationsRoute)} style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={palette.blueDark}/>{unread ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{Math.min(unread, 9)}</Text></View> : null}</Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open profile" onPress={() => router.push(profileRoute)} style={({ pressed }) => [styles.profileButton, pressed && styles.pressed]}>{supportedPhoto ? <Image source={{ uri: values?.photoDataUrl }} style={styles.profilePhoto}/> : <Ionicons name={portal.role === 'teacher' ? 'school-outline' : 'person-outline'} size={19} color={palette.blueDark}/>}</Pressable>
+      </View>
     </View>
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={portal.loading} onRefresh={() => void portal.refresh()} tintColor={palette.blue}/>}>
-      <View style={styles.heading}><Text style={styles.eyebrow}>{code || `${portal.role} workspace`}</Text><Text style={styles.title}>{title}</Text><Text style={styles.subtitle}>{subtitle}</Text></View>
       {portal.loading && !portal.profile ? <View style={styles.stateCard}><ActivityIndicator color={palette.blue}/><Text>Connecting to institute data…</Text></View> : null}
       {portal.error ? <View style={[styles.stateCard, styles.errorCard]}><Ionicons name="cloud-offline-outline" size={24} color={palette.red}/><Text style={styles.stateTitle}>Connection unavailable</Text><Text style={styles.stateCopy}>{portal.error}</Text><Pressable disabled={portal.loading} onPress={() => void portal.refresh()} style={styles.retryButton}><Ionicons name="refresh-outline" size={15} color="white"/><Text style={styles.retryText}>{portal.loading ? 'Connecting…' : 'Retry connection'}</Text></Pressable></View> : null}
       {!portal.loading && !portal.error && !portal.profile ? <View style={styles.stateCard}><Ionicons name="person-add-outline" size={26} color={palette.blue}/><Text style={styles.stateTitle}>Profile not linked yet</Text><Text style={styles.stateCopy}>Ask Administrator to verify that an active {portal.role} profile exists for the Public ID used to sign in.</Text></View> : null}
@@ -29,23 +34,26 @@ export function PortalPage({ title, subtitle, children, showChildrenWhenUnavaila
   </SafeAreaView>;
 }
 
-export function Card({ children, style }: PropsWithChildren<{ style?: object }>) {
+export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-export function SectionHeading({ title, detail }: { title: string; detail?: string }) {
-  return <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>{title}</Text>{detail ? <Text style={styles.sectionDetail}>{detail}</Text> : null}</View>;
+export function SectionHeading({ title, detail, actionLabel, onAction }: { title: string; detail?: string; actionLabel?: string; onAction?: () => void }) {
+  return <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>{title}</Text>{detail ? <Text style={styles.sectionDetail}>{detail}</Text> : null}</View>{actionLabel && onAction ? <Pressable accessibilityRole="button" onPress={onAction} hitSlop={8} style={({ pressed }) => pressed && styles.pressed}><Text style={styles.sectionAction}>{actionLabel}</Text></Pressable> : null}</View>;
 }
 
-export function MetricCard({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string | number; tone?: 'blue' | 'green' | 'amber' | 'violet' }) {
-  return <Card style={styles.metric}><View style={styles.metricHeader}><Text style={styles.metricLabel}>{label}</Text><Ionicons name={icon} size={17} color={palette.blue}/></View><Text style={styles.metricValue}>{value}</Text></Card>;
+export function MetricCard({ icon, label, value, tone = 'blue' }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string | number; tone?: 'blue' | 'green' | 'amber' | 'violet' }) {
+  const metricTone = tone === 'green' ? { color: palette.green, backgroundColor: palette.greenPale } : tone === 'amber' ? { color: palette.gold, backgroundColor: palette.goldPale } : tone === 'violet' ? { color: palette.violet, backgroundColor: palette.violetPale } : { color: palette.blue, backgroundColor: palette.bluePale };
+  return <Card style={styles.metric}><View style={[styles.metricIcon, { backgroundColor: metricTone.backgroundColor }]}><Ionicons name={icon} size={18} color={metricTone.color}/></View><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></Card>;
 }
 
 export function ScheduleCard({ item }: { item: ScheduleItem }) {
   const value = item.values;
   return <Card style={styles.scheduleCard}>
-    <View style={styles.timeBlock}><Text style={styles.time}>{value.startsAt}</Text><Text style={styles.timeEnd}>{value.endsAt}</Text></View>
-    <View style={styles.scheduleCopy}><View style={styles.scheduleTitleRow}><Text style={styles.scheduleTitle} numberOfLines={1}>{value.course}</Text><StatusPill value={value.status}/></View><Text style={styles.scheduleCode}>{value.courseCode} · {value.enrollmentCode}</Text><View style={styles.scheduleMeta}><Ionicons name="location-outline" size={13} color={palette.muted}/><Text>{value.classroom}{value.building ? ` · ${value.building}` : ''}</Text></View><View style={styles.scheduleMeta}><Ionicons name="person-outline" size={13} color={palette.muted}/><Text>{value.teacher} · Year {value.yearLevel}</Text></View></View>
+    <View style={styles.scheduleHeader}><View style={styles.scheduleTime}><Ionicons name="time-outline" size={15} color={palette.blue}/><Text style={styles.time}>{value.startsAt}–{value.endsAt}</Text></View><StatusPill value={value.status}/></View>
+    <Text style={styles.scheduleTitle} numberOfLines={1}>{value.course}</Text>
+    <Text style={styles.scheduleCode}>{value.courseCode} · {value.enrollmentCode}</Text>
+    <View style={styles.scheduleDetails}><View style={styles.scheduleMeta}><Ionicons name="location-outline" size={14} color={palette.muted}/><Text style={styles.scheduleMetaText}>{value.classroom}{value.building ? ` · ${value.building}` : ''}</Text></View><View style={styles.scheduleMeta}><Ionicons name="person-outline" size={14} color={palette.muted}/><Text style={styles.scheduleMetaText}>{value.teacher} · Year {value.yearLevel}</Text></View></View>
   </Card>;
 }
 
@@ -84,51 +92,54 @@ export const portalStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: palette.canvas },
-  topbar: { minHeight: 62, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: palette.panel, borderBottomWidth: 1, borderBottomColor: palette.line },
-  brandMark: { width: 38, height: 42, alignItems: 'center', justifyContent: 'center' },
-  brandLogo: { width: 36, height: 40 },
-  topbarCopy: { flex: 1, marginLeft: 9 },
-  institute: { color: palette.ink, fontSize: 12, fontWeight: '700' },
-  role: { color: palette.muted, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
-  roleBadge: { minHeight: 26, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, borderRadius: radius.small, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel },
-  roleBadgeText: { color: palette.blue, fontSize: 9, fontWeight: '700' },
-  connectionDot: { width: 7, height: 7, marginLeft: 8, borderRadius: 4, backgroundColor: palette.green },
+  safeArea: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: palette.canvas },
+  topbar: { minHeight: 76, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', backgroundColor: palette.panel },
+  brandMark: { width: 42, height: 48, alignItems: 'center', justifyContent: 'center' },
+  brandLogo: { width: 40, height: 46 },
+  topbarCopy: { flex: 1, marginLeft: 10 },
+  institute: { color: palette.ink, fontSize: 14, fontWeight: '800', letterSpacing: -0.2 },
+  roleLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  role: { color: palette.muted, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.7, fontWeight: '600' },
+  topbarActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  actionButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line },
+  profileButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: palette.bluePale, borderWidth: 1, borderColor: '#D6DCFA' },
+  profilePhoto: { width: '100%', height: '100%' },
+  notificationBadge: { position: 'absolute', top: -2, right: -2, minWidth: 17, height: 17, paddingHorizontal: 4, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.gold, borderWidth: 2, borderColor: palette.panel },
+  notificationBadgeText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
+  connectionDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: palette.green },
   connectionOffline: { backgroundColor: palette.red },
-  content: { padding: 14, paddingBottom: 28, gap: 12 },
-  heading: { paddingVertical: 14, paddingHorizontal: 15, borderWidth: 1, borderLeftWidth: 3, borderColor: palette.line, borderLeftColor: palette.blue, borderRadius: radius.medium, backgroundColor: palette.panel },
-  eyebrow: { color: palette.blue, textTransform: 'uppercase', letterSpacing: 0.9, fontWeight: '700', fontSize: 9 },
-  title: { color: palette.ink, fontSize: 23, fontWeight: '800', letterSpacing: -0.4, marginTop: 4 },
-  subtitle: { color: palette.muted, fontSize: 12, lineHeight: 17, marginTop: 4 },
-  card: { backgroundColor: palette.panel, borderRadius: radius.medium, borderWidth: 1, borderColor: palette.line, padding: 14, ...shadow },
-  stateCard: { minHeight: 150, padding: 22, borderRadius: radius.medium, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  content: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 34, gap: 16 },
+  card: { backgroundColor: palette.panel, borderRadius: radius.medium, borderWidth: 1, borderColor: palette.line, padding: 16, ...shadow },
+  stateCard: { minHeight: 150, padding: 24, borderRadius: radius.medium, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, alignItems: 'center', justifyContent: 'center', gap: 9 },
   errorCard: { backgroundColor: '#FFFAFB', borderColor: '#F5CED4' },
-  stateTitle: { color: palette.ink, fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  stateCopy: { color: palette.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  retryButton: { minHeight: 38, marginTop: 6, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: radius.small, backgroundColor: palette.blue },
-  retryText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  sectionHeading: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 6, paddingBottom: 1 },
-  sectionTitle: { color: palette.ink, fontSize: 14, fontWeight: '800' },
-  sectionDetail: { color: palette.muted, fontSize: 10, fontWeight: '600' },
-  metric: { width: '48.5%', minHeight: 96, padding: 13, borderTopWidth: 2, borderTopColor: palette.blue },
-  metricHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  metricValue: { color: palette.ink, fontWeight: '800', fontSize: 22, marginTop: 12 },
-  metricLabel: { flex: 1, color: palette.muted, fontSize: 10, fontWeight: '600' },
-  scheduleCard: { flexDirection: 'row', padding: 0, overflow: 'hidden', borderLeftWidth: 3, borderLeftColor: palette.blue },
-  timeBlock: { width: 68, paddingVertical: 16, alignItems: 'center', backgroundColor: '#F8F9FB', borderRightWidth: 1, borderRightColor: palette.line },
-  time: { color: palette.ink, fontWeight: '800', fontSize: 13 },
-  timeEnd: { color: palette.muted, fontSize: 10, marginTop: 5 },
-  scheduleCopy: { flex: 1, padding: 14 },
-  scheduleTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  scheduleTitle: { flex: 1, color: palette.ink, fontSize: 13, fontWeight: '800' },
-  scheduleCode: { color: palette.blue, fontSize: 10, fontWeight: '600', marginTop: 3 },
-  scheduleMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7 },
-  pill: { overflow: 'hidden', borderRadius: radius.small, paddingHorizontal: 7, paddingVertical: 3, textTransform: 'capitalize', fontSize: 9, fontWeight: '700' },
+  stateTitle: { color: palette.ink, fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  stateCopy: { color: palette.muted, fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  retryButton: { minHeight: 42, marginTop: 7, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: radius.small, backgroundColor: palette.blue },
+  retryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  sectionHeading: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 7 },
+  sectionTitle: { color: palette.ink, fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  sectionDetail: { color: palette.muted, fontSize: 11, fontWeight: '600', marginTop: 2 },
+  sectionAction: { color: palette.blue, fontSize: 12, fontWeight: '800' },
+  metric: { width: '48.5%', minHeight: 120, padding: 15, shadowOpacity: 0, elevation: 0 },
+  metricIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  metricValue: { color: palette.ink, fontWeight: '800', fontSize: 24, marginTop: 14 },
+  metricLabel: { color: palette.muted, fontSize: 12, fontWeight: '600', marginTop: 3 },
+  scheduleCard: { borderLeftWidth: 4, borderLeftColor: palette.blue, shadowOpacity: 0, elevation: 0 },
+  scheduleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  scheduleTime: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  time: { color: palette.blueDark, fontWeight: '800', fontSize: 12 },
+  scheduleTitle: { color: palette.ink, fontSize: 16, lineHeight: 21, fontWeight: '800', marginTop: 13 },
+  scheduleCode: { color: palette.blue, fontSize: 11, fontWeight: '700', marginTop: 4 },
+  scheduleDetails: { gap: 7, marginTop: 12, paddingTop: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.line },
+  scheduleMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scheduleMetaText: { flex: 1, color: palette.muted, fontSize: 12 },
+  pill: { overflow: 'hidden', borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4, textTransform: 'capitalize', fontSize: 10, fontWeight: '800' },
   empty: { minHeight: 122, alignItems: 'center', justifyContent: 'center', gap: 7, shadowOpacity: 0, elevation: 0 },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  avatar: { width: 44, height: 56, borderRadius: radius.small, backgroundColor: '#F1F3F6' },
-  avatarFallback: { width: 44, height: 44, borderRadius: radius.small, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F1F3F6', borderWidth: 1, borderColor: palette.line },
+  avatar: { width: 52, height: 60, borderRadius: radius.small, backgroundColor: '#F1F3F6' },
+  avatarFallback: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.bluePale, borderWidth: 1, borderColor: '#D6DCFA' },
   identityCopy: { flex: 1 },
-  identityName: { color: palette.ink, fontSize: 13, fontWeight: '700' },
-  identityDetail: { color: palette.muted, fontSize: 10, marginTop: 3 },
+  identityName: { color: palette.ink, fontSize: 15, fontWeight: '800' },
+  identityDetail: { color: palette.muted, fontSize: 12, marginTop: 4 },
+  pressed: { opacity: 0.68 },
 });

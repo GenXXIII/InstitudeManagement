@@ -1,0 +1,26 @@
+export type StudentPayment = {
+  id: string;
+  paymentCode: string;
+  studentId: string;
+  studentCode: string;
+  publicId: string;
+  studentName: string;
+  department: string;
+  enrollmentCode: string;
+  yearLevel: number;
+  shift: string;
+  academicYear: string;
+  semester: string;
+  amountDue: number;
+  currency: string;
+  dueOn: string;
+  status: "Pending" | "Paid";
+  confirmationMethod: string;
+  paidAtUtc: string | null;
+  reminderSentAtUtc: string | null;
+  reminderReadAtUtc: string | null;
+  timetableStatus: "Ready" | "Waiting";
+  periodState: "Current" | "Retained";
+  qrPayload: string;
+  createAt: string;
+};

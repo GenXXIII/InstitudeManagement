@@ -30,13 +30,20 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
                 && x.ScheduleEntry.EndsAt == period.EndsAt)
             .ToList();
         if (!selection.IsRunning) currentTimetables.Clear();
+        var startedScheduleIds = await ClassSessionStartStateReader.GetStartedScheduleIdsAsync(
+            db,
+            DateOnly.FromDateTime(localNow),
+            currentTimetables.Select(enrollment => enrollment.ScheduleEntryId),
+            cancellationToken);
         var currentCohorts = currentTimetables
             .Select(OperationEnrollmentSourceService.TimetableCohort)
             .Where(cohort => cohort.HasValue)
             .Select(cohort => cohort!.Value)
             .ToHashSet();
         var runningCohorts = currentTimetables
-            .Where(x => TeacherPresence.IsPresent(TeacherPresence.Attendance(x.Teacher?.Status)))
+            .Where(x => TeacherPresence.IsPresent(TeacherPresence.ClassAttendance(
+                startedScheduleIds.Contains(x.ScheduleEntryId),
+                x.Teacher?.Status)))
             .Select(OperationEnrollmentSourceService.TimetableCohort)
             .Where(cohort => cohort.HasValue)
             .Select(cohort => cohort!.Value)

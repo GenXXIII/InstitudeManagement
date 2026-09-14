@@ -28,4 +28,9 @@ public static partial class SettingsCatalog
         Date("summerStartsOn", "2027-07-01"),
         Date("summerEndsOn", "2027-08-31"),
         Option("summerStatus", "Upcoming", "Active", "Upcoming", "Completed", "Inactive"));
+
+    private static readonly SettingsSectionDefinition FinanceSection = Section("finance",
+        Decimal("semesterPrice", "500.00", 0, 1000000),
+        Option("currency", "USD", "USD", "KHR"),
+        Integer("paymentDueDays", "14", 0, 365));
 }
