@@ -4,7 +4,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Finance;
 
-public sealed record FinanceSettings(decimal SemesterPrice, string Currency, int PaymentDueDays);
+public sealed record FinanceSettings(
+    decimal TuitionFee,
+    decimal OtherFee,
+    string Currency,
+    int PaymentDueDays,
+    IReadOnlyList<string> PaymentMethods,
+    bool AllowPartialPayments,
+    bool AllowOverpayment,
+    decimal MaximumAdjustmentAmount,
+    bool RequirePaidForAdvancement);
 
 public sealed class FinanceSettingsReader(InstituteDbContext db)
 {
@@ -13,17 +22,32 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
         var values = await db.SystemSettings.AsNoTracking()
             .Where(setting => setting.Section == "finance")
             .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, cancellationToken);
-        var price = decimal.TryParse(
-            values.GetValueOrDefault("semesterPrice"),
-            NumberStyles.Number,
-            CultureInfo.InvariantCulture,
-            out var configuredPrice)
-            ? configuredPrice
-            : 500m;
+        var tuitionFee = Decimal(values, "semesterPrice", 500m);
+        var otherFee = Decimal(values, "otherFee", 0m);
         var dueDays = int.TryParse(values.GetValueOrDefault("paymentDueDays"), out var configuredDays)
             ? configuredDays
             : 14;
         var currency = values.GetValueOrDefault("currency", "USD");
-        return new(decimal.Max(0, price), currency is "USD" or "KHR" ? currency : "USD", Math.Clamp(dueDays, 0, 365));
+        var methods = values.GetValueOrDefault("paymentMethods", "Cash,ABA,ACLEDA,Wing,Bank Transfer,Other")
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (methods.Length == 0) methods = ["Other"];
+        return new(
+            decimal.Max(0, tuitionFee),
+            decimal.Max(0, otherFee),
+            currency is "USD" or "KHR" ? currency : "USD",
+            Math.Clamp(dueDays, 0, 365),
+            methods,
+            Boolean(values, "allowPartialPayments", true),
+            Boolean(values, "allowOverpayment", false),
+            decimal.Max(0, Decimal(values, "maximumAdjustmentAmount", 1000000m)),
+            Boolean(values, "requirePaidForAdvancement", true));
     }
+
+    private static decimal Decimal(IReadOnlyDictionary<string, string> values, string key, decimal fallback) =>
+        decimal.TryParse(values.GetValueOrDefault(key), NumberStyles.Number, CultureInfo.InvariantCulture, out var value) ? value : fallback;
+
+    private static bool Boolean(IReadOnlyDictionary<string, string> values, string key, bool fallback) =>
+        bool.TryParse(values.GetValueOrDefault(key), out var value) ? value : fallback;
 }

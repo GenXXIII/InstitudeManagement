@@ -2,13 +2,11 @@ import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import type { AnnouncementItem } from "../announcements/announcement-types";
-import type { NotificationHistoryItem } from "../history/notification-history-types";
 import type { NotificationItem } from "../notifications/notification-types";
 
-export function AnnounceOverview({ notifications, alerts, history }: {
+export function AnnounceOverview({ notifications, alerts }: {
   notifications: NotificationItem[];
   alerts: AnnouncementItem[];
-  history: NotificationHistoryItem[];
 }) {
   const recent = [
     ...notifications.map(item => ({
@@ -27,14 +25,6 @@ export function AnnounceOverview({ notifications, alerts, history }: {
       date: item.createAt,
       href: `/announce/alerts/${item.id}`,
     })),
-    ...history.map(item => ({
-      code: item.notificationHistoryCode,
-      kind: `${item.kind} history`,
-      title: item.title,
-      detail: `${item.sourceCode} · ${item.action}`,
-      date: item.createAt,
-      href: `/announce/history/${encodeURIComponent(item.notificationHistoryCode)}`,
-    })),
   ].toSorted((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()).slice(0, 8);
   const areas = [
     {
@@ -50,13 +40,6 @@ export function AnnounceOverview({ notifications, alerts, history }: {
       detail: "Institute announcements",
       href: "/announce/alerts",
       icon: "pulse" as const,
-    },
-    {
-      label: "History",
-      count: history.length,
-      detail: "Permanent lifecycle entries",
-      href: "/announce/history",
-      icon: "archive" as const,
     },
   ];
 
@@ -82,7 +65,7 @@ export function AnnounceOverview({ notifications, alerts, history }: {
       </Link>)}
       {!recent.length && <div className="empty-state">
         <strong>No announcement activity</strong>
-        <span>Notifications, alerts, and their coded history will appear here.</span>
+        <span>Current notifications and alerts will appear here.</span>
       </div>}
     </DataTable>
   </>;

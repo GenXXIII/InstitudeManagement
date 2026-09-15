@@ -51,8 +51,14 @@ export const defaultSettings: InstituteSettings = {
   },
   finance: {
     semesterPrice: "500.00",
+    otherFee: "0.00",
     currency: "USD",
     paymentDueDays: "14",
+    paymentMethods: csv("Cash", "ABA", "ACLEDA", "Wing", "Bank Transfer", "Other"),
+    allowPartialPayments: "true",
+    allowOverpayment: "false",
+    maximumAdjustmentAmount: "1000000.00",
+    requirePaidForAdvancement: "true",
   },
   departments: {
     defaultStatus: "Active",

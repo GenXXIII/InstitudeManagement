@@ -35,13 +35,17 @@ export function HistoryDetail({ resource, id }: { resource: string; id: string }
   const latest = group.entries[0];
   const sourceCode = historyBusinessCode(group);
   const codeResource = workflowResource(group.type);
+  const finance = group.type === "Finance";
+  const historyCode = group.businessCode || (finance ? sourceCode : workflowCode(sourceCode, codeResource, "history"));
+  const sourceLabel = finance ? "Enrollment source" : "Management source";
+  const sourceValue = finance ? group.values.find(([key]) => key.toLowerCase() === "enrollmentcode")?.[1] ?? sourceCode : workflowCode(sourceCode, codeResource, "management");
   return <div className="viewport-data-page history-detail-viewport-page">
     <PageHeading eyebrow="Permanent read-only history" title={group.subject} description={`${group.type} · ${group.entries.length} recorded snapshot${group.entries.length === 1 ? "" : "s"}`} actions={<BrowserBackButton>Back to history</BrowserBackButton>}/>
     <section className="history-detail-scroll">
-      <WorkflowCodeFlow sourceCode={sourceCode} resource={codeResource} currentStage="history"/>
+      {!finance && <WorkflowCodeFlow sourceCode={sourceCode} resource={codeResource} currentStage="history"/>}
       <article className="panel history-detail-summary">
-        <header><div><span>Latest captured snapshot</span><strong>{group.businessCode || workflowCode(sourceCode, codeResource, "history")} · {group.subject}</strong></div><time>{formatDate(latest.date)}</time></header>
-        <div><section><span>History code</span><strong>{group.businessCode || workflowCode(sourceCode, codeResource, "history")}</strong></section><section><span>Management source</span><strong>{workflowCode(sourceCode, codeResource, "management")}</strong></section>{group.values.filter(([name]) => isHistoryFieldVisible(name)).map(([name, value]) => <section key={name}><span>{pretty(name)}</span><strong>{displayValue(name, value)}</strong></section>)}</div>
+        <header><div><span>Latest captured {finance ? "event" : "snapshot"}</span><strong>{historyCode} · {group.subject}</strong></div><time>{formatDate(latest.date)}</time></header>
+        <div><section><span>{finance ? "Financial account" : "History code"}</span><strong>{historyCode}</strong></section><section><span>{sourceLabel}</span><strong>{sourceValue}</strong></section>{group.values.filter(([name]) => isHistoryFieldVisible(name)).map(([name, value]) => <section key={name}><span>{pretty(name)}</span><strong>{displayValue(name, value)}</strong></section>)}</div>
       </article>
       <section className="record-row-history history-detail-timeline"><div className="record-history-heading"><strong>Complete lifecycle and data snapshots</strong><span>Newest snapshot first</span></div>{group.entries.map(entry => <HistoryEntry entry={entry} key={entry.id}/>)}</section>
     </section>
@@ -49,6 +53,6 @@ export function HistoryDetail({ resource, id }: { resource: string; id: string }
 }
 
 function historyBusinessCode(group: RecordGroup) {
-  const expected = group.type === "Class session" ? "classsessionrecordcode" : `${group.type.replaceAll(" ", "").toLowerCase()}code`;
+  const expected = group.type === "Class session" ? "classsessionrecordcode" : group.type === "Finance" ? "financialaccountcode" : `${group.type.replaceAll(" ", "").toLowerCase()}code`;
   return group.values.find(([key]) => key.replaceAll(" ", "").toLowerCase() === expected)?.[1] ?? group.subject;
 }

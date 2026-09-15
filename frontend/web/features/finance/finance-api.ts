@@ -1,6 +1,23 @@
 import { request } from "@/lib/http";
-import type { StudentPayment } from "./finance-types";
+import type { FinancialAccount, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
+
+const accountsRoute = "/api/finance/accounts";
+
+function paymentBody(draft: PaymentDraft) {
+  return {
+    amount: Number(draft.amount),
+    method: draft.method,
+    transactionReference: draft.transactionReference,
+    paidAtUtc: draft.paidAtUtc ? new Date(draft.paidAtUtc).toISOString() : null,
+  };
+}
 
 export const financeApi = {
-  get: (search = "", status = "All") => request<StudentPayment[]>(`/api/finance?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`),
+  get: (search = "", status = "All") => request<FinancialAccount[]>(`/api/finance?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`),
+  getOptions: () => request<FinanceOptions>("/api/finance/options"),
+  recordPayment: (accountId: string, draft: PaymentDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments`, { method: "POST", body: JSON.stringify(paymentBody(draft)) }),
+  updatePayment: (accountId: string, paymentId: string, draft: PaymentDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments/${paymentId}`, { method: "PUT", body: JSON.stringify(paymentBody(draft)) }),
+  setPaymentStatus: (accountId: string, paymentId: string, status: Exclude<PaymentStatus, "Completed">) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments/${paymentId}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  adjust: (accountId: string, amount: number, reason: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/adjustment`, { method: "PUT", body: JSON.stringify({ amount, reason }) }),
+  cancel: (accountId: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/cancel`, { method: "PUT" }),
 };

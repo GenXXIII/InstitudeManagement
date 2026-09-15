@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Finance;
 
-public sealed class StudentPaymentSynchronizer(
+public sealed class FinancialAccountSynchronizer(
     InstituteDbContext db,
     FinanceSettingsReader settingsReader)
 {
@@ -37,25 +37,25 @@ public sealed class StudentPaymentSynchronizer(
         return await EnsureAsync(enrollments, cancellationToken);
     }
 
-    public async Task<StudentPayment> EnsureForEnrollmentAsync(
+    public async Task<FinancialAccount> EnsureForEnrollmentAsync(
         StudentEnrollment enrollment,
         Student student,
         CancellationToken cancellationToken)
     {
-        var local = db.StudentPayments.Local.FirstOrDefault(payment => payment.StudentEnrollmentId == enrollment.Id);
-        var existing = local ?? await db.StudentPayments.FirstOrDefaultAsync(
-            payment => payment.StudentEnrollmentId == enrollment.Id,
+        var local = db.FinancialAccounts.Local.FirstOrDefault(account => account.StudentEnrollmentId == enrollment.Id);
+        var existing = local ?? await db.FinancialAccounts.FirstOrDefaultAsync(
+            account => account.StudentEnrollmentId == enrollment.Id,
             cancellationToken);
         var settings = await settingsReader.GetAsync(cancellationToken);
         if (existing is not null)
         {
-            ApplyPendingPrice(existing, settings);
+            ApplyPendingFees(existing, settings);
             return existing;
         }
 
-        var payment = Create(enrollment, student, settings);
-        db.StudentPayments.Add(payment);
-        return payment;
+        var account = Create(enrollment, student, settings);
+        db.FinancialAccounts.Add(account);
+        return account;
     }
 
     private async Task<int> EnsureAsync(
@@ -64,11 +64,11 @@ public sealed class StudentPaymentSynchronizer(
     {
         if (enrollments.Count == 0) return 0;
         var enrollmentIds = enrollments.Select(enrollment => enrollment.Id).ToList();
-        var existing = (await db.StudentPayments
-                .Where(payment => enrollmentIds.Contains(payment.StudentEnrollmentId))
+        var existing = (await db.FinancialAccounts
+                .Where(account => enrollmentIds.Contains(account.StudentEnrollmentId))
                 .ToListAsync(cancellationToken))
-            .ToDictionary(payment => payment.StudentEnrollmentId);
-        foreach (var local in db.StudentPayments.Local.Where(payment => enrollmentIds.Contains(payment.StudentEnrollmentId)))
+            .ToDictionary(account => account.StudentEnrollmentId);
+        foreach (var local in db.FinancialAccounts.Local.Where(account => enrollmentIds.Contains(account.StudentEnrollmentId)))
         {
             existing[local.StudentEnrollmentId] = local;
         }
@@ -77,57 +77,55 @@ public sealed class StudentPaymentSynchronizer(
         var created = 0;
         foreach (var enrollment in enrollments)
         {
-            if (existing.TryGetValue(enrollment.Id, out var payment))
+            if (existing.TryGetValue(enrollment.Id, out var account))
             {
-                ApplyPendingPrice(payment, settings);
+                ApplyPendingFees(account, settings);
                 continue;
             }
 
-            db.StudentPayments.Add(Create(enrollment, enrollment.Student!, settings));
+            db.FinancialAccounts.Add(Create(enrollment, enrollment.Student!, settings));
             created++;
         }
         return created;
     }
 
-    private static StudentPayment Create(
+    private static FinancialAccount Create(
         StudentEnrollment enrollment,
         Student student,
         FinanceSettings settings)
     {
-        var free = settings.SemesterPrice <= 0;
-        return new StudentPayment
+        var free = settings.TuitionFee + settings.OtherFee <= 0;
+        return new FinancialAccount
         {
-            PaymentCode = PaymentCode(student.StudentCode),
+            FinancialAccountCode = FinancialAccountCode(student.StudentCode),
             StudentEnrollmentId = enrollment.Id,
             StudentId = enrollment.StudentId,
             AcademicYear = enrollment.AcademicYear,
             Semester = enrollment.Semester,
-            AmountDue = settings.SemesterPrice,
+            TuitionFee = settings.TuitionFee,
+            OtherFee = settings.OtherFee,
             Currency = settings.Currency,
             DueOn = DateOnly.FromDateTime(enrollment.CreateAt).AddDays(settings.PaymentDueDays),
-            Status = free ? "Paid" : "Pending",
-            ConfirmationMethod = free ? "No payment required" : string.Empty,
-            PaidAtUtc = free ? DateTime.UtcNow : null
+            Status = free ? "Paid" : "Pending"
         };
     }
 
-    private static void ApplyPendingPrice(StudentPayment payment, FinanceSettings settings)
+    private static void ApplyPendingFees(FinancialAccount account, FinanceSettings settings)
     {
-        if (payment.Status != "Pending") return;
-        payment.AmountDue = settings.SemesterPrice;
-        payment.Currency = settings.Currency;
-        if (settings.SemesterPrice > 0) return;
-        payment.Status = "Paid";
-        payment.ConfirmationMethod = "No payment required";
-        payment.PaidAtUtc = DateTime.UtcNow;
-        payment.ReminderReadAtUtc = DateTime.UtcNow;
-        payment.UpdatedAtUtc = DateTime.UtcNow;
+        if (account.Status != "Pending") return;
+        account.TuitionFee = settings.TuitionFee;
+        account.OtherFee = settings.OtherFee;
+        account.Currency = settings.Currency;
+        if (settings.TuitionFee + settings.OtherFee > 0) return;
+        account.Status = "Paid";
+        account.ReminderReadAtUtc = DateTime.UtcNow;
+        account.UpdatedAtUtc = DateTime.UtcNow;
     }
 
-    private static string PaymentCode(string studentCode)
+    private static string FinancialAccountCode(string studentCode)
     {
         var safeCode = studentCode.Trim();
         if (safeCode.Length > 52) safeCode = safeCode[..52];
-        return $"PAY-{safeCode}";
+        return $"FIN-{safeCode}";
     }
 }

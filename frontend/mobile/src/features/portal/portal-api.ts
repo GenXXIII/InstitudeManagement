@@ -86,7 +86,7 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
       request<GradeItem[]>('/api/catalog/grades'),
       request<StudentPayment[]>(`/api/finance/students/${student.id}`),
     ]);
-    const financeAlerts = payments.filter(payment => payment.reminderSentAtUtc).map(payment => ({
+    const financeAlerts = payments.filter(payment => payment.reminderSentAtUtc && payment.status !== 'Cancelled').map(payment => ({
       id: `finance-${payment.id}`,
       source: 'finance' as const,
       sourceId: payment.id,
@@ -94,8 +94,8 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
       type: 'Finance' as const,
       title: payment.status === 'Paid' ? 'Semester payment confirmed' : 'Semester payment required',
       message: payment.status === 'Paid'
-        ? `${payment.amountDue} ${payment.currency} was confirmed for ${payment.academicYear} / ${payment.semester}.`
-        : `Please confirm ${payment.amountDue} ${payment.currency} for ${payment.academicYear} / ${payment.semester}. Your next enrollment is held while payment is pending.`,
+        ? `${payment.totalPaid} ${payment.currency} was confirmed for ${payment.academicYear} / ${payment.semester}.`
+        : `Please pay the remaining ${payment.balance} ${payment.currency} for ${payment.academicYear} / ${payment.semester}. Your next enrollment is held until Finance reports Paid.`,
       isRead: Boolean(payment.reminderReadAtUtc),
       createAt: payment.reminderSentAtUtc!,
     }));

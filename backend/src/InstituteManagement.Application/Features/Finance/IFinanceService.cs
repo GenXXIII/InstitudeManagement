@@ -11,6 +11,8 @@ public interface IFinanceService
 
     Task<IReadOnlyList<StudentPaymentDto>> GetStudentAsync(Guid studentId, CancellationToken cancellationToken);
 
+    Task<FinanceOptionsDto> GetOptionsAsync(CancellationToken cancellationToken);
+
     Task<StudentPaymentDto> ConfirmAsync(
         Guid studentId,
         Guid paymentId,
@@ -21,4 +23,28 @@ public interface IFinanceService
         Guid studentId,
         Guid paymentId,
         CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> RecordPaymentAsync(
+        Guid financialAccountId,
+        RecordFinancePaymentDto request,
+        CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> UpdatePaymentAsync(
+        Guid financialAccountId,
+        Guid paymentId,
+        UpdateFinancePaymentDto request,
+        CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> SetPaymentStatusAsync(
+        Guid financialAccountId,
+        Guid paymentId,
+        FinancePaymentStatusDto request,
+        CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> AdjustAsync(
+        Guid financialAccountId,
+        FinancialAdjustmentDto request,
+        CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> CancelAsync(Guid financialAccountId, CancellationToken cancellationToken);
 }

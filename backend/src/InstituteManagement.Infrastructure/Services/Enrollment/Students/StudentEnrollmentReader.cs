@@ -26,9 +26,9 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
             .Where(enrollment => enrollment.Status != "Removed" && studentIds.Contains(enrollment.StudentId))
             .ToListAsync(cancellationToken);
         var enrollmentIds = enrollments.Select(enrollment => enrollment.Id).ToList();
-        var paymentByEnrollment = await db.StudentPayments.AsNoTracking()
-            .Where(payment => enrollmentIds.Contains(payment.StudentEnrollmentId))
-            .ToDictionaryAsync(payment => payment.StudentEnrollmentId, payment => payment.Status, cancellationToken);
+        var paymentByEnrollment = await db.FinancialAccounts.AsNoTracking()
+            .Where(account => enrollmentIds.Contains(account.StudentEnrollmentId))
+            .ToDictionaryAsync(account => account.StudentEnrollmentId, account => account.Status, cancellationToken);
 
         return enrollments
             .Where(enrollment =>

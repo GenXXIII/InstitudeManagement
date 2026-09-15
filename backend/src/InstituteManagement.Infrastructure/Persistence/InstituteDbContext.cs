@@ -26,7 +26,8 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
     public DbSet<CourseAssignment> CourseAssignments => Set<CourseAssignment>();
     public DbSet<ClassroomAssignment> ClassroomAssignments => Set<ClassroomAssignment>();
     public DbSet<TimetableEnrollment> TimetableEnrollments => Set<TimetableEnrollment>();
-    public DbSet<StudentPayment> StudentPayments => Set<StudentPayment>();
+    public DbSet<FinancialAccount> FinancialAccounts => Set<FinancialAccount>();
+    public DbSet<FinancialPayment> FinancialPayments => Set<FinancialPayment>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

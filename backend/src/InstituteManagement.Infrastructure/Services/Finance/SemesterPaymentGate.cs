@@ -7,7 +7,8 @@ public sealed record SemesterPaymentGateResult(IReadOnlySet<Guid> PaidStudentIds
 
 public sealed class SemesterPaymentGate(
     InstituteDbContext db,
-    StudentPaymentSynchronizer synchronizer)
+    FinancialAccountSynchronizer synchronizer,
+    FinanceSettingsReader settingsReader)
 {
     public async Task<SemesterPaymentGateResult> EvaluateAsync(
         string academicYear,
@@ -25,25 +26,26 @@ public sealed class SemesterPaymentGate(
                 && enrollment.Status == "Active")
             .Select(enrollment => enrollment.Id)
             .ToListAsync(cancellationToken);
-        var payments = await db.StudentPayments
-            .Where(payment => enrollmentIds.Contains(payment.StudentEnrollmentId))
+        var accounts = await db.FinancialAccounts
+            .Where(account => enrollmentIds.Contains(account.StudentEnrollmentId))
             .ToListAsync(cancellationToken);
-        foreach (var tracked in db.StudentPayments.Local.Where(payment => enrollmentIds.Contains(payment.StudentEnrollmentId)))
+        foreach (var tracked in db.FinancialAccounts.Local.Where(account => enrollmentIds.Contains(account.StudentEnrollmentId)))
         {
-            if (payments.All(payment => payment.Id != tracked.Id)) payments.Add(tracked);
+            if (accounts.All(account => account.Id != tracked.Id)) accounts.Add(tracked);
         }
 
-        var paid = payments
-            .Where(payment => payment.Status == "Paid")
-            .Select(payment => payment.StudentId)
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        var paid = accounts
+            .Where(account => !settings.RequirePaidForAdvancement || account.Status == "Paid")
+            .Select(account => account.StudentId)
             .ToHashSet();
         var reminderTime = DateTime.UtcNow;
         var held = 0;
-        foreach (var payment in payments.Where(payment => payment.Status != "Paid"))
+        foreach (var account in accounts.Where(account => settings.RequirePaidForAdvancement && account.Status != "Paid"))
         {
-            payment.ReminderSentAtUtc = reminderTime;
-            payment.ReminderReadAtUtc = null;
-            payment.UpdatedAtUtc = reminderTime;
+            account.ReminderSentAtUtc = reminderTime;
+            account.ReminderReadAtUtc = null;
+            account.UpdatedAtUtc = reminderTime;
             held++;
         }
 

@@ -12,6 +12,8 @@ import { historyApi } from "./history-api";
 import type { RecordItem } from "./history-types";
 
 const historyAreas = [
+  { icon: "bell", code: "NOTIFICATION → HISTORY", title: "Notification & Alert History", detail: "Combined read-only lifecycle events ordered by their recorded date", path: "/records/notifications" },
+  { icon: "finance", code: "FINANCE → HISTORY", title: "Finance History", detail: "Payment, adjustment, refund, balance, and eligibility events kept outside Finance", path: "/records/finance" },
   { icon: "users", code: "STUDENT → HISTORY", title: "Student History", detail: "Graduates only: Management profile plus the complete Year 1–4 Enrollment, Operation, and Record story", path: "/records/students" },
   { icon: "teacher", code: "TEACHER → HISTORY", title: "Teacher History", detail: "One read-only assignment and completed-class story for every closed semester", path: "/records/teachers" },
   { icon: "calendar", code: "HSES-XX", title: "Class Sessions", detail: "Frozen attendance for every completed enrolled timetable", path: "/records/class-sessions" },
@@ -57,7 +59,7 @@ export function HistoryOverview() {
   const gradeCount = visibleStudents.reduce((total, row) => total + row.activities.filter(activity => activity.Activity === "Course grade").length, 0);
 
   return <div className="viewport-data-page history-control-overview-page">
-    <PageHeading eyebrow="Permanent lifecycle archive" title="History Overview" description="Every closed semester archives teacher, course, classroom, timetable, department, and class-session stories. A student’s Management profile and complete semester journey move here together after graduation."/>
+    <PageHeading eyebrow="Permanent lifecycle archive" title="History Overview" description="Every closed semester archives teacher, course, classroom, timetable, department, and class-session stories. Notification and alert lifecycle events are also kept here in recorded-time order."/>
     <section className="record-semester-switcher panel"><div><span>Archived lifecycle data</span><strong>{selectedPeriod === "all" ? "All completed stories" : periods.find(period => period.key === selectedPeriod)?.label ?? "Selected semester"}</strong></div><label><span>Inspect an archived semester</span><select value={selectedPeriod} onChange={event => changePeriod(event.target.value)}><option value="all">All archived periods</option>{periods.map(period => <option value={period.key} key={period.key}>{period.label}</option>)}</select></label></section>
     <div className="history-control-overview-scroll">
       <section className="enrollment-overview-metrics">

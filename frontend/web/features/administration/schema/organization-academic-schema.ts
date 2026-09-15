@@ -84,12 +84,30 @@ export const organizationAcademicGroups = {
   ],
   finance: [
     {
-      title: "Semester payment",
-      description: "The simulated amount shown to students and used by the semester enrollment payment check.",
+      title: "Fee defaults",
+      description: "Default charges copied into each enrollment-linked financial account. Finance owns the resulting current amounts.",
       fields: [
-        field("semesterPrice", "Semester price", "Amount each student confirms for one semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
+        field("semesterPrice", "Tuition fee", "Default tuition charged for one enrolled semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
+        field("otherFee", "Other fee", "Default non-tuition charge added to each enrolled semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
         field("currency", "Currency", "Currency displayed in Finance and the student mobile app.", "select", { required: true, options: options("USD", "KHR") }),
         field("paymentDueDays", "Payment due after", "Number of days after enrollment before payment is due.", "number", { required: true, min: 0, max: 365, unit: "days" }),
+      ],
+    },
+    {
+      title: "Payment methods",
+      description: "Methods available when Finance records money received. Change the configuration here without redesigning Finance.",
+      fields: [
+        field("paymentMethods", "Available payment methods", "Select every method Finance may use for a payment transaction.", "checklist", { required: true, options: options("Cash", "ABA", "ACLEDA", "Wing", "Bank Transfer", "Other") }),
+      ],
+    },
+    {
+      title: "Financial rules",
+      description: "Rules Finance applies to payments, adjustments, balances, and enrollment eligibility.",
+      fields: [
+        field("allowPartialPayments", "Allow partial payments", "Permit a payment smaller than the current account balance.", "toggle"),
+        field("allowOverpayment", "Allow overpayment", "Permit a payment larger than the current account balance.", "toggle"),
+        field("maximumAdjustmentAmount", "Maximum adjustment", "Maximum absolute discount or extra charge allowed on one account.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
+        field("requirePaidForAdvancement", "Require Paid to advance", "Enrollment may advance only when Finance reports the account as Paid.", "toggle"),
       ],
     },
   ],

@@ -9,9 +9,6 @@ import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitive
 import { AlertRegister } from "./announcements/alert-register";
 import { announcementsApi } from "./announcements/announcement-api";
 import type { AnnouncementDraft, AnnouncementItem } from "./announcements/announcement-types";
-import { notificationHistoryApi } from "./history/notification-history-api";
-import { NotificationHistoryRegister } from "./history/notification-history-register";
-import type { NotificationHistoryItem } from "./history/notification-history-types";
 import { notificationsApi } from "./notifications/notification-api";
 import { NotificationRegister } from "./notifications/notification-register";
 import type { NotificationItem } from "./notifications/notification-types";
@@ -23,10 +20,9 @@ const emptyAlert: AnnouncementDraft = { announcementCode: "", type: "", title: "
 
 export function AnnounceWorkspace({ module }: { module: string }) {
   const router = useRouter();
-  const current = ["overview", "notifications", "alerts", "history"].includes(module) ? module : "overview";
+  const current = ["overview", "notifications", "alerts"].includes(module) ? module : "overview";
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [alerts, setAlerts] = useState<AnnouncementItem[]>([]);
-  const [history, setHistory] = useState<NotificationHistoryItem[]>([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [error, setError] = useState("");
@@ -36,8 +32,8 @@ export function AnnounceWorkspace({ module }: { module: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [nextNotifications, nextAlerts, nextHistory] = await Promise.all([notificationsApi.get(), announcementsApi.get(), notificationHistoryApi.get()]);
-      setNotifications(nextNotifications); setAlerts(nextAlerts); setHistory(nextHistory); setReady(true); setLoadError(false);
+      const [nextNotifications, nextAlerts] = await Promise.all([notificationsApi.get(), announcementsApi.get()]);
+      setNotifications(nextNotifications); setAlerts(nextAlerts); setReady(true); setLoadError(false);
     } catch { setLoadError(true); }
   }, []);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
@@ -59,22 +55,19 @@ export function AnnounceWorkspace({ module }: { module: string }) {
   }
 
   const copy = current === "overview"
-    ? { eyebrow: "Announce", title: "Announce Overview", description: "Review every coded notification, institute alert, and read-only announcement history from one place." }
+    ? { eyebrow: "Announce", title: "Announce Overview", description: "Review current coded system notifications and institute alerts from one place." }
     : current === "alerts"
     ? { eyebrow: "Announce", title: "Alert", description: "Publish institute-wide alerts with a required permanent code formatted by Administration > Code formats." }
-    : current === "history"
-      ? { eyebrow: "Announce", title: "History", description: "Read-only history of every notification and alert lifecycle event." }
-      : { eyebrow: "Announce", title: "Notification", description: "Review, edit, mark, or remove current system notifications." };
+    : { eyebrow: "Announce", title: "Notification", description: "Review, edit, mark, or remove current system notifications." };
   const recommendation = recommendedCodeFromError(error);
 
   return <div className="viewport-data-page announce-viewport-page">
     <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={current === "notifications" ? <button className="button secondary notification-mark-all-button" disabled={!notifications.some(item => !item.isRead) || markingAll} onClick={() => void markAllNotificationsAsRead()}>{markingAll ? "Marking all as read..." : "Mark all as read"}</button> : undefined}/>
     {recommendation ? <CodeRecommendation code={recommendation} onUse={() => { setAlertDraft(currentDraft => ({ ...currentDraft, announcementCode: recommendation })); setError(""); }}/>
       : error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
-    {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts} history={history}/>}
+    {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts}/>}
     {current === "notifications" && <PaginatedDataRegion items={notifications} resetKey="notification-register" className="announce-paginated-region">{pageItems => <NotificationRegister rows={pageItems} onOpen={id => router.push(`/announce/notifications/${id}`)}/>}</PaginatedDataRegion>}
     {current === "alerts" && <PaginatedDataRegion items={alerts} resetKey="alert-register" className="announce-paginated-region">{pageItems => <AlertRegister rows={pageItems} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onOpen={id => router.push(`/announce/alerts/${id}`)} onSave={saveAlert}/>}</PaginatedDataRegion>}
-    {current === "history" && <PaginatedDataRegion items={history} resetKey="notification-history-register" className="announce-paginated-region">{pageItems => <NotificationHistoryRegister rows={pageItems} onOpen={code => router.push(`/announce/history/${encodeURIComponent(code)}`)}/>}</PaginatedDataRegion>}
   </div>;
 }
 function message(reason: unknown) { return reason instanceof Error ? reason.message : "Could not apply this change."; }

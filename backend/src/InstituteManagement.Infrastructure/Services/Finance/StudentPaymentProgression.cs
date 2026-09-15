@@ -6,27 +6,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Finance;
 
-public sealed class StudentPaymentProgression(
+public sealed class FinancialProgression(
     InstituteDbContext db,
     ActivePeriodLedgerCreator ledgerCreator)
 {
-    public async Task<string> ReleaseAsync(StudentPayment payment, CancellationToken cancellationToken)
+    public async Task<string> ReleaseAsync(FinancialAccount account, CancellationToken cancellationToken)
     {
         var periodValues = await db.SystemSettings.AsNoTracking()
             .Where(setting =>
                 setting.Section == "academic-year" && setting.Key == "currentYear"
                 || setting.Section == "semester" && (setting.Key == "currentTerm" || setting.Key == "startsOn"))
             .ToDictionaryAsync(setting => $"{setting.Section}:{setting.Key}", setting => setting.Value, cancellationToken);
-        var currentYear = periodValues.GetValueOrDefault("academic-year:currentYear", payment.AcademicYear);
-        var currentSemester = periodValues.GetValueOrDefault("semester:currentTerm", payment.Semester);
-        if (payment.AcademicYear == currentYear && payment.Semester == currentSemester) return "Current period paid";
-        if (!IsNextPeriod(payment.AcademicYear, payment.Semester, currentYear, currentSemester)) return "Payment recorded";
+        var currentYear = periodValues.GetValueOrDefault("academic-year:currentYear", account.AcademicYear);
+        var currentSemester = periodValues.GetValueOrDefault("semester:currentTerm", account.Semester);
+        if (account.AcademicYear == currentYear && account.Semester == currentSemester) return "Current period paid";
+        if (!IsNextPeriod(account.AcademicYear, account.Semester, currentYear, currentSemester)) return "Payment recorded";
 
         var previousEnrollment = await db.StudentEnrollments.AsNoTracking()
-            .SingleAsync(enrollment => enrollment.Id == payment.StudentEnrollmentId, cancellationToken);
+            .SingleAsync(enrollment => enrollment.Id == account.StudentEnrollmentId, cancellationToken);
         var student = await db.Students
             .Include(item => item.Department)
-            .SingleAsync(item => item.Id == payment.StudentId, cancellationToken);
+            .SingleAsync(item => item.Id == account.StudentId, cancellationToken);
         if (student.Status == "Inactive") return "Student inactive";
         if (await db.StudentEnrollments.AnyAsync(enrollment =>
                 enrollment.StudentId == student.Id
@@ -37,7 +37,7 @@ public sealed class StudentPaymentProgression(
             return "Already advanced";
         }
 
-        var academicYearChanged = payment.AcademicYear != currentYear;
+        var academicYearChanged = account.AcademicYear != currentYear;
         if (academicYearChanged && student.YearLevel >= 4)
         {
             student.Status = "Inactive";
@@ -51,9 +51,9 @@ public sealed class StudentPaymentProgression(
                 Details = JsonSerializer.Serialize(new
                 {
                     student.StudentCode,
-                    graduationAcademicYear = payment.AcademicYear,
-                    payment.PaymentCode,
-                    paymentStatus = payment.Status,
+                    graduationAcademicYear = account.AcademicYear,
+                    account.FinancialAccountCode,
+                    financeStatus = account.Status,
                     archive = "Management, Enrollment, Finance, Operation, and Record rows remain available in History."
                 })
             });
@@ -84,7 +84,13 @@ public sealed class StudentPaymentProgression(
             Type = "Finance",
             Subject = student.FullName,
             Action = "Payment hold released",
-            Details = $"{payment.PaymentCode} was confirmed by the student; enrollment advanced to {currentYear} / {currentSemester}."
+            Details = JsonSerializer.Serialize(new
+            {
+                account.FinancialAccountCode,
+                account.StudentEnrollment!.EnrollmentCode,
+                financeStatus = account.Status,
+                enrollmentEffect = $"Advanced to {currentYear} / {currentSemester}"
+            })
         });
 
         var start = DateOnly.TryParse(periodValues.GetValueOrDefault("semester:startsOn"), out var configuredStart)

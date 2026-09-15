@@ -2,6 +2,7 @@ namespace InstituteManagement.Application.Features.Finance;
 
 public sealed record StudentPaymentDto(
     Guid Id,
+    string FinancialAccountCode,
     string PaymentCode,
     Guid StudentId,
     string StudentCode,
@@ -13,6 +14,13 @@ public sealed record StudentPaymentDto(
     string Shift,
     string AcademicYear,
     string Semester,
+    decimal TuitionFee,
+    decimal OtherFee,
+    decimal AdjustmentAmount,
+    string AdjustmentReason,
+    decimal TotalDue,
+    decimal TotalPaid,
+    decimal Balance,
     decimal AmountDue,
     string Currency,
     DateOnly DueOn,
@@ -24,4 +32,15 @@ public sealed record StudentPaymentDto(
     string TimetableStatus,
     string PeriodState,
     string QrPayload,
+    IReadOnlyList<FinancialPaymentDto> Payments,
+    DateTime CreateAt);
+
+public sealed record FinancialPaymentDto(
+    Guid Id,
+    string PaymentCode,
+    decimal Amount,
+    string Method,
+    string Status,
+    string TransactionReference,
+    DateTime PaidAtUtc,
     DateTime CreateAt);

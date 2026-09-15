@@ -135,8 +135,8 @@ public static class DependencyInjection
         services.AddScoped<IOperationalRecordReader, TimetableOperationalRecordReader>();
         services.AddScoped<IHistoryQueryService, HistoryQueryService>();
         services.AddScoped<FinanceSettingsReader>();
-        services.AddScoped<StudentPaymentSynchronizer>();
-        services.AddScoped<StudentPaymentProgression>();
+        services.AddScoped<FinancialAccountSynchronizer>();
+        services.AddScoped<FinancialProgression>();
         services.AddScoped<SemesterPaymentGate>();
         services.AddScoped<IFinanceService, FinanceService>();
         services.AddScoped<IResultQueryService, ResultQueryService>();

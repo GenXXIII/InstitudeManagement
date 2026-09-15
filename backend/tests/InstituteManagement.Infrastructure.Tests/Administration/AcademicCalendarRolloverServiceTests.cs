@@ -106,14 +106,14 @@ public sealed class AcademicCalendarRolloverServiceTests
     private static AcademicCalendarRolloverService Service(InstituteDbContext db)
     {
         var settings = new FinanceSettingsReader(db);
-        var synchronizer = new StudentPaymentSynchronizer(db, settings);
+        var synchronizer = new FinancialAccountSynchronizer(db, settings);
         return new(
             db,
             new InstituteCache(),
             new AcademicCalendarClock(db),
             new StudentAcademicYearAdvancer(db),
             new AcademicPeriodEnrollmentAdvancer(db),
-            new SemesterPaymentGate(db, synchronizer),
+            new SemesterPaymentGate(db, synchronizer, settings),
             new ActivePeriodLedgerCreator(db));
     }
 
@@ -210,22 +210,20 @@ public sealed class AcademicCalendarRolloverServiceTests
         };
     }
 
-    private static StudentPayment Payment(StudentEnrollment enrollment, Student student, string status = "Paid") =>
+    private static FinancialAccount Payment(StudentEnrollment enrollment, Student student, string status = "Paid") =>
         new()
         {
-            PaymentCode = $"PAY-{student.StudentCode}",
+            FinancialAccountCode = $"FIN-{student.StudentCode}",
             StudentEnrollmentId = enrollment.Id,
             StudentEnrollment = enrollment,
             StudentId = student.Id,
             Student = student,
             AcademicYear = enrollment.AcademicYear,
             Semester = enrollment.Semester,
-            AmountDue = 500,
+            TuitionFee = 500,
             Currency = "USD",
             DueOn = new DateOnly(2027, 1, 1),
-            Status = status,
-            ConfirmationMethod = status == "Paid" ? "Student QR scan" : string.Empty,
-            PaidAtUtc = status == "Paid" ? DateTime.UtcNow : null
+            Status = status
         };
 
     private static string Value(InstituteDbContext db, string section, string key) =>

@@ -21,7 +21,7 @@ export function NotificationHistoryDetail({ id }: { id: string }) {
 
   const recorded = new Date(item.createAt);
   return <>
-    <PageHeading eyebrow="Announce" title="Notification and alert history" description="Read-only lifecycle entry ordered by its recorded date." actions={<BrowserBackButton>Back to history</BrowserBackButton>}/>
+    <PageHeading eyebrow="Permanent lifecycle archive" title="Notification and Alert History" description="Read-only lifecycle entry ordered by its recorded date." actions={<BrowserBackButton>Back to Notification & Alert History</BrowserBackButton>}/>
     <article className="panel notification-detail notification-full-detail">
       <header><div><span>NotificationHistoryCode</span><strong className="management-code-value">{item.notificationHistoryCode}</strong></div><time><span>{recorded.toLocaleDateString()}</span><strong>{recorded.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</strong></time></header>
       <section className="notification-detail-grid" aria-label="Notification history information">

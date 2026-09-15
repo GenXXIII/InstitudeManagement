@@ -109,7 +109,7 @@
 .notification-detail-grid>div>span{color:#8795a8;font-size:8.5px;font-weight:750;text-transform:uppercase;letter-spacing:.35px}
 .viewport-data-page>.page-heading,.viewport-data-page>.metrics-grid,.viewport-data-page>.management-toolbar,.viewport-data-page>.management-rule-error,.viewport-data-page>.record-lock-notice,.viewport-data-page>.record-overview-grid,.viewport-data-page>.operational-record-summary,.viewport-data-page>.record-toolbar,.viewport-data-page>.result-rule-notice,.viewport-data-page>.announce-alert-form{flex:none}
 .history-viewport-page .record-register-head,.result-viewport-page .semester-result-head,.announce-viewport-page .notification-inbox-head,.announce-viewport-page .announce-table-head{position:sticky;top:0;z-index:3}
-.announce-overview-metrics{flex:none;display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:12px;margin-bottom:13px}
+.announce-overview-metrics{flex:none;display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:12px;margin-bottom:13px}
 .announce-overview-metric{min-height:92px;display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:11px;padding:13px;text-decoration:none}
 .announce-overview-metric>span{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:#eaf2ff;color:#326bc3}
 .announce-overview-metric>div{display:flex;min-width:0;flex-direction:column;gap:3px}

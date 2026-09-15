@@ -1,9 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
-import { NotificationHistoryDetail } from "@/features/notifications/history/notification-history-detail";
-
-export default function NotificationHistoryDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  return <NotificationHistoryDetail id={id}/>;
+export default async function LegacyNotificationHistoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  redirect(`/records/notifications/${encodeURIComponent(id)}`);
 }

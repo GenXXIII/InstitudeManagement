@@ -34,6 +34,7 @@ public sealed class HistoryQueryService(InstituteDbContext db, IEnumerable<IHist
     {
         var resource = Resource(item.Type);
         var source = SourceCode(item.Details, resource);
+        if (resource == "finance") return source ?? string.Empty;
         return source is null ? "" : format.Derive(source, resource, "history");
     }
 
@@ -43,7 +44,7 @@ public sealed class HistoryQueryService(InstituteDbContext db, IEnumerable<IHist
         {
             using var document = JsonDocument.Parse(details);
             if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
-            var expected = resource == "session" ? "classSessionRecordCode" : $"{resource}Code";
+            var expected = resource == "session" ? "classSessionRecordCode" : resource == "finance" ? "financialAccountCode" : $"{resource}Code";
             foreach (var property in document.RootElement.EnumerateObject())
                 if (property.Name.Equals(expected, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
                     return property.Value.GetString();
@@ -62,6 +63,7 @@ public sealed class HistoryQueryService(InstituteDbContext db, IEnumerable<IHist
         "timetable" => "timetable",
         "attendance" => "attendance",
         "grade" => "grade",
+        "finance" => "finance",
         "class session" or "session" => "session",
         _ => "session"
     };

@@ -2,60 +2,42 @@ name: ${COMPOSE_PROJECT_NAME:-ink}
 
 services:
   sqlserver:
-    image: ink-sql-server:latest
-    build:
-      context: .
-      dockerfile: Dockerfile.sqlserver
-    container_name: INK-SQL-SERVER
-    hostname: ${SQL_HOSTNAME:-INK-SQL-SERVER}
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    hostname: INK-SQL-SERVER
     ports:
       - "${SQL_PORT:-1433}:1433"
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer
-      MSSQL_SA_PASSWORD: "${SQL_BOOTSTRAP_PASSWORD}"
-      SQL_PASSWORD: "${SQL_PASSWORD:-1234}"
+      MSSQL_SA_PASSWORD: "${SQL_PASSWORD:-1234}"
     volumes:
       - ink_sql_data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${SQL_PASSWORD}\" -C -Q 'SELECT 1' || /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q 'SELECT 1' || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q 'SELECT 1' || exit 1"
+        ]
       interval: 10s
       timeout: 5s
       retries: 18
       start_period: 20s
     restart: unless-stopped
 
-  sql-init:
-    image: ink-sql-server:latest
-    pull_policy: never
-    container_name: INK-SQL-INIT
-    depends_on:
-      sqlserver:
-        condition: service_healthy
-    environment:
-      SQL_BOOTSTRAP_PASSWORD: "${SQL_BOOTSTRAP_PASSWORD}"
-      SQL_PASSWORD: "${SQL_PASSWORD:-1234}"
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        if /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${SQL_PASSWORD}" -C -Q 'SELECT 1' >/dev/null 2>&1; then
-          exit 0
-        fi
-        /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${SQL_BOOTSTRAP_PASSWORD}" -C -b -Q "ALTER LOGIN [sa] WITH CHECK_POLICY = OFF;"
-        /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${SQL_BOOTSTRAP_PASSWORD}" -C -b -Q "ALTER LOGIN [sa] WITH PASSWORD = '$${SQL_PASSWORD}';"
-    restart: "no"
-
   redis:
-    image: ink-redis:latest
-    build:
-      context: .
-      dockerfile: Dockerfile.redis
-    container_name: INK-REDIS
-    command: redis-server --appendonly yes
+    image: redis:7-alpine
+    hostname: INK-REDIS
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
     volumes:
       - ink_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        - CMD
+        - redis-cli
+        - ping
       interval: 5s
       timeout: 3s
       retries: 10
@@ -66,7 +48,6 @@ services:
     build:
       context: .
       dockerfile: backend/src/InstituteManagement.API/Dockerfile
-    container_name: INK-API
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
@@ -83,12 +64,16 @@ services:
     volumes:
       - ink_uploads:/app/uploads
     depends_on:
-      sql-init:
-        condition: service_completed_successfully
+      sqlserver:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"
+        ]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -102,7 +87,6 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5080}
-    container_name: INK-WEB
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5080}
     ports:
@@ -110,19 +94,15 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 5s
     restart: unless-stopped
 
 volumes:
   ink_sql_data:
     name: INK-SQL-DATA
+
   ink_redis_data:
     name: INK-REDIS-DATA
+
   ink_uploads:
     name: INK-UPLOADS
 

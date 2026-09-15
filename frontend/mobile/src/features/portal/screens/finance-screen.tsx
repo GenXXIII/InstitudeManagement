@@ -14,10 +14,11 @@ export function FinanceScreen() {
   const [submittingId, setSubmittingId] = useState('');
   const [error, setError] = useState('');
   const payments = useMemo(() => [...portal.payments].sort((left, right) => {
-    if (left.status !== right.status) return left.status === 'Pending' ? -1 : 1;
+    const priority = { Pending: 0, Partial: 0, Refunded: 0, Paid: 1, Cancelled: 2 };
+    if (left.status !== right.status) return priority[left.status] - priority[right.status];
     return `${right.academicYear}-${right.semester}`.localeCompare(`${left.academicYear}-${left.semester}`, undefined, { numeric: true });
   }), [portal.payments]);
-  const pending = payments.filter(payment => payment.status === 'Pending');
+  const pending = payments.filter(payment => payment.status !== 'Paid' && payment.status !== 'Cancelled');
   const paid = payments.filter(payment => payment.status === 'Paid');
 
   async function confirm(payment: StudentPayment, qrPayload: string) {
@@ -64,7 +65,7 @@ export function FinanceScreen() {
     </Card>
   </PortalPage>;
 
-  return <PortalPage title="Finance" subtitle="Scan the Administrator-generated QR to pay. Paid students can advance; pending payments hold the next enrollment." eyebrow="Student Finance">
+  return <PortalPage title="Finance" subtitle="Scan the Administrator-generated QR to pay the current balance. Enrollment advances when Finance reports Paid." eyebrow="Student Finance">
     <View style={portalStyles.grid}>
       <MetricCard icon="time-outline" label="Pending" value={pending.length} tone="amber"/>
       <MetricCard icon="checkmark-circle-outline" label="Paid" value={paid.length} tone="green"/>
@@ -81,15 +82,17 @@ export function FinanceScreen() {
 
 function PaymentCard({ payment, busy, onScan }: { payment: StudentPayment; busy: boolean; onScan: () => void }) {
   const paid = payment.status === 'Paid';
-  return <Card style={[styles.paymentCard, paid && styles.paymentCardPaid]}>
+  const cancelled = payment.status === 'Cancelled';
+  const statusColor = paid ? palette.green : cancelled ? palette.red : payment.status === 'Refunded' ? '#755BC4' : '#9B6812';
+  return <Card style={[styles.paymentCard, paid && styles.paymentCardPaid, cancelled && styles.paymentCardCancelled]}>
     <View style={styles.paymentHeader}>
       <View style={[styles.paymentIcon, paid ? styles.paymentIconPaid : styles.paymentIconPending]}><Ionicons name={paid ? 'checkmark-circle-outline' : 'card-outline'} size={22} color={paid ? palette.green : palette.gold}/></View>
       <View style={styles.paymentHeading}><Text style={styles.paymentPeriod}>{payment.academicYear} · {payment.semester}</Text><Text style={styles.paymentCode}>{payment.paymentCode}</Text></View>
-      <View style={[styles.statusBadge, paid ? styles.statusPaid : styles.statusPending]}><Text style={[styles.statusText, { color: paid ? palette.green : '#9B6812' }]}>{payment.status}</Text></View>
+      <View style={[styles.statusBadge, paid ? styles.statusPaid : styles.statusPending]}><Text style={[styles.statusText, { color: statusColor }]}>{payment.status}</Text></View>
     </View>
     <Text style={styles.amount}>{money(payment.amountDue, payment.currency)}</Text>
     <View style={styles.paymentMeta}><Text>Due {formatDate(payment.dueOn)}</Text><Text>Timetable {payment.timetableStatus.toLowerCase()}</Text></View>
-    {paid ? <View style={styles.confirmedLine}><Ionicons name="person-circle-outline" size={16} color={palette.green}/><Text>{payment.confirmationMethod || 'Student QR scan'}{payment.paidAtUtc ? ` · ${formatDate(payment.paidAtUtc)}` : ''}</Text></View> : <View style={styles.paymentActions}>
+    {paid ? <View style={styles.confirmedLine}><Ionicons name="person-circle-outline" size={16} color={palette.green}/><Text>{payment.confirmationMethod || 'Payment completed'}{payment.paidAtUtc ? ` · ${formatDate(payment.paidAtUtc)}` : ''}</Text></View> : cancelled ? <View style={styles.cancelledLine}><Text>This financial account was cancelled. No QR payment is available.</Text></View> : <View style={styles.paymentActions}>
       <Pressable disabled={busy} onPress={onScan} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, busy && styles.disabled]}><Ionicons name="qr-code-outline" size={17} color="white"/><Text style={styles.primaryButtonText}>{busy ? 'Confirming…' : 'Scan QR to pay'}</Text></Pressable>
     </View>}
   </Card>;
@@ -108,6 +111,7 @@ const styles = StyleSheet.create({
   error: { padding: 11, borderRadius: radius.small, backgroundColor: palette.redPale, color: palette.red, fontSize: 12, lineHeight: 18, fontWeight: '700' },
   paymentCard: { gap: 14, borderLeftWidth: 4, borderLeftColor: palette.gold },
   paymentCardPaid: { borderLeftColor: palette.green },
+  paymentCardCancelled: { borderLeftColor: palette.red },
   paymentHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   paymentIcon: { width: 43, height: 43, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   paymentIconPending: { backgroundColor: palette.goldPale },
@@ -127,6 +131,7 @@ const styles = StyleSheet.create({
   secondaryButton: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 20, borderRadius: radius.small, borderWidth: 1, borderColor: '#CADAF4', backgroundColor: palette.bluePale },
   secondaryButtonText: { color: palette.blue, fontSize: 12, fontWeight: '800' },
   confirmedLine: { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 10, borderRadius: radius.small, backgroundColor: palette.greenPale },
+  cancelledLine: { padding: 10, borderRadius: radius.small, backgroundColor: palette.redPale },
   policyCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, backgroundColor: palette.bluePale, shadowOpacity: 0, elevation: 0 },
   policyIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'white' },
   policyCopy: { flex: 1 },

@@ -13,7 +13,7 @@ namespace InstituteManagement.Infrastructure.Services.Enrollment.Students;
 internal sealed class StudentEnrollmentEditor(
     InstituteDbContext db,
     StudentEnrollmentRecordSynchronizer recordSynchronizer,
-    StudentPaymentSynchronizer paymentSynchronizer)
+    FinancialAccountSynchronizer financialAccountSynchronizer)
 {
     public async Task<EnrollmentItemDto> UpdateAsync(
         Guid id,
@@ -66,7 +66,7 @@ internal sealed class StudentEnrollmentEditor(
         student.DepartmentId = departmentId;
         student.YearLevel = year;
         student.Shift = shift;
-        var payment = await paymentSynchronizer.EnsureForEnrollmentAsync(enrollment, student, cancellationToken);
+        var account = await financialAccountSynchronizer.EnsureForEnrollmentAsync(enrollment, student, cancellationToken);
         db.AuditLogs.Add(EnrollmentAuditFactory.Create(
             id,
             "Student",
@@ -87,7 +87,7 @@ internal sealed class StudentEnrollmentEditor(
             ("academicYear", enrollment.AcademicYear),
             ("semester", enrollment.Semester),
             ("periodState", "Current"),
-            ("paymentStatus", payment.Status),
+            ("paymentStatus", account.Status),
             ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
     }
 

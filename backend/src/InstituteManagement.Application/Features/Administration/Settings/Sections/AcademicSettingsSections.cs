@@ -31,6 +31,12 @@ public static partial class SettingsCatalog
 
     private static readonly SettingsSectionDefinition FinanceSection = Section("finance",
         Decimal("semesterPrice", "500.00", 0, 1000000),
+        Decimal("otherFee", "0.00", 0, 1000000),
         Option("currency", "USD", "USD", "KHR"),
-        Integer("paymentDueDays", "14", 0, 365));
+        Integer("paymentDueDays", "14", 0, 365),
+        List("paymentMethods", "Cash,ABA,ACLEDA,Wing,Bank Transfer,Other"),
+        Boolean("allowPartialPayments", true),
+        Boolean("allowOverpayment", false),
+        Decimal("maximumAdjustmentAmount", "1000000.00", 0, 1000000),
+        Boolean("requirePaidForAdvancement", true));
 }

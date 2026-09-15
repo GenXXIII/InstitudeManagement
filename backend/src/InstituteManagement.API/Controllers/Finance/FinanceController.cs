@@ -22,6 +22,10 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
     public async Task<IActionResult> GetStudent(Guid studentId, CancellationToken cancellationToken) =>
         Ok(await finance.GetStudentAsync(studentId, cancellationToken));
 
+    [HttpGet("options")]
+    public async Task<IActionResult> GetOptions(CancellationToken cancellationToken) =>
+        Ok(await finance.GetOptionsAsync(cancellationToken));
+
     [HttpPost("students/{studentId:guid}/payments/{paymentId:guid}/confirm")]
     public async Task<IActionResult> Confirm(
         Guid studentId,
@@ -36,4 +40,38 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
         Guid paymentId,
         CancellationToken cancellationToken) =>
         Ok(await finance.MarkReminderReadAsync(studentId, paymentId, cancellationToken));
+
+    [HttpPost("accounts/{financialAccountId:guid}/payments")]
+    public async Task<IActionResult> RecordPayment(
+        Guid financialAccountId,
+        RecordFinancePaymentRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await finance.RecordPaymentAsync(financialAccountId, request.ToDto(), cancellationToken));
+
+    [HttpPut("accounts/{financialAccountId:guid}/payments/{paymentId:guid}")]
+    public async Task<IActionResult> UpdatePayment(
+        Guid financialAccountId,
+        Guid paymentId,
+        UpdateFinancePaymentRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await finance.UpdatePaymentAsync(financialAccountId, paymentId, request.ToDto(), cancellationToken));
+
+    [HttpPut("accounts/{financialAccountId:guid}/payments/{paymentId:guid}/status")]
+    public async Task<IActionResult> SetPaymentStatus(
+        Guid financialAccountId,
+        Guid paymentId,
+        FinancePaymentStatusRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await finance.SetPaymentStatusAsync(financialAccountId, paymentId, request.ToDto(), cancellationToken));
+
+    [HttpPut("accounts/{financialAccountId:guid}/adjustment")]
+    public async Task<IActionResult> Adjust(
+        Guid financialAccountId,
+        FinancialAdjustmentRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await finance.AdjustAsync(financialAccountId, request.ToDto(), cancellationToken));
+
+    [HttpPut("accounts/{financialAccountId:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid financialAccountId, CancellationToken cancellationToken) =>
+        Ok(await finance.CancelAsync(financialAccountId, cancellationToken));
 }
