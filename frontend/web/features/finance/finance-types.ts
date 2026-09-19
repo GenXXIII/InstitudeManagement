@@ -1,5 +1,6 @@
 export type FinanceStatus = "Pending" | "Partial" | "Paid" | "Cancelled" | "Refunded";
 export type PaymentStatus = "Completed" | "Cancelled" | "Refunded";
+export type PaymentPlan = "Semester" | "Year";
 
 export type FinancialPayment = {
   id: string;
@@ -26,6 +27,16 @@ export type FinancialAccount = {
   shift: string;
   academicYear: string;
   semester: string;
+  title: string;
+  paymentPlan: PaymentPlan;
+  declaredAmount: number | null;
+  declaredAtUtc: string | null;
+  expiresAtUtc: string | null;
+  isDeclared: boolean;
+  isExpired: boolean;
+  qrGeneratedAtUtc: string | null;
+  qrExpiresAtUtc: string | null;
+  isQrExpired: boolean;
   tuitionFee: number;
   otherFee: number;
   adjustmentAmount: number;
@@ -43,6 +54,7 @@ export type FinancialAccount = {
   reminderReadAtUtc: string | null;
   timetableStatus: "Ready" | "Waiting";
   periodState: "Current" | "Retained";
+  qrProvider: "Bakong KHQR" | "Simulated";
   qrPayload: string;
   payments: FinancialPayment[];
   createAt: string;
@@ -54,6 +66,9 @@ export type FinanceOptions = {
   allowOverpayment: boolean;
   maximumAdjustmentAmount: number;
   requirePaidForAdvancement: boolean;
+  bakongEnabled: boolean;
+  bakongConfigured: boolean;
+  bakongEnvironment: "SIT" | "Production";
 };
 
 export type PaymentDraft = {
@@ -61,4 +76,12 @@ export type PaymentDraft = {
   method: string;
   transactionReference: string;
   paidAtUtc: string;
+};
+
+export type DeclarationDraft = {
+  title: string;
+  paymentPlan: PaymentPlan;
+  amount: string;
+  dueOn: string;
+  expiresAtUtc: string;
 };

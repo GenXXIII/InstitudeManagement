@@ -10,7 +10,13 @@ export function validateSettings(section: SettingSection, values: Record<string,
   if (section === "semester") validateTerms(values, errors);
   if (section === "attendance-rules") validateAttendance(values, errors);
   if (section === "grade-rules") validateGrades(values, errors);
-  if (section === "finance" && parseCsv(values.paymentMethods).length === 0) errors.push("Select at least one payment method.");
+  if (section === "finance") {
+    if (parseCsv(values.paymentMethods).length === 0) errors.push("Select at least one payment method.");
+    if (values.bakongEnabled === "true") {
+      for (const [key, label] of [["bakongAccountId", "Receiving account ID"], ["bakongAccountInformation", "Account information"], ["bakongAcquiringBank", "Acquiring bank"], ["bakongMerchantName", "Merchant name"], ["bakongMerchantCity", "Merchant city"]] as const)
+        if (!values[key]?.trim()) errors.push(`${label} is required while Bakong KHQR is enabled.`);
+    }
+  }
   if (section === "notifications") validateNotifications(values, errors);
   if (section === "security" && parseCsv(values.twoFactorMethods).length === 0) errors.push("Select at least one two-factor authentication method.");
 

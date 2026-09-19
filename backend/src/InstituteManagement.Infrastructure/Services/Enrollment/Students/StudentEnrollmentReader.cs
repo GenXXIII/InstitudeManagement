@@ -29,6 +29,16 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
         var paymentByEnrollment = await db.FinancialAccounts.AsNoTracking()
             .Where(account => enrollmentIds.Contains(account.StudentEnrollmentId))
             .ToDictionaryAsync(account => account.StudentEnrollmentId, account => account.Status, cancellationToken);
+        var annualPaid = await db.FinancialAccounts.AsNoTracking()
+            .Where(account =>
+                studentIds.Contains(account.StudentId)
+                && account.Semester == "Semester 1"
+                && account.PaymentPlan == "Year"
+                && account.DeclaredAtUtc != null
+                && account.Status == "Paid")
+            .Select(account => new { account.StudentId, account.AcademicYear })
+            .ToListAsync(cancellationToken);
+        var annualCoverage = annualPaid.Select(account => (account.StudentId, account.AcademicYear)).ToHashSet();
 
         return enrollments
             .Where(enrollment =>
@@ -54,7 +64,9 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
                     ("academicYear", enrollment.AcademicYear),
                     ("semester", enrollment.Semester),
                     ("periodState", IsCurrent(enrollment.AcademicYear, enrollment.Semester, period) ? "Current" : "Retained"),
-                    ("paymentStatus", paymentByEnrollment.GetValueOrDefault(enrollment.Id, "Pending")),
+                    ("paymentStatus", enrollment.Semester == "Semester 2" && annualCoverage.Contains((enrollment.StudentId, enrollment.AcademicYear))
+                        ? "Paid"
+                        : paymentByEnrollment.GetValueOrDefault(enrollment.Id, "Pending")),
                     ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
             })
             .ToList();

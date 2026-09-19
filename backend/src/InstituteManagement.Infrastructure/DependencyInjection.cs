@@ -135,6 +135,7 @@ public static class DependencyInjection
         services.AddScoped<IOperationalRecordReader, TimetableOperationalRecordReader>();
         services.AddScoped<IHistoryQueryService, HistoryQueryService>();
         services.AddScoped<FinanceSettingsReader>();
+        services.AddHttpClient<BakongPaymentGateway>(client => client.Timeout = TimeSpan.FromSeconds(20));
         services.AddScoped<FinancialAccountSynchronizer>();
         services.AddScoped<FinancialProgression>();
         services.AddScoped<SemesterPaymentGate>();

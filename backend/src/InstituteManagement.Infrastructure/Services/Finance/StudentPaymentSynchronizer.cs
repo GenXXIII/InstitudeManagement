@@ -94,7 +94,6 @@ public sealed class FinancialAccountSynchronizer(
         Student student,
         FinanceSettings settings)
     {
-        var free = settings.TuitionFee + settings.OtherFee <= 0;
         return new FinancialAccount
         {
             FinancialAccountCode = FinancialAccountCode(student.StudentCode),
@@ -106,20 +105,16 @@ public sealed class FinancialAccountSynchronizer(
             OtherFee = settings.OtherFee,
             Currency = settings.Currency,
             DueOn = DateOnly.FromDateTime(enrollment.CreateAt).AddDays(settings.PaymentDueDays),
-            Status = free ? "Paid" : "Pending"
+            Status = "Pending"
         };
     }
 
     private static void ApplyPendingFees(FinancialAccount account, FinanceSettings settings)
     {
-        if (account.Status != "Pending") return;
+        if (account.Status != "Pending" || account.DeclaredAtUtc.HasValue) return;
         account.TuitionFee = settings.TuitionFee;
         account.OtherFee = settings.OtherFee;
         account.Currency = settings.Currency;
-        if (settings.TuitionFee + settings.OtherFee > 0) return;
-        account.Status = "Paid";
-        account.ReminderReadAtUtc = DateTime.UtcNow;
-        account.UpdatedAtUtc = DateTime.UtcNow;
     }
 
     private static string FinancialAccountCode(string studentCode)

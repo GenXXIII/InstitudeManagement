@@ -16,6 +16,11 @@ public sealed class FinancialAccountConfiguration : IEntityTypeConfiguration<Fin
         builder.Property(x => x.FinancialAccountCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Semester).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.Title).HasMaxLength(160).IsRequired();
+        builder.Property(x => x.PaymentPlan).HasMaxLength(16).IsRequired();
+        builder.Property(x => x.DeclaredAmount).HasPrecision(18, 2);
+        builder.Property(x => x.BakongQrPayload).HasMaxLength(4096).IsRequired();
+        builder.Property(x => x.BakongMd5).HasMaxLength(64).IsRequired();
         builder.Property(x => x.TuitionFee).HasPrecision(18, 2);
         builder.Property(x => x.OtherFee).HasPrecision(18, 2);
         builder.Property(x => x.AdjustmentAmount).HasPrecision(18, 2);

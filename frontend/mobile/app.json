@@ -39,6 +39,14 @@
         {
           "cameraPermission": "Allow INK Student Finance to scan the institute payment QR code."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "experiments": {

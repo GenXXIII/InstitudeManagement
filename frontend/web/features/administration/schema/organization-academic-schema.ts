@@ -97,7 +97,7 @@ export const organizationAcademicGroups = {
       title: "Payment methods",
       description: "Methods available when Finance records money received. Change the configuration here without redesigning Finance.",
       fields: [
-        field("paymentMethods", "Available payment methods", "Select every method Finance may use for a payment transaction.", "checklist", { required: true, options: options("Cash", "ABA", "ACLEDA", "Wing", "Bank Transfer", "Other") }),
+        field("paymentMethods", "Available payment methods", "Select every method Finance may use for a payment transaction.", "checklist", { required: true, options: options("Cash", "Bakong", "ABA", "ACLEDA", "Wing", "Bank Transfer", "Other") }),
       ],
     },
     {
@@ -108,6 +108,19 @@ export const organizationAcademicGroups = {
         field("allowOverpayment", "Allow overpayment", "Permit a payment larger than the current account balance.", "toggle"),
         field("maximumAdjustmentAmount", "Maximum adjustment", "Maximum absolute discount or extra charge allowed on one account.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
         field("requirePaidForAdvancement", "Require Paid to advance", "Enrollment may advance only when Finance reports the account as Paid.", "toggle"),
+      ],
+    },
+    {
+      title: "Bakong KHQR",
+      description: "Generate official dynamic KHQR payment codes. The API token stays in the server BAKONG_API_TOKEN environment variable and is never returned to the browser.",
+      fields: [
+        field("bakongEnabled", "Enable Bakong KHQR", "Use Bakong KHQR for new and regenerated student payment declarations.", "toggle"),
+        field("bakongEnvironment", "Bakong environment", "Use SIT for testing and Production only after the receiving account is approved.", "select", { required: true, options: options("SIT", "Production") }),
+        field("bakongAccountId", "Receiving account ID", "Bakong account ID that receives student payments, for example institute@bank.", "text"),
+        field("bakongAccountInformation", "Account information", "Bank account or phone reference required by the KHQR account profile.", "text"),
+        field("bakongAcquiringBank", "Acquiring bank", "Bank name registered for the receiving Bakong account.", "text"),
+        field("bakongMerchantName", "Merchant name", "Institute name encoded in KHQR (maximum 25 characters).", "text"),
+        field("bakongMerchantCity", "Merchant city", "City encoded in KHQR (maximum 15 characters).", "text"),
       ],
     },
   ],

@@ -5,6 +5,7 @@ using InstituteManagement.Infrastructure.Services.Administration;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Finance;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace InstituteManagement.Infrastructure.Tests.Finance;
 
@@ -39,7 +40,7 @@ public sealed class FinanceServiceTests
         db.AddRange(department, student, enrollment);
         await db.SaveChangesAsync();
         var service = Service(db);
-        var payment = Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
+        var payment = await DeclareAsync(service, student.Id);
 
         var confirmed = await service.ConfirmAsync(
             student.Id,
@@ -86,7 +87,7 @@ public sealed class FinanceServiceTests
         db.AddRange(department, student, enrollment);
         await db.SaveChangesAsync();
         var service = Service(db);
-        var payment = Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
+        var payment = await DeclareAsync(service, student.Id);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ConfirmAsync(
             Guid.NewGuid(),
@@ -137,7 +138,7 @@ public sealed class FinanceServiceTests
         db.AddRange(department, student, enrollment);
         await db.SaveChangesAsync();
         var service = Service(db);
-        var payment = Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
+        var payment = await DeclareAsync(service, student.Id);
 
         await service.ConfirmAsync(
             student.Id,
@@ -166,7 +167,7 @@ public sealed class FinanceServiceTests
         db.AddRange(department, student, enrollment);
         await db.SaveChangesAsync();
         var service = Service(db);
-        var account = Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
+        var account = await DeclareAsync(service, student.Id);
 
         var partial = await service.RecordPaymentAsync(
             account.Id,
@@ -193,7 +194,7 @@ public sealed class FinanceServiceTests
         db.AddRange(department, student, enrollment);
         await db.SaveChangesAsync();
         var service = Service(db);
-        var account = Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
+        var account = await DeclareAsync(service, student.Id);
         var partial = await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(100m, "Cash", "Receipt 1", DateTime.UtcNow), CancellationToken.None);
         var transaction = Assert.Single(partial.Payments);
 
@@ -212,6 +213,50 @@ public sealed class FinanceServiceTests
         Assert.Contains(db.AuditLogs, item => item.Type == "Finance" && item.Action == "Financial adjustment updated" && item.Details.Contains("Scholarship"));
     }
 
+    [Fact]
+    public async Task Student_sees_only_declared_cards_and_year_payment_covers_semester_two()
+    {
+        await using var db = CreateContext();
+        AddSettings(db, "2026\u20132027", "Semester 1");
+        var department = new Department { DepartmentCode = "IT", Name = "Information Technology" };
+        var student = new Student { StudentCode = "STU-YEAR", PublicId = "INK-00006", FullName = "Annual Student", DepartmentId = department.Id, YearLevel = 1, Shift = "Morning" };
+        var semesterOne = new StudentEnrollment { EnrollmentCode = "STU-YEAR-ESTU-1", StudentId = student.Id, DepartmentId = department.Id, YearLevel = 1, Shift = "Morning", AcademicYear = "2026\u20132027", Semester = "Semester 1", Status = "Active" };
+        db.AddRange(department, student, semesterOne);
+        await db.SaveChangesAsync();
+        var service = Service(db);
+
+        Assert.Empty(await service.GetStudentAsync(student.Id, CancellationToken.None));
+        var account = Assert.Single(await service.GetAsync(null, null, null, null, CancellationToken.None));
+        var declaration = await service.DeclareAsync(account.Id, Declaration("Year"), CancellationToken.None);
+        Assert.Equal("Year", declaration.PaymentPlan);
+        Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
+        await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(750m, "ABA", "YEAR-1", DateTime.UtcNow), CancellationToken.None);
+
+        var semesterTwo = new StudentEnrollment { EnrollmentCode = semesterOne.EnrollmentCode, StudentId = student.Id, DepartmentId = department.Id, YearLevel = 1, Shift = "Morning", AcademicYear = semesterOne.AcademicYear, Semester = "Semester 2", Status = "Active" };
+        db.StudentEnrollments.Add(semesterTwo);
+        await db.SaveChangesAsync();
+        var settings = new FinanceSettingsReader(db);
+        var gate = new SemesterPaymentGate(db, new FinancialAccountSynchronizer(db, settings), settings);
+        var result = await gate.EvaluateAsync(semesterTwo.AcademicYear, semesterTwo.Semester, CancellationToken.None);
+
+        Assert.Contains(student.Id, result.PaidStudentIds);
+        Assert.Equal(0, result.HeldStudents);
+    }
+
+    private static async Task<StudentPaymentDto> DeclareAsync(FinanceService service, Guid studentId)
+    {
+        var account = Assert.Single(await service.GetAsync(null, null, null, null, CancellationToken.None));
+        await service.DeclareAsync(account.Id, Declaration("Semester"), CancellationToken.None);
+        return Assert.Single(await service.GetStudentAsync(studentId, CancellationToken.None));
+    }
+
+    private static FinanceDeclarationDto Declaration(string plan) => new(
+        plan == "Year" ? "Annual tuition payment" : "Semester tuition payment",
+        plan,
+        750m,
+        DateOnly.FromDateTime(DateTime.UtcNow).AddDays(3),
+        DateTime.UtcNow.AddDays(5));
+
     private static FinanceService Service(InstituteDbContext db)
     {
         var settings = new FinanceSettingsReader(db);
@@ -221,7 +266,8 @@ public sealed class FinanceServiceTests
             new InstituteCache(),
             synchronizer,
             new FinancialProgression(db, new ActivePeriodLedgerCreator(db)),
-            settings);
+            settings,
+            new BakongPaymentGateway(new HttpClient(), new ConfigurationBuilder().Build()));
     }
 
     private static void AddSettings(InstituteDbContext db, string academicYear, string semester)

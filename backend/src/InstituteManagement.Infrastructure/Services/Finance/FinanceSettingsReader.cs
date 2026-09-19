@@ -13,7 +13,14 @@ public sealed record FinanceSettings(
     bool AllowPartialPayments,
     bool AllowOverpayment,
     decimal MaximumAdjustmentAmount,
-    bool RequirePaidForAdvancement);
+    bool RequirePaidForAdvancement,
+    bool BakongEnabled,
+    string BakongEnvironment,
+    string BakongAccountId,
+    string BakongAccountInformation,
+    string BakongAcquiringBank,
+    string BakongMerchantName,
+    string BakongMerchantCity);
 
 public sealed class FinanceSettingsReader(InstituteDbContext db)
 {
@@ -28,11 +35,13 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
             ? configuredDays
             : 14;
         var currency = values.GetValueOrDefault("currency", "USD");
-        var methods = values.GetValueOrDefault("paymentMethods", "Cash,ABA,ACLEDA,Wing,Bank Transfer,Other")
+        var bakongEnabled = Boolean(values, "bakongEnabled", false);
+        var methods = values.GetValueOrDefault("paymentMethods", "Cash,Bakong,ABA,ACLEDA,Wing,Bank Transfer,Other")
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (methods.Length == 0) methods = ["Other"];
+            .ToList();
+        if (bakongEnabled && !methods.Contains("Bakong", StringComparer.OrdinalIgnoreCase)) methods.Add("Bakong");
+        if (methods.Count == 0) methods.Add("Other");
         return new(
             decimal.Max(0, tuitionFee),
             decimal.Max(0, otherFee),
@@ -42,7 +51,14 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
             Boolean(values, "allowPartialPayments", true),
             Boolean(values, "allowOverpayment", false),
             decimal.Max(0, Decimal(values, "maximumAdjustmentAmount", 1000000m)),
-            Boolean(values, "requirePaidForAdvancement", true));
+            Boolean(values, "requirePaidForAdvancement", true),
+            bakongEnabled,
+            values.GetValueOrDefault("bakongEnvironment", "SIT") is "Production" ? "Production" : "SIT",
+            values.GetValueOrDefault("bakongAccountId", "").Trim(),
+            values.GetValueOrDefault("bakongAccountInformation", "").Trim(),
+            values.GetValueOrDefault("bakongAcquiringBank", "").Trim(),
+            values.GetValueOrDefault("bakongMerchantName", "Institude of New Khmer").Trim(),
+            values.GetValueOrDefault("bakongMerchantCity", "Phnom Penh").Trim());
     }
 
     private static decimal Decimal(IReadOnlyDictionary<string, string> values, string key, decimal fallback) =>

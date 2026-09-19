@@ -8,9 +8,9 @@ import { Icon } from "@/components/icon";
 import { ManagementDataCell } from "@/components/management-data-cell";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { financeApi } from "./finance-api";
-import type { FinancialAccount, FinancialPayment, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
+import type { DeclarationDraft, FinancialAccount, FinancialPayment, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
 
-const columns = ["Account", "Student", "Enrollment", "Period", "Fees", "Paid", "Balance", "Status", "Due", "Actions"];
+const columns = ["Account", "Student", "Enrollment", "Declaration", "Amount", "Paid", "Balance", "Status", "Due", "Actions"];
 const statuses = ["All", "Pending", "Partial", "Paid", "Cancelled", "Refunded"];
 
 export function FinanceWorkspace() {
@@ -39,11 +39,13 @@ export function FinanceWorkspace() {
 
   const view = useMemo(() => {
     const items = accounts ?? [];
+    const declared = items.filter(account => account.isDeclared);
     return {
       items,
-      due: items.reduce((total, account) => total + account.totalDue, 0),
-      collected: items.reduce((total, account) => total + account.totalPaid, 0),
-      outstanding: items.reduce((total, account) => total + account.balance, 0),
+      declared: declared.length,
+      due: declared.reduce((total, account) => total + account.totalDue, 0),
+      collected: declared.reduce((total, account) => total + account.totalPaid, 0),
+      outstanding: declared.reduce((total, account) => total + account.balance, 0),
       eligible: items.filter(account => account.status === "Paid").length,
       currency: items[0]?.currency ?? "USD",
     };
@@ -56,7 +58,7 @@ export function FinanceWorkspace() {
   return <div className="viewport-data-page management-viewport-page finance-viewport-page">
     <PageHeading eyebrow="Current financial state" title="Finance" description="Finance owns enrollment-linked fees, received payments, balances, adjustments, and financial eligibility. Configuration stays in Settings; audit events stay in History." actions={<Link className="button secondary" href="/settings/finance">Finance Settings</Link>}/>
     <section className="finance-metrics" aria-label="Finance summary">
-      <FinanceMetric label="Total due" value={money(view.due, view.currency)} detail={`${view.items.length} financial accounts`} tone="blue"/>
+      <FinanceMetric label="Total due" value={money(view.due, view.currency)} detail={`${view.declared} of ${view.items.length} accounts declared`} tone="blue"/>
       <FinanceMetric label="Collected" value={money(view.collected, view.currency)} detail="Completed payment transactions" tone="green"/>
       <FinanceMetric label="Outstanding" value={money(view.outstanding, view.currency)} detail="Pending and partial balances" tone="amber"/>
       <FinanceMetric label="Eligible" value={view.eligible.toString()} detail={options.requirePaidForAdvancement ? "Paid accounts may advance" : "Paid gate disabled in Settings"} tone="violet"/>
@@ -69,13 +71,13 @@ export function FinanceWorkspace() {
         <Cell label="Account"><strong className="management-code-value">{account.financialAccountCode}</strong></Cell>
         <Cell label="Student"><span className="finance-student"><strong>{account.studentName}</strong><small>{account.studentCode}</small></span></Cell>
         <Cell label="Enrollment"><span><strong>{account.enrollmentCode}</strong><small>{account.department} / Year {account.yearLevel} / {account.shift}</small></span></Cell>
-        <Cell label="Period"><span><strong>{account.academicYear}</strong><small>{account.semester}</small></span></Cell>
-        <Cell label="Fees"><span><strong>{money(account.totalDue, account.currency)}</strong><small>Tuition {money(account.tuitionFee, account.currency)} · Other {money(account.otherFee, account.currency)}</small></span></Cell>
+        <Cell label="Declaration"><span><strong>{account.isDeclared ? account.title : "Not declared"}</strong><small>{account.isDeclared ? planLabel(account) : `${account.academicYear} · ${account.semester}`}</small></span></Cell>
+        <Cell label="Amount"><span><strong>{account.isDeclared ? money(account.totalDue, account.currency) : "—"}</strong><small>{account.isDeclared ? account.paymentPlan : `Suggested ${money(account.tuitionFee + account.otherFee, account.currency)}`}</small></span></Cell>
         <Cell label="Paid"><strong>{money(account.totalPaid, account.currency)}</strong></Cell>
         <Cell label="Balance"><strong>{money(account.balance, account.currency)}</strong></Cell>
-        <Cell label="Status"><span className={`table-status finance-state-${account.status.toLowerCase()}`}>{account.status}</span></Cell>
-        <Cell label="Due"><time>{formatDate(account.dueOn)}</time></Cell>
-        <Cell label="Actions" className="management-action-cell"><button type="button" className="button secondary finance-manage-button" onClick={() => setSelectedId(account.id)}>Manage</button></Cell>
+        <Cell label="Status"><span className={`table-status finance-state-${account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</span></Cell>
+        <Cell label="Due"><time>{account.isDeclared ? formatDate(account.dueOn) : "—"}</time></Cell>
+        <Cell label="Actions" className="management-action-cell"><button type="button" className="button secondary finance-manage-button" onClick={() => setSelectedId(account.id)}>{account.isDeclared ? "Modify" : "Declare"}</button></Cell>
       </article>)}
     </DataTable>}</PaginatedDataRegion>
     {selected && <FinanceAccountModal
@@ -89,6 +91,7 @@ export function FinanceWorkspace() {
 
 function FinanceAccountModal({ account: initialAccount, options, onClose, onUpdated }: { account: FinancialAccount; options: FinanceOptions; onClose: () => void; onUpdated: (account: FinancialAccount) => void }) {
   const [account, setAccount] = useState(initialAccount);
+  const [declarationDraft, setDeclarationDraft] = useState<DeclarationDraft>(() => declarationFromAccount(initialAccount));
   const [paymentDraft, setPaymentDraft] = useState<PaymentDraft>(() => emptyPayment(initialAccount.balance));
   const [adjustmentAmount, setAdjustmentAmount] = useState(initialAccount.adjustmentAmount.toString());
   const [adjustmentReason, setAdjustmentReason] = useState(initialAccount.adjustmentReason);
@@ -105,6 +108,7 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
       const updated = await action();
       setAccount(updated);
       onUpdated(updated);
+      setDeclarationDraft(declarationFromAccount(updated));
       setPaymentDraft(emptyPayment(updated.balance));
       setAdjustmentAmount(updated.adjustmentAmount.toString());
       setAdjustmentReason(updated.adjustmentReason);
@@ -122,6 +126,17 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
     await apply(() => financeApi.recordPayment(account.id, paymentDraft));
   }
 
+  async function saveDeclaration(event: React.FormEvent) {
+    event.preventDefault();
+    await apply(() => financeApi.declare(account.id, declarationDraft));
+    setShowQr(true);
+  }
+
+  async function regenerateQr() {
+    await apply(() => financeApi.regenerateQr(account.id));
+    setShowQr(true);
+  }
+
   async function updatePayment(event: React.FormEvent) {
     event.preventDefault();
     if (!editing || !editDraft) return;
@@ -137,20 +152,40 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
     <div className="modal-head"><div><span className="eyebrow">Financial account</span><h2>{account.studentName}</h2><p>{account.financialAccountCode} · {account.enrollmentCode} · {account.academicYear} · {account.semester}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close"/></button></div>
     <div className="finance-account-scroll">
       {message && <div className="management-rule-error" role="alert"><Icon name="finance" size={16}/><div><strong>Could not apply change</strong><span>{message}</span></div><button type="button" onClick={() => setMessage("")}>Dismiss</button></div>}
+      {options.bakongEnabled && !options.bakongConfigured && <div className="management-rule-error" role="alert"><Icon name="finance" size={16}/><div><strong>Bakong token is not configured</strong><span>Receiver settings are enabled, but the API server still needs the BAKONG_API_TOKEN environment variable.</span></div></div>}
+      <form className="finance-operation-card finance-declaration-card" onSubmit={saveDeclaration}>
+        <header><div><strong>{account.isDeclared ? "Modify payment declaration" : "Declare student payment"}</strong><span>The declaration becomes a payment card in this student&apos;s mobile app. Global defaults remain in Settings.</span></div>{account.isDeclared && !account.isExpired && account.balance > 0 && (account.isQrExpired && options.bakongEnabled ? <button type="button" className="button secondary finance-qr-button" disabled={busy || !options.bakongConfigured} onClick={() => void regenerateQr()}>Regenerate KHQR</button> : account.qrPayload ? <button type="button" className="button secondary finance-qr-button" onClick={() => setShowQr(value => !value)}>{showQr ? "Hide QR" : "Show QR"}</button> : null)}</header>
+        <div className="finance-plan-picker" role="group" aria-label="Payment coverage">
+          <button type="button" className={declarationDraft.paymentPlan === "Semester" ? "is-selected" : ""} aria-pressed={declarationDraft.paymentPlan === "Semester"} onClick={() => setDeclarationDraft({ ...declarationDraft, paymentPlan: "Semester" })}><Icon name="calendar" size={18}/><span><strong>Pay as Semester</strong><small>Covers {account.semester} only</small></span></button>
+          <button type="button" disabled={account.semester !== "Semester 1"} className={declarationDraft.paymentPlan === "Year" ? "is-selected" : ""} aria-pressed={declarationDraft.paymentPlan === "Year"} onClick={() => setDeclarationDraft({ ...declarationDraft, paymentPlan: "Year" })}><Icon name="archive" size={18}/><span><strong>Pay as Year</strong><small>{account.semester === "Semester 1" ? "Covers Semester 1 + Semester 2" : "Available from Semester 1 only"}</small></span></button>
+        </div>
+        <div className="finance-form-grid">
+          <label><span>Card title</span><input value={declarationDraft.title} minLength={3} maxLength={160} onChange={event => setDeclarationDraft({ ...declarationDraft, title: event.target.value })} placeholder="Semester tuition payment" required/></label>
+          <label><span>Amount to pay</span><input type="number" min="0.01" step="0.01" value={declarationDraft.amount} onChange={event => setDeclarationDraft({ ...declarationDraft, amount: event.target.value })} required/></label>
+          <label><span>Due date</span><input type="date" value={declarationDraft.dueOn} onChange={event => setDeclarationDraft({ ...declarationDraft, dueOn: event.target.value })} required/></label>
+          <label><span>QR expires</span><input type="datetime-local" value={declarationDraft.expiresAtUtc} onChange={event => setDeclarationDraft({ ...declarationDraft, expiresAtUtc: event.target.value })} required/></label>
+        </div>
+        <footer><small>{account.isDeclared && account.declaredAtUtc ? `Created ${formatDateTime(account.declaredAtUtc)} · Changes are recorded in History.` : `Suggested from Settings: ${money(account.tuitionFee + account.otherFee, account.currency)}.`}</small><button className="button primary" disabled={busy}>{busy ? "Saving..." : account.isDeclared ? "Save declaration" : "Declare & create QR"}</button></footer>
+      </form>
+
+      {showQr && account.isDeclared && !account.isExpired && account.balance > 0 && account.qrPayload && <section className="finance-qr-ticket" aria-label="Student payment QR">
+        <div className="finance-qr-ticket-code"><QRCodeSVG value={account.qrPayload} size={172} level="M" marginSize={2}/></div>
+        <div><span className="eyebrow">{account.qrProvider}</span><h3>{account.title}</h3><strong>{account.studentName}</strong><p>{planLabel(account)}</p><dl><div><dt>Amount</dt><dd>{money(account.balance, account.currency)}</dd></div><div><dt>Created</dt><dd>{formatDateTime(account.declaredAtUtc!)}</dd></div><div><dt>Due</dt><dd>{formatDate(account.dueOn)}</dd></div><div><dt>{account.qrProvider === "Bakong KHQR" ? "QR expires" : "Expires"}</dt><dd>{formatDateTime(account.qrExpiresAtUtc ?? account.expiresAtUtc!)}</dd></div></dl><small>{account.financialAccountCode} · {account.qrProvider === "Bakong KHQR" ? `${options.bakongEnvironment} · Pay from a Bakong-compatible banking app` : "Scan from the signed-in student account"}</small></div>
+      </section>}
+
       <section className="finance-account-summary" aria-label="Financial account balance">
-        <FinanceAmount label="Tuition fee" value={account.tuitionFee} currency={account.currency}/>
-        <FinanceAmount label="Other fee" value={account.otherFee} currency={account.currency}/>
+        <FinanceAmount label={account.isDeclared ? "Declared amount" : "Suggested amount"} value={account.declaredAmount ?? account.tuitionFee + account.otherFee} currency={account.currency}/>
+        <FinanceAmount label="Plan" value={account.paymentPlan} />
         <FinanceAmount label="Adjustment" value={account.adjustmentAmount} currency={account.currency}/>
         <FinanceAmount label="Total due" value={account.totalDue} currency={account.currency}/>
         <FinanceAmount label="Paid" value={account.totalPaid} currency={account.currency}/>
         <FinanceAmount label="Balance" value={account.balance} currency={account.currency} strong/>
       </section>
 
-      <section className="finance-current-state"><div><span>Payment status</span><strong className={`finance-state-${account.status.toLowerCase()}`}>{account.status}</strong></div><div><span>Enrollment eligibility</span><strong>{options.requirePaidForAdvancement ? account.status === "Paid" ? "Eligible" : "Stay in current enrollment" : "Payment gate disabled"}</strong></div><div><span>Payment methods</span><strong>{options.paymentMethods.join(", ")}</strong></div></section>
+      <section className="finance-current-state"><div><span>Payment status</span><strong className={`finance-state-${account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</strong></div><div><span>Enrollment eligibility</span><strong>{options.requirePaidForAdvancement ? account.status === "Paid" ? account.paymentPlan === "Year" ? "Semester 1 + 2 eligible" : "This semester eligible" : "Stay in current enrollment" : "Payment gate disabled"}</strong></div><div><span>QR provider</span><strong>{account.isDeclared ? account.qrProvider : options.bakongEnabled ? `Bakong ${options.bakongEnvironment}` : "Simulated"}</strong></div><div><span>Payment methods</span><strong>{options.paymentMethods.join(", ")}</strong></div></section>
 
-      {account.status !== "Cancelled" && account.balance > 0 && <form className="finance-operation-card" onSubmit={recordPayment}>
-        <header><div><strong>Record payment</strong><span>Capture actual money received. The balance and status are calculated by Finance.</span></div><button type="button" className="button secondary finance-qr-button" onClick={() => setShowQr(value => !value)}>{showQr ? "Hide QR" : "Generate QR"}</button></header>
-        {showQr && <div className="finance-inline-qr"><QRCodeSVG value={account.qrPayload} size={150} level="M" marginSize={2}/><span>Student scan pays the current balance of {money(account.balance, account.currency)}.</span></div>}
+      {account.isDeclared && !account.isExpired && account.status !== "Cancelled" && account.balance > 0 && <form className="finance-operation-card" onSubmit={recordPayment}>
+        <header><div><strong>Record payment</strong><span>Capture actual money received. The balance and status are calculated by Finance.</span></div></header>
         <div className="finance-form-grid">
           <label><span>Amount</span><input type="number" min="0.01" step="0.01" value={paymentDraft.amount} onChange={event => setPaymentDraft({ ...paymentDraft, amount: event.target.value })} required/></label>
           <label><span>Payment method</span><select value={paymentDraft.method} onChange={event => setPaymentDraft({ ...paymentDraft, method: event.target.value })} required><option value="">Select payment method</option>{options.paymentMethods.map(method => <option key={method}>{method}</option>)}</select></label>
@@ -160,11 +195,11 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
         <footer><small>{options.allowPartialPayments ? "Partial payments are allowed." : "Payment must clear the full balance."} {options.allowOverpayment ? "Overpayment is allowed." : "Overpayment is blocked."}</small><button className="button primary" disabled={busy}>{busy ? "Saving..." : "Record payment"}</button></footer>
       </form>}
 
-      <form className="finance-operation-card" onSubmit={event => { event.preventDefault(); void apply(() => financeApi.adjust(account.id, Number(adjustmentAmount), adjustmentReason)); }}>
+      {account.isDeclared && <form className="finance-operation-card" onSubmit={event => { event.preventDefault(); void apply(() => financeApi.adjust(account.id, Number(adjustmentAmount), adjustmentReason)); }}>
         <header><div><strong>Discount / adjustment</strong><span>Use a negative amount for a discount or a positive amount for an extra charge.</span></div></header>
         <div className="finance-form-grid finance-adjustment-grid"><label><span>Adjustment amount</span><input type="number" step="0.01" value={adjustmentAmount} onChange={event => setAdjustmentAmount(event.target.value)} required/></label><label><span>Reason</span><input value={adjustmentReason} onChange={event => setAdjustmentReason(event.target.value)} placeholder="Required when amount is not zero"/></label></div>
         <footer><small>Maximum absolute adjustment: {money(options.maximumAdjustmentAmount, account.currency)}.</small><button className="button secondary" disabled={busy}>{busy ? "Saving..." : "Apply adjustment"}</button></footer>
-      </form>
+      </form>}
 
       <section className="finance-transactions">
         <header><div><strong>Payments</strong><span>Current payment transactions. Corrections and status changes are written to History.</span></div><b>{account.payments.length}</b></header>
@@ -185,8 +220,25 @@ function FinanceMetric({ label, value, detail, tone }: { label: string; value: s
   return <article className={`panel finance-metric finance-tone-${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-function FinanceAmount({ label, value, currency, strong = false }: { label: string; value: number; currency: string; strong?: boolean }) {
-  return <div className={strong ? "is-strong" : ""}><span>{label}</span><strong>{money(value, currency)}</strong></div>;
+function FinanceAmount({ label, value, currency, strong = false }: { label: string; value: number | string; currency?: string; strong?: boolean }) {
+  return <div className={strong ? "is-strong" : ""}><span>{label}</span><strong>{typeof value === "number" && currency ? money(value, currency) : value}</strong></div>;
+}
+
+function declarationFromAccount(account: FinancialAccount): DeclarationDraft {
+  const expiry = account.expiresAtUtc ? new Date(account.expiresAtUtc) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  return {
+    title: account.title || `${account.semester} payment`,
+    paymentPlan: account.paymentPlan || "Semester",
+    amount: (account.declaredAmount ?? account.tuitionFee + account.otherFee).toFixed(2),
+    dueOn: account.dueOn,
+    expiresAtUtc: localDateTime(expiry),
+  };
+}
+
+function planLabel(account: FinancialAccount) {
+  return account.paymentPlan === "Year"
+    ? `${account.academicYear} · Semester 1 + Semester 2`
+    : account.semester;
 }
 
 function emptyPayment(balance: number): PaymentDraft {

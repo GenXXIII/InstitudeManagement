@@ -1,5 +1,5 @@
 import { request } from "@/lib/http";
-import type { FinancialAccount, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
+import type { DeclarationDraft, FinancialAccount, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
 
 const accountsRoute = "/api/finance/accounts";
 
@@ -15,6 +15,8 @@ function paymentBody(draft: PaymentDraft) {
 export const financeApi = {
   get: (search = "", status = "All") => request<FinancialAccount[]>(`/api/finance?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`),
   getOptions: () => request<FinanceOptions>("/api/finance/options"),
+  declare: (accountId: string, draft: DeclarationDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/declaration`, { method: "PUT", body: JSON.stringify({ ...draft, amount: Number(draft.amount), expiresAtUtc: new Date(draft.expiresAtUtc).toISOString() }) }),
+  regenerateQr: (accountId: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/qr`, { method: "PUT" }),
   recordPayment: (accountId: string, draft: PaymentDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments`, { method: "POST", body: JSON.stringify(paymentBody(draft)) }),
   updatePayment: (accountId: string, paymentId: string, draft: PaymentDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments/${paymentId}`, { method: "PUT", body: JSON.stringify(paymentBody(draft)) }),
   setPaymentStatus: (accountId: string, paymentId: string, status: Exclude<PaymentStatus, "Completed">) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments/${paymentId}/status`, { method: "PUT", body: JSON.stringify({ status }) }),

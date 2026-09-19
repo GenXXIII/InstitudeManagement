@@ -13,6 +13,13 @@ public interface IFinanceService
 
     Task<FinanceOptionsDto> GetOptionsAsync(CancellationToken cancellationToken);
 
+    Task<StudentPaymentDto> DeclareAsync(
+        Guid financialAccountId,
+        FinanceDeclarationDto request,
+        CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> RegenerateQrAsync(Guid financialAccountId, CancellationToken cancellationToken);
+
     Task<StudentPaymentDto> ConfirmAsync(
         Guid studentId,
         Guid paymentId,

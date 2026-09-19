@@ -2,6 +2,16 @@ using InstituteManagement.Application.Features.Finance;
 
 namespace InstituteManagement.API.Contracts.Finance;
 
+public sealed record FinanceDeclarationRequest(
+    string? Title,
+    string? PaymentPlan,
+    decimal Amount,
+    DateOnly DueOn,
+    DateTime ExpiresAtUtc)
+{
+    public FinanceDeclarationDto ToDto() => new(Title, PaymentPlan, Amount, DueOn, ExpiresAtUtc);
+}
+
 public sealed record RecordFinancePaymentRequest(
     decimal Amount,
     string? Method,

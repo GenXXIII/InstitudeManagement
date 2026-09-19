@@ -1,5 +1,12 @@
 namespace InstituteManagement.Application.Features.Finance;
 
+public sealed record FinanceDeclarationDto(
+    string? Title,
+    string? PaymentPlan,
+    decimal Amount,
+    DateOnly DueOn,
+    DateTime ExpiresAtUtc);
+
 public sealed record RecordFinancePaymentDto(
     decimal Amount,
     string? Method,
@@ -21,4 +28,7 @@ public sealed record FinanceOptionsDto(
     bool AllowPartialPayments,
     bool AllowOverpayment,
     decimal MaximumAdjustmentAmount,
-    bool RequirePaidForAdvancement);
+    bool RequirePaidForAdvancement,
+    bool BakongEnabled,
+    bool BakongConfigured,
+    string BakongEnvironment);

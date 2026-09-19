@@ -26,6 +26,17 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
     public async Task<IActionResult> GetOptions(CancellationToken cancellationToken) =>
         Ok(await finance.GetOptionsAsync(cancellationToken));
 
+    [HttpPut("accounts/{financialAccountId:guid}/declaration")]
+    public async Task<IActionResult> Declare(
+        Guid financialAccountId,
+        FinanceDeclarationRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await finance.DeclareAsync(financialAccountId, request.ToDto(), cancellationToken));
+
+    [HttpPut("accounts/{financialAccountId:guid}/qr")]
+    public async Task<IActionResult> RegenerateQr(Guid financialAccountId, CancellationToken cancellationToken) =>
+        Ok(await finance.RegenerateQrAsync(financialAccountId, cancellationToken));
+
     [HttpPost("students/{studentId:guid}/payments/{paymentId:guid}/confirm")]
     public async Task<IActionResult> Confirm(
         Guid studentId,

@@ -18,7 +18,7 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     env:
-      SQL_PASSWORD: 1234
+      SQL_PASSWORD: INK-Ci-Runtime!2026
       SQL_BOOTSTRAP_PASSWORD: INK-Ci-Setup!2026
       SQL_DATABASE: INK_Manangement
       SQL_HOSTNAME: INK-SQL-SERVER
@@ -31,7 +31,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: frontend/web/package-lock.json
+          cache-dependency-path: |
+            frontend/web/package-lock.json
+            frontend/mobile/package-lock.json
       - name: Restore backend
         run: dotnet restore backend/InstituteManagement.slnx
       - name: Build backend
@@ -47,6 +49,14 @@ jobs:
       - name: Build frontend
         working-directory: frontend/web
         run: npm run build
+      - name: Install mobile
+        working-directory: frontend/mobile
+        run: npm ci
+      - name: Lint and type-check mobile
+        working-directory: frontend/mobile
+        run: |
+          npm run lint
+          npx tsc --noEmit
       - name: Validate Docker Compose
         run: docker compose config --quiet
       - name: Build production containers

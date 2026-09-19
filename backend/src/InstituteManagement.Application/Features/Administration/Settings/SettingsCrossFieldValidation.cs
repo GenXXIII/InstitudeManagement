@@ -23,10 +23,20 @@ public static partial class SettingsCatalog
             case "grade-rules":
                 ValidateGradeRules(values, errors);
                 break;
+            case "finance":
+                ValidateFinance(values, errors);
+                break;
             case "notifications":
                 ValidateNotificationChannels(values, errors);
                 break;
         }
+    }
+
+    private static void ValidateFinance(IReadOnlyDictionary<string, string> values, ICollection<string> errors)
+    {
+        if (!bool.TryParse(values.GetValueOrDefault("bakongEnabled"), out var enabled) || !enabled) return;
+        foreach (var key in new[] { "bakongAccountId", "bakongAccountInformation", "bakongAcquiringBank", "bakongMerchantName", "bakongMerchantCity" })
+            if (string.IsNullOrWhiteSpace(values.GetValueOrDefault(key))) errors.Add($"{key} is required while Bakong KHQR is enabled.");
     }
 
     private static void ValidateSemester(IReadOnlyDictionary<string, string> values, ICollection<string> errors)

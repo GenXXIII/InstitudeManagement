@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { Card, EmptyBlock, MetricCard, PortalPage, portalStyles, SectionHeading } from '@/components/portal-ui';
 import { palette, radius } from '@/constants/theme';
 import type { StudentPayment } from '../portal-types';
@@ -65,35 +66,49 @@ export function FinanceScreen() {
     </Card>
   </PortalPage>;
 
-  return <PortalPage title="Finance" subtitle="Scan the Administrator-generated QR to pay the current balance. Enrollment advances when Finance reports Paid." eyebrow="Student Finance">
+  return <PortalPage title="Finance" subtitle="Pay a Bakong KHQR with your banking app, then verify it here. Enrollment advances when Finance reports Paid." eyebrow="Student Finance">
     <View style={portalStyles.grid}>
       <MetricCard icon="time-outline" label="Pending" value={pending.length} tone="amber"/>
       <MetricCard icon="checkmark-circle-outline" label="Paid" value={paid.length} tone="green"/>
     </View>
     {error ? <Text style={styles.error}>{error}</Text> : null}
-    <SectionHeading title="Semester payments" detail={`${payments.length} records`}/>
-    {payments.length ? <View style={portalStyles.stack}>{payments.map(payment => <PaymentCard payment={payment} busy={submittingId === payment.id} onScan={() => void openScanner(payment)} key={payment.id}/>)}</View> : <EmptyBlock icon="card-outline" title="No payment record" detail="A semester payment appears after Administrator completes Student Enrollment."/>}
+    <SectionHeading title="Payment declarations" detail={`${payments.length} cards`}/>
+    {payments.length ? <View style={portalStyles.stack}>{payments.map(payment => <PaymentCard payment={payment} busy={submittingId === payment.id} onPay={() => payment.qrProvider === 'Bakong KHQR' ? void confirm(payment, payment.qrPayload) : void openScanner(payment)} key={payment.id}/>)}</View> : <EmptyBlock icon="card-outline" title="No payment declared" detail="A payment card appears here only after Administrator declares its title, plan, amount, dates, and QR."/>}
     <Card style={styles.policyCard}>
       <View style={styles.policyIcon}><Ionicons name="shield-checkmark-outline" size={20} color={palette.blue}/></View>
-      <View style={styles.policyCopy}><Text style={styles.policyTitle}>Student QR scan only</Text><Text style={styles.policyDetail}>This is a fake finance workflow. Administrator generates the QR, and only the matching student scan can confirm payment.</Text></View>
+      <View style={styles.policyCopy}><Text style={styles.policyTitle}>Bakong verification</Text><Text style={styles.policyDetail}>For Bakong KHQR, pay from a Bakong-compatible banking app first, then tap Verify. The API accepts only the matching recipient, amount, currency, and unused transaction.</Text></View>
     </Card>
   </PortalPage>;
 }
 
-function PaymentCard({ payment, busy, onScan }: { payment: StudentPayment; busy: boolean; onScan: () => void }) {
+function PaymentCard({ payment, busy, onPay }: { payment: StudentPayment; busy: boolean; onPay: () => void }) {
   const paid = payment.status === 'Paid';
   const cancelled = payment.status === 'Cancelled';
-  const statusColor = paid ? palette.green : cancelled ? palette.red : payment.status === 'Refunded' ? '#755BC4' : '#9B6812';
-  return <Card style={[styles.paymentCard, paid && styles.paymentCardPaid, cancelled && styles.paymentCardCancelled]}>
+  const expired = payment.isExpired || payment.isQrExpired;
+  const statusColor = paid ? palette.green : cancelled || expired ? palette.red : payment.status === 'Refunded' ? '#755BC4' : '#9B6812';
+  const displayStatus = expired ? 'Expired' : payment.status;
+  const coverage = payment.paymentPlan === 'Year' ? 'Semester 1 + Semester 2' : payment.semester;
+  return <Card style={[styles.paymentCard, paid && styles.paymentCardPaid, (cancelled || expired) && styles.paymentCardCancelled]}>
+    <View style={styles.declarationTop}><View style={styles.planPill}><Ionicons name={payment.paymentPlan === 'Year' ? 'layers-outline' : 'calendar-outline'} size={13} color={palette.blue}/><Text style={styles.planText}>{payment.paymentPlan}</Text></View><Text style={styles.createdText}>{payment.qrProvider} · {formatDate(payment.declaredAtUtc)}</Text></View>
+    <Text style={styles.declarationTitle}>{payment.title}</Text>
+    <Text style={styles.studentName}>{payment.studentName}</Text>
     <View style={styles.paymentHeader}>
       <View style={[styles.paymentIcon, paid ? styles.paymentIconPaid : styles.paymentIconPending]}><Ionicons name={paid ? 'checkmark-circle-outline' : 'card-outline'} size={22} color={paid ? palette.green : palette.gold}/></View>
-      <View style={styles.paymentHeading}><Text style={styles.paymentPeriod}>{payment.academicYear} · {payment.semester}</Text><Text style={styles.paymentCode}>{payment.paymentCode}</Text></View>
-      <View style={[styles.statusBadge, paid ? styles.statusPaid : styles.statusPending]}><Text style={[styles.statusText, { color: statusColor }]}>{payment.status}</Text></View>
+      <View style={styles.paymentHeading}><Text style={styles.paymentPeriod}>{coverage}</Text><Text style={styles.paymentCode}>{payment.paymentCode} · {payment.paymentPlan === 'Year' ? payment.academicYear : 'Semester payment'}</Text></View>
+      <View style={[styles.statusBadge, paid ? styles.statusPaid : styles.statusPending]}><Text style={[styles.statusText, { color: statusColor }]}>{displayStatus}</Text></View>
     </View>
-    <Text style={styles.amount}>{money(payment.amountDue, payment.currency)}</Text>
-    <View style={styles.paymentMeta}><Text>Due {formatDate(payment.dueOn)}</Text><Text>Timetable {payment.timetableStatus.toLowerCase()}</Text></View>
+    <Text style={styles.amount}>{money(payment.balance, payment.currency)}</Text>
+    <Text style={styles.amountLabel}>{paid ? `Paid ${money(payment.totalPaid, payment.currency)}` : `Remaining of ${money(payment.totalDue, payment.currency)}`}</Text>
+    {!paid && !cancelled && !expired && payment.qrPayload ? <View style={styles.qrTicket}>
+      <View style={styles.qrTicketHeading}><View><Text style={styles.qrEyebrow}>{payment.qrProvider}</Text><Text style={styles.qrTitle}>Scan to pay</Text></View><Ionicons name="shield-checkmark-outline" size={24} color={palette.blue}/></View>
+      <View style={styles.qrFrame}><QRCode value={payment.qrPayload} size={156} color={palette.ink} backgroundColor="white"/></View>
+      <Text style={styles.qrAmount}>{money(payment.balance, payment.currency)}</Text>
+      <Text style={styles.qrDetail}>{payment.financialAccountCode} · {coverage}</Text>
+      <Text style={styles.qrHint}>{payment.qrProvider === 'Bakong KHQR' ? 'Open a Bakong-compatible banking app and scan this KHQR.' : 'This test QR can be confirmed only by the signed-in student account.'}</Text>
+    </View> : null}
+    <View style={styles.paymentMeta}><View><Text style={styles.metaLabel}>Due</Text><Text style={styles.metaValue}>{formatDate(payment.dueOn)}</Text></View><View><Text style={styles.metaLabel}>{payment.qrProvider === 'Bakong KHQR' ? 'Bakong QR expires' : 'Request expires'}</Text><Text style={styles.metaValue}>{formatDateTime(payment.qrExpiresAtUtc ?? payment.expiresAtUtc)}</Text></View></View>
     {paid ? <View style={styles.confirmedLine}><Ionicons name="person-circle-outline" size={16} color={palette.green}/><Text>{payment.confirmationMethod || 'Payment completed'}{payment.paidAtUtc ? ` · ${formatDate(payment.paidAtUtc)}` : ''}</Text></View> : cancelled ? <View style={styles.cancelledLine}><Text>This financial account was cancelled. No QR payment is available.</Text></View> : <View style={styles.paymentActions}>
-      <Pressable disabled={busy} onPress={onScan} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, busy && styles.disabled]}><Ionicons name="qr-code-outline" size={17} color="white"/><Text style={styles.primaryButtonText}>{busy ? 'Confirming…' : 'Scan QR to pay'}</Text></Pressable>
+      <Pressable disabled={busy || expired} onPress={onPay} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (busy || expired) && styles.disabled]}><Ionicons name={payment.qrProvider === 'Bakong KHQR' ? 'shield-checkmark-outline' : 'qr-code-outline'} size={17} color="white"/><Text style={styles.primaryButtonText}>{expired ? 'QR expired — contact Finance' : busy ? 'Confirming…' : payment.qrProvider === 'Bakong KHQR' ? 'Verify Bakong payment' : 'Scan administrator QR to pay'}</Text></Pressable>
     </View>}
   </Card>;
 }
@@ -107,11 +122,22 @@ function formatDate(value: string) {
   return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 }
 
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
 const styles = StyleSheet.create({
   error: { padding: 11, borderRadius: radius.small, backgroundColor: palette.redPale, color: palette.red, fontSize: 12, lineHeight: 18, fontWeight: '700' },
   paymentCard: { gap: 14, borderLeftWidth: 4, borderLeftColor: palette.gold },
   paymentCardPaid: { borderLeftColor: palette.green },
   paymentCardCancelled: { borderLeftColor: palette.red },
+  declarationTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 9 },
+  planPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: palette.bluePale },
+  planText: { color: palette.blue, fontSize: 9, fontWeight: '800' },
+  createdText: { color: palette.muted, fontSize: 9, fontWeight: '600' },
+  declarationTitle: { color: palette.ink, fontSize: 18, lineHeight: 23, fontWeight: '800' },
+  studentName: { color: palette.blue, fontSize: 11, fontWeight: '700', marginTop: -8 },
   paymentHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   paymentIcon: { width: 43, height: 43, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   paymentIconPending: { backgroundColor: palette.goldPale },
@@ -124,7 +150,18 @@ const styles = StyleSheet.create({
   statusPaid: { backgroundColor: palette.greenPale },
   statusText: { fontSize: 10, fontWeight: '800' },
   amount: { color: palette.blueDark, fontSize: 29, lineHeight: 34, fontWeight: '800' },
-  paymentMeta: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.line },
+  amountLabel: { color: palette.muted, fontSize: 10, fontWeight: '600', marginTop: -10 },
+  qrTicket: { alignItems: 'center', gap: 8, padding: 14, borderWidth: 1, borderColor: '#D8E4F2', borderRadius: radius.medium, backgroundColor: '#F8FBFF' },
+  qrTicketHeading: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  qrEyebrow: { color: palette.blue, fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
+  qrTitle: { marginTop: 2, color: palette.ink, fontSize: 16, fontWeight: '800' },
+  qrFrame: { marginTop: 3, padding: 11, borderRadius: 14, backgroundColor: 'white', borderWidth: 1, borderColor: '#E3EAF3' },
+  qrAmount: { color: palette.ink, fontSize: 20, fontWeight: '900' },
+  qrDetail: { color: palette.blue, fontSize: 10, fontWeight: '800' },
+  qrHint: { maxWidth: 260, color: palette.muted, fontSize: 9, lineHeight: 14, fontWeight: '600', textAlign: 'center' },
+  paymentMeta: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.line },
+  metaLabel: { color: palette.muted, fontSize: 8, fontWeight: '700', textTransform: 'uppercase' },
+  metaValue: { color: palette.ink, fontSize: 10, fontWeight: '700', marginTop: 3 },
   paymentActions: { flexDirection: 'row', gap: 9 },
   primaryButton: { minHeight: 45, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: radius.small, backgroundColor: palette.blue },
   primaryButtonText: { color: 'white', fontSize: 12, fontWeight: '800' },

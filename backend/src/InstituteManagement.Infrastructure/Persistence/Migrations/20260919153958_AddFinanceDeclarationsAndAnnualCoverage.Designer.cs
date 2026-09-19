@@ -4,6 +4,7 @@ using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InstituteManagement.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(InstituteDbContext))]
-    partial class InstituteDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260919153958_AddFinanceDeclarationsAndAnnualCoverage")]
+    partial class AddFinanceDeclarationsAndAnnualCoverage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -665,16 +668,6 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("BakongMd5")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("BakongQrPayload")
-                        .IsRequired()
-                        .HasMaxLength(4096)
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreateAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("CreatedAtUtc");
@@ -710,12 +703,6 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
-
-                    b.Property<DateTime?>("QrExpiresAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("QrGeneratedAtUtc")
-                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ReminderReadAtUtc")
                         .HasColumnType("datetime2");

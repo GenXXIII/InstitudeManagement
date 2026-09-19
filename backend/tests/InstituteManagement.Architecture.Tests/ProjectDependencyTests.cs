@@ -7,7 +7,7 @@ public sealed class ProjectDependencyTests
     [Theory]
     [InlineData("InstituteManagement.Domain")]
     [InlineData("InstituteManagement.Application", "MediatR")]
-    [InlineData("InstituteManagement.Infrastructure", "Microsoft.EntityFrameworkCore.Design", "Microsoft.EntityFrameworkCore.InMemory", "Microsoft.EntityFrameworkCore.SqlServer", "StackExchange.Redis")]
+    [InlineData("InstituteManagement.Infrastructure", "Kh.Gov.Nbc.BakongKHQR", "Microsoft.EntityFrameworkCore.Design", "Microsoft.EntityFrameworkCore.InMemory", "Microsoft.EntityFrameworkCore.SqlServer", "StackExchange.Redis")]
     [InlineData("InstituteManagement.API", "Microsoft.AspNetCore.OpenApi", "Swashbuckle.AspNetCore")]
     public void Production_projects_use_only_layer_appropriate_packages(
         string projectName,

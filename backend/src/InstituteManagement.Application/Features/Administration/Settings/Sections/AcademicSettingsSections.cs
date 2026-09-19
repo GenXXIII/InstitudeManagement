@@ -38,5 +38,12 @@ public static partial class SettingsCatalog
         Boolean("allowPartialPayments", true),
         Boolean("allowOverpayment", false),
         Decimal("maximumAdjustmentAmount", "1000000.00", 0, 1000000),
-        Boolean("requirePaidForAdvancement", true));
+        Boolean("requirePaidForAdvancement", true),
+        Boolean("bakongEnabled", false),
+        Option("bakongEnvironment", "SIT", "SIT", "Production"),
+        OptionalText("bakongAccountId", "", 128),
+        OptionalText("bakongAccountInformation", "", 128),
+        OptionalText("bakongAcquiringBank", "", 128),
+        OptionalText("bakongMerchantName", "Institude of New Khmer", 25),
+        OptionalText("bakongMerchantCity", "Phnom Penh", 15));
 }

@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import type { MobileSession } from '@/features/auth/auth-context';
 import type { Announcement, AttendanceItem, ClassSessionStartItem, GradeItem, GradeWeights, PortalData, ScheduleItem, StudentItem, StudentPayment, TeacherItem } from './portal-types';
@@ -8,9 +9,10 @@ const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, 
 export function getApiBaseUrl() {
   if (configuredApiUrl) return configuredApiUrl;
   if (Platform.OS === 'web' && typeof window !== 'undefined') return `http://${window.location.hostname}:5080`;
-  const expoHost = readHost(Constants.expoConfig?.hostUri)
+  let expoHost = readHost(Constants.expoConfig?.hostUri)
     || readHost(Constants.expoGoConfig?.debuggerHost)
     || readHost(Constants.linkingUri);
+  if (Platform.OS === 'android' && !Device.isDevice && (!expoHost || expoHost === 'localhost' || expoHost === '127.0.0.1')) expoHost = '10.0.2.2';
   return expoHost ? `http://${expoHost}:5080` : 'http://localhost:5080';
 }
 
@@ -92,10 +94,10 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
       sourceId: payment.id,
       announcementCode: payment.paymentCode,
       type: 'Finance' as const,
-      title: payment.status === 'Paid' ? 'Semester payment confirmed' : 'Semester payment required',
+      title: payment.status === 'Paid' ? `${payment.paymentPlan} payment confirmed` : payment.title,
       message: payment.status === 'Paid'
-        ? `${payment.totalPaid} ${payment.currency} was confirmed for ${payment.academicYear} / ${payment.semester}.`
-        : `Please pay the remaining ${payment.balance} ${payment.currency} for ${payment.academicYear} / ${payment.semester}. Your next enrollment is held until Finance reports Paid.`,
+        ? `${payment.totalPaid} ${payment.currency} was confirmed for ${payment.paymentPlan === 'Year' ? 'Semester 1 and Semester 2' : payment.semester}.`
+        : `Please pay the remaining ${payment.balance} ${payment.currency} for ${payment.paymentPlan === 'Year' ? 'Semester 1 and Semester 2' : payment.semester}. Your next enrollment is held until Finance reports Paid.`,
       isRead: Boolean(payment.reminderReadAtUtc),
       createAt: payment.reminderSentAtUtc!,
     }));

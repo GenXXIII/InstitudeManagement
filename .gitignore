@@ -10,10 +10,44 @@ docs/
 # scripts - keep completely local
 scripts/
 
-# local configuration
+# local configuration and secrets
 .env
+.env.*
+!.env.example
+!**/.env.example
+appsettings.*.Local.json
+secrets*.json
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+*.jks
+*.keystore
+*.p8
+*.mobileprovision
+*.publishsettings
+.npmrc
+credentials*.json
+service-account*.json
+google-services.json
+GoogleService-Info.plist
 *.user
 *.suo
+
+# local data, exports, logs, and test output
+*.bak
+*.bacpac
+*.mdf
+*.ldf
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+logs/
+coverage/
+TestResults/
 
 # editors and OS
 .vs/
