@@ -19,16 +19,13 @@ public sealed class BakongPaymentGateway(HttpClient client, IConfiguration confi
     public bool IsConfigured(FinanceSettings settings) =>
         !string.IsNullOrWhiteSpace(Token)
         && !string.IsNullOrWhiteSpace(settings.BakongAccountId)
-        && !string.IsNullOrWhiteSpace(settings.BakongAccountInformation)
-        && !string.IsNullOrWhiteSpace(settings.BakongAcquiringBank)
-        && !string.IsNullOrWhiteSpace(settings.BakongMerchantName)
-        && !string.IsNullOrWhiteSpace(settings.BakongMerchantCity);
+        && !string.IsNullOrWhiteSpace(settings.BakongMerchantName);
 
     public BakongQrResult Generate(FinancialAccount account, decimal amount, FinanceSettings settings)
     {
         if (!settings.BakongEnabled) throw new InvalidOperationException("Bakong KHQR is disabled in Settings.");
         if (!IsConfigured(settings))
-            throw new InvalidOperationException("Complete the Bakong receiver fields in Settings and configure BAKONG_API_TOKEN on the API server.");
+            throw new InvalidOperationException("Enter the personal Bakong account ID and account-holder name in Settings, and configure BAKONG_API_TOKEN on the API server.");
         if (settings.Currency == "KHR" && amount != decimal.Truncate(amount))
             throw new ArgumentException("Bakong KHR declarations must use a whole-number amount.");
 
@@ -42,16 +39,16 @@ public sealed class BakongPaymentGateway(HttpClient client, IConfiguration confi
         var response = BakongKHQR.GenerateIndividual(new IndividualInfo
         {
             BakongAccountID = settings.BakongAccountId,
-            AccountInformation = settings.BakongAccountInformation,
-            AcquiringBank = settings.BakongAcquiringBank,
+            AccountInformation = string.IsNullOrWhiteSpace(settings.BakongAccountInformation) ? null! : settings.BakongAccountInformation,
+            AcquiringBank = string.IsNullOrWhiteSpace(settings.BakongAcquiringBank) ? null! : settings.BakongAcquiringBank,
             MerchantName = settings.BakongMerchantName,
-            MerchantCity = settings.BakongMerchantCity,
+            MerchantCity = string.IsNullOrWhiteSpace(settings.BakongMerchantCity) ? "Phnom Penh" : settings.BakongMerchantCity,
             Currency = settings.Currency == "KHR" ? KHQRCurrency.KHR : KHQRCurrency.USD,
             Amount = decimal.ToDouble(amount),
             BillNumber = account.FinancialAccountCode,
             StoreLabel = "INK Finance",
             TerminalLabel = account.Student!.StudentCode,
-            PurposeOfTransaction = account.Title,
+            PurposeOfTransaction = account.Title[..Math.Min(account.Title.Length, 25)],
             ExpirationTimestamp = new DateTimeOffset(qrExpiresAtUtc).ToUnixTimeMilliseconds(),
             MerchantCategoryCode = "8220"
         });

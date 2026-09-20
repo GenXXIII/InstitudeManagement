@@ -52,6 +52,8 @@ public sealed class SemesterPaymentGate(
             .Where(account => !settings.RequirePaidForAdvancement || account.Status == "Paid" || annualPaidStudentIds.Contains(account.StudentId))
             .Select(account => account.StudentId)
             .ToHashSet();
+        if (!settings.RequirePaidForAdvancement) paid.UnionWith(studentIds);
+        else paid.UnionWith(annualPaidStudentIds);
         var reminderTime = DateTime.UtcNow;
         var held = 0;
         foreach (var account in accounts.Where(account => settings.RequirePaidForAdvancement && account.Status != "Paid" && !annualPaidStudentIds.Contains(account.StudentId)))

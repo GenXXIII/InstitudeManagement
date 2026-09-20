@@ -18,12 +18,23 @@ public interface IFinanceService
         FinanceDeclarationDto request,
         CancellationToken cancellationToken);
 
+    Task<BulkFinanceDeclarationResultDto> DeclareAllAsync(CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> ExtendExpiryAsync(
+        Guid financialAccountId,
+        FinanceExpiryExtensionDto request,
+        CancellationToken cancellationToken);
+
     Task<StudentPaymentDto> RegenerateQrAsync(Guid financialAccountId, CancellationToken cancellationToken);
 
-    Task<StudentPaymentDto> ConfirmAsync(
+    Task<StudentPaymentDto> GenerateStudentQrAsync(
         Guid studentId,
         Guid paymentId,
-        StudentPaymentConfirmationDto request,
+        CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> VerifyStudentPaymentAsync(
+        Guid studentId,
+        Guid paymentId,
         CancellationToken cancellationToken);
 
     Task<StudentPaymentDto> MarkReminderReadAsync(

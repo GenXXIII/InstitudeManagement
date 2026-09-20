@@ -46,7 +46,9 @@ export type SettingFieldDefinition = {
   unit?: string;
   placeholder?: string;
   accept?: string;
+  assetKind?: "logo" | "favicon";
   readOnly?: boolean;
+  showWhen?: (values: Record<string, string>) => boolean;
   derive?: (values: Record<string, string>) => string;
 };
 

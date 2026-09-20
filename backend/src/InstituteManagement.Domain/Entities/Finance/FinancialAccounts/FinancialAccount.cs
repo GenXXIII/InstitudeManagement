@@ -22,6 +22,8 @@ public sealed class FinancialAccount : Entity
     public decimal OtherFee { get; set; }
     public decimal AdjustmentAmount { get; set; }
     public string AdjustmentReason { get; set; } = string.Empty;
+    public int LatePenaltyDays { get; set; }
+    public decimal LatePenaltyAmount { get; set; }
     public string Currency { get; set; } = "USD";
     public DateOnly DueOn { get; set; }
     public string Status { get; set; } = "Pending";

@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using InstituteManagement.Application.Features.Finance;
 using InstituteManagement.Domain.Entities;
@@ -32,6 +31,16 @@ public sealed class FinanceService(
             .ThenBy(account => account.DueOn)
             .ThenBy(account => account.Student!.FullName)
             .ToListAsync(cancellationToken);
+        var annualCoverage = accounts
+            .Where(account => account.Semester == "Semester 1" && account.PaymentPlan == "Year" && account.DeclaredAtUtc != null && account.Status == "Paid")
+            .Select(account => $"{account.StudentId:N}|{account.AcademicYear}")
+            .ToHashSet(StringComparer.Ordinal);
+        accounts = accounts.Where(account =>
+            account.Semester != "Semester 2"
+            || account.DeclaredAtUtc != null
+            || !annualCoverage.Contains($"{account.StudentId:N}|{account.AcademicYear}"))
+            .ToList();
+        await ApplyLatePenaltiesAsync(accounts, cancellationToken);
         if (!string.IsNullOrWhiteSpace(search))
         {
             accounts = accounts.Where(account => Matches(
@@ -66,13 +75,36 @@ public sealed class FinanceService(
             .ThenByDescending(account => account.AcademicYear)
             .ThenByDescending(account => account.Semester)
             .ToListAsync(cancellationToken);
+        await ApplyLatePenaltiesAsync(accounts, cancellationToken);
         return await MapAsync(accounts, cancellationToken);
     }
 
     public async Task<FinanceOptionsDto> GetOptionsAsync(CancellationToken cancellationToken)
     {
         var settings = await settingsReader.GetAsync(cancellationToken);
-        return new(settings.PaymentMethods, settings.AllowPartialPayments, settings.AllowOverpayment, settings.MaximumAdjustmentAmount, settings.RequirePaidForAdvancement, settings.BakongEnabled, bakong.IsConfigured(settings), settings.BakongEnvironment);
+        var providers = settings.PaymentProviders
+            .Select(provider => new BankPaymentOptionDto(provider.Name, provider.AccountName, provider.AccountCode))
+            .ToList();
+        var receiverProvider = settings.PaymentProviders.FirstOrDefault(provider =>
+            settings.BakongAcquiringBank.Contains(provider.Name, StringComparison.OrdinalIgnoreCase))
+            ?? settings.PaymentProviders.FirstOrDefault();
+        return new(
+            settings.PaymentMethods,
+            settings.AllowPartialPayments,
+            settings.AllowOverpayment,
+            settings.MaximumAdjustmentAmount,
+            settings.RequirePaidForAdvancement,
+            settings.PaymentDueDays,
+            settings.TuitionFee,
+            settings.YearFee,
+            settings.OtherFee,
+            providers,
+            settings.BakongEnabled,
+            bakong.IsConfigured(settings),
+            settings.BakongEnvironment,
+            string.IsNullOrWhiteSpace(settings.BakongAcquiringBank) ? receiverProvider?.Name ?? "Bakong" : settings.BakongAcquiringBank,
+            string.IsNullOrWhiteSpace(settings.BakongMerchantName) ? receiverProvider?.AccountName ?? string.Empty : settings.BakongMerchantName,
+            string.IsNullOrWhiteSpace(settings.BakongAccountInformation) ? settings.BakongAccountId : settings.BakongAccountInformation);
     }
 
     public async Task<StudentPaymentDto> DeclareAsync(
@@ -92,12 +124,14 @@ public sealed class FinanceService(
         var amount = decimal.Round(request.Amount, 2);
         if (amount <= 0) throw new ArgumentException("Declaration amount must be greater than zero.");
         var expiresAtUtc = request.ExpiresAtUtc.ToUniversalTime();
-        if (expiresAtUtc <= DateTime.UtcNow) throw new ArgumentException("QR expiry must be in the future.");
-        if (DateOnly.FromDateTime(expiresAtUtc) < request.DueOn) throw new ArgumentException("QR expiry cannot be earlier than the due date.");
+        var wasDeclared = account.DeclaredAtUtc.HasValue;
+        if (!wasDeclared && expiresAtUtc <= DateTime.UtcNow) throw new ArgumentException("Payment expiry must be in the future.");
+        if (DateOnly.FromDateTime(expiresAtUtc) < request.DueOn) throw new ArgumentException("Payment expiry cannot be earlier than the due date.");
+        if (wasDeclared && (request.DueOn != account.DueOn || !SameMinute(expiresAtUtc, account.ExpiresAtUtc)))
+            throw new ArgumentException("Use Additional expiry days to extend a student payment before it expires.");
         if (amount + account.AdjustmentAmount < TotalPaid(account))
             throw new ArgumentException("Declaration amount plus its adjustment cannot be lower than money already paid.");
 
-        var wasDeclared = account.DeclaredAtUtc.HasValue;
         var oldTitle = account.Title;
         var oldPlan = account.PaymentPlan;
         var oldAmount = account.DeclaredAmount;
@@ -112,7 +146,7 @@ public sealed class FinanceService(
         account.DueOn = request.DueOn;
         account.ExpiresAtUtc = expiresAtUtc;
         Recalculate(account);
-        await RefreshQrAsync(account, settings, cancellationToken);
+        ClearQr(account);
         AddFinanceAudit(account, wasDeclared ? "Payment declaration updated" : "Payment declared", new
         {
             account.FinancialAccountCode,
@@ -138,40 +172,180 @@ public sealed class FinanceService(
         return AssertSingle(await MapAsync([account], cancellationToken));
     }
 
-    public async Task<StudentPaymentDto> ConfirmAsync(
-        Guid studentId,
-        Guid paymentId,
-        StudentPaymentConfirmationDto request,
+    public async Task<BulkFinanceDeclarationResultDto> DeclareAllAsync(CancellationToken cancellationToken)
+    {
+        var period = await db.SystemSettings.AsNoTracking()
+            .Where(setting =>
+                setting.Section == "academic-year" && setting.Key == "currentYear"
+                || setting.Section == "semester" && setting.Key == "currentTerm")
+            .ToDictionaryAsync(setting => $"{setting.Section}:{setting.Key}", setting => setting.Value, cancellationToken);
+        var academicYear = period.GetValueOrDefault("academic-year:currentYear", string.Empty);
+        var semester = period.GetValueOrDefault("semester:currentTerm", string.Empty);
+        if (string.IsNullOrWhiteSpace(academicYear) || string.IsNullOrWhiteSpace(semester))
+            throw new InvalidOperationException("Set the current academic year and semester before declaring student payments.");
+
+        await synchronizer.EnsurePeriodAsync(academicYear, semester, cancellationToken);
+        if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync(cancellationToken);
+
+        var accounts = await AccountQuery()
+            .Where(account =>
+                account.AcademicYear == academicYear
+                && account.Semester == semester
+                && account.Status == "Pending"
+                && !account.Payments.Any(payment => payment.Status == "Completed")
+                && account.StudentEnrollment!.Status == "Active"
+                && account.Student!.Status != "Inactive")
+            .OrderBy(account => account.Student!.FullName)
+            .ToListAsync(cancellationToken);
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        var paymentPlan = settings.DefaultPaymentPlan == "Year" && semester == "Semester 1" ? "Year" : "Semester";
+        var announcedAtUtc = DateTime.UtcNow;
+        var dueOn = DateOnly.FromDateTime(announcedAtUtc).AddDays(settings.PaymentDueDays);
+        var expiresAtUtc = DateTime.SpecifyKind(dueOn.ToDateTime(TimeOnly.MaxValue), DateTimeKind.Utc);
+        var declaredCount = 0;
+
+        foreach (var account in accounts)
+        {
+            var amount = decimal.Round((paymentPlan == "Year" ? settings.YearFee : settings.TuitionFee) + settings.OtherFee, 2);
+            if (amount <= 0) continue;
+            var wasDeclared = account.DeclaredAtUtc.HasValue;
+            var oldTitle = account.Title;
+            var oldPlan = account.PaymentPlan;
+            var oldAmount = account.DeclaredAmount;
+            var oldDeclaredAtUtc = account.DeclaredAtUtc;
+            var oldDueOn = account.DueOn;
+            var oldExpiresAtUtc = account.ExpiresAtUtc;
+            var oldLatePenaltyDays = account.LatePenaltyDays;
+            var oldLatePenaltyAmount = account.LatePenaltyAmount;
+            var oldStatus = account.Status;
+            var oldBalance = Balance(account);
+            account.Title = paymentPlan == "Year" ? $"{academicYear} full-year payment" : $"{semester} payment";
+            account.PaymentPlan = paymentPlan;
+            account.DeclaredAmount = amount;
+            account.DeclaredAtUtc = announcedAtUtc;
+            account.DueOn = dueOn;
+            account.ExpiresAtUtc = expiresAtUtc;
+            account.LatePenaltyDays = 0;
+            account.LatePenaltyAmount = 0;
+            Recalculate(account);
+            ClearQr(account);
+            AddFinanceAudit(account, wasDeclared ? "Payment redeclared" : "Payment declared", new
+            {
+                account.FinancialAccountCode,
+                account.StudentEnrollment!.EnrollmentCode,
+                oldTitle,
+                newTitle = account.Title,
+                oldPlan,
+                newPlan = account.PaymentPlan,
+                oldAmount,
+                newAmount = account.DeclaredAmount,
+                oldDeclaredAtUtc,
+                announcedAtUtc,
+                oldDueOn,
+                newDueOn = account.DueOn,
+                oldExpiresAtUtc,
+                newExpiresAtUtc = account.ExpiresAtUtc,
+                oldLatePenaltyDays,
+                oldLatePenaltyAmount,
+                oldFinancialState = oldStatus,
+                newFinancialState = account.Status,
+                oldBalance,
+                newBalance = Balance(account),
+                performedBy = "Administrator",
+                declarationScope = "All current students"
+            });
+            declaredCount++;
+        }
+
+        if (declaredCount > 0) await SaveAsync(cancellationToken);
+        return new(declaredCount, announcedAtUtc, dueOn, expiresAtUtc);
+    }
+
+    public async Task<StudentPaymentDto> ExtendExpiryAsync(
+        Guid financialAccountId,
+        FinanceExpiryExtensionDto request,
         CancellationToken cancellationToken)
     {
-        var account = await AccountQuery().SingleOrDefaultAsync(item => item.Id == paymentId && item.StudentId == studentId, cancellationToken)
-            ?? throw new KeyNotFoundException("Student financial account not found.");
-        if (!account.DeclaredAtUtc.HasValue) throw new ArgumentException("This payment has not been declared by Finance.");
-        if (IsExpired(account)) throw new ArgumentException("This payment QR has expired. Ask Finance to update the declaration.");
+        var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        if (!account.DeclaredAtUtc.HasValue || !account.ExpiresAtUtc.HasValue)
+            throw new ArgumentException("Declare the student payment before adding expiry days.");
+        if (IsExpired(account))
+            throw new ArgumentException("An expired payment cannot receive additional days.");
+        if (account.Status is "Paid" or "Cancelled")
+            throw new ArgumentException("A completed or cancelled payment cannot receive additional days.");
+        if (request.Days is < 1 or > 365)
+            throw new ArgumentException("Additional expiry days must be between 1 and 365.");
+        var reason = request.Reason?.Trim() ?? string.Empty;
+        if (reason.Length is < 3 or > 500)
+            throw new ArgumentException("An extension reason containing 3 to 500 characters is required.");
+
+        var oldDueOn = account.DueOn;
+        var oldExpiresAtUtc = account.ExpiresAtUtc.Value;
+        account.DueOn = account.DueOn.AddDays(request.Days);
+        account.ExpiresAtUtc = account.ExpiresAtUtc.Value.AddDays(request.Days);
+        account.UpdatedAtUtc = DateTime.UtcNow;
+        ClearQr(account);
+        AddFinanceAudit(account, "Payment expiry extended", new
+        {
+            account.FinancialAccountCode,
+            account.StudentEnrollment!.EnrollmentCode,
+            additionalDays = request.Days,
+            reason,
+            oldDueOn,
+            newDueOn = account.DueOn,
+            oldExpiresAtUtc,
+            newExpiresAtUtc = account.ExpiresAtUtc,
+            performedBy = "Administrator"
+        });
+        await SaveAsync(cancellationToken);
+        return AssertSingle(await MapAsync([account], cancellationToken));
+    }
+
+    public async Task<StudentPaymentDto> GenerateStudentQrAsync(
+        Guid studentId,
+        Guid paymentId,
+        CancellationToken cancellationToken)
+    {
+        var account = await FindStudentAccountAsync(studentId, paymentId, cancellationToken);
+        ValidateDynamicQrAccount(account);
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        if (!settings.BakongEnabled) throw new InvalidOperationException("Dynamic KHQR is not enabled in Finance Settings.");
+        await GenerateQrAsync(account, settings, cancellationToken);
+        AddFinanceAudit(account, "Student dynamic KHQR generated", new
+        {
+            account.FinancialAccountCode,
+            account.StudentEnrollment!.EnrollmentCode,
+            amount = Balance(account),
+            account.Currency,
+            account.QrGeneratedAtUtc,
+            account.QrExpiresAtUtc,
+            performedBy = "Student"
+        });
+        await SaveAsync(cancellationToken);
+        return AssertSingle(await MapAsync([account], cancellationToken));
+    }
+
+    public async Task<StudentPaymentDto> VerifyStudentPaymentAsync(
+        Guid studentId,
+        Guid paymentId,
+        CancellationToken cancellationToken)
+    {
+        var account = await FindStudentAccountAsync(studentId, paymentId, cancellationToken);
         if (account.Status == "Paid") return AssertSingle(await MapAsync([account], cancellationToken));
+        ValidateDynamicQrAccount(account);
+        if (string.IsNullOrWhiteSpace(account.BakongQrPayload) || string.IsNullOrWhiteSpace(account.BakongMd5))
+            throw new ArgumentException("Generate this payment QR before checking its payment status.");
+        if (IsQrExpired(account)) throw new ArgumentException("This payment QR has expired. Generate a new payment QR.");
 
         var settings = await settingsReader.GetAsync(cancellationToken);
-        if (settings.BakongEnabled)
-        {
-            if (string.IsNullOrWhiteSpace(account.BakongQrPayload) || request.QrPayload?.Trim() != account.BakongQrPayload)
-                throw new ArgumentException("The scanned Bakong KHQR does not match this student's current payment declaration.");
-            var verified = await bakong.VerifyAsync(account, Balance(account), settings, cancellationToken);
-            if (await db.FinancialPayments.AnyAsync(payment => payment.TransactionReference == verified.TransactionHash && payment.Status == "Completed", cancellationToken))
-                throw new InvalidOperationException("This Bakong transaction has already been used for another payment.");
-            return await RecordPaymentInternalAsync(
-                account,
-                new RecordFinancePaymentDto(Balance(account), "Bakong", verified.TransactionHash, verified.PaidAtUtc),
-                $"Bakong API · {verified.FromAccountId}",
-                cancellationToken);
-        }
-        if (request.QrPayload?.Trim() != QrPayload(account))
-            throw new ArgumentException("The scanned QR code does not match this student's current financial balance.");
-        var method = settings.PaymentMethods.FirstOrDefault(item => item.Equals("Other", StringComparison.OrdinalIgnoreCase))
-            ?? settings.PaymentMethods[0];
+        if (!settings.BakongEnabled) throw new InvalidOperationException("Dynamic KHQR is not enabled in Finance Settings.");
+        var verified = await bakong.VerifyAsync(account, Balance(account), settings, cancellationToken);
+        if (await db.FinancialPayments.AnyAsync(payment => payment.TransactionReference == verified.TransactionHash && payment.Status == "Completed", cancellationToken))
+            throw new InvalidOperationException("This Bakong transaction has already been used for another payment.");
         return await RecordPaymentInternalAsync(
             account,
-            new RecordFinancePaymentDto(Balance(account), method, "Student QR scan", DateTime.UtcNow),
-            "Student QR scan",
+            new RecordFinancePaymentDto(Balance(account), "Bakong", verified.TransactionHash, verified.PaidAtUtc),
+            $"Bakong API · {verified.FromAccountId}",
             cancellationToken);
     }
 
@@ -183,7 +357,7 @@ public sealed class FinanceService(
         if (account.Status is "Paid" or "Cancelled" || Balance(account) <= 0) throw new ArgumentException("This financial account does not need a payment QR.");
         var settings = await settingsReader.GetAsync(cancellationToken);
         if (!settings.BakongEnabled) throw new InvalidOperationException("Enable Bakong KHQR in Settings before regenerating an official payment QR.");
-        await RefreshQrAsync(account, settings, cancellationToken);
+        await GenerateQrAsync(account, settings, cancellationToken);
         AddFinanceAudit(account, "Bakong KHQR regenerated", new
         {
             account.FinancialAccountCode,
@@ -248,7 +422,7 @@ public sealed class FinanceService(
         payment.PaidAtUtc = request.PaidAtUtc?.ToUniversalTime() ?? payment.PaidAtUtc;
         payment.UpdatedAtUtc = DateTime.UtcNow;
         Recalculate(account);
-        await RefreshQrAsync(account, settings, cancellationToken);
+        ClearQr(account);
         AddFinanceAudit(account, "Payment updated", new
         {
             account.FinancialAccountCode,
@@ -292,7 +466,7 @@ public sealed class FinanceService(
         payment.Status = nextStatus;
         payment.UpdatedAtUtc = DateTime.UtcNow;
         Recalculate(account);
-        await RefreshQrAsync(account, await settingsReader.GetAsync(cancellationToken), cancellationToken);
+        ClearQr(account);
         AddFinanceAudit(account, nextStatus == "Refunded" ? "Payment refunded" : "Payment cancelled", new
         {
             account.FinancialAccountCode,
@@ -331,7 +505,7 @@ public sealed class FinanceService(
         account.AdjustmentAmount = amount;
         account.AdjustmentReason = request.Reason?.Trim() ?? string.Empty;
         Recalculate(account);
-        await RefreshQrAsync(account, settings, cancellationToken);
+        ClearQr(account);
         AddFinanceAudit(account, "Financial adjustment updated", new
         {
             account.FinancialAccountCode,
@@ -397,7 +571,7 @@ public sealed class FinanceService(
         db.FinancialPayments.Add(payment);
         account.ReminderReadAtUtc = DateTime.UtcNow;
         Recalculate(account);
-        await RefreshQrAsync(account, settings, cancellationToken);
+        ClearQr(account);
         AddFinanceAudit(account, "Payment recorded", new
         {
             account.FinancialAccountCode,
@@ -424,9 +598,24 @@ public sealed class FinanceService(
         .Include(account => account.StudentEnrollment)!
             .ThenInclude(enrollment => enrollment!.Department);
 
-    private async Task<FinancialAccount> FindAccountAsync(Guid id, CancellationToken cancellationToken) =>
-        await AccountQuery().SingleOrDefaultAsync(account => account.Id == id, cancellationToken)
+    private async Task<FinancialAccount> FindAccountAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var account = await AccountQuery().SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException("Financial account not found.");
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        if (ApplyLatePenalty(account, settings)) await SaveAsync(cancellationToken);
+        return account;
+    }
+
+    private async Task<FinancialAccount> FindStudentAccountAsync(Guid studentId, Guid paymentId, CancellationToken cancellationToken)
+    {
+        var account = await AccountQuery().SingleOrDefaultAsync(
+            item => item.Id == paymentId && item.StudentId == studentId,
+            cancellationToken) ?? throw new KeyNotFoundException("Student financial account not found.");
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        if (ApplyLatePenalty(account, settings)) await SaveAsync(cancellationToken);
+        return account;
+    }
 
     private async Task<IReadOnlyList<StudentPaymentDto>> MapAsync(
         IReadOnlyCollection<FinancialAccount> accounts,
@@ -500,6 +689,8 @@ public sealed class FinanceService(
                 account.OtherFee,
                 account.AdjustmentAmount,
                 account.AdjustmentReason,
+                account.LatePenaltyDays,
+                account.LatePenaltyAmount,
                 totalDue,
                 totalPaid,
                 balance,
@@ -513,7 +704,7 @@ public sealed class FinanceService(
                 account.ReminderReadAtUtc,
                 timetableReady ? "Ready" : "Waiting",
                 account.AcademicYear == currentYear && account.Semester == currentSemester ? "Current" : "Retained",
-                string.IsNullOrWhiteSpace(account.BakongQrPayload) && latest?.Method != "Bakong" ? "Simulated" : "Bakong KHQR",
+                "Bakong KHQR",
                 AvailableQrPayload(account),
                 payments,
                 account.CreateAt);
@@ -526,30 +717,65 @@ public sealed class FinanceService(
         if (db.ChangeTracker.HasChanges()) await SaveAsync(cancellationToken);
     }
 
+    private async Task ApplyLatePenaltiesAsync(
+        IReadOnlyCollection<FinancialAccount> accounts,
+        CancellationToken cancellationToken)
+    {
+        if (accounts.Count == 0) return;
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        var changed = false;
+        foreach (var account in accounts) changed = ApplyLatePenalty(account, settings) || changed;
+        if (changed) await SaveAsync(cancellationToken);
+    }
+
+    private bool ApplyLatePenalty(FinancialAccount account, FinanceSettings settings)
+    {
+        if (!account.DeclaredAtUtc.HasValue || !account.ExpiresAtUtc.HasValue || account.Status is "Paid" or "Cancelled") return false;
+        var lateDays = Math.Max(0, DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - DateOnly.FromDateTime(account.ExpiresAtUtc.Value).DayNumber);
+        var lateAmount = decimal.Round(lateDays * settings.LatePenaltyPerDay, 2, MidpointRounding.AwayFromZero);
+        if (account.LatePenaltyDays == lateDays && account.LatePenaltyAmount == lateAmount) return false;
+        var oldDays = account.LatePenaltyDays;
+        var oldAmount = account.LatePenaltyAmount;
+        account.LatePenaltyDays = lateDays;
+        account.LatePenaltyAmount = lateAmount;
+        Recalculate(account);
+        AddFinanceAudit(account, "Late punishment updated", new
+        {
+            account.FinancialAccountCode,
+            account.StudentEnrollment!.EnrollmentCode,
+            oldDays,
+            newDays = lateDays,
+            dailyPunishment = settings.LatePenaltyPerDay,
+            oldAmount,
+            newAmount = lateAmount,
+            performedBy = "System"
+        });
+        return true;
+    }
+
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
         await db.SaveChangesAsync(cancellationToken);
         await cache.InvalidateDashboardAsync(cancellationToken);
     }
 
-    private Task RefreshQrAsync(FinancialAccount account, FinanceSettings settings, CancellationToken cancellationToken)
+    private Task GenerateQrAsync(FinancialAccount account, FinanceSettings settings, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!settings.BakongEnabled || !account.DeclaredAtUtc.HasValue || account.Status is "Paid" or "Cancelled" || IsExpired(account) || Balance(account) <= 0)
-        {
-            account.BakongQrPayload = string.Empty;
-            account.BakongMd5 = string.Empty;
-            account.QrGeneratedAtUtc = null;
-            account.QrExpiresAtUtc = null;
-            return Task.CompletedTask;
-        }
-
         var generated = bakong.Generate(account, Balance(account), settings);
         account.BakongQrPayload = generated.Payload;
         account.BakongMd5 = generated.Md5;
         account.QrGeneratedAtUtc = generated.GeneratedAtUtc;
         account.QrExpiresAtUtc = generated.ExpiresAtUtc;
         return Task.CompletedTask;
+    }
+
+    private static void ClearQr(FinancialAccount account)
+    {
+        account.BakongQrPayload = string.Empty;
+        account.BakongMd5 = string.Empty;
+        account.QrGeneratedAtUtc = null;
+        account.QrExpiresAtUtc = null;
     }
 
     private static void ValidatePayment(
@@ -563,7 +789,6 @@ public sealed class FinanceService(
     {
         if (account.Status == "Cancelled") throw new ArgumentException("A cancelled financial account cannot receive a payment.");
         if (!account.DeclaredAtUtc.HasValue) throw new ArgumentException("Declare the student payment before recording money.");
-        if (IsExpired(account)) throw new ArgumentException("The payment declaration has expired. Update its expiry before recording money.");
         if (amount <= 0) throw new ArgumentException("Payment amount must be greater than zero.");
         if (string.IsNullOrWhiteSpace(method) || !settings.PaymentMethods.Any(item => item.Equals(method.Trim(), StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException("Select an available payment method configured in Settings.");
@@ -588,7 +813,7 @@ public sealed class FinanceService(
     }
 
     private static decimal TotalDue(FinancialAccount account) =>
-        decimal.Max(0, (account.DeclaredAmount ?? account.TuitionFee + account.OtherFee) + account.AdjustmentAmount);
+        decimal.Max(0, (account.DeclaredAmount ?? account.TuitionFee + account.OtherFee) + account.AdjustmentAmount + account.LatePenaltyAmount);
 
     private static decimal TotalPaid(FinancialAccount account) =>
         account.Payments.Where(payment => payment.Status == "Completed").Sum(payment => payment.Amount);
@@ -623,11 +848,11 @@ public sealed class FinanceService(
         Details = JsonSerializer.Serialize(details)
     });
 
-    private static string QrPayload(FinancialAccount account) =>
-        $"INK-PAY|{account.Id:N}|{account.StudentId:N}|{Balance(account).ToString("0.00", CultureInfo.InvariantCulture)}|{account.Currency}|{account.PaymentPlan}|{account.ExpiresAtUtc?.Ticks ?? 0}";
-
     private static bool IsExpired(FinancialAccount account) =>
-        account.ExpiresAtUtc.HasValue && account.ExpiresAtUtc.Value <= DateTime.UtcNow && account.Status != "Paid";
+        account.ExpiresAtUtc.HasValue && account.ExpiresAtUtc.Value <= DateTime.UtcNow && account.Status is not ("Paid" or "Cancelled");
+
+    private static bool SameMinute(DateTime value, DateTime? other) =>
+        other.HasValue && Math.Abs((value - other.Value).TotalSeconds) < 60;
 
     private static bool IsQrExpired(FinancialAccount account) =>
         !string.IsNullOrWhiteSpace(account.BakongQrPayload)
@@ -638,8 +863,15 @@ public sealed class FinanceService(
     private static string AvailableQrPayload(FinancialAccount account)
     {
         if (!account.DeclaredAtUtc.HasValue || account.Status is "Paid" or "Cancelled" || IsExpired(account) || Balance(account) <= 0) return string.Empty;
-        if (!string.IsNullOrWhiteSpace(account.BakongQrPayload)) return IsQrExpired(account) ? string.Empty : account.BakongQrPayload;
-        return QrPayload(account);
+        return !string.IsNullOrWhiteSpace(account.BakongQrPayload) && !IsQrExpired(account) ? account.BakongQrPayload : string.Empty;
+    }
+
+    private static void ValidateDynamicQrAccount(FinancialAccount account)
+    {
+        if (!account.DeclaredAtUtc.HasValue) throw new ArgumentException("This payment has not been declared by Finance.");
+        if (IsExpired(account)) throw new ArgumentException("This payment declaration has expired. Ask Finance for help.");
+        if (account.Status is "Paid" or "Cancelled" || Balance(account) <= 0)
+            throw new ArgumentException("This financial account does not need a payment QR.");
     }
 
     private static bool Matches(string search, params object[] values)

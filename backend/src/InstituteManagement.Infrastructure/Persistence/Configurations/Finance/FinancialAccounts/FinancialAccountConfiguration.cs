@@ -25,6 +25,7 @@ public sealed class FinancialAccountConfiguration : IEntityTypeConfiguration<Fin
         builder.Property(x => x.OtherFee).HasPrecision(18, 2);
         builder.Property(x => x.AdjustmentAmount).HasPrecision(18, 2);
         builder.Property(x => x.AdjustmentReason).HasMaxLength(500).IsRequired();
+        builder.Property(x => x.LatePenaltyAmount).HasPrecision(18, 2);
         builder.Property(x => x.Currency).HasMaxLength(8).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
         builder.HasOne(x => x.StudentEnrollment).WithOne().HasForeignKey<FinancialAccount>(x => x.StudentEnrollmentId);

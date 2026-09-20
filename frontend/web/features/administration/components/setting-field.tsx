@@ -41,7 +41,7 @@ function AssetLocationField({ definition, value, label, onChange }: { definition
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [fileName, setFileName] = useState("");
-  const fallback = definition.key === "faviconUrl" ? "/icon.png" : "/branding/ink-logo.png";
+  const fallback = definition.key === "faviconUrl" ? "/icon.png" : definition.key === "logoUrl" ? "/branding/ink-logo.png" : "";
   const failed = Boolean(value) && failedSource === value;
   const source = !value || failed ? fallback : value;
   async function chooseFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -51,7 +51,7 @@ function AssetLocationField({ definition, value, label, onChange }: { definition
     setUploading(true);
     setUploadError("");
     try {
-      const asset = await administrationApi.uploadAsset(definition.key === "faviconUrl" ? "favicon" : "logo", file);
+      const asset = await administrationApi.uploadAsset(definition.assetKind ?? (definition.key === "faviconUrl" ? "favicon" : "logo"), file);
       setFileName(asset.fileName);
       setFailedSource("");
       onChange(asset.url);
@@ -64,9 +64,9 @@ function AssetLocationField({ definition, value, label, onChange }: { definition
       <span className="administration-asset-preview">
         {/* Paths may point to the API or a user-managed CDN, so Next Image host allowlists do not apply here. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={source} alt={`${definition.label} preview`} onError={() => { if (source !== fallback) setFailedSource(value); }}/>
+        {source ? <img src={source} alt={`${definition.label} preview`} onError={() => { if (source !== fallback) setFailedSource(value); }}/> : <Icon name="finance" size={24}/>}
       </span>
-      <div className="administration-asset-location"><span>Image location</span><div><input type="text" value={value} placeholder={fallback} onChange={event => onChange(event.target.value)}/><label className="button secondary administration-browse-button"><Icon name="folder" size={14}/>{uploading ? "Uploading..." : "Browse"}<input type="file" accept={definition.accept} disabled={uploading} onChange={chooseFile}/></label></div><small className={uploadError ? "administration-asset-error" : ""}>{uploadError || (failed ? "The configured asset could not be loaded. The existing application artwork is shown as a fallback." : fileName ? `${fileName} is ready. Apply settings to use it.` : `Choose a local file or enter ${definition.accept ?? "an image URL"}. Maximum upload size: 5 MB.`)}</small></div>
+      <div className="administration-asset-location"><span>Image location</span><div><input type="text" value={value} placeholder={fallback || "https://..."} onChange={event => onChange(event.target.value)}/><label className="button secondary administration-browse-button"><Icon name="folder" size={14}/>{uploading ? "Uploading..." : "Browse"}<input type="file" accept={definition.accept} disabled={uploading} onChange={chooseFile}/></label></div><small className={uploadError ? "administration-asset-error" : ""}>{uploadError || (failed ? "The configured image could not be loaded." : fileName ? `${fileName} is ready. Apply settings to use it.` : "Choose a local file or enter an image URL. Maximum upload size: 5 MB.")}</small></div>
     </div>
   </div>;
 }

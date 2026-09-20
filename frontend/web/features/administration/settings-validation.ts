@@ -11,10 +11,18 @@ export function validateSettings(section: SettingSection, values: Record<string,
   if (section === "attendance-rules") validateAttendance(values, errors);
   if (section === "grade-rules") validateGrades(values, errors);
   if (section === "finance") {
-    if (parseCsv(values.paymentMethods).length === 0) errors.push("Select at least one payment method.");
+    const semesterPrice = Number(values.semesterPrice);
+    const yearPrice = Number(values.yearPrice);
+    if (Number.isFinite(semesterPrice) && Number.isFinite(yearPrice) && Math.abs(semesterPrice * 2 - yearPrice) > 0.009)
+      errors.push("Pay as Semester must be 50% of Pay as Year.");
+    for (const [prefix, label] of [["aba", "ABA"], ["acleda", "ACLEDA"]] as const) {
+      if (values[`${prefix}Enabled`] !== "true") continue;
+      for (const [suffix, fieldLabel] of [["AccountName", "account name"], ["AccountCode", "account code"]] as const)
+        if (!values[`${prefix}${suffix}`]?.trim()) errors.push(`${label} ${fieldLabel} is required while ${label} is enabled.`);
+    }
     if (values.bakongEnabled === "true") {
-      for (const [key, label] of [["bakongAccountId", "Receiving account ID"], ["bakongAccountInformation", "Account information"], ["bakongAcquiringBank", "Acquiring bank"], ["bakongMerchantName", "Merchant name"], ["bakongMerchantCity", "Merchant city"]] as const)
-        if (!values[key]?.trim()) errors.push(`${label} is required while Bakong KHQR is enabled.`);
+      for (const [key, label] of [["bakongAccountId", "Personal Bakong ID"], ["bakongMerchantName", "Account holder name"]] as const)
+        if (!values[key]?.trim()) errors.push(`${label} is required while personal Bakong QR is enabled.`);
     }
   }
   if (section === "notifications") validateNotifications(values, errors);

@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import type { MobileSession } from '@/features/auth/auth-context';
-import type { Announcement, AttendanceItem, ClassSessionStartItem, GradeItem, GradeWeights, PortalData, ScheduleItem, StudentItem, StudentPayment, TeacherItem } from './portal-types';
+import type { Announcement, AttendanceItem, ClassSessionStartItem, GradeItem, GradeWeights, PortalData, ScheduleItem, StudentFinanceOptions, StudentItem, StudentPayment, TeacherItem } from './portal-types';
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 
@@ -72,7 +72,7 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
     finalExam: Number(gradeSettings.values.finalExamWeight || 50),
   };
   const announcements: Announcement[] = announcementRows.map(item => ({ ...item, source: 'announcement', sourceId: item.id }));
-  if (!baseProfile) return { role: session.role, profile: null, schedule: [], students: [], attendance: [], grades: [], gradeWeights, announcements, payments: [], startedScheduleIds: [] };
+  if (!baseProfile) return { role: session.role, profile: null, schedule: [], students: [], attendance: [], grades: [], gradeWeights, announcements, payments: [], financeOptions: emptyFinanceOptions(), startedScheduleIds: [] };
 
   const [scheduleRows, roleEnrollments] = await Promise.all([
     request<ScheduleItem[]>('/api/enrollment/timetable'),
@@ -83,10 +83,11 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
   const profile = { ...baseProfile, values: { ...baseProfile.values, ...enrollment?.values } } as TeacherItem | StudentItem;
   if (session.role === 'student') {
     const student = profile as StudentItem;
-    const [attendance, grades, payments] = await Promise.all([
+    const [attendance, grades, payments, financeOptions] = await Promise.all([
       request<AttendanceItem[]>('/api/catalog/attendance'),
       request<GradeItem[]>('/api/catalog/grades'),
       request<StudentPayment[]>(`/api/finance/students/${student.id}`),
+      request<StudentFinanceOptions>('/api/finance/options'),
     ]);
     const financeAlerts = payments.filter(payment => payment.reminderSentAtUtc && payment.status !== 'Cancelled').map(payment => ({
       id: `finance-${payment.id}`,
@@ -111,6 +112,7 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
       gradeWeights,
       announcements: [...financeAlerts, ...announcements].sort((left, right) => right.createAt.localeCompare(left.createAt)),
       payments,
+      financeOptions,
       startedScheduleIds: [],
     };
   }
@@ -137,6 +139,7 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
     gradeWeights,
     announcements,
     payments: [],
+    financeOptions: emptyFinanceOptions(),
     startedScheduleIds: classStarts.map(item => item.scheduleEntryId),
   };
 }
@@ -146,6 +149,11 @@ export const portalMutations = {
   recordAttendance: (studentId: string, status: string) => request<void>('/api/attendance', { method: 'POST', body: JSON.stringify({ studentId, status }) }),
   submitGrade: (studentId: string, courseId: string, scores: { assignmentScore: number; midtermScore: number; finalExamScore: number }) => request<void>('/api/grades', { method: 'POST', body: JSON.stringify({ studentId, courseId, ...scores }) }),
   markAnnouncementRead: (announcementId: string) => request<Announcement>(`/api/notification-center/alerts/${announcementId}/read`, { method: 'PUT' }),
-  confirmPayment: (studentId: string, paymentId: string, qrPayload: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/confirm`, { method: 'POST', body: JSON.stringify({ qrPayload }) }),
   markFinanceReminderRead: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/reminder/read`, { method: 'PUT' }),
+  generateFinanceQr: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/qr`, { method: 'PUT' }),
+  verifyFinancePayment: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/verify`, { method: 'POST' }),
 };
+
+function emptyFinanceOptions(): StudentFinanceOptions {
+  return { paymentProviders: [], bakongEnabled: false, bakongConfigured: false, bakongEnvironment: 'SIT', dynamicQrBank: '', dynamicQrAccountName: '', dynamicQrAccountCode: '' };
+}

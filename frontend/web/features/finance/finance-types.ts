@@ -41,6 +41,8 @@ export type FinancialAccount = {
   otherFee: number;
   adjustmentAmount: number;
   adjustmentReason: string;
+  latePenaltyDays: number;
+  latePenaltyAmount: number;
   totalDue: number;
   totalPaid: number;
   balance: number;
@@ -54,7 +56,7 @@ export type FinancialAccount = {
   reminderReadAtUtc: string | null;
   timetableStatus: "Ready" | "Waiting";
   periodState: "Current" | "Retained";
-  qrProvider: "Bakong KHQR" | "Simulated";
+  qrProvider: "Bakong KHQR";
   qrPayload: string;
   payments: FinancialPayment[];
   createAt: string;
@@ -66,9 +68,30 @@ export type FinanceOptions = {
   allowOverpayment: boolean;
   maximumAdjustmentAmount: number;
   requirePaidForAdvancement: boolean;
+  paymentDueDays: number;
+  semesterPrice: number;
+  yearPrice: number;
+  otherFee: number;
+  paymentProviders: BankPaymentOption[];
   bakongEnabled: boolean;
   bakongConfigured: boolean;
   bakongEnvironment: "SIT" | "Production";
+  dynamicQrBank: string;
+  dynamicQrAccountName: string;
+  dynamicQrAccountCode: string;
+};
+
+export type BankPaymentOption = {
+  name: "ABA" | "ACLEDA";
+  accountName: string;
+  accountCode: string;
+};
+
+export type BulkFinanceDeclarationResult = {
+  declaredCount: number;
+  announcedAtUtc: string;
+  dueOn: string;
+  expiresAtUtc: string;
 };
 
 export type PaymentDraft = {

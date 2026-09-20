@@ -84,20 +84,15 @@ export const organizationAcademicGroups = {
   ],
   finance: [
     {
-      title: "Fee defaults",
-      description: "Default charges copied into each enrollment-linked financial account. Finance owns the resulting current amounts.",
+      title: "Payment prices",
+      description: "Default Semester and Year prices used when Finance declares a student payment.",
       fields: [
-        field("semesterPrice", "Tuition fee", "Default tuition charged for one enrolled semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
-        field("otherFee", "Other fee", "Default non-tuition charge added to each enrolled semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
-        field("currency", "Currency", "Currency displayed in Finance and the student mobile app.", "select", { required: true, options: options("USD", "KHR") }),
-        field("paymentDueDays", "Payment due after", "Number of days after enrollment before payment is due.", "number", { required: true, min: 0, max: 365, unit: "days" }),
-      ],
-    },
-    {
-      title: "Payment methods",
-      description: "Methods available when Finance records money received. Change the configuration here without redesigning Finance.",
-      fields: [
-        field("paymentMethods", "Available payment methods", "Select every method Finance may use for a payment transaction.", "checklist", { required: true, options: options("Cash", "Bakong", "ABA", "ACLEDA", "Wing", "Bank Transfer", "Other") }),
+        field("semesterPrice", "Pay as Semester", "Default tuition charged for one enrolled semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
+        field("yearPrice", "Pay as Year", "Default tuition charged for Semester 1 and Semester 2 together.", "number", { required: true, min: 0, max: 2000000, step: 0.01 }),
+        field("otherFee", "Other fee", "Default non-tuition charge added to the selected payment price.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
+        field("defaultPaymentPlan", "Declare to all as", "Plan used by Declare payment to all students. Year is available from Semester 1; Semester creates the 50% installment.", "select", { required: true, options: options("Semester", "Year") }),
+        field("paymentDueDays", "Payment expires after", "Number of days in the payment countdown. The countdown starts when Finance declares the payment to students.", "number", { required: true, min: 0, max: 365, unit: "days" }),
+        field("latePenaltyPerDay", "Punishment per missed day", "Extra amount charged for every calendar day after the payment expires.", "number", { required: true, min: 0, max: 1000000, step: 0.01, unit: "per day" }),
       ],
     },
     {
@@ -111,16 +106,34 @@ export const organizationAcademicGroups = {
       ],
     },
     {
-      title: "Bakong KHQR",
-      description: "Generate official dynamic KHQR payment codes. The API token stays in the server BAKONG_API_TOKEN environment variable and is never returned to the browser.",
+      title: "Personal Bakong test QR",
+      description: "Use an individual Bakong app account without merchant registration. Each student gets a payment-specific QR with the exact amount and reference. The API token remains private in BAKONG_API_TOKEN.",
       fields: [
-        field("bakongEnabled", "Enable Bakong KHQR", "Use Bakong KHQR for new and regenerated student payment declarations.", "toggle"),
-        field("bakongEnvironment", "Bakong environment", "Use SIT for testing and Production only after the receiving account is approved.", "select", { required: true, options: options("SIT", "Production") }),
-        field("bakongAccountId", "Receiving account ID", "Bakong account ID that receives student payments, for example institute@bank.", "text"),
-        field("bakongAccountInformation", "Account information", "Bank account or phone reference required by the KHQR account profile.", "text"),
-        field("bakongAcquiringBank", "Acquiring bank", "Bank name registered for the receiving Bakong account.", "text"),
-        field("bakongMerchantName", "Merchant name", "Institute name encoded in KHQR (maximum 25 characters).", "text"),
-        field("bakongMerchantCity", "Merchant city", "City encoded in KHQR (maximum 15 characters).", "text"),
+        field("bakongEnabled", "Enable personal Bakong QR", "Allow students to generate dynamic KHQR payments to an individual Bakong account.", "toggle"),
+        field("bakongEnvironment", "Bakong environment", "Use Production for a real Bakong app account and real $0.01 transfer. SIT works only with sandbox accounts such as @devb.", "select", { required: true, options: options("SIT", "Production"), showWhen: values => values.bakongEnabled === "true" }),
+        field("bakongAccountId", "Personal Bakong ID", "The receiver ID shown in the Bakong app or personal KHQR, usually in the form name@bank.", "text", { showWhen: values => values.bakongEnabled === "true" }),
+        field("bakongMerchantName", "Account holder name", "Personal account name encoded into the QR and displayed in the payment popup.", "text", { showWhen: values => values.bakongEnabled === "true" }),
+        field("bakongAccountInformation", "Account number or phone", "Optional personal account number or phone number encoded in KHQR.", "text", { showWhen: values => values.bakongEnabled === "true" }),
+        field("bakongAcquiringBank", "Bank name", "Optional bank name, such as ABA Bank or ACLEDA Bank.", "text", { showWhen: values => values.bakongEnabled === "true" }),
+        field("bakongMerchantCity", "City", "Optional KHQR city. Phnom Penh is used when blank.", "text", { showWhen: values => values.bakongEnabled === "true" }),
+      ],
+    },
+    {
+      title: "ABA payment",
+      description: "Save the ABA receiving account shown beside a payment-specific dynamic KHQR. A fixed QR image is not used.",
+      fields: [
+        field("abaEnabled", "Enable ABA", "Identify ABA as an available receiving bank in Student Finance.", "toggle"),
+        field("abaAccountName", "ABA account name", "Receiving account name displayed to students.", "text", { showWhen: values => values.abaEnabled === "true" }),
+        field("abaAccountCode", "ABA account code", "Receiving ABA account number displayed to students.", "text", { showWhen: values => values.abaEnabled === "true" }),
+      ],
+    },
+    {
+      title: "ACLEDA payment",
+      description: "Save the ACLEDA receiving account shown beside a payment-specific dynamic KHQR. A fixed QR image is not used.",
+      fields: [
+        field("acledaEnabled", "Enable ACLEDA", "Identify ACLEDA as an available receiving bank in Student Finance.", "toggle"),
+        field("acledaAccountName", "ACLEDA account name", "Receiving account name displayed to students.", "text", { showWhen: values => values.acledaEnabled === "true" }),
+        field("acledaAccountCode", "ACLEDA account code", "Receiving ACLEDA account number displayed to students.", "text", { showWhen: values => values.acledaEnabled === "true" }),
       ],
     },
   ],

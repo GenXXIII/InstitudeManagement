@@ -24,6 +24,24 @@ public sealed class BakongPaymentGatewayTests
     }
 
     [Fact]
+    public void Generate_individual_khqr_does_not_require_merchant_or_optional_bank_fields()
+    {
+        var gateway = Gateway(new StubHandler());
+        var personal = Settings() with
+        {
+            BakongAccountInformation = string.Empty,
+            BakongAcquiringBank = string.Empty,
+            BakongMerchantCity = string.Empty
+        };
+
+        var result = gateway.Generate(Account(), 0.01m, personal);
+
+        Assert.True(gateway.IsConfigured(personal));
+        Assert.StartsWith("000201", result.Payload);
+        Assert.Equal(32, result.Md5.Length);
+    }
+
+    [Fact]
     public async Task Verify_uses_bearer_token_and_returns_matching_bakong_transaction()
     {
         var handler = new StubHandler();
@@ -64,22 +82,26 @@ public sealed class BakongPaymentGatewayTests
     };
 
     private static FinanceSettings Settings() => new(
-        25.50m,
-        0m,
-        "USD",
-        14,
-        ["Bakong"],
-        true,
-        false,
-        1000m,
-        true,
-        true,
-        "SIT",
-        "institute@devb",
-        "85512345678",
-        "Dev Bank",
-        "Institute of New Khmer",
-        "Phnom Penh");
+        TuitionFee: 25.50m,
+        YearFee: 51m,
+        OtherFee: 0m,
+        DefaultPaymentPlan: "Semester",
+        Currency: "USD",
+        PaymentDueDays: 14,
+        LatePenaltyPerDay: 0m,
+        PaymentMethods: ["Bakong"],
+        AllowPartialPayments: true,
+        AllowOverpayment: false,
+        MaximumAdjustmentAmount: 1000m,
+        RequirePaidForAdvancement: true,
+        BakongEnabled: true,
+        BakongEnvironment: "SIT",
+        BakongAccountId: "institute@devb",
+        BakongAccountInformation: "85512345678",
+        BakongAcquiringBank: "Dev Bank",
+        BakongMerchantName: "Institute of New Khmer",
+        BakongMerchantCity: "Phnom Penh",
+        PaymentProviders: []);
 
     private sealed class StubHandler : HttpMessageHandler
     {

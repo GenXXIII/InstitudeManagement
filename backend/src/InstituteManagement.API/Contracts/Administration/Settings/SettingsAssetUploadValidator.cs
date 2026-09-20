@@ -13,7 +13,7 @@ public static class SettingsAssetUploadValidator
     public static string ValidateAndGetExtension(string kind, IFormFile file)
     {
         if (!AssetTypes.TryGetValue(kind, out var allowedTypes))
-            throw new ArgumentException("Only logo and favicon assets can be uploaded.", nameof(kind));
+            throw new ArgumentException("Only supported branding images can be uploaded.", nameof(kind));
         if (file.Length == 0)
             throw new ArgumentException("Choose a non-empty image file.", nameof(file));
         if (file.Length > MaximumFileSize)

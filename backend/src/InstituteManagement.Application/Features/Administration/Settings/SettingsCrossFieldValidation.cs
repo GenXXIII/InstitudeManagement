@@ -34,9 +34,28 @@ public static partial class SettingsCatalog
 
     private static void ValidateFinance(IReadOnlyDictionary<string, string> values, ICollection<string> errors)
     {
-        if (!bool.TryParse(values.GetValueOrDefault("bakongEnabled"), out var enabled) || !enabled) return;
-        foreach (var key in new[] { "bakongAccountId", "bakongAccountInformation", "bakongAcquiringBank", "bakongMerchantName", "bakongMerchantCity" })
-            if (string.IsNullOrWhiteSpace(values.GetValueOrDefault(key))) errors.Add($"{key} is required while Bakong KHQR is enabled.");
+        if (Decimal(values["semesterPrice"]) * 2 != Decimal(values["yearPrice"]))
+            errors.Add("semesterPrice must be exactly 50% of yearPrice.");
+
+        ValidateBank("aba", "ABA", values, errors);
+        ValidateBank("acleda", "ACLEDA", values, errors);
+        if (bool.TryParse(values.GetValueOrDefault("bakongEnabled"), out var dynamicQrEnabled) && dynamicQrEnabled)
+            foreach (var key in new[] { "bakongAccountId", "bakongMerchantName" })
+                if (string.IsNullOrWhiteSpace(values.GetValueOrDefault(key)))
+                    errors.Add($"{key} is required while personal Bakong QR is enabled.");
+    }
+
+    private static void ValidateBank(
+        string prefix,
+        string label,
+        IReadOnlyDictionary<string, string> values,
+        ICollection<string> errors)
+    {
+        if (!bool.TryParse(values.GetValueOrDefault($"{prefix}Enabled"), out var enabled) || !enabled) return;
+        foreach (var suffix in new[] { "AccountName", "AccountCode" })
+            if (string.IsNullOrWhiteSpace(values.GetValueOrDefault($"{prefix}{suffix}")))
+                errors.Add($"{label} {suffix} is required while {label} is enabled.");
+
     }
 
     private static void ValidateSemester(IReadOnlyDictionary<string, string> values, ICollection<string> errors)

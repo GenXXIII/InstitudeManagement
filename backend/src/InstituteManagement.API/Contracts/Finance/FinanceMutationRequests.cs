@@ -39,3 +39,8 @@ public sealed record FinancePaymentStatusRequest(string? Status)
 {
     public FinancePaymentStatusDto ToDto() => new(Status);
 }
+
+public sealed record FinanceExpiryExtensionRequest(int Days, string? Reason)
+{
+    public FinanceExpiryExtensionDto ToDto() => new(Days, Reason);
+}

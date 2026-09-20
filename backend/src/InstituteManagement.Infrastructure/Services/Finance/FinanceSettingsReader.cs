@@ -6,9 +6,12 @@ namespace InstituteManagement.Infrastructure.Services.Finance;
 
 public sealed record FinanceSettings(
     decimal TuitionFee,
+    decimal YearFee,
     decimal OtherFee,
+    string DefaultPaymentPlan,
     string Currency,
     int PaymentDueDays,
+    decimal LatePenaltyPerDay,
     IReadOnlyList<string> PaymentMethods,
     bool AllowPartialPayments,
     bool AllowOverpayment,
@@ -20,7 +23,13 @@ public sealed record FinanceSettings(
     string BakongAccountInformation,
     string BakongAcquiringBank,
     string BakongMerchantName,
-    string BakongMerchantCity);
+    string BakongMerchantCity,
+    IReadOnlyList<BankPaymentProvider> PaymentProviders);
+
+public sealed record BankPaymentProvider(
+    string Name,
+    string AccountName,
+    string AccountCode);
 
 public sealed class FinanceSettingsReader(InstituteDbContext db)
 {
@@ -30,6 +39,7 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
             .Where(setting => setting.Section == "finance")
             .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, cancellationToken);
         var tuitionFee = Decimal(values, "semesterPrice", 500m);
+        var yearFee = Decimal(values, "yearPrice", 1000m);
         var otherFee = Decimal(values, "otherFee", 0m);
         var dueDays = int.TryParse(values.GetValueOrDefault("paymentDueDays"), out var configuredDays)
             ? configuredDays
@@ -42,11 +52,17 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
             .ToList();
         if (bakongEnabled && !methods.Contains("Bakong", StringComparer.OrdinalIgnoreCase)) methods.Add("Bakong");
         if (methods.Count == 0) methods.Add("Other");
+        var paymentProviders = new List<BankPaymentProvider>();
+        AddProvider(paymentProviders, values, "aba", "ABA");
+        AddProvider(paymentProviders, values, "acleda", "ACLEDA");
         return new(
             decimal.Max(0, tuitionFee),
+            decimal.Max(0, yearFee),
             decimal.Max(0, otherFee),
+            values.GetValueOrDefault("defaultPaymentPlan", "Semester") is "Year" ? "Year" : "Semester",
             currency is "USD" or "KHR" ? currency : "USD",
             Math.Clamp(dueDays, 0, 365),
+            decimal.Max(0, Decimal(values, "latePenaltyPerDay", 0m)),
             methods,
             Boolean(values, "allowPartialPayments", true),
             Boolean(values, "allowOverpayment", false),
@@ -58,7 +74,21 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
             values.GetValueOrDefault("bakongAccountInformation", "").Trim(),
             values.GetValueOrDefault("bakongAcquiringBank", "").Trim(),
             values.GetValueOrDefault("bakongMerchantName", "Institude of New Khmer").Trim(),
-            values.GetValueOrDefault("bakongMerchantCity", "Phnom Penh").Trim());
+            values.GetValueOrDefault("bakongMerchantCity", "Phnom Penh").Trim(),
+            paymentProviders);
+    }
+
+    private static void AddProvider(
+        ICollection<BankPaymentProvider> providers,
+        IReadOnlyDictionary<string, string> values,
+        string prefix,
+        string name)
+    {
+        if (!Boolean(values, $"{prefix}Enabled", false)) return;
+        providers.Add(new(
+            name,
+            values.GetValueOrDefault($"{prefix}AccountName", "").Trim(),
+            values.GetValueOrDefault($"{prefix}AccountCode", "").Trim()));
     }
 
     private static decimal Decimal(IReadOnlyDictionary<string, string> values, string key, decimal fallback) =>

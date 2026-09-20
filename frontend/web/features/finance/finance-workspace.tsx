@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import { DataTable, DataTableEmptyState, DataTableToolbar, PaginatedDataRegion } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ManagementDataCell } from "@/components/management-data-cell";
@@ -20,6 +18,8 @@ export function FinanceWorkspace() {
   const [status, setStatus] = useState("All");
   const [selectedId, setSelectedId] = useState("");
   const [error, setError] = useState(false);
+  const [bulkDeclaring, setBulkDeclaring] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState<{ message: string; error: boolean }>();
 
   const load = useCallback(async () => {
     try {
@@ -51,20 +51,41 @@ export function FinanceWorkspace() {
     };
   }, [accounts]);
 
+  async function declareAll() {
+    if (!window.confirm("Declare payment to all active students in the current academic period? Existing unpaid declarations will use the current configured price and receive a fresh expiry countdown.")) return;
+    setBulkDeclaring(true);
+    setBulkNotice(undefined);
+    try {
+      const result = await financeApi.declareAll();
+      await load();
+      setBulkNotice({
+        message: result.declaredCount > 0
+          ? `Payment announced to ${result.declaredCount} ${result.declaredCount === 1 ? "student" : "students"}. The expiry countdown started now and ends ${formatDateTime(result.expiresAtUtc)}.`
+          : "Every active student in the current academic period already has a payment declaration.",
+        error: false,
+      });
+    } catch (reason) {
+      setBulkNotice({ message: reason instanceof Error ? reason.message : "Could not declare payments to all students.", error: true });
+    } finally {
+      setBulkDeclaring(false);
+    }
+  }
+
   if (error) return <ErrorPage retry={() => void load()}/>;
   if (!accounts || !options) return <LoadingPage/>;
   const selected = accounts.find(account => account.id === selectedId);
 
   return <div className="viewport-data-page management-viewport-page finance-viewport-page">
-    <PageHeading eyebrow="Current financial state" title="Finance" description="Finance owns enrollment-linked fees, received payments, balances, adjustments, and financial eligibility. Configuration stays in Settings; audit events stay in History." actions={<Link className="button secondary" href="/settings/finance">Finance Settings</Link>}/>
+    <PageHeading eyebrow="Current financial state" title="Finance" description="Finance owns enrollment-linked fees, received payments, balances, adjustments, and financial eligibility. Audit events stay in History." actions={<button type="button" className="button primary" disabled={bulkDeclaring} onClick={() => void declareAll()}>{bulkDeclaring ? "Declaring payments…" : "Declare payment to all students"}</button>}/>
+    {bulkNotice && <div className={`finance-bulk-notice${bulkNotice.error ? " is-error" : ""}`} role={bulkNotice.error ? "alert" : "status"}><Icon name="finance" size={17}/><span>{bulkNotice.message}</span><button type="button" onClick={() => setBulkNotice(undefined)} aria-label="Dismiss message">Dismiss</button></div>}
     <section className="finance-metrics" aria-label="Finance summary">
       <FinanceMetric label="Total due" value={money(view.due, view.currency)} detail={`${view.declared} of ${view.items.length} accounts declared`} tone="blue"/>
       <FinanceMetric label="Collected" value={money(view.collected, view.currency)} detail="Completed payment transactions" tone="green"/>
       <FinanceMetric label="Outstanding" value={money(view.outstanding, view.currency)} detail="Pending and partial balances" tone="amber"/>
       <FinanceMetric label="Eligible" value={view.eligible.toString()} detail={options.requirePaidForAdvancement ? "Paid accounts may advance" : "Paid gate disabled in Settings"} tone="violet"/>
     </section>
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search account, payment, student, or enrollment..." contextLabel="Finance boundary" contextValue="Current truth only">
-      <label className="finance-status-filter"><span>Status</span><select value={status} onChange={event => setStatus(event.target.value)}>{statuses.map(item => <option key={item}>{item}</option>)}</select></label>
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search account, payment, student, or enrollment..." className="management-toolbar panel management-toolbar-global finance-toolbar">
+      <select className="finance-status-filter" aria-label="Filter finance accounts by status" value={status} onChange={event => setStatus(event.target.value)}>{statuses.map(item => <option key={item}>{item}</option>)}</select>
     </DataTableToolbar>
     <PaginatedDataRegion items={view.items} resetKey={`${query}-${status}`} className="management-paginated-region" empty={<DataTableEmptyState icon={<Icon name="finance" size={24}/>} title="No finance accounts" description="A financial account appears after Student Enrollment is saved."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table finance-payment-table" headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={columns}>
       {pageItems.map(account => <article className="horizontal-management-row" key={account.id}>
@@ -91,13 +112,14 @@ export function FinanceWorkspace() {
 
 function FinanceAccountModal({ account: initialAccount, options, onClose, onUpdated }: { account: FinancialAccount; options: FinanceOptions; onClose: () => void; onUpdated: (account: FinancialAccount) => void }) {
   const [account, setAccount] = useState(initialAccount);
-  const [declarationDraft, setDeclarationDraft] = useState<DeclarationDraft>(() => declarationFromAccount(initialAccount));
+  const [declarationDraft, setDeclarationDraft] = useState<DeclarationDraft>(() => declarationFromAccount(initialAccount, options.paymentDueDays));
   const [paymentDraft, setPaymentDraft] = useState<PaymentDraft>(() => emptyPayment(initialAccount.balance));
   const [adjustmentAmount, setAdjustmentAmount] = useState(initialAccount.adjustmentAmount.toString());
   const [adjustmentReason, setAdjustmentReason] = useState(initialAccount.adjustmentReason);
+  const [extensionDays, setExtensionDays] = useState("");
+  const [extensionReason, setExtensionReason] = useState("");
   const [editing, setEditing] = useState<FinancialPayment>();
   const [editDraft, setEditDraft] = useState<PaymentDraft>();
-  const [showQr, setShowQr] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -108,14 +130,16 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
       const updated = await action();
       setAccount(updated);
       onUpdated(updated);
-      setDeclarationDraft(declarationFromAccount(updated));
+      setDeclarationDraft(declarationFromAccount(updated, options.paymentDueDays));
       setPaymentDraft(emptyPayment(updated.balance));
       setAdjustmentAmount(updated.adjustmentAmount.toString());
       setAdjustmentReason(updated.adjustmentReason);
       setEditing(undefined);
       setEditDraft(undefined);
+      return true;
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : "Could not apply the finance change.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -129,12 +153,14 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
   async function saveDeclaration(event: React.FormEvent) {
     event.preventDefault();
     await apply(() => financeApi.declare(account.id, declarationDraft));
-    setShowQr(true);
   }
 
-  async function regenerateQr() {
-    await apply(() => financeApi.regenerateQr(account.id));
-    setShowQr(true);
+  async function extendExpiry(event: React.FormEvent) {
+    event.preventDefault();
+    if (await apply(() => financeApi.extendExpiry(account.id, Number(extensionDays), extensionReason))) {
+      setExtensionDays("");
+      setExtensionReason("");
+    }
   }
 
   async function updatePayment(event: React.FormEvent) {
@@ -152,39 +178,41 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
     <div className="modal-head"><div><span className="eyebrow">Financial account</span><h2>{account.studentName}</h2><p>{account.financialAccountCode} · {account.enrollmentCode} · {account.academicYear} · {account.semester}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close"/></button></div>
     <div className="finance-account-scroll">
       {message && <div className="management-rule-error" role="alert"><Icon name="finance" size={16}/><div><strong>Could not apply change</strong><span>{message}</span></div><button type="button" onClick={() => setMessage("")}>Dismiss</button></div>}
-      {options.bakongEnabled && !options.bakongConfigured && <div className="management-rule-error" role="alert"><Icon name="finance" size={16}/><div><strong>Bakong token is not configured</strong><span>Receiver settings are enabled, but the API server still needs the BAKONG_API_TOKEN environment variable.</span></div></div>}
       <form className="finance-operation-card finance-declaration-card" onSubmit={saveDeclaration}>
-        <header><div><strong>{account.isDeclared ? "Modify payment declaration" : "Declare student payment"}</strong><span>The declaration becomes a payment card in this student&apos;s mobile app. Global defaults remain in Settings.</span></div>{account.isDeclared && !account.isExpired && account.balance > 0 && (account.isQrExpired && options.bakongEnabled ? <button type="button" className="button secondary finance-qr-button" disabled={busy || !options.bakongConfigured} onClick={() => void regenerateQr()}>Regenerate KHQR</button> : account.qrPayload ? <button type="button" className="button secondary finance-qr-button" onClick={() => setShowQr(value => !value)}>{showQr ? "Hide QR" : "Show QR"}</button> : null)}</header>
+        <header><div><strong>{account.isDeclared ? "Modify payment declaration" : "Declare student payment"}</strong><span>Prices and the initial expiry countdown come from Finance Settings. Existing expiry dates never renew automatically.</span></div></header>
         <div className="finance-plan-picker" role="group" aria-label="Payment coverage">
-          <button type="button" className={declarationDraft.paymentPlan === "Semester" ? "is-selected" : ""} aria-pressed={declarationDraft.paymentPlan === "Semester"} onClick={() => setDeclarationDraft({ ...declarationDraft, paymentPlan: "Semester" })}><Icon name="calendar" size={18}/><span><strong>Pay as Semester</strong><small>Covers {account.semester} only</small></span></button>
-          <button type="button" disabled={account.semester !== "Semester 1"} className={declarationDraft.paymentPlan === "Year" ? "is-selected" : ""} aria-pressed={declarationDraft.paymentPlan === "Year"} onClick={() => setDeclarationDraft({ ...declarationDraft, paymentPlan: "Year" })}><Icon name="archive" size={18}/><span><strong>Pay as Year</strong><small>{account.semester === "Semester 1" ? "Covers Semester 1 + Semester 2" : "Available from Semester 1 only"}</small></span></button>
+          <button type="button" className={declarationDraft.paymentPlan === "Semester" ? "is-selected" : ""} aria-pressed={declarationDraft.paymentPlan === "Semester"} onClick={() => setDeclarationDraft({ ...declarationDraft, paymentPlan: "Semester", amount: (options.semesterPrice + options.otherFee).toFixed(2) })}><Icon name="calendar" size={18}/><span><strong>Pay as Semester · 50%</strong><small>Covers {account.semester}; the next semester requires the second payment</small></span></button>
+          <button type="button" disabled={account.semester !== "Semester 1"} className={declarationDraft.paymentPlan === "Year" ? "is-selected" : ""} aria-pressed={declarationDraft.paymentPlan === "Year"} onClick={() => setDeclarationDraft({ ...declarationDraft, paymentPlan: "Year", amount: (options.yearPrice + options.otherFee).toFixed(2) })}><Icon name="archive" size={18}/><span><strong>Pay as Year</strong><small>{account.semester === "Semester 1" ? "Covers Semester 1 + Semester 2" : "Available from Semester 1 only"}</small></span></button>
         </div>
         <div className="finance-form-grid">
           <label><span>Card title</span><input value={declarationDraft.title} minLength={3} maxLength={160} onChange={event => setDeclarationDraft({ ...declarationDraft, title: event.target.value })} placeholder="Semester tuition payment" required/></label>
           <label><span>Amount to pay</span><input type="number" min="0.01" step="0.01" value={declarationDraft.amount} onChange={event => setDeclarationDraft({ ...declarationDraft, amount: event.target.value })} required/></label>
-          <label><span>Due date</span><input type="date" value={declarationDraft.dueOn} onChange={event => setDeclarationDraft({ ...declarationDraft, dueOn: event.target.value })} required/></label>
-          <label><span>QR expires</span><input type="datetime-local" value={declarationDraft.expiresAtUtc} onChange={event => setDeclarationDraft({ ...declarationDraft, expiresAtUtc: event.target.value })} required/></label>
+          <label><span>Due date</span><input type="date" value={declarationDraft.dueOn} readOnly={account.isDeclared} onChange={event => setDeclarationDraft({ ...declarationDraft, dueOn: event.target.value })} required/></label>
+          <label><span>Payment expires</span><input type="datetime-local" value={declarationDraft.expiresAtUtc} readOnly={account.isDeclared} onChange={event => setDeclarationDraft({ ...declarationDraft, expiresAtUtc: event.target.value })} required/></label>
         </div>
-        <footer><small>{account.isDeclared && account.declaredAtUtc ? `Created ${formatDateTime(account.declaredAtUtc)} · Changes are recorded in History.` : `Suggested from Settings: ${money(account.tuitionFee + account.otherFee, account.currency)}.`}</small><button className="button primary" disabled={busy}>{busy ? "Saving..." : account.isDeclared ? "Save declaration" : "Declare & create QR"}</button></footer>
+        <footer><small>{account.isDeclared && account.declaredAtUtc ? `Created ${formatDateTime(account.declaredAtUtc)} · Changes are recorded in History.` : `Suggested from Settings: ${money(account.tuitionFee + account.otherFee, account.currency)}.`}</small><button className="button primary" disabled={busy}>{busy ? "Saving..." : account.isDeclared ? "Save declaration" : "Declare payment"}</button></footer>
       </form>
 
-      {showQr && account.isDeclared && !account.isExpired && account.balance > 0 && account.qrPayload && <section className="finance-qr-ticket" aria-label="Student payment QR">
-        <div className="finance-qr-ticket-code"><QRCodeSVG value={account.qrPayload} size={172} level="M" marginSize={2}/></div>
-        <div><span className="eyebrow">{account.qrProvider}</span><h3>{account.title}</h3><strong>{account.studentName}</strong><p>{planLabel(account)}</p><dl><div><dt>Amount</dt><dd>{money(account.balance, account.currency)}</dd></div><div><dt>Created</dt><dd>{formatDateTime(account.declaredAtUtc!)}</dd></div><div><dt>Due</dt><dd>{formatDate(account.dueOn)}</dd></div><div><dt>{account.qrProvider === "Bakong KHQR" ? "QR expires" : "Expires"}</dt><dd>{formatDateTime(account.qrExpiresAtUtc ?? account.expiresAtUtc!)}</dd></div></dl><small>{account.financialAccountCode} · {account.qrProvider === "Bakong KHQR" ? `${options.bakongEnvironment} · Pay from a Bakong-compatible banking app` : "Scan from the signed-in student account"}</small></div>
-      </section>}
+      {account.isDeclared && !account.isExpired && account.status !== "Paid" && account.status !== "Cancelled" && <form className="finance-operation-card finance-expiry-extension" onSubmit={extendExpiry}>
+        <header><div><strong>Additional expiry days</strong><span>Add days only when the student has an approved reason. This action is recorded in History.</span></div></header>
+        <div className="finance-form-grid finance-extension-grid"><label><span>Additional days</span><input type="number" min="1" max="365" value={extensionDays} onChange={event => setExtensionDays(event.target.value)} required/></label><label><span>Reason</span><input minLength={3} maxLength={500} value={extensionReason} onChange={event => setExtensionReason(event.target.value)} placeholder="Student request and approved reason" required/></label></div>
+        <footer><small>Days cannot be added after the payment expires.</small><button className="button secondary" disabled={busy}>{busy ? "Saving..." : "Add expiry days"}</button></footer>
+      </form>}
+      {account.isDeclared && account.isExpired && account.status !== "Paid" && account.status !== "Cancelled" && <div className="finance-expiry-locked"><Icon name="finance" size={16}/><span>This payment has expired. Additional days can no longer be assigned; the daily punishment continues until payment is recorded.</span></div>}
 
       <section className="finance-account-summary" aria-label="Financial account balance">
         <FinanceAmount label={account.isDeclared ? "Declared amount" : "Suggested amount"} value={account.declaredAmount ?? account.tuitionFee + account.otherFee} currency={account.currency}/>
         <FinanceAmount label="Plan" value={account.paymentPlan} />
         <FinanceAmount label="Adjustment" value={account.adjustmentAmount} currency={account.currency}/>
+        <FinanceAmount label={`Late punishment (${account.latePenaltyDays}d)`} value={account.latePenaltyAmount} currency={account.currency}/>
         <FinanceAmount label="Total due" value={account.totalDue} currency={account.currency}/>
         <FinanceAmount label="Paid" value={account.totalPaid} currency={account.currency}/>
         <FinanceAmount label="Balance" value={account.balance} currency={account.currency} strong/>
       </section>
 
-      <section className="finance-current-state"><div><span>Payment status</span><strong className={`finance-state-${account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</strong></div><div><span>Enrollment eligibility</span><strong>{options.requirePaidForAdvancement ? account.status === "Paid" ? account.paymentPlan === "Year" ? "Semester 1 + 2 eligible" : "This semester eligible" : "Stay in current enrollment" : "Payment gate disabled"}</strong></div><div><span>QR provider</span><strong>{account.isDeclared ? account.qrProvider : options.bakongEnabled ? `Bakong ${options.bakongEnvironment}` : "Simulated"}</strong></div><div><span>Payment methods</span><strong>{options.paymentMethods.join(", ")}</strong></div></section>
+      <section className="finance-current-state"><div><span>Payment status</span><strong className={`finance-state-${account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</strong></div><div><span>Enrollment eligibility</span><strong>{options.requirePaidForAdvancement ? account.status === "Paid" ? account.paymentPlan === "Year" ? "Semester 1 + 2 eligible" : "This semester eligible" : "Stay in current enrollment" : "Payment gate disabled"}</strong></div><div><span>Payment methods</span><strong>{options.paymentMethods.join(", ")}</strong></div></section>
 
-      {account.isDeclared && !account.isExpired && account.status !== "Cancelled" && account.balance > 0 && <form className="finance-operation-card" onSubmit={recordPayment}>
+      {account.isDeclared && account.status !== "Cancelled" && account.balance > 0 && <form className="finance-operation-card" onSubmit={recordPayment}>
         <header><div><strong>Record payment</strong><span>Capture actual money received. The balance and status are calculated by Finance.</span></div></header>
         <div className="finance-form-grid">
           <label><span>Amount</span><input type="number" min="0.01" step="0.01" value={paymentDraft.amount} onChange={event => setPaymentDraft({ ...paymentDraft, amount: event.target.value })} required/></label>
@@ -224,15 +252,24 @@ function FinanceAmount({ label, value, currency, strong = false }: { label: stri
   return <div className={strong ? "is-strong" : ""}><span>{label}</span><strong>{typeof value === "number" && currency ? money(value, currency) : value}</strong></div>;
 }
 
-function declarationFromAccount(account: FinancialAccount): DeclarationDraft {
-  const expiry = account.expiresAtUtc ? new Date(account.expiresAtUtc) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+function declarationFromAccount(account: FinancialAccount, paymentDueDays: number): DeclarationDraft {
+  const deadline = declarationDeadline(paymentDueDays);
+  const expiry = account.expiresAtUtc ? new Date(account.expiresAtUtc) : deadline.expiry;
   return {
     title: account.title || `${account.semester} payment`,
     paymentPlan: account.paymentPlan || "Semester",
     amount: (account.declaredAmount ?? account.tuitionFee + account.otherFee).toFixed(2),
-    dueOn: account.dueOn,
+    dueOn: account.isDeclared ? account.dueOn : deadline.dueOn,
     expiresAtUtc: localDateTime(expiry),
   };
+}
+
+function declarationDeadline(paymentDueDays: number) {
+  const due = new Date();
+  due.setDate(due.getDate() + paymentDueDays);
+  const expiry = new Date(due);
+  expiry.setHours(23, 59, 59, 999);
+  return { dueOn: localDate(due), expiry };
 }
 
 function planLabel(account: FinancialAccount) {
@@ -252,6 +289,11 @@ function draftFromPayment(payment: FinancialPayment): PaymentDraft {
 function localDateTime(date: Date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
+}
+
+function localDate(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
 }
 
 function money(value: number, currency: string) {

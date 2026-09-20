@@ -9,7 +9,9 @@ export type AttendanceValues = Record<string, string> & { attendanceCode: string
 export type GradeValues = Record<string, string> & { gradeCode: string; studentId: string; student: string; courseId: string; course: string; attendanceScore: string; attendanceMaximum: string; attendancePresent: string; attendanceSessions: string; assignmentScore: string; assignmentMaximum: string; midtermScore: string; midtermMaximum: string; finalExamScore: string; finalExamMaximum: string; score: string; grade: string; academicYear: string; term: string };
 export type GradeWeights = { attendance: number; assignment: number; midterm: number; finalExam: number };
 export type Announcement = { id: string; announcementCode: string; type: 'General' | 'Attendance' | 'Emergency' | 'Result' | 'Finance'; title: string; message: string; isRead: boolean; createAt: string; source: 'announcement' | 'finance'; sourceId: string };
-export type StudentPayment = { id: string; paymentCode: string; financialAccountCode: string; studentId: string; studentName: string; academicYear: string; semester: string; title: string; paymentPlan: 'Semester' | 'Year'; declaredAmount: number; declaredAtUtc: string; expiresAtUtc: string; isDeclared: boolean; isExpired: boolean; qrGeneratedAtUtc: string | null; qrExpiresAtUtc: string | null; isQrExpired: boolean; totalDue: number; totalPaid: number; balance: number; amountDue: number; currency: string; dueOn: string; status: 'Pending' | 'Partial' | 'Paid' | 'Cancelled' | 'Refunded'; confirmationMethod: string; paidAtUtc: string | null; reminderSentAtUtc: string | null; reminderReadAtUtc: string | null; timetableStatus: 'Ready' | 'Waiting'; qrProvider: 'Bakong KHQR' | 'Simulated'; qrPayload: string };
+export type StudentPayment = { id: string; paymentCode: string; financialAccountCode: string; studentId: string; studentName: string; academicYear: string; semester: string; title: string; paymentPlan: 'Semester' | 'Year'; declaredAmount: number; declaredAtUtc: string; expiresAtUtc: string; isDeclared: boolean; isExpired: boolean; qrGeneratedAtUtc: string | null; qrExpiresAtUtc: string | null; isQrExpired: boolean; latePenaltyDays: number; latePenaltyAmount: number; totalDue: number; totalPaid: number; balance: number; amountDue: number; currency: string; dueOn: string; status: 'Pending' | 'Partial' | 'Paid' | 'Cancelled' | 'Refunded'; confirmationMethod: string; paidAtUtc: string | null; reminderSentAtUtc: string | null; reminderReadAtUtc: string | null; timetableStatus: 'Ready' | 'Waiting'; qrProvider: 'Bakong KHQR'; qrPayload: string };
+export type BankPaymentOption = { name: 'ABA' | 'ACLEDA'; accountName: string; accountCode: string };
+export type StudentFinanceOptions = { paymentProviders: BankPaymentOption[]; bakongEnabled: boolean; bakongConfigured: boolean; bakongEnvironment: 'SIT' | 'Production'; dynamicQrBank: string; dynamicQrAccountName: string; dynamicQrAccountCode: string };
 export type ClassSessionStartItem = { id: string; scheduleEntryId: string; teacherId: string; sessionDate: string; startedAtUtc: string };
 
 export type TeacherItem = CatalogItem<TeacherValues>;
@@ -29,5 +31,6 @@ export type PortalData = {
   gradeWeights: GradeWeights;
   announcements: Announcement[];
   payments: StudentPayment[];
+  financeOptions: StudentFinanceOptions;
   startedScheduleIds: string[];
 };

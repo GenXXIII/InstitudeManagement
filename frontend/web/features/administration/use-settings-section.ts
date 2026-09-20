@@ -60,10 +60,9 @@ export function useSettingsSection(section: SettingSection) {
     const sectionGroups = section === "system"
       ? definition.groups.map(group => ({ ...group, fields: group.fields.filter(field => !maintenanceKeys.has(field.key)) })).filter(group => group.fields.length > 0)
       : definition.groups;
-    if (advanced) return sectionGroups;
-    const visibleKeys = new Set(simpleSectionFieldKeys(section, values ?? {}));
+    const visibleKeys = advanced ? undefined : new Set(simpleSectionFieldKeys(section, values ?? {}));
     return sectionGroups
-      .map(group => ({ ...group, fields: group.fields.filter(field => visibleKeys.has(field.key)) }))
+      .map(group => ({ ...group, fields: group.fields.filter(field => (!visibleKeys || visibleKeys.has(field.key)) && (!field.showWhen || field.showWhen(values ?? {}))) }))
       .filter(group => group.fields.length > 0);
   }, [advanced, definition.groups, section, values]);
   const visibleEditableCount = useMemo(

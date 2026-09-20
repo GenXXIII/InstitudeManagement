@@ -33,17 +33,34 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
         CancellationToken cancellationToken) =>
         Ok(await finance.DeclareAsync(financialAccountId, request.ToDto(), cancellationToken));
 
+    [HttpPut("declarations")]
+    public async Task<IActionResult> DeclareAll(CancellationToken cancellationToken) =>
+        Ok(await finance.DeclareAllAsync(cancellationToken));
+
+    [HttpPut("accounts/{financialAccountId:guid}/expiry-extension")]
+    public async Task<IActionResult> ExtendExpiry(
+        Guid financialAccountId,
+        FinanceExpiryExtensionRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await finance.ExtendExpiryAsync(financialAccountId, request.ToDto(), cancellationToken));
+
     [HttpPut("accounts/{financialAccountId:guid}/qr")]
     public async Task<IActionResult> RegenerateQr(Guid financialAccountId, CancellationToken cancellationToken) =>
         Ok(await finance.RegenerateQrAsync(financialAccountId, cancellationToken));
 
-    [HttpPost("students/{studentId:guid}/payments/{paymentId:guid}/confirm")]
-    public async Task<IActionResult> Confirm(
+    [HttpPut("students/{studentId:guid}/payments/{paymentId:guid}/qr")]
+    public async Task<IActionResult> GenerateStudentQr(
         Guid studentId,
         Guid paymentId,
-        StudentPaymentConfirmationRequest request,
         CancellationToken cancellationToken) =>
-        Ok(await finance.ConfirmAsync(studentId, paymentId, request.ToDto(), cancellationToken));
+        Ok(await finance.GenerateStudentQrAsync(studentId, paymentId, cancellationToken));
+
+    [HttpPost("students/{studentId:guid}/payments/{paymentId:guid}/verify")]
+    public async Task<IActionResult> VerifyStudentPayment(
+        Guid studentId,
+        Guid paymentId,
+        CancellationToken cancellationToken) =>
+        Ok(await finance.VerifyStudentPaymentAsync(studentId, paymentId, cancellationToken));
 
     [HttpPut("students/{studentId:guid}/payments/{paymentId:guid}/reminder/read")]
     public async Task<IActionResult> MarkReminderRead(

@@ -28,6 +28,8 @@ public sealed record StudentPaymentDto(
     decimal OtherFee,
     decimal AdjustmentAmount,
     string AdjustmentReason,
+    int LatePenaltyDays,
+    decimal LatePenaltyAmount,
     decimal TotalDue,
     decimal TotalPaid,
     decimal Balance,

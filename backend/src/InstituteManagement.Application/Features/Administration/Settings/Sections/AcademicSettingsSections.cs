@@ -31,9 +31,12 @@ public static partial class SettingsCatalog
 
     private static readonly SettingsSectionDefinition FinanceSection = Section("finance",
         Decimal("semesterPrice", "500.00", 0, 1000000),
+        Decimal("yearPrice", "1000.00", 0, 2000000),
         Decimal("otherFee", "0.00", 0, 1000000),
+        Option("defaultPaymentPlan", "Semester", "Semester", "Year"),
         Option("currency", "USD", "USD", "KHR"),
         Integer("paymentDueDays", "14", 0, 365),
+        Decimal("latePenaltyPerDay", "0.00", 0, 1000000),
         List("paymentMethods", "Cash,ABA,ACLEDA,Wing,Bank Transfer,Other"),
         Boolean("allowPartialPayments", true),
         Boolean("allowOverpayment", false),
@@ -41,9 +44,15 @@ public static partial class SettingsCatalog
         Boolean("requirePaidForAdvancement", true),
         Boolean("bakongEnabled", false),
         Option("bakongEnvironment", "SIT", "SIT", "Production"),
-        OptionalText("bakongAccountId", "", 128),
-        OptionalText("bakongAccountInformation", "", 128),
-        OptionalText("bakongAcquiringBank", "", 128),
+        OptionalText("bakongAccountId", "", 32),
+        OptionalText("bakongAccountInformation", "", 32),
+        OptionalText("bakongAcquiringBank", "", 32),
         OptionalText("bakongMerchantName", "Institude of New Khmer", 25),
-        OptionalText("bakongMerchantCity", "Phnom Penh", 15));
+        OptionalText("bakongMerchantCity", "Phnom Penh", 15),
+        Boolean("abaEnabled", false),
+        OptionalText("abaAccountName", "", 128),
+        OptionalText("abaAccountCode", "", 128),
+        Boolean("acledaEnabled", false),
+        OptionalText("acledaAccountName", "", 128),
+        OptionalText("acledaAccountCode", "", 128));
 }

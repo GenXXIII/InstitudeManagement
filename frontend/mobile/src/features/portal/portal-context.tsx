@@ -1,7 +1,7 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth, type MobileRole } from '@/features/auth/auth-context';
 import { loadPortalData, portalMutations } from './portal-api';
-import type { PortalData } from './portal-types';
+import type { PortalData, StudentPayment } from './portal-types';
 
 type GradeScores = { assignmentScore: number; midtermScore: number; finalExamScore: number };
 type GradeSubmission = { studentId: string; courseId: string; scores: GradeScores };
@@ -15,14 +15,15 @@ type PortalContextValue = PortalData & {
   submitGrade: (studentId: string, courseId: string, scores: GradeScores) => Promise<void>;
   submitGrades: (submissions: GradeSubmission[]) => Promise<void>;
   markAnnouncementRead: (announcementId: string) => Promise<void>;
-  confirmPayment: (paymentId: string, qrPayload: string) => Promise<void>;
+  generateFinanceQr: (studentId: string, paymentId: string) => Promise<StudentPayment>;
+  verifyFinancePayment: (studentId: string, paymentId: string) => Promise<StudentPayment>;
 };
 
 const PortalContext = createContext<PortalContextValue | null>(null);
 
 export function PortalProvider({ role, children }: PropsWithChildren<{ role: MobileRole }>) {
   const { session } = useAuth();
-  const [data, setData] = useState<PortalData>({ role, profile: null, schedule: [], students: [], attendance: [], grades: [], gradeWeights: { attendance: 10, assignment: 20, midterm: 20, finalExam: 50 }, announcements: [], payments: [], startedScheduleIds: [] });
+  const [data, setData] = useState<PortalData>({ role, profile: null, schedule: [], students: [], attendance: [], grades: [], gradeWeights: { attendance: 10, assignment: 20, midterm: 20, finalExam: 50 }, announcements: [], payments: [], financeOptions: { paymentProviders: [], bakongEnabled: false, bakongConfigured: false, bakongEnvironment: 'SIT', dynamicQrBank: '', dynamicQrAccountName: '', dynamicQrAccountCode: '' }, startedScheduleIds: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -69,6 +70,17 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     }));
   }, []);
 
+  const replacePayment = useCallback((payment: StudentPayment) => {
+    setData(current => ({ ...current, payments: current.payments.map(item => item.id === payment.id ? payment : item) }));
+    return payment;
+  }, []);
+
+  const generateFinanceQr = useCallback(async (studentId: string, paymentId: string) =>
+    replacePayment(await portalMutations.generateFinanceQr(studentId, paymentId)), [replacePayment]);
+
+  const verifyFinancePayment = useCallback(async (studentId: string, paymentId: string) =>
+    replacePayment(await portalMutations.verifyFinancePayment(studentId, paymentId)), [replacePayment]);
+
   const markAnnouncementRead = useCallback(async (announcementId: string) => {
     const announcement = data.announcements.find(item => item.id === announcementId);
     if (!announcement || announcement.isRead) return;
@@ -90,13 +102,7 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     }
   }, [data.announcements, data.profile]);
 
-  const confirmPayment = useCallback(async (paymentId: string, qrPayload: string) => {
-    if (role !== 'student' || !data.profile) throw new Error('Only a signed-in student can confirm this payment.');
-    await portalMutations.confirmPayment(data.profile.id, paymentId, qrPayload);
-    await refresh();
-  }, [data.profile, refresh, role]);
-
-  const value = useMemo(() => ({ ...data, error, loading, refresh, startClass, recordAttendance, submitGrade, submitGrades, markAnnouncementRead, confirmPayment }), [data, error, loading, refresh, startClass, recordAttendance, submitGrade, submitGrades, markAnnouncementRead, confirmPayment]);
+  const value = useMemo(() => ({ ...data, error, loading, refresh, startClass, recordAttendance, submitGrade, submitGrades, markAnnouncementRead, generateFinanceQr, verifyFinancePayment }), [data, error, loading, refresh, startClass, recordAttendance, submitGrade, submitGrades, markAnnouncementRead, generateFinanceQr, verifyFinancePayment]);
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 

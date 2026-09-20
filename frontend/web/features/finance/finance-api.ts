@@ -1,5 +1,5 @@
 import { request } from "@/lib/http";
-import type { DeclarationDraft, FinancialAccount, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
+import type { BulkFinanceDeclarationResult, DeclarationDraft, FinancialAccount, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
 
 const accountsRoute = "/api/finance/accounts";
 
@@ -15,7 +15,9 @@ function paymentBody(draft: PaymentDraft) {
 export const financeApi = {
   get: (search = "", status = "All") => request<FinancialAccount[]>(`/api/finance?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`),
   getOptions: () => request<FinanceOptions>("/api/finance/options"),
+  declareAll: () => request<BulkFinanceDeclarationResult>("/api/finance/declarations", { method: "PUT" }),
   declare: (accountId: string, draft: DeclarationDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/declaration`, { method: "PUT", body: JSON.stringify({ ...draft, amount: Number(draft.amount), expiresAtUtc: new Date(draft.expiresAtUtc).toISOString() }) }),
+  extendExpiry: (accountId: string, days: number, reason: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/expiry-extension`, { method: "PUT", body: JSON.stringify({ days, reason }) }),
   regenerateQr: (accountId: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/qr`, { method: "PUT" }),
   recordPayment: (accountId: string, draft: PaymentDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments`, { method: "POST", body: JSON.stringify(paymentBody(draft)) }),
   updatePayment: (accountId: string, paymentId: string, draft: PaymentDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments/${paymentId}`, { method: "PUT", body: JSON.stringify(paymentBody(draft)) }),

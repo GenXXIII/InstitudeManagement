@@ -20,11 +20,11 @@ export function SettingsSection({ section }: { section: SettingSection }) {
   return <div className="viewport-data-page administration-page administration-section-page">
     <PageHeading eyebrow="Institute administration" title={state.definition.title} description={state.definition.description} actions={<><Link className="button secondary" href="/settings" onClick={state.protectNavigation}><Icon name="dashboard" size={15}/>Settings overview</Link><AdministrationModeToggle compact/></>}/>
     <section className="administration-section-scroll">
-        <div className="administration-current-summary">
+        {section !== "finance" && <div className="administration-current-summary">
           <span><Icon name={state.definition.icon} size={19}/></span>
           <div><small>{state.configured ? "Saved configuration" : "Recommended sample defaults"}</small><strong>{configurationSummary(section, values)}</strong><p>{policyCopy(section, state.configured, state.updatedAtUtc)}</p></div>
           <b className={`administration-section-status ${state.configured ? "saved" : "review"}`}><i/>{state.configured ? "Saved" : "Review"}</b>
-        </div>
+        </div>}
 
         {state.definition.managementLinks && <ManagementLinks links={state.definition.managementLinks}/>}
 
