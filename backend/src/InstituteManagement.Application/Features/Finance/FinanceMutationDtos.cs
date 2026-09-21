@@ -44,7 +44,6 @@ public sealed record FinanceOptionsDto(
     bool RequirePaidForAdvancement,
     int PaymentDueDays,
     decimal SemesterPrice,
-    decimal YearPrice,
     decimal OtherFee,
     IReadOnlyList<BankPaymentOptionDto> PaymentProviders,
     bool BakongEnabled,

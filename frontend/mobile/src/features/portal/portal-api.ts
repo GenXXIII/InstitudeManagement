@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import type { MobileSession } from '@/features/auth/auth-context';
-import type { Announcement, AttendanceItem, ClassSessionStartItem, GradeItem, GradeWeights, PortalData, ScheduleItem, StudentFinanceOptions, StudentItem, StudentPayment, TeacherItem } from './portal-types';
+import type { Announcement, AttendanceItem, ClassPermissionRequestItem, ClassSessionStartItem, GradeItem, GradeWeights, PortalData, PublishedSemesterResult, ScheduleItem, StudentFinanceOptions, StudentItem, StudentPayment, TeacherItem } from './portal-types';
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 
@@ -72,7 +72,7 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
     finalExam: Number(gradeSettings.values.finalExamWeight || 50),
   };
   const announcements: Announcement[] = announcementRows.map(item => ({ ...item, source: 'announcement', sourceId: item.id }));
-  if (!baseProfile) return { role: session.role, profile: null, schedule: [], students: [], attendance: [], grades: [], gradeWeights, announcements, payments: [], financeOptions: emptyFinanceOptions(), startedScheduleIds: [] };
+  if (!baseProfile) return { role: session.role, profile: null, schedule: [], students: [], attendance: [], grades: [], publishedResults: [], gradeWeights, announcements, payments: [], financeOptions: emptyFinanceOptions(), startedScheduleIds: [], permissionRequests: [] };
 
   const [scheduleRows, roleEnrollments] = await Promise.all([
     request<ScheduleItem[]>('/api/enrollment/timetable'),
@@ -83,11 +83,13 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
   const profile = { ...baseProfile, values: { ...baseProfile.values, ...enrollment?.values } } as TeacherItem | StudentItem;
   if (session.role === 'student') {
     const student = profile as StudentItem;
-    const [attendance, grades, payments, financeOptions] = await Promise.all([
+    const [attendance, payments, financeOptions, classStarts, permissionRequests, publishedResults] = await Promise.all([
       request<AttendanceItem[]>('/api/catalog/attendance'),
-      request<GradeItem[]>('/api/catalog/grades'),
       request<StudentPayment[]>(`/api/finance/students/${student.id}`),
       request<StudentFinanceOptions>('/api/finance/options'),
+      request<ClassSessionStartItem[]>(`/api/mobile/classes/students/${student.id}/today`),
+      request<ClassPermissionRequestItem[]>(`/api/mobile/classes/students/${student.id}/permission-requests`),
+      request<PublishedSemesterResult[]>(`/api/results?studentId=${student.id}&publishedOnly=true&history=false`),
     ]);
     const financeAlerts = payments.filter(payment => payment.reminderSentAtUtc && payment.status !== 'Cancelled').map(payment => ({
       id: `finance-${payment.id}`,
@@ -97,33 +99,36 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
       type: 'Finance' as const,
       title: payment.status === 'Paid' ? `${payment.paymentPlan} payment confirmed` : payment.title,
       message: payment.status === 'Paid'
-        ? `${payment.totalPaid} ${payment.currency} was confirmed for ${payment.paymentPlan === 'Year' ? 'Semester 1 and Semester 2' : payment.semester}.`
-        : `Please pay the remaining ${payment.balance} ${payment.currency} for ${payment.paymentPlan === 'Year' ? 'Semester 1 and Semester 2' : payment.semester}. Your next enrollment is held until Finance reports Paid.`,
+        ? `${payment.totalPaid} ${payment.currency} was confirmed for ${payment.semester}.`
+        : `Please pay the remaining ${payment.balance} ${payment.currency} for ${payment.semester}. Your next enrollment is held until Finance reports Paid.`,
       isRead: Boolean(payment.reminderReadAtUtc),
       createAt: payment.reminderSentAtUtc!,
     }));
     return {
       role: session.role,
       profile,
-      schedule: enrollment ? schedule.filter(item => (!item.values.departmentId || item.values.departmentId === student.values.departmentId) && item.values.yearLevel === student.values.year) : [],
+      schedule: enrollment ? schedule.filter(item => (!item.values.departmentId || item.values.departmentId === student.values.departmentId) && item.values.yearLevel === student.values.year && (!item.values.shift || item.values.shift === student.values.shift)) : [],
       students: [],
       attendance: attendance.filter(item => item.values.studentId === student.id),
-      grades: grades.filter(item => item.values.studentId === student.id),
+      grades: [],
+      publishedResults,
       gradeWeights,
       announcements: [...financeAlerts, ...announcements].sort((left, right) => right.createAt.localeCompare(left.createAt)),
       payments,
       financeOptions,
-      startedScheduleIds: [],
+      startedScheduleIds: classStarts.map(item => item.scheduleEntryId),
+      permissionRequests,
     };
   }
 
   const teacher = profile as TeacherItem;
   const ownSchedule = schedule.filter(item => item.values.teacherId === teacher.id);
-  const [students, attendance, grades, classStarts] = await Promise.all([
+  const [students, attendance, grades, classStarts, permissionRequests] = await Promise.all([
     request<StudentItem[]>('/api/enrollment/students'),
     request<AttendanceItem[]>('/api/catalog/attendance'),
     request<GradeItem[]>('/api/catalog/grades'),
     request<ClassSessionStartItem[]>(`/api/mobile/classes/teachers/${teacher.id}/today`),
+    request<ClassPermissionRequestItem[]>(`/api/mobile/classes/teachers/${teacher.id}/permission-requests`),
   ]);
   const assignedStudents = students.filter(student => ownSchedule.some(item =>
     (!item.values.departmentId || item.values.departmentId === student.values.departmentId) && item.values.yearLevel === student.values.year));
@@ -136,18 +141,22 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
     students: assignedStudents,
     attendance: attendance.filter(item => studentIds.has(item.values.studentId)),
     grades: grades.filter(item => studentIds.has(item.values.studentId) && courseIds.has(item.values.courseId)),
+    publishedResults: [],
     gradeWeights,
     announcements,
     payments: [],
     financeOptions: emptyFinanceOptions(),
     startedScheduleIds: classStarts.map(item => item.scheduleEntryId),
+    permissionRequests,
   };
 }
 
 export const portalMutations = {
   startClass: (scheduleEntryId: string, teacherId: string) => request<ClassSessionStartItem>(`/api/mobile/classes/${scheduleEntryId}/start`, { method: 'POST', body: JSON.stringify({ teacherId }) }),
-  recordAttendance: (studentId: string, status: string) => request<void>('/api/attendance', { method: 'POST', body: JSON.stringify({ studentId, status }) }),
-  submitGrade: (studentId: string, courseId: string, scores: { assignmentScore: number; midtermScore: number; finalExamScore: number }) => request<void>('/api/grades', { method: 'POST', body: JSON.stringify({ studentId, courseId, ...scores }) }),
+  submitGrade: (studentId: string, courseId: string, teacherId: string, scores: { assignmentScore: number; midtermScore: number; finalExamScore: number }) => request<void>('/api/grades', { method: 'POST', body: JSON.stringify({ studentId, courseId, teacherId, ...scores }) }),
+  requestPermission: (studentId: string, sessionDate: string, reason: string) => request<ClassPermissionRequestItem>(`/api/mobile/classes/students/${studentId}/permission-requests`, { method: 'POST', body: JSON.stringify({ sessionDate, reason }) }),
+  reviewPermission: (requestId: string, teacherId: string, decision: 'Approved' | 'Rejected') => request<ClassPermissionRequestItem>(`/api/mobile/classes/permission-requests/${requestId}/decision`, { method: 'PUT', body: JSON.stringify({ teacherId, decision }) }),
+  requestGradeResubmission: (gradeId: string, teacherId: string) => request<void>(`/api/grades/${gradeId}/resubmission-request`, { method: 'POST', body: JSON.stringify({ teacherId }) }),
   markAnnouncementRead: (announcementId: string) => request<Announcement>(`/api/notification-center/alerts/${announcementId}/read`, { method: 'PUT' }),
   markFinanceReminderRead: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/reminder/read`, { method: 'PUT' }),
   generateFinanceQr: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/qr`, { method: 'PUT' }),

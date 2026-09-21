@@ -36,27 +36,14 @@ public sealed class SemesterPaymentGate(
         }
 
         var settings = await settingsReader.GetAsync(cancellationToken);
-        var annualPaidStudentIds = semester == "Semester 2"
-            ? await db.FinancialAccounts.AsNoTracking()
-                .Where(account =>
-                    studentIds.Contains(account.StudentId)
-                    && account.AcademicYear == academicYear
-                    && account.Semester == "Semester 1"
-                    && account.PaymentPlan == "Year"
-                    && account.DeclaredAtUtc != null
-                    && account.Status == "Paid")
-                .Select(account => account.StudentId)
-                .ToHashSetAsync(cancellationToken)
-            : [];
         var paid = accounts
-            .Where(account => !settings.RequirePaidForAdvancement || account.Status == "Paid" || annualPaidStudentIds.Contains(account.StudentId))
+            .Where(account => !settings.RequirePaidForAdvancement || account.Status == "Paid")
             .Select(account => account.StudentId)
             .ToHashSet();
         if (!settings.RequirePaidForAdvancement) paid.UnionWith(studentIds);
-        else paid.UnionWith(annualPaidStudentIds);
         var reminderTime = DateTime.UtcNow;
         var held = 0;
-        foreach (var account in accounts.Where(account => settings.RequirePaidForAdvancement && account.Status != "Paid" && !annualPaidStudentIds.Contains(account.StudentId)))
+        foreach (var account in accounts.Where(account => settings.RequirePaidForAdvancement && account.Status != "Paid"))
         {
             account.ReminderSentAtUtc = reminderTime;
             account.ReminderReadAtUtc = null;

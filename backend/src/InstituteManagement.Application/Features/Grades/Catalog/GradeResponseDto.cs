@@ -24,4 +24,11 @@ public sealed record GradeValuesDto(
     string Grade,
     string AcademicYear,
     string Term,
+    string SubmittedByTeacherId,
+    string SubmittedByTeacher,
+    string ReviewStatus,
+    string ReviewNote,
+    string SubmissionVersion,
+    string SubmittedAtUtc,
+    string ReviewedAtUtc,
     string CreateAt);

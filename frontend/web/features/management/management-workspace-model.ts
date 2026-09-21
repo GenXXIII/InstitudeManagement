@@ -2,6 +2,7 @@ import { managementCode } from "./management-id";
 import type { ManagementItem, ManagementModule, References } from "./management-types";
 import { compareTimetableItems } from "@/features/timetable/timetable-sorting";
 import type { TimetableItem } from "@/features/timetable/timetable-types";
+import { compareAcademicRows } from "@/lib/academic-order";
 
 export function filterManagementItemsByYear(items: ManagementItem[], module: ManagementModule, year: string) {
   if (!year) return items;
@@ -38,7 +39,15 @@ export function sortManagementItemsByYear(items: ManagementItem[], module: Manag
     const values = item.values as unknown as Record<string, string>;
     return managementCode(module, values) || item.id;
   };
-  return items.toSorted((left, right) => yearOf(left) - yearOf(right) || businessId(left).localeCompare(businessId(right), undefined, { numeric: true, sensitivity: "base" }));
+  const academicValues = (item: ManagementItem) => {
+    const own = item.values as unknown as Record<string, string>;
+    if (own.year || own.yearLevel || own.semester || own.term || own.shift) return own;
+    const field = module === "teachers" ? "teacherId" : module === "courses" ? "courseId" : module === "classrooms" ? "classroomId" : "";
+    if (field) return references.timetable.filter(entry => entry.values[field as "teacherId" | "courseId" | "classroomId"] === item.id).toSorted(compareAcademicRows)[0]?.values ?? own;
+    if (module === "departments" || module === "overview") return references.students.filter(student => student.values.departmentId === item.id).toSorted(compareAcademicRows)[0]?.values ?? own;
+    return own;
+  };
+  return items.toSorted((left, right) => compareAcademicRows(academicValues(left), academicValues(right)) || yearOf(left) - yearOf(right) || businessId(left).localeCompare(businessId(right), undefined, { numeric: true, sensitivity: "base" }));
 }
 
 export function sortManagementReferencesByYear(references: References): References {
@@ -47,7 +56,7 @@ export function sortManagementReferencesByYear(references: References): Referenc
     ...references,
     departments: references.departments.toSorted((left, right) => left.values.departmentCode.localeCompare(right.values.departmentCode, undefined, { numeric: true })),
     teachers: references.teachers.toSorted((left, right) => left.values.teacherCode.localeCompare(right.values.teacherCode, undefined, { numeric: true })),
-    students: references.students.toSorted((left, right) => Number(left.values.year) - Number(right.values.year) || left.values.studentCode.localeCompare(right.values.studentCode, undefined, { numeric: true })),
+    students: references.students.toSorted((left, right) => compareAcademicRows(left, right) || left.values.studentCode.localeCompare(right.values.studentCode, undefined, { numeric: true })),
     classrooms: references.classrooms.toSorted((left, right) => left.values.classroomCode.localeCompare(right.values.classroomCode, undefined, { numeric: true })),
     courses: references.courses.toSorted((left, right) => left.values.courseCode.localeCompare(right.values.courseCode, undefined, { numeric: true })),
     timetable: references.timetable.toSorted((left, right) => left.values.timetableCode.localeCompare(right.values.timetableCode, undefined, { numeric: true })),

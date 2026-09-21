@@ -129,6 +129,7 @@
 }
 @media (max-width:1250px){
   .dashboard-metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dashboard-priority-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
   .dashboard-trend-card,.dashboard-schedule-card,.dashboard-activity-card{grid-column:span 7}
   .dashboard-breakdown-card,.dashboard-department-card,.dashboard-grade-card{grid-column:span 5}
 }
@@ -137,12 +138,15 @@
   .dashboard-header-actions{width:100%}
   .dashboard-period-control{flex:1}
   .dashboard-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .dashboard-layout>article{grid-column:1/-1}
+  .dashboard-section-grid>article{grid-column:1/-1!important}
+  .dashboard-section-heading{align-items:flex-start;flex-direction:column;gap:6px}
+  .dashboard-section-heading p{text-align:left}
 }
 @media (max-width:560px){
   .dashboard-header h1{font-size:25px}
   .dashboard-header-actions{align-items:stretch;flex-direction:column}
   .dashboard-metric-grid{grid-template-columns:1fr}
+  .dashboard-priority-strip{grid-template-columns:1fr}
   .dashboard-metric{min-height:96px}
   .dashboard-card{padding:15px}
   .dashboard-trend-card{min-height:350px}

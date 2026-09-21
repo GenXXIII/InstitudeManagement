@@ -27,7 +27,7 @@ export type Settings = {
   updatedAtUtc: string | null;
 };
 
-export type AdministrationCategory = "general" | "academic" | "access" | "people" | "policies" | "platform";
+export type AdministrationCategory = "essential" | "calendar" | "finance" | "structure" | "people" | "policies" | "communication" | "platform";
 export type AdministrationIcon = "building" | "calendar" | "book" | "room" | "users" | "teacher" | "check" | "finance" | "grade" | "bell" | "settings" | "archive";
 export type SettingFieldType = "text" | "textarea" | "email" | "tel" | "url" | "number" | "date" | "select" | "toggle" | "multiselect" | "checklist" | "asset" | "derived";
 

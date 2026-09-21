@@ -19,4 +19,11 @@ public sealed class GradeRecord : Entity
     public string LetterGrade { get; set; } = string.Empty;
     public string AcademicYear { get; set; } = string.Empty;
     public string Term { get; set; } = "Semester 1";
+    public Guid? SubmittedByTeacherId { get; set; }
+    public Teacher? SubmittedByTeacher { get; set; }
+    public string ReviewStatus { get; set; } = "Pending";
+    public string ReviewNote { get; set; } = string.Empty;
+    public int SubmissionVersion { get; set; } = 1;
+    public DateTime? SubmittedAtUtc { get; set; }
+    public DateTime? ReviewedAtUtc { get; set; }
 }

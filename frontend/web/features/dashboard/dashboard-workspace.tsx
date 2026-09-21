@@ -20,12 +20,9 @@ export default function DashboardPage() {
   const [range, setRange] = useState<DashboardRange>("monthly");
   const [data, setData] = useState<Dashboard>();
   const [error, setError] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const load = useCallback(async (selectedRange: DashboardRange) => {
-    setRefreshing(true);
     try { setData(await dashboardApi.get(selectedRange)); setError(false); }
     catch { setError(true); }
-    finally { setRefreshing(false); }
   }, []);
   useEffect(() => {
   const timer = setTimeout(() => {
@@ -39,54 +36,81 @@ export default function DashboardPage() {
   const changeTone = data.attendanceChange > 0 ? "positive" : data.attendanceChange < 0 ? "negative" : "neutral";
   return <div className="dashboard-page dashboard-viewport-page">
     <header className="dashboard-header">
-      <div><span>Institute performance center</span><h1>Institude Dashboard</h1><p>A clear view of enrollment, academic delivery, attendance, grades, and institute activity.</p></div>
+      <div><span>Administrator overview</span><h1>Institude Dashboard</h1><p>Important actions first, followed by today’s delivery and summarized institute performance.</p></div>
       <div className="dashboard-header-actions">
         <label className="dashboard-period-control"><span>Reporting period</span><select aria-label="Dashboard reporting period" value={range} onChange={event => setRange(event.target.value as DashboardRange)}>{reportingRanges.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
-        <button className="dashboard-refresh-button" type="button" disabled={refreshing} onClick={() => void load(range)}><Icon name="pulse" size={16}/>{refreshing ? "Refreshing…" : "Refresh data"}</button>
+        <div className="dashboard-updated"><span>Last updated</span><strong>{formatGeneratedAt(data.generatedAt)}</strong></div>
       </div>
     </header>
 
-    <section className="dashboard-metric-grid">{data.metrics.map((metric, index) => <article className={`dashboard-metric tone-${metric.tone || "blue"}`} key={metric.label}><span><Icon name={metricIcons[index % metricIcons.length]} size={19}/></span><div><small>{metric.label}</small><strong>{metric.value}</strong><p>{metric.detail}</p></div></article>)}</section>
+    <main className="dashboard-sections">
+      <DashboardSection eyebrow="Priority" title="What needs attention now" detail="Administrator actions and today’s academic delivery appear first.">
+        <div className="dashboard-priority-strip">
+          <PrioritySignal icon="bell" label="Needs review" value={data.attention.length ? `${data.attention.length} recent` : "All clear"} detail="Unread institute notices" tone={data.attention.length ? "red" : "green"}/>
+          <PrioritySignal icon="calendar" label="Today’s classes" value={data.todaySchedule.length.toString()} detail="Scheduled periods shown" tone="blue"/>
+          <PrioritySignal icon="check" label="Attendance" value={`${data.attendanceRate.toFixed(1)}%`} detail={`${signed(data.attendanceChange)} points vs previous`} tone={changeTone}/>
+          <PrioritySignal icon="grade" label="Average grade" value={data.averageGrade.toFixed(1)} detail={data.rangeLabel} tone="violet"/>
+        </div>
+        <div className="dashboard-section-grid dashboard-priority-grid">
+          <article className="dashboard-card dashboard-attention-card">
+            <CardHeading kicker="Action required" title="Open attention" detail="Unread institute notices in this reporting period." link="/announce" linkLabel="Open notices"/>
+            <ActivityList items={data.attention} empty="Nothing needs attention in this period."/>
+          </article>
+          <article className="dashboard-card dashboard-schedule-card">
+            <CardHeading kicker="Today’s delivery" title="Class schedule" detail="The next six non-cancelled timetable periods." link="/operation/timetable" linkLabel="Full timetable"/>
+            <div className="dashboard-schedule-list">{data.todaySchedule.length ? data.todaySchedule.map(item => <div key={`${item.label}-${item.value}`}><time>{item.label}</time><span><strong>{item.value}</strong><small>{item.detail}</small></span><b className={`table-status ${item.status.toLowerCase()}`}>{item.status}</b></div>) : <EmptyMessage text="No timetable periods scheduled today."/>}</div>
+          </article>
+        </div>
+      </DashboardSection>
 
-    <main className="dashboard-layout">
-      <article className="dashboard-card dashboard-trend-card">
-        <CardHeading kicker="Attendance trend" title={`${data.rangeLabel} participation`} detail="Present and late entries as a percentage of all attendance records." link="/record/students" linkLabel="Open records"/>
-        <div className="dashboard-trend-summary"><strong>{data.attendanceRate.toFixed(1)}%</strong><span className={changeTone}>{signed(data.attendanceChange)} points</span></div>
-        <AttendanceChart points={data.attendanceTrend}/>
-      </article>
+      <DashboardSection eyebrow="Institute summary" title="People and academic capacity" detail="Current institute totals and activity for the selected reporting period.">
+        <section className="dashboard-metric-grid">{data.metrics.map((metric, index) => <article className={`dashboard-metric tone-${metric.tone || "blue"}`} key={metric.label}><span><Icon name={metricIcons[index % metricIcons.length]} size={19}/></span><div><small>{metric.label}</small><strong>{metric.value}</strong><p>{metric.detail}</p></div></article>)}</section>
+      </DashboardSection>
 
-      <article className="dashboard-card dashboard-breakdown-card">
-        <CardHeading kicker="Attendance detail" title="Recorded outcomes" detail={`All attendance in the ${data.rangeLabel.toLowerCase()} window.`}/>
-        <div className="dashboard-status-list">{data.liveStatus.map(item => <div key={item.label}><span className={`dashboard-status-dot status-${item.status.toLowerCase()}`}/><div><strong>{item.label}</strong><small>{item.detail}</small></div><b>{item.value}</b></div>)}</div>
-      </article>
+      <DashboardSection eyebrow="Student participation" title="Attendance performance" detail="Participation trend and recorded outcomes are grouped together.">
+        <div className="dashboard-section-grid dashboard-attendance-grid">
+          <article className="dashboard-card dashboard-trend-card">
+            <CardHeading kicker="Attendance trend" title={`${data.rangeLabel} participation`} detail="Present and late entries as a percentage of all attendance records." link="/record/students" linkLabel="Open records"/>
+            <div className="dashboard-trend-summary"><strong>{data.attendanceRate.toFixed(1)}%</strong><span className={changeTone}>{signed(data.attendanceChange)} points</span></div>
+            <AttendanceChart points={data.attendanceTrend}/>
+          </article>
+          <article className="dashboard-card dashboard-breakdown-card">
+            <CardHeading kicker="Attendance detail" title="Recorded outcomes" detail={`All attendance in the ${data.rangeLabel.toLowerCase()} window.`}/>
+            <div className="dashboard-status-list">{data.liveStatus.map(item => <div key={item.label}><span className={`dashboard-status-dot status-${item.status.toLowerCase()}`}/><div><strong>{item.label}</strong><small>{item.detail}</small></div><b>{item.value}</b></div>)}</div>
+          </article>
+        </div>
+      </DashboardSection>
 
-      <article className="dashboard-card dashboard-schedule-card">
-        <CardHeading kicker="Academic delivery" title="Today’s schedule" detail="The next six non-cancelled timetable periods." link="/operation/timetable" linkLabel="Full timetable"/>
-        <div className="dashboard-schedule-list">{data.todaySchedule.length ? data.todaySchedule.map(item => <div key={`${item.label}-${item.value}`}><time>{item.label}</time><span><strong>{item.value}</strong><small>{item.detail}</small></span><b className={`table-status ${item.status.toLowerCase()}`}>{item.status}</b></div>) : <EmptyMessage text="No timetable periods scheduled today."/>}</div>
-      </article>
+      <DashboardSection eyebrow="Academic overview" title="Results and department coverage" detail="Academic results stay separate from institute structure.">
+        <div className="dashboard-section-grid dashboard-academic-grid">
+          <article className="dashboard-card dashboard-grade-card">
+            <CardHeading kicker="Academic results" title="Grade distribution" detail={`Scores recorded in the ${data.rangeLabel.toLowerCase()} window.`}/>
+            <div className="dashboard-grade-average"><strong>{data.averageGrade.toFixed(1)}</strong><span>Average score</span></div>
+            <div className="dashboard-grade-bars">{data.gradeDistribution.map(item => <div key={item.label}><span className="dashboard-grade-track"><i style={{ height: `${Math.max(Number(item.value), 3)}%` }}/></span><b>{Number(item.value).toFixed(0)}%</b><small>{item.label}</small></div>)}</div>
+          </article>
+          <article className="dashboard-card dashboard-department-card">
+            <CardHeading kicker="Institute structure" title="Department overview" detail="Current semester student and course coverage." link="/management/departments" linkLabel="Manage departments"/>
+            <div className="dashboard-department-list">{data.departmentStatus.length ? data.departmentStatus.map(item => <div key={item.label}><span>{item.label}</span><div><strong>{item.value}</strong><small>{item.detail}</small></div><b>{item.status}</b></div>) : <EmptyMessage text="No active departments found."/>}</div>
+          </article>
+        </div>
+      </DashboardSection>
 
-      <article className="dashboard-card dashboard-department-card">
-        <CardHeading kicker="Academic coverage" title="Department overview" detail="Current semester student and course coverage." link="/management/departments" linkLabel="Manage departments"/>
-        <div className="dashboard-department-list">{data.departmentStatus.length ? data.departmentStatus.map(item => <div key={item.label}><span>{item.label}</span><div><strong>{item.value}</strong><small>{item.detail}</small></div><b>{item.status}</b></div>) : <EmptyMessage text="No active departments found."/>}</div>
-      </article>
-
-      <article className="dashboard-card dashboard-grade-card">
-        <CardHeading kicker="Academic results" title="Grade distribution" detail={`Scores recorded in the ${data.rangeLabel.toLowerCase()} window.`}/>
-        <div className="dashboard-grade-average"><strong>{data.averageGrade.toFixed(1)}</strong><span>Average score</span></div>
-        <div className="dashboard-grade-bars">{data.gradeDistribution.map(item => <div key={item.label}><span className="dashboard-grade-track"><i style={{ height: `${Math.max(Number(item.value), 3)}%` }}/></span><b>{Number(item.value).toFixed(0)}%</b><small>{item.label}</small></div>)}</div>
-      </article>
-
-      <article className="dashboard-card dashboard-activity-card">
-        <CardHeading kicker="Workflow evidence" title="Recent activity" detail={`Latest changes inside the ${data.rangeLabel.toLowerCase()} window.`} link="/records" linkLabel="View history"/>
-        <ActivityList items={data.activity} empty="No activity was recorded in this period."/>
-      </article>
-
-      <article className="dashboard-card dashboard-attention-card">
-        <CardHeading kicker="Needs review" title="Open attention" detail="Unread institute notices in this reporting period." link="/announce" linkLabel="Open notices"/>
-        <ActivityList items={data.attention} empty="Nothing needs attention in this period."/>
-      </article>
+      <DashboardSection eyebrow="Audit trail" title="Recent institute activity" detail="The latest recorded changes are kept apart from performance summaries.">
+        <article className="dashboard-card dashboard-activity-card">
+          <CardHeading kicker="Workflow evidence" title="Recent activity" detail={`Latest changes inside the ${data.rangeLabel.toLowerCase()} window.`} link="/records" linkLabel="View history"/>
+          <ActivityList items={data.activity} empty="No activity was recorded in this period."/>
+        </article>
+      </DashboardSection>
     </main>
   </div>;
+}
+
+function DashboardSection({ eyebrow, title, detail, children }: { eyebrow: string; title: string; detail: string; children: React.ReactNode }) {
+  return <section className="dashboard-section"><header className="dashboard-section-heading"><div><span>{eyebrow}</span><h2>{title}</h2></div><p>{detail}</p></header>{children}</section>;
+}
+
+function PrioritySignal({ icon, label, value, detail, tone }: { icon: "bell" | "calendar" | "check" | "grade"; label: string; value: string; detail: string; tone: string }) {
+  return <article className={`dashboard-priority-signal tone-${tone}`}><span><Icon name={icon} size={18}/></span><div><small>{label}</small><strong>{value}</strong><p>{detail}</p></div></article>;
 }
 
 function CardHeading({ kicker, title, detail, link, linkLabel }: { kicker: string; title: string; detail: string; link?: string; linkLabel?: string }) {
@@ -107,3 +131,7 @@ function EmptyMessage({ text }: { text: string }) { return <div className="dashb
 function chartX(index: number, count: number) { return count < 2 ? 320 : index * 640 / (count - 1); }
 function chartY(value: number) { return 180 - Math.max(0, Math.min(100, Number(value))) * 1.55; }
 function signed(value: number) { return `${value > 0 ? "+" : ""}${Number(value).toFixed(1)}`; }
+function formatGeneratedAt(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? "Just now" : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+}

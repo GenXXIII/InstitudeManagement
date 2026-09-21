@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Card, EmptyBlock, Identity, MetricCard, PortalPage, portalStyles, SectionHeading, StatusPill } from '@/components/portal-ui';
+import { Card, EmptyBlock, Identity, PortalPage, portalStyles, SectionHeading, StatusPill } from '@/components/portal-ui';
 import { palette, radius } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
 import {
@@ -18,7 +18,7 @@ type AssessmentComponent = keyof AssessmentDraft;
 type DraftMap = Record<string, AssessmentDraft>;
 
 export function ResultsScreen({ role }: { role: MobileRole }) {
-  return role === 'teacher' ? <TeacherAssessment/> : <StudentResults/>;
+  return role === 'teacher' ? <TeacherAssessment/> : <PublishedStudentResults/>;
 }
 
 function TeacherAssessment() {
@@ -31,6 +31,7 @@ function TeacherAssessment() {
   const [draftsLoaded, setDraftsLoaded] = useState(false);
   const [draftError, setDraftError] = useState('');
   const [savingId, setSavingId] = useState('');
+  const [requestingId, setRequestingId] = useState('');
   const [savingAll, setSavingAll] = useState(false);
   const [attendanceStudentId, setAttendanceStudentId] = useState('');
   const selected = courses.find(item => item.values.courseId === selectedCourseId) ?? courses[0];
@@ -38,6 +39,7 @@ function TeacherAssessment() {
   const attendanceStudent = portal.students.find(student => student.id === attendanceStudentId);
   const teacherId = portal.profile?.id ?? 'teacher';
   const courseId = selected?.values.courseId ?? '';
+  const corrections = portal.grades.filter(item => item.values.submittedByTeacherId === portal.profile?.id && ['Rejected', 'ResubmitRequested', 'ResubmitAuthorized'].includes(item.values.reviewStatus));
 
   function replaceDrafts(next: DraftMap) {
     draftsRef.current = next;
@@ -118,6 +120,12 @@ function TeacherAssessment() {
   }
 
   async function saveStudent(student: StudentItem) {
+    const existing = gradeFor(portal.grades, student.id, courseId);
+    if (existing && existing.values.reviewStatus !== 'ResubmitAuthorized') {
+      const message = existing.values.reviewStatus === 'Approved' ? 'This grade is confirmed and locked.' : existing.values.reviewStatus === 'Rejected' ? 'Ask Administrator for permission to refill and resubmit this score.' : existing.values.reviewStatus === 'ResubmitRequested' ? 'Your resubmission request is waiting for Administrator permission.' : 'This submission is waiting for Administrator review.';
+      Alert.alert('Administrator review', message);
+      return;
+    }
     const payload = payloadFor(student);
     if (!payload.complete) {
       Alert.alert('Complete this assessment', 'Enter Assignment, Midterm, and Final Term scores within the maximums shown.');
@@ -135,7 +143,8 @@ function TeacherAssessment() {
   }
 
   async function saveAll() {
-    const payloads = roster.map(payloadFor);
+    const eligible = roster.filter(student => { const existing = gradeFor(portal.grades, student.id, courseId); return !existing || existing.values.reviewStatus === 'ResubmitAuthorized'; });
+    const payloads = eligible.map(payloadFor);
     if (!payloads.length || payloads.some(item => !item.complete)) {
       Alert.alert('Complete the roster', 'Every student needs Assignment, Midterm, and Final Term scores before Submit all is available. Your current work remains saved as drafts.');
       return;
@@ -143,8 +152,8 @@ function TeacherAssessment() {
     setSavingAll(true);
     try {
       await portal.submitGrades(payloads.map(({ studentId, courseId: submissionCourseId, scores }) => ({ studentId, courseId: submissionCourseId, scores })));
-      await Promise.all(roster.map(student => clearStudentDraft(student.id)));
-      Alert.alert('Assessment submitted', `Scores for ${roster.length} students were submitted successfully.`);
+      await Promise.all(eligible.map(student => clearStudentDraft(student.id)));
+      Alert.alert('Assessment submitted', `Scores for ${eligible.length} students were submitted for Administrator review.`);
     } catch (reason) {
       Alert.alert('Roster not fully submitted', reason instanceof Error ? reason.message : 'Try again. Unsent work remains saved as drafts.');
     } finally {
@@ -152,9 +161,10 @@ function TeacherAssessment() {
     }
   }
 
-  const readyCount = roster.filter(student => payloadFor(student).complete).length;
+  const eligibleRoster = roster.filter(student => { const existing = gradeFor(portal.grades, student.id, courseId); return !existing || existing.values.reviewStatus === 'ResubmitAuthorized'; });
+  const readyCount = eligibleRoster.filter(student => payloadFor(student).complete).length;
   const draftCount = Object.values(drafts).filter(draft => Object.values(draft).some(Boolean)).length;
-  const allReady = roster.length > 0 && readyCount === roster.length && draftsLoaded;
+  const allReady = eligibleRoster.length > 0 && readyCount === eligibleRoster.length && draftsLoaded;
 
   if (attendanceStudent) {
     return <StudentAttendanceDetail
@@ -164,30 +174,40 @@ function TeacherAssessment() {
     />;
   }
 
+  async function requestResubmission(item: GradeItem) {
+    setRequestingId(item.id);
+    try { await portal.requestGradeResubmission(item.id); }
+    catch (reason) { Alert.alert('Request not sent', reason instanceof Error ? reason.message : 'Try again.'); }
+    finally { setRequestingId(''); }
+  }
+
   return <PortalPage title="Assessment" subtitle="Attendance is calculated automatically. Complete Assignment, Midterm, and Final Term scores for one student or the full class.">
     {courses.length ? <>
+      {corrections.length ? <View style={styles.correctionBanner}><Text style={styles.correctionTitle}>Score correction and resubmit permission</Text><Text style={styles.correctionDetail}>Rejected scores remain locked until you ask and Administrator allows a refill.</Text>{corrections.map(item => <Pressable key={item.id} onPress={() => selectCourse(item.values.courseId)} style={styles.correctionRow}><View style={styles.correctionCopy}><Text style={styles.correctionStudent}>{item.values.student} · {item.values.course}</Text><Text style={styles.correctionNote}>{item.values.reviewNote || 'Administrator correction note unavailable'}</Text></View><StatusPill value={item.values.reviewStatus === 'ResubmitRequested' ? 'Requested' : item.values.reviewStatus === 'ResubmitAuthorized' ? 'Allowed' : 'Rejected'}/></Pressable>)}</View> : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseTabs}>{courses.map(course => <Pressable key={course.values.courseId} onPress={() => selectCourse(course.values.courseId)} style={[styles.courseTab, selected?.values.courseId === course.values.courseId && styles.courseTabActive]}><Text style={[styles.courseTabCode, selected?.values.courseId === course.values.courseId && styles.courseTabTextActive]}>{course.values.courseCode}</Text><Text numberOfLines={1} style={[styles.courseTabName, selected?.values.courseId === course.values.courseId && styles.courseTabTextActive]}>{course.values.course}</Text></Pressable>)}</ScrollView>
       <Card style={styles.draftCard}>
         <View style={styles.draftHeader}><View style={styles.draftIcon}><Ionicons name="cloud-done-outline" size={19} color={palette.blue}/></View><View style={styles.draftCopy}><Text style={styles.draftTitle}>{draftsLoaded ? `${draftCount} local ${draftCount === 1 ? 'draft' : 'drafts'} saved` : 'Restoring saved drafts…'}</Text><Text style={styles.draftDetail}>Typed scores stay on this device until they are submitted successfully.</Text></View></View>
-        <View style={styles.progressTrack}><View style={[styles.progressValue, { width: `${roster.length ? readyCount / roster.length * 100 : 0}%` }]}/></View>
-        <View style={styles.progressCopy}><Text>{readyCount} of {roster.length} students complete</Text><Text>{draftError || 'Autosave on'}</Text></View>
+        <View style={styles.progressTrack}><View style={[styles.progressValue, { width: `${eligibleRoster.length ? readyCount / eligibleRoster.length * 100 : 0}%` }]}/></View>
+        <View style={styles.progressCopy}><Text>{readyCount} of {eligibleRoster.length} available submissions complete</Text><Text>{draftError || 'Autosave on'}</Text></View>
         <Pressable onPress={() => void saveAll()} disabled={!allReady || savingAll} style={[styles.submitAll, (!allReady || savingAll) && styles.buttonDisabled]}><Ionicons name="checkmark-done-outline" size={18} color="white"/><Text style={styles.submitAllText}>{savingAll ? 'Submitting class…' : 'Submit all students'}</Text></Pressable>
       </Card>
       <SectionHeading title={selected?.values.course ?? 'Course'} detail={`${roster.length} students`}/>
       <View style={portalStyles.stack}>{roster.map(student => {
         const existing = gradeFor(portal.grades, student.id, courseId);
+        const canSubmit = !existing || existing.values.reviewStatus === 'ResubmitAuthorized';
         const values = valuesFor(student);
         const ready = payloadFor(student).complete;
         const hasDraft = Object.values(drafts[student.id] ?? {}).some(Boolean);
         return <Card key={student.id}>
-          <Identity photo={student.values.photoDataUrl} name={student.values.name} detail={`Public ID ${student.values.publicId || 'not assigned'} · ${existing ? `Total ${existing.values.score}/100 (${existing.values.grade})` : 'Not submitted'}`} trailing={existing ? <StatusPill value={existing.values.grade}/> : undefined}/>
+          <Identity photo={student.values.photoDataUrl} name={student.values.name} detail={`Public ID ${student.values.publicId || 'not assigned'} · ${existing ? `Total ${existing.values.score}/100 (${existing.values.grade})` : 'Not submitted'}`} trailing={existing ? <StatusPill value={existing.values.reviewStatus}/> : undefined}/>
+          {existing && ['Rejected', 'ResubmitRequested', 'ResubmitAuthorized'].includes(existing.values.reviewStatus) && <Text style={styles.rejectionNote}>Correction requested: {existing.values.reviewNote}{existing.values.reviewStatus === 'ResubmitRequested' ? '\nWaiting for Administrator to allow resubmission.' : existing.values.reviewStatus === 'ResubmitAuthorized' ? '\nPermission granted. Refill the scores and resubmit.' : '\nAsk Administrator for permission before refilling.'}</Text>}
           <Pressable accessibilityRole="button" accessibilityLabel={`View attendance for ${student.values.name}`} accessibilityHint="Opens this student's attendance records" onPress={() => setAttendanceStudentId(student.id)} style={({ pressed }) => [styles.attendanceEvidence, pressed && styles.attendanceEvidencePressed]}><View><Text style={styles.evidenceLabel}>Attendance · automatic</Text><Text style={styles.evidenceDetail}>{existing?.values.attendancePresent ?? '0'}/{existing?.values.attendanceSessions ?? '0'} held sessions present</Text></View><View style={styles.evidenceAction}><Text style={styles.evidenceScore}>{existing?.values.attendanceScore ?? '0'}/{portal.gradeWeights.attendance}</Text><Ionicons name="chevron-forward" size={17} color={palette.blue}/></View></Pressable>
           <View style={styles.componentInputs}>
-            <ComponentInput label="Assignment" maximum={portal.gradeWeights.assignment} value={values.assignment} onChange={value => changeScore(student.id, 'assignment', value)}/>
-            <ComponentInput label="Midterm" maximum={portal.gradeWeights.midterm} value={values.midterm} onChange={value => changeScore(student.id, 'midterm', value)}/>
-            <ComponentInput label="Final Term" maximum={portal.gradeWeights.finalExam} value={values.finalExam} onChange={value => changeScore(student.id, 'finalExam', value)}/>
+            <ComponentInput disabled={!canSubmit} label="Assignment" maximum={portal.gradeWeights.assignment} value={values.assignment} onChange={value => changeScore(student.id, 'assignment', value)}/>
+            <ComponentInput disabled={!canSubmit} label="Midterm" maximum={portal.gradeWeights.midterm} value={values.midterm} onChange={value => changeScore(student.id, 'midterm', value)}/>
+            <ComponentInput disabled={!canSubmit} label="Final Term" maximum={portal.gradeWeights.finalExam} value={values.finalExam} onChange={value => changeScore(student.id, 'finalExam', value)}/>
           </View>
-          <View style={styles.studentActions}><View style={styles.savedState}><Ionicons name={hasDraft ? 'cloud-done-outline' : ready ? 'checkmark-circle-outline' : 'ellipse-outline'} size={14} color={hasDraft ? palette.blue : ready ? palette.green : palette.muted}/><Text>{hasDraft ? 'Draft saved' : ready ? 'Ready' : 'Scores incomplete'}</Text></View><Pressable onPress={() => void saveStudent(student)} disabled={!ready || savingId === student.id || savingAll} style={[styles.saveButton, (!ready || savingId === student.id || savingAll) && styles.buttonDisabled]}><Text style={styles.saveText}>{savingId === student.id ? 'Submitting…' : 'Submit student'}</Text></Pressable></View>
+          <View style={styles.studentActions}><View style={styles.savedState}><Ionicons name={canSubmit && hasDraft ? 'cloud-done-outline' : existing?.values.reviewStatus === 'Approved' ? 'checkmark-circle-outline' : 'ellipse-outline'} size={14} color={existing?.values.reviewStatus === 'Approved' ? palette.green : palette.blue}/><Text>{existing?.values.reviewStatus === 'Pending' ? 'Waiting for Administrator' : existing?.values.reviewStatus === 'Approved' ? 'Confirmed by Administrator' : existing?.values.reviewStatus === 'Rejected' ? 'Resubmit permission required' : existing?.values.reviewStatus === 'ResubmitRequested' ? 'Permission request pending' : existing?.values.reviewStatus === 'ResubmitAuthorized' ? hasDraft ? 'Refill draft saved' : ready ? 'Ready to resubmit' : 'Refill scores' : hasDraft ? 'Draft saved' : ready ? 'Ready' : 'Scores incomplete'}</Text></View>{existing?.values.reviewStatus === 'Rejected' ? <Pressable onPress={() => void requestResubmission(existing)} disabled={requestingId === existing.id} style={styles.requestResubmit}><Text style={styles.requestResubmitText}>{requestingId === existing.id ? 'Requesting…' : 'Ask to resubmit'}</Text></Pressable> : <Pressable onPress={() => void saveStudent(student)} disabled={!canSubmit || !ready || savingId === student.id || savingAll} style={[styles.saveButton, (!canSubmit || !ready || savingId === student.id || savingAll) && styles.buttonDisabled]}><Text style={styles.saveText}>{savingId === student.id ? 'Submitting…' : existing?.values.reviewStatus === 'ResubmitAuthorized' ? 'Resubmit student' : 'Submit student'}</Text></Pressable>}</View>
         </Card>;
       })}</View>
     </> : <EmptyBlock icon="book-outline" title="No assigned course" detail="Administrator must connect this Teacher to a course in Timetable Enrollment before assessments can be submitted."/>}
@@ -196,32 +216,37 @@ function TeacherAssessment() {
 
 function StudentAttendanceDetail({ student, records, onBack }: { student: StudentItem; records: AttendanceItem[]; onBack: () => void }) {
   const ordered = [...records].sort((a, b) => b.values.date.localeCompare(a.values.date));
-  const count = (status: string) => ordered.filter(item => item.values.status === status).length;
 
   return <PortalPage title="Student attendance" subtitle="Read-only attendance records for this student.">
     <Pressable accessibilityRole="button" accessibilityLabel="Back to assessment" onPress={onBack} style={({ pressed }) => [styles.attendanceBack, pressed && styles.pressed]}><Ionicons name="chevron-back" size={18} color={palette.blue}/><Text style={styles.attendanceBackText}>Assessment</Text></Pressable>
     <Card><Identity photo={student.values.photoDataUrl} name={student.values.name} detail={`Public ID ${student.values.publicId || 'not assigned'} · Year ${student.values.year || '—'}`}/></Card>
-    <View style={portalStyles.grid}><MetricCard icon="checkmark-circle-outline" label="Present" value={count('Present')} tone="green"/><MetricCard icon="time-outline" label="Late" value={count('Late')} tone="amber"/><MetricCard icon="close-circle-outline" label="Absent" value={count('Absent')} tone="violet"/><MetricCard icon="document-text-outline" label="Total records" value={ordered.length}/></View>
     <SectionHeading title="Attendance history" detail={`${ordered.length} records`}/>
     <View style={portalStyles.stack}>{ordered.length ? ordered.map(item => <Card key={item.id}><View style={styles.attendanceRecordTop}><Text style={styles.attendanceRecordDate}>{formatAttendanceDate(item.values.date)}</Text><StatusPill value={item.values.status}/></View><Text style={styles.attendanceRecordMeta}>Check-in {item.values.checkedInAt || 'not recorded'} · {item.values.method || 'Institute record'}</Text><Text style={styles.attendanceRecordPeriod}>{item.values.academicYear} · {item.values.term}</Text></Card>) : <EmptyBlock icon="document-outline" title="No attendance records" detail="Recorded attendance for this student will appear here."/>}</View>
   </PortalPage>;
 }
 
+// Kept as a compatibility renderer for older cached portal data during over-the-air updates.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function StudentResults() {
   const portal = usePortal();
   const ordered = [...portal.grades].sort((a, b) => a.values.course.localeCompare(b.values.course));
-  const scores = ordered.map(item => Number(item.values.score)).filter(Number.isFinite);
-  const total = scores.reduce((sum, score) => sum + score, 0);
-  const average = scores.length ? (total / scores.length).toFixed(2) : '—';
   return <PortalPage title="My results" subtitle="Course scores and grade letters are read-only Student Records.">
-    <View style={portalStyles.grid}><MetricCard icon="ribbon-outline" label="Average" value={average} tone="violet"/><MetricCard icon="calculator-outline" label="Total score" value={scores.length ? total.toFixed(1) : '—'} tone="green"/><MetricCard icon="book-outline" label="Courses graded" value={ordered.length}/><MetricCard icon="school-outline" label="Semester" value={ordered[0]?.values.term || '—'} tone="amber"/></View>
     <SectionHeading title="Course results" detail={`${ordered.length} grades`}/>
     <View style={portalStyles.stack}>{ordered.length ? ordered.map(item => <Card key={item.id}><View style={styles.resultRow}><View style={styles.gradeBadge}><Text>{item.values.grade}</Text></View><View style={styles.resultCopy}><Text style={styles.resultCourse}>{item.values.course}</Text><Text style={styles.resultCode}>{item.values.gradeCode} · {item.values.academicYear}</Text></View><Text style={styles.resultScore}>{item.values.score}/100</Text></View><View style={styles.resultComponents}><ResultComponent label="Attendance" score={item.values.attendanceScore} maximum={item.values.attendanceMaximum} detail={`${item.values.attendancePresent}/${item.values.attendanceSessions} sessions present`}/><ResultComponent label="Assignment" score={item.values.assignmentScore} maximum={item.values.assignmentMaximum}/><ResultComponent label="Midterm" score={item.values.midtermScore} maximum={item.values.midtermMaximum}/><ResultComponent label="Final Term" score={item.values.finalExamScore} maximum={item.values.finalExamMaximum}/></View></Card>) : <EmptyBlock icon="ribbon-outline" title="No results yet" detail="Scores submitted by your Teacher will appear here."/>}</View>
   </PortalPage>;
 }
 
-function ComponentInput({ label, maximum, value, onChange }: { label: string; maximum: number; value: string; onChange: (value: string) => void }) {
-  return <View style={styles.componentInput}><Text style={styles.componentLabel}>{label}</Text><View style={styles.componentInputRow}><TextInput value={value} onChangeText={onChange} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#94A2B5" style={styles.scoreInput}/><Text style={styles.maximum}>/ {maximum}</Text></View></View>;
+function PublishedStudentResults() {
+  const portal = usePortal();
+  const ordered = [...portal.publishedResults].sort((a, b) => b.academicYear.localeCompare(a.academicYear) || b.semester.localeCompare(a.semester));
+  return <PortalPage title="My results" subtitle="Only semester results published by Administrator are visible here.">
+    <SectionHeading title="Published academic results" detail={`${ordered.length} semesters`}/>
+    <View style={portalStyles.stack}>{ordered.length ? ordered.map(result => <Card key={`${result.academicYear}-${result.semester}`}><View style={styles.publishedHeader}><View><Text style={styles.resultCourse}>{result.academicYear} · {result.semester}</Text><Text style={styles.resultCode}>Published {new Date(result.publishedAtUtc).toLocaleDateString()}</Text></View><StatusPill value={result.totalGrade}/></View><View style={styles.publishedSummary}><Text>Present {result.presentCount}</Text><Text>Permission {result.permissionCount}</Text><Text>Absent {result.absentCount}</Text><Text>Total {result.totalScore.toFixed(1)}</Text><Text>Average {result.average.toFixed(2)}</Text></View><View style={styles.resultComponents}>{result.grades.map(grade => <View style={styles.publishedCourse} key={grade.courseId}><View><Text style={styles.resultCourse}>{grade.name}</Text><Text style={styles.resultCode}>{grade.courseCode}</Text></View><Text style={styles.resultScore}>{grade.score.toFixed(1)} · {grade.grade}</Text></View>)}</View></Card>) : <EmptyBlock icon="ribbon-outline" title="No published result yet" detail="Teacher submissions appear only after Administrator confirms every course and publishes the semester result."/>}</View>
+  </PortalPage>;
+}
+
+function ComponentInput({ label, maximum, value, disabled = false, onChange }: { label: string; maximum: number; value: string; disabled?: boolean; onChange: (value: string) => void }) {
+  return <View style={styles.componentInput}><Text style={styles.componentLabel}>{label}</Text><View style={styles.componentInputRow}><TextInput editable={!disabled} value={value} onChangeText={onChange} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#94A2B5" style={[styles.scoreInput, disabled && styles.buttonDisabled]}/><Text style={styles.maximum}>/ {maximum}</Text></View></View>;
 }
 
 function ResultComponent({ label, score, maximum, detail }: { label: string; score: string; maximum: string; detail?: string }) {
@@ -249,6 +274,13 @@ function complete(value: string, maximum: number) {
 }
 
 const styles = StyleSheet.create({
+  correctionBanner: { gap: 9, padding: 15, borderWidth: 1, borderColor: '#E8C7CC', borderRadius: radius.medium, backgroundColor: '#FFF7F7' },
+  correctionTitle: { color: '#9E3944', fontSize: 14, fontWeight: '800' },
+  correctionDetail: { color: palette.muted, fontSize: 11, lineHeight: 17 },
+  correctionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E8C7CC' },
+  correctionCopy: { flex: 1 },
+  correctionStudent: { color: palette.ink, fontSize: 12, fontWeight: '800' },
+  correctionNote: { color: palette.muted, fontSize: 10, marginTop: 4 },
   courseTabs: { gap: 9, paddingRight: 10 },
   courseTab: { width: 160, padding: 14, borderRadius: radius.medium, borderWidth: 1, borderBottomWidth: 3, borderColor: palette.line, backgroundColor: 'white' },
   courseTabActive: { borderColor: palette.blue, backgroundColor: palette.bluePale },
@@ -281,8 +313,11 @@ const styles = StyleSheet.create({
   studentActions: { minHeight: 45, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginTop: 8 },
   savedState: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   saveButton: { minWidth: 114, height: 40, borderRadius: radius.small, backgroundColor: palette.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  requestResubmit: { minWidth: 128, height: 40, borderWidth: 1, borderColor: palette.blue, borderRadius: radius.small, backgroundColor: palette.bluePale, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  requestResubmitText: { color: palette.blueDark, fontWeight: '800', fontSize: 12 },
   saveText: { color: 'white', fontWeight: '800', fontSize: 12 },
   buttonDisabled: { opacity: 0.4 },
+  rejectionNote: { color: '#AF3F49', fontSize: 11, lineHeight: 17, marginTop: 11, padding: 10, borderRadius: radius.small, backgroundColor: '#FFF0F1' },
   attendanceBack: { alignSelf: 'flex-start', minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 3, paddingRight: 12 },
   attendanceBackText: { color: palette.blue, fontSize: 12, fontWeight: '700' },
   attendanceRecordTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
@@ -301,4 +336,7 @@ const styles = StyleSheet.create({
   resultComponentLabel: { color: palette.ink, fontSize: 12, fontWeight: '700' },
   resultComponentScore: { color: palette.ink, fontSize: 12, fontWeight: '800' },
   resultComponentDetail: { width: '100%', color: palette.muted, fontSize: 10 },
+  publishedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  publishedSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 13 },
+  publishedCourse: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.line },
 });

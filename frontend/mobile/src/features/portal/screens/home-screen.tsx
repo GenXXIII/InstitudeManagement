@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Card, EmptyBlock, MetricCard, PortalPage, portalStyles, ScheduleCard, SectionHeading } from '@/components/portal-ui';
+import { Card, EmptyBlock, PortalPage, portalStyles, ScheduleCard, SectionHeading } from '@/components/portal-ui';
 import { palette, radius, shadow } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
 import type { Announcement, ScheduleItem } from '../portal-types';
@@ -13,20 +13,11 @@ export function HomeScreen({ role }: { role: MobileRole }) {
   const values = portal.profile?.values;
   const today = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
   const todaySchedule = portal.schedule.filter(item => item.values.dayOfWeek === today).sort((a, b) => a.values.startsAt.localeCompare(b.values.startsAt));
-  const present = portal.attendance.filter(item => ['Present', 'Late'].includes(item.values.status)).length;
-  const attendanceRate = portal.attendance.length ? `${Math.round(present / portal.attendance.length * 100)}%` : '—';
-  const scores = portal.grades.map(item => Number(item.values.score)).filter(Number.isFinite);
-  const average = scores.length ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(1) : '—';
   const courses = [...new Map(portal.schedule.filter(item => item.values.courseId).map(item => [item.values.courseId, item])).values()];
   const notificationsRoute = role === 'teacher' ? '/(teacher)/notifications' : '/(student)/notifications';
 
   return <PortalPage title={values ? `Hello, ${values.name.split(' ')[0]}` : 'Home'} subtitle={role === 'teacher' ? `Your teaching day at a glance · ${today}` : `Your academic day at a glance · ${today}`}>
     <NextClassHero item={todaySchedule[0]} role={role}/>
-
-    <SectionHeading title="Overview" detail="Current activity"/>
-    <View style={portalStyles.grid}>
-      {role === 'teacher' ? <><MetricCard icon="calendar-outline" label="Classes today" value={todaySchedule.length}/><MetricCard icon="book-outline" label="Assigned courses" value={courses.length} tone="violet"/><MetricCard icon="people-outline" label="My students" value={portal.students.length} tone="green"/><MetricCard icon="checkmark-done-outline" label="Attendance records" value={portal.attendance.length} tone="amber"/></> : <><MetricCard icon="calendar-outline" label="Classes today" value={todaySchedule.length}/><MetricCard icon="checkmark-circle-outline" label="Attendance" value={attendanceRate} tone="green"/><MetricCard icon="ribbon-outline" label="Average score" value={average} tone="violet"/><MetricCard icon="book-outline" label="Courses" value={courses.length} tone="amber"/></>}
-    </View>
 
     <SectionHeading title="Ongoing courses" detail={`${courses.length} assigned`}/>
     {courses.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseStrip}>{courses.map((item, index) => <CourseOverviewCard item={item} index={index} totalSessions={portal.schedule.filter(schedule => schedule.values.courseId === item.values.courseId).length} key={item.values.courseId}/>)}</ScrollView> : <EmptyBlock icon="book-outline" title="No assigned courses" detail="Courses will appear after Administrator completes Timetable Enrollment."/>}

@@ -31,33 +31,28 @@ export function AdministrationOverview() {
 
   const configured = visibleSections.filter(item => bySection.get(item.section)?.isConfigured).length;
   const percentage = Math.round((configured / visibleSections.length) * 100);
+  const remaining = visibleSections.length - configured;
+  const statusTone = percentage <= 25 ? "red" : percentage <= 50 ? "yellow" : percentage <= 75 ? "light-green" : "green";
 
   return <div className="viewport-data-page administration-page administration-overview-page">
-    <PageHeading eyebrow="Institute administration" title="Settings" description="Configure institute identity, academic policy, people rules, communication, system behavior, and security readiness from one clear workspace." actions={<AdministrationModeToggle compact/>}/>
-    <div className="administration-status-hero panel">
-      <div><span>Configuration progress</span><strong>{percentage}%</strong><p>{configured} of {visibleSections.length} visible sections have saved database values.</p><div><i style={{ width: `${percentage}%` }}/></div></div>
-      <dl><div><dt>Saved</dt><dd>{configured}</dd></div><div><dt>Review</dt><dd>{visibleSections.length - configured}</dd></div><div><dt>Categories</dt><dd>{administrationCategories.length}</dd></div></dl>
-      <aside><Icon name="archive" size={18}/><span><strong>Settings are policy</strong><small>Record-backed departments, courses, classrooms, users, and roles remain separate from configuration.</small></span></aside>
-    </div>
+    <PageHeading eyebrow="Institute administration" title="Settings" description="Configure the institute in priority order. Each group contains one clear policy function." actions={<AdministrationModeToggle compact/>}/>
+    <section className={`administration-status-summary panel is-${statusTone}`} aria-label={`${percentage}% configured, ${remaining} remaining`}>
+      <strong>{percentage}%</strong>
+      <div className="administration-progress-track" role="progressbar" aria-label="Settings configuration progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}>
+        <i style={{ clipPath: `inset(0 ${100 - percentage}% 0 0)` }}/>
+      </div>
+      <p><b>{configured}/{visibleSections.length}</b> configured <span aria-hidden="true">·</span> {remaining} remaining</p>
+    </section>
     <section className="administration-overview-scroll">
       <div className="administration-category-catalog">{administrationCategories.map(category => ({ category, sections: visibleSections.filter(item => item.category === category.id) })).filter(item => item.sections.length).map(({ category, sections }) => <section key={category.id}>
         <header><div><h2>{category.title}</h2><p>{category.description}</p></div><span>{sections.length} sections</span></header>
-        <div>{sections.map(item => <MaintenanceCardPlacement definition={item} row={bySection.get(item.section)} systemRow={bySection.get("system")} advanced={advanced} key={item.section}/>)}</div>
+        <div>
+          {sections.map(item => <SectionCard definition={item} row={bySection.get(item.section)} key={item.section}/>)}
+          {advanced && sections.some(item => item.section === "system") && <MaintenanceSectionCard row={bySection.get("system")}/>}
+        </div>
       </section>)}</div>
     </section>
   </div>;
-}
-
-function MaintenanceCardPlacement({ definition, row, systemRow, advanced }: {
-  definition: (typeof administrationSections)[number];
-  row?: Settings;
-  systemRow?: Settings;
-  advanced: boolean;
-}) {
-  return <>
-    <SectionCard definition={definition} row={row}/>
-    {advanced && definition.section === "system" && <MaintenanceSectionCard row={systemRow}/>}
-  </>;
 }
 
 function MaintenanceSectionCard({ row }: { row?: Settings }) {

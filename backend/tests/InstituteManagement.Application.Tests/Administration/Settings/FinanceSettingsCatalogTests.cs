@@ -5,14 +5,15 @@ namespace InstituteManagement.Application.Tests.Administration.Settings;
 public sealed class FinanceSettingsCatalogTests
 {
     [Fact]
-    public void Semester_price_must_be_half_of_year_price()
+    public void Finance_settings_expose_semester_payment_without_year_plan()
     {
         var values = SettingsCatalog.Defaults("finance");
-        values["semesterPrice"] = "600.00";
 
-        var error = Assert.Throws<ArgumentException>(() => SettingsCatalog.NormalizeAndValidate("finance", values));
+        var normalized = SettingsCatalog.NormalizeAndValidate("finance", values);
 
-        Assert.Contains("exactly 50%", error.Message);
+        Assert.Equal("500.00", normalized["semesterPrice"]);
+        Assert.DoesNotContain("yearPrice", normalized.Keys);
+        Assert.DoesNotContain("defaultPaymentPlan", normalized.Keys);
     }
 
     [Fact]

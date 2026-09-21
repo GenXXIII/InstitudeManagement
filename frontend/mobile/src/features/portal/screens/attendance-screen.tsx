@@ -1,16 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Card, EmptyBlock, Identity, MetricCard, PortalPage, portalStyles, SectionHeading, StatusPill } from '@/components/portal-ui';
+import { Card, EmptyBlock, PortalPage, portalStyles, SectionHeading, StatusPill } from '@/components/portal-ui';
 import { palette, radius } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
 import type { ScheduleItem } from '../portal-types';
 import { usePortal } from '../portal-context';
 
-const attendanceOptions = ['Present', 'Late', 'Absent'] as const;
-
 export function AttendanceScreen({ role }: { role: MobileRole }) {
-  return <PortalPage title={role === 'teacher' ? 'Class attendance' : 'My attendance'} subtitle={role === 'teacher' ? 'Record attendance for students in your assigned class cohorts.' : 'Your personal attendance history is read-only and comes from institute records.'}>
+  return <PortalPage title={role === 'teacher' ? 'Class attendance' : 'My attendance'} subtitle={role === 'teacher' ? 'View attendance for students in your current class. Attendance is read-only for Teachers.' : 'Your personal attendance history is read-only and comes from institute records.'}>
     <AttendanceContent role={role}/>
   </PortalPage>;
 }
@@ -21,7 +19,6 @@ export function AttendanceContent({ role }: { role: MobileRole }) {
 
 function TeacherAttendance() {
   const portal = usePortal();
-  const [savingId, setSavingId] = useState('');
   const [startingId, setStartingId] = useState('');
   const [startedScheduleId, setStartedScheduleId] = useState('');
   const [now, setNow] = useState(() => new Date());
@@ -39,13 +36,6 @@ function TeacherAttendance() {
     return () => clearInterval(timer);
   }, []);
 
-  async function save(studentId: string, status: string) {
-    setSavingId(studentId);
-    try { await portal.recordAttendance(studentId, status); }
-    catch (reason) { Alert.alert('Attendance not saved', reason instanceof Error ? reason.message : 'Try again.'); }
-    finally { setSavingId(''); }
-  }
-
   async function start(item: ScheduleItem) {
     if (!portal.profile) return;
     setStartingId(item.id);
@@ -60,19 +50,36 @@ function TeacherAttendance() {
   }
 
   if (!activeSchedule) return <>
-    <View style={portalStyles.grid}><MetricCard icon="calendar-outline" label="Classes today" value={todaySchedules.length}/><MetricCard icon="time-outline" label="Current time" value={formatClock(now)} tone="violet"/></View>
+    <TeacherPermissionRequests/>
     <SectionHeading title="Today’s timetable" detail={todayName}/>
     <View style={portalStyles.stack}>{todaySchedules.length ? todaySchedules.map(item => <ClassStartCard item={item} now={now} started={portal.startedScheduleIds.includes(item.id)} starting={startingId === item.id} onStart={() => void start(item)} onView={() => setStartedScheduleId(item.id)} key={item.id}/>) : <EmptyBlock icon="calendar-clear-outline" title="No class to start today" detail="A Start class action appears when the Teacher has an active timetable enrollment for today."/>}</View>
   </>;
 
   return <>
     <RunningClassBanner item={activeSchedule} now={now}/>
-    <SectionHeading title="Student attendance" detail={`${roster.length} students`}/>
+    <TeacherPermissionRequests/>
+    <SectionHeading title="Student attendance" detail={`Read-only · ${roster.length} students`}/>
     <View style={portalStyles.stack}>{roster.length ? roster.map(student => {
-      const latest = portal.attendance.filter(item => item.values.studentId === student.id).sort((a, b) => b.values.date.localeCompare(a.values.date))[0];
-      return <Card key={student.id}><Identity photo={student.values.photoDataUrl} name={student.values.name} detail={`Public ID ${student.values.publicId || 'not assigned'} · Year ${student.values.year || '—'}`} trailing={latest ? <StatusPill value={latest.values.status}/> : undefined}/><View style={styles.actions}>{attendanceOptions.map(status => <Pressable disabled={savingId === student.id} onPress={() => void save(student.id, status)} style={({ pressed }) => [styles.action, status === 'Present' ? styles.present : status === 'Late' ? styles.late : styles.absent, pressed && styles.pressed]} key={status}><Text style={[styles.actionText, status === 'Present' ? styles.presentText : status === 'Late' ? styles.lateText : styles.absentText]}>{savingId === student.id ? 'Saving…' : status}</Text></Pressable>)}</View></Card>;
+      const record = portal.attendance
+        .filter(item => item.values.studentId === student.id && item.values.date === localDateKey(now))
+        .sort((a, b) => b.values.checkedInAt.localeCompare(a.values.checkedInAt))[0];
+      return <Card key={student.id}><View style={styles.studentAttendanceRow}><View style={styles.studentAttendanceIdentity}><Text style={styles.studentAttendanceName}>{student.values.name}</Text><Text style={styles.studentAttendancePublicId}>Public ID {student.values.publicId || 'not assigned'}</Text></View><StatusPill value={teacherAttendanceStatus(record?.values.status)}/></View></Card>;
     }) : <EmptyBlock icon="people-outline" title="No students in this class" detail="Students appear after Administrator completes Student and Timetable Enrollment for this class’s department, year, and shift."/>}</View>
   </>;
+}
+
+function TeacherPermissionRequests() {
+  const portal = usePortal();
+  const [working, setWorking] = useState('');
+  const requests = portal.permissionRequests.filter(item => item.status === 'Pending');
+  if (!requests.length) return null;
+  async function review(id: string, decision: 'Approved' | 'Rejected') {
+    setWorking(id);
+    try { await portal.reviewPermission(id, decision); }
+    catch (reason) { Alert.alert('Permission not reviewed', reason instanceof Error ? reason.message : 'Try again.'); }
+    finally { setWorking(''); }
+  }
+  return <View style={portalStyles.stack}><SectionHeading title="Whole-day permission requests" detail={`${requests.length} waiting`}/>{requests.map(item => <Card key={item.id}><View style={styles.permissionRequestTop}><View style={styles.studentAttendanceIdentity}><Text style={styles.studentAttendanceName}>{item.studentName}</Text><Text style={styles.studentAttendancePublicId}>Public ID {item.studentPublicId || 'not assigned'} · {formatDate(item.sessionDate)} · whole day</Text></View><StatusPill value="Pending"/></View><Text style={styles.permissionReason}>{item.reason}</Text><View style={styles.permissionReviewActions}><Pressable disabled={working === item.id} onPress={() => void review(item.id, 'Rejected')} style={styles.permissionReject}><Text style={styles.permissionRejectText}>Reject</Text></Pressable><Pressable disabled={working === item.id} onPress={() => void review(item.id, 'Approved')} style={styles.permissionApprove}><Text style={styles.permissionApproveText}>{working === item.id ? 'Saving…' : 'Approve whole day'}</Text></Pressable></View></Card>)}</View>;
 }
 
 function ClassStartCard({ item, now, started, starting, onStart, onView }: { item: ScheduleItem; now: Date; started: boolean; starting: boolean; onStart: () => void; onView: () => void }) {
@@ -96,9 +103,7 @@ function RunningClassBanner({ item, now }: { item: ScheduleItem; now: Date }) {
 function StudentAttendance() {
   const portal = usePortal();
   const ordered = [...portal.attendance].sort((a, b) => b.values.date.localeCompare(a.values.date));
-  const count = (status: string) => ordered.filter(item => item.values.status === status).length;
   return <>
-    <View style={portalStyles.grid}><MetricCard icon="checkmark-circle-outline" label="Present" value={count('Present')} tone="green"/><MetricCard icon="time-outline" label="Late" value={count('Late')} tone="amber"/><MetricCard icon="close-circle-outline" label="Absent" value={count('Absent')} tone="violet"/><MetricCard icon="document-text-outline" label="Total records" value={ordered.length}/></View>
     <SectionHeading title="Attendance history" detail={`${ordered.length} records`}/>
     <View style={portalStyles.stack}>{ordered.length ? ordered.map(item => <Card key={item.id}><View style={styles.recordTop}><View><Text style={styles.recordDate}>{formatDate(item.values.date)}</Text><Text style={styles.recordCode}>{item.values.attendanceCode} · {item.values.term}</Text></View><StatusPill value={item.values.status}/></View><Text style={styles.recordMeta}>Check in {item.values.checkedInAt || 'not recorded'} · {item.values.method || 'Institute record'}</Text></Card>) : <EmptyBlock icon="document-outline" title="No attendance yet" detail="Attendance recorded by your Teacher will appear here."/>}</View>
   </>;
@@ -111,6 +116,20 @@ function formatDate(value: string) {
 
 function formatClock(value: Date) {
   return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(value);
+}
+
+function localDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function teacherAttendanceStatus(value?: string) {
+  const status = value?.trim().toLowerCase();
+  if (status === 'present' || status === 'late') return 'Present';
+  if (status === 'permission' || status === 'excused') return 'Permission';
+  return 'Absent';
 }
 
 function isWithinTimetable(item: ScheduleItem, now: Date) {
@@ -141,15 +160,17 @@ const styles = StyleSheet.create({
   runningClock: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'] },
   runningCourse: { color: '#FFFFFF', fontSize: 23, lineHeight: 29, fontWeight: '800', marginTop: 19 },
   runningMeta: { color: '#C8D1F3', fontSize: 11, lineHeight: 18, marginTop: 7 },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 15, paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line },
-  action: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.small, borderWidth: 1 },
-  present: { backgroundColor: '#FFFFFF', borderColor: '#8DCEB4' },
-  late: { backgroundColor: '#FFFFFF', borderColor: '#E2BE68' },
-  absent: { backgroundColor: '#FFFFFF', borderColor: '#E3AEB7' },
-  actionText: { fontSize: 12, fontWeight: '800' },
-  presentText: { color: palette.green },
-  lateText: { color: palette.amber },
-  absentText: { color: palette.red },
+  studentAttendanceRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  studentAttendanceIdentity: { flex: 1, minWidth: 0 },
+  studentAttendanceName: { color: palette.ink, fontSize: 15, fontWeight: '800' },
+  studentAttendancePublicId: { color: palette.muted, fontSize: 11, marginTop: 5 },
+  permissionRequestTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  permissionReason: { color: palette.ink, fontSize: 12, lineHeight: 18, marginTop: 12 },
+  permissionReviewActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 13 },
+  permissionReject: { minWidth: 90, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E7BCC3', borderRadius: radius.small, backgroundColor: '#FFF2F3' },
+  permissionRejectText: { color: '#B74450', fontWeight: '800' },
+  permissionApprove: { minWidth: 100, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.small, backgroundColor: palette.blue },
+  permissionApproveText: { color: '#FFFFFF', fontWeight: '800' },
   pressed: { opacity: 0.65 },
   recordTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   recordDate: { color: palette.ink, fontWeight: '800', fontSize: 15 },

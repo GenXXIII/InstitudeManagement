@@ -1,6 +1,6 @@
 namespace InstituteManagement.Application.Features.Results;
 
-public sealed record CourseResultDto(Guid CourseId, string CourseCode, string Name, decimal Score, string Grade);
+public sealed record CourseResultDto(Guid CourseId, string CourseCode, string Name, decimal? Score, string Grade, bool IsApproved);
 
 public sealed record SemesterResultDto(
     Guid StudentId,
@@ -9,6 +9,7 @@ public sealed record SemesterResultDto(
     Guid DepartmentId,
     string Department,
     int Year,
+    string Shift,
     string AcademicYear,
     string Semester,
     int PresentCount,
@@ -18,4 +19,7 @@ public sealed record SemesterResultDto(
     int TotalCourses,
     decimal TotalScore,
     decimal Average,
-    string TotalGrade);
+    string TotalGrade,
+    string PublicationStatus,
+    bool IsPublished,
+    DateTime? PublishedAtUtc);

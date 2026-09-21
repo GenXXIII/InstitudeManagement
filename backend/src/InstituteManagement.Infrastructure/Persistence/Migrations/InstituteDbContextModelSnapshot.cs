@@ -203,6 +203,56 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs");
                 });
 
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.ClassPermissionRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAtUtc");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("SessionDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TeacherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherId");
+
+                    b.HasIndex("SessionDate", "Status");
+
+                    b.HasIndex("StudentId", "SessionDate")
+                        .IsUnique();
+
+                    b.ToTable("ClassPermissionRequests", "Attendance");
+                });
+
             modelBuilder.Entity("InstituteManagement.Domain.Entities.ClassSessionRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -887,11 +937,33 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<string>("ReviewNote")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReviewStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<decimal>("Score")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SubmissionVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SubmittedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SubmittedByTeacherId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Term")
@@ -909,11 +981,15 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("GradeCode")
                         .IsUnique();
 
+                    b.HasIndex("SubmittedByTeacherId");
+
                     b.HasIndex("UpdatedAtUtc");
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UpdatedAtUtc"), new[] { "Score" });
 
                     b.HasIndex("AcademicYear", "Term");
+
+                    b.HasIndex("ReviewStatus", "AcademicYear", "Term");
 
                     b.HasIndex("StudentId", "CourseId", "AcademicYear", "Term")
                         .IsUnique();
@@ -1100,6 +1176,45 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("TeacherId", "DayOfWeek", "StartsAt", "EndsAt");
 
                     b.ToTable("ScheduleEntries");
+                });
+
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.SemesterResultPublication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcademicYear")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAtUtc");
+
+                    b.Property<DateTime>("PublishedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Term")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublishedAtUtc");
+
+                    b.HasIndex("StudentId", "AcademicYear", "Term")
+                        .IsUnique();
+
+                    b.ToTable("SemesterResultPublications", "Grades");
                 });
 
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Student", b =>
@@ -1482,6 +1597,24 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.ClassPermissionRequest", b =>
+                {
+                    b.HasOne("InstituteManagement.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("InstituteManagement.Domain.Entities.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Student");
+
+                    b.Navigation("Teacher");
+                });
+
             modelBuilder.Entity("InstituteManagement.Domain.Entities.ClassSessionRecord", b =>
                 {
                     b.HasOne("InstituteManagement.Domain.Entities.Classroom", "Classroom")
@@ -1661,9 +1794,16 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("InstituteManagement.Domain.Entities.Teacher", "SubmittedByTeacher")
+                        .WithMany()
+                        .HasForeignKey("SubmittedByTeacherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Course");
 
                     b.Navigation("Student");
+
+                    b.Navigation("SubmittedByTeacher");
                 });
 
             modelBuilder.Entity("InstituteManagement.Domain.Entities.ScheduleEntry", b =>
@@ -1688,6 +1828,17 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("InstituteManagement.Domain.Entities.SemesterResultPublication", b =>
+                {
+                    b.HasOne("InstituteManagement.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("InstituteManagement.Domain.Entities.Student", b =>

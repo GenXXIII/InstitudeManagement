@@ -25,6 +25,9 @@ public sealed class GradeRecordConfiguration : IEntityTypeConfiguration<GradeRec
         builder.Property(x => x.LetterGrade).HasMaxLength(4).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Term).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.ReviewStatus).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.ReviewNote).HasMaxLength(500);
+        builder.HasIndex(x => new { x.ReviewStatus, x.AcademicYear, x.Term });
         builder.HasOne(x => x.Student)
             .WithMany()
             .HasForeignKey(x => x.StudentId)
@@ -32,6 +35,10 @@ public sealed class GradeRecordConfiguration : IEntityTypeConfiguration<GradeRec
         builder.HasOne(x => x.Course)
             .WithMany()
             .HasForeignKey(x => x.CourseId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.SubmittedByTeacher)
+            .WithMany()
+            .HasForeignKey(x => x.SubmittedByTeacherId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

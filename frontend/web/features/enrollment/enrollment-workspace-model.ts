@@ -16,6 +16,7 @@ import {
 } from "./students/student-enrollment-view";
 import { teacherAssignmentCells, teacherAssignmentCopy } from "./teachers/teacher-assignment-view";
 import { timetableEnrollmentCells, timetableEnrollmentCopy } from "./timetable/timetable-enrollment-view";
+import { compareAcademicRows } from "@/lib/academic-order";
 
 export type SelectableEnrollmentResource = "students" | "timetable";
 
@@ -65,6 +66,12 @@ export function buildEnrollmentDisplayItems(items: EnrollmentItem[], resource: E
 }
 
 export function sortEnrollmentItems<T extends EnrollmentItem>(items: T[], resource: EnrollmentResource) {
+  if (resource !== "timetable") return items.toSorted((left, right) =>
+    compareAcademicRows(left, right)
+    || periodStateOrder(left) - periodStateOrder(right)
+    || (left.values.academicYear || "").localeCompare(right.values.academicYear || "", undefined, { numeric: true, sensitivity: "base" })
+    || enrollmentCode(left).localeCompare(enrollmentCode(right), undefined, { numeric: true, sensitivity: "base" })
+    || assignedCourseName(left).localeCompare(assignedCourseName(right), undefined, { numeric: true, sensitivity: "base" }));
   return items.toSorted((left, right) => {
     const stateDifference = periodStateOrder(left) - periodStateOrder(right);
     if (stateDifference) return stateDifference;

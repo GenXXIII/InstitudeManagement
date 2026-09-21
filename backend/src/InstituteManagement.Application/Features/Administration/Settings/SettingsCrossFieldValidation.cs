@@ -34,9 +34,6 @@ public static partial class SettingsCatalog
 
     private static void ValidateFinance(IReadOnlyDictionary<string, string> values, ICollection<string> errors)
     {
-        if (Decimal(values["semesterPrice"]) * 2 != Decimal(values["yearPrice"]))
-            errors.Add("semesterPrice must be exactly 50% of yearPrice.");
-
         ValidateBank("aba", "ABA", values, errors);
         ValidateBank("acleda", "ACLEDA", values, errors);
         if (bool.TryParse(values.GetValueOrDefault("bakongEnabled"), out var dynamicQrEnabled) && dynamicQrEnabled)

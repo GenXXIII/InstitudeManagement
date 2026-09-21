@@ -12,6 +12,7 @@ import { historyApi } from "./history-api";
 import { recordTypes } from "./history-config";
 import type { RecordItem } from "./history-types";
 import { exportCsv, groupRecords } from "./history-utils";
+import { compareAcademicRows } from "@/lib/academic-order";
 
 export default function RecordsRoute() {
   return <Suspense fallback={<LoadingPage/>}><RecordRegister/></Suspense>;
@@ -34,7 +35,7 @@ function RecordRegister() {
   const groups = useMemo(() => groupRecords(rows).filter(group => {
     const yearValues = group.values.filter(([key]) => ["year", "yearlevel"].includes(key.toLowerCase())).map(([, value]) => value);
     return (!departmentId || group.key.includes(departmentId) || group.entries.some(entry => entry.details.includes(departmentId))) && (!year || !yearValues.length || yearValues.includes(year));
-  }), [departmentId, rows, year]);
+  }).toSorted((left, right) => compareAcademicRows(Object.fromEntries(left.values), Object.fromEntries(right.values)) || left.subject.localeCompare(right.subject, undefined, { numeric: true, sensitivity: "base" })), [departmentId, rows, year]);
   const visible = groups;
   const detailQuery = searchParams.toString();
   if (error) return <ErrorPage retry={load}/>;

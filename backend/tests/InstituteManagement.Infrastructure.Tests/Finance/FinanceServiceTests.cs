@@ -17,7 +17,7 @@ public sealed class FinanceServiceTests
     public async Task Bulk_declaration_announces_to_all_current_students_and_starts_expiry_countdown()
     {
         await using var db = CreateContext();
-        AddSettings(db, "2026\u20132027", "Semester 1", defaultPaymentPlan: "Year");
+        AddSettings(db, "2026\u20132027", "Semester 1");
         var department = new Department { DepartmentCode = "IT", Name = "Information Technology" };
         var currentStudents = new[]
         {
@@ -64,9 +64,9 @@ public sealed class FinanceServiceTests
         {
             Assert.NotNull(account.DeclaredAtUtc);
             Assert.Equal(result.DueOn, account.DueOn);
-            Assert.Equal("2026\u20132027 full-year payment", account.Title);
-            Assert.Equal("Year", account.PaymentPlan);
-            Assert.Equal(1500m, account.DeclaredAmount);
+            Assert.Equal("Semester 1 payment", account.Title);
+            Assert.Equal("Semester", account.PaymentPlan);
+            Assert.Equal(750m, account.DeclaredAmount);
         });
         Assert.Null(Assert.Single(accounts, account => account.AcademicYear == "2025\u20132026").DeclaredAtUtc);
         Assert.Equal(2, db.AuditLogs.Count(item => item.Type == "Finance" && item.Action == "Payment declared"));
@@ -92,7 +92,6 @@ public sealed class FinanceServiceTests
         account.ExpiresAtUtc = DateTime.UtcNow.AddDays(-1);
 
         (await db.SystemSettings.SingleAsync(setting => setting.Section == "finance" && setting.Key == "semesterPrice")).Value = "0.01";
-        (await db.SystemSettings.SingleAsync(setting => setting.Section == "finance" && setting.Key == "yearPrice")).Value = "0.02";
         await db.SaveChangesAsync();
 
         var beforeDeclare = Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
@@ -305,7 +304,7 @@ public sealed class FinanceServiceTests
     }
 
     [Fact]
-    public async Task Student_sees_only_declared_cards_and_year_payment_covers_semester_two()
+    public async Task Student_sees_only_declared_cards_and_each_semester_requires_its_own_payment()
     {
         await using var db = CreateContext();
         AddSettings(db, "2026\u20132027", "Semester 1");
@@ -318,8 +317,8 @@ public sealed class FinanceServiceTests
 
         Assert.Empty(await service.GetStudentAsync(student.Id, CancellationToken.None));
         var account = Assert.Single(await service.GetAsync(null, null, null, null, CancellationToken.None));
-        var declaration = await service.DeclareAsync(account.Id, Declaration("Year"), CancellationToken.None);
-        Assert.Equal("Year", declaration.PaymentPlan);
+        var declaration = await service.DeclareAsync(account.Id, Declaration("Semester"), CancellationToken.None);
+        Assert.Equal("Semester", declaration.PaymentPlan);
         Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
         await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(750m, "ABA", "YEAR-1", DateTime.UtcNow), CancellationToken.None);
 
@@ -329,10 +328,11 @@ public sealed class FinanceServiceTests
         var settings = new FinanceSettingsReader(db);
         var gate = new SemesterPaymentGate(db, new FinancialAccountSynchronizer(db, settings), settings);
         var result = await gate.EvaluateAsync(semesterTwo.AcademicYear, semesterTwo.Semester, CancellationToken.None);
+        await db.SaveChangesAsync();
 
-        Assert.Contains(student.Id, result.PaidStudentIds);
-        Assert.Equal(0, result.HeldStudents);
-        Assert.Single(await db.FinancialAccounts.Where(item => item.StudentId == student.Id).ToListAsync());
+        Assert.DoesNotContain(student.Id, result.PaidStudentIds);
+        Assert.Equal(1, result.HeldStudents);
+        Assert.Equal(2, await db.FinancialAccounts.CountAsync(item => item.StudentId == student.Id));
     }
 
     [Fact]
@@ -434,7 +434,6 @@ public sealed class FinanceServiceTests
         InstituteDbContext db,
         string academicYear,
         string semester,
-        string defaultPaymentPlan = "Semester",
         string latePenaltyPerDay = "0.00",
         bool dynamicQr = false)
     {
@@ -443,9 +442,7 @@ public sealed class FinanceServiceTests
             Setting("semester", "currentTerm", semester),
             Setting("semester", "startsOn", semester == "Semester 1" ? "2026-08-01" : "2027-02-01"),
             Setting("finance", "semesterPrice", "750.00"),
-            Setting("finance", "yearPrice", "1500.00"),
             Setting("finance", "otherFee", "0.00"),
-            Setting("finance", "defaultPaymentPlan", defaultPaymentPlan),
             Setting("finance", "currency", "USD"),
             Setting("finance", "paymentDueDays", "14"),
             Setting("finance", "latePenaltyPerDay", latePenaltyPerDay),

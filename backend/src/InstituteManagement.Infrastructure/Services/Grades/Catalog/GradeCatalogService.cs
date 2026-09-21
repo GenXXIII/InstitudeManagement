@@ -14,7 +14,7 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
     public override async Task<IReadOnlyList<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
         var period = await CurrentPeriodAsync(ct);
-        var grades = await Db.GradeRecords.AsNoTracking().Include(grade => grade.Student).ThenInclude(student => student!.Department).Include(grade => grade.Course)
+        var grades = await Db.GradeRecords.AsNoTracking().Include(grade => grade.Student).ThenInclude(student => student!.Department).Include(grade => grade.Course).Include(grade => grade.SubmittedByTeacher)
             .Where(grade => grade.AcademicYear == period.AcademicYear && grade.Term == period.Term && grade.Student!.Status != "Inactive" && grade.Course!.IsActive && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId))
             .ToListAsync(ct);
         var sessions = await Db.ClassSessionRecords.AsNoTracking()
@@ -28,14 +28,14 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
 
     public override Task<GradeResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct) =>
         throw new InvalidOperationException("Grades are generated automatically from students and cannot be added manually.");
-    public override async Task<GradeResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct) { var entity = await RequiredEntityAsync(Db.GradeRecords, id, ct); values["gradeCode"] = entity.GradeCode; values["studentId"] = entity.StudentId.ToString(); values["courseId"] = entity.CourseId.ToString(); var period = await CurrentPeriodAsync(ct); if (entity.AcademicYear != period.AcademicYear || entity.Term != period.Term) throw new InvalidOperationException("Completed-semester grades are read-only in History."); await BuildAsync(entity, values, ct); Touch(entity); return await SaveUpdatedAsync(id, values, ct); }
+    public override Task<GradeResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct) =>
+        throw new InvalidOperationException("Teacher grade submissions are read-only. Confirm or reject them in Assessment.");
     protected override async Task<Entity?> FindAsync(Guid id, CancellationToken ct) => await Db.GradeRecords.FindAsync([id], ct);
     protected override void Deactivate(Entity entity) => Db.Remove(entity);
     protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct)
     {
-        var grade = (GradeRecord)entity;
-        var period = await CurrentPeriodAsync(ct);
-        if (grade.AcademicYear != period.AcademicYear || grade.Term != period.Term) throw new InvalidOperationException("Completed-semester grades are permanent History and cannot be removed.");
+        await Task.CompletedTask;
+        throw new InvalidOperationException("Teacher grade submissions cannot be removed. Reject them in Assessment when correction is required.");
     }
     protected override GradeResponseDto Response(Guid id, IReadOnlyDictionary<string, string> values) =>
         new GradeResponseDto(id, new GradeValuesDto(
@@ -60,6 +60,13 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             Get(values, "grade"),
             Get(values, "academicYear"),
             Get(values, "term", "Semester 1"),
+            Get(values, "submittedByTeacherId"),
+            Get(values, "submittedByTeacher"),
+            Get(values, "reviewStatus", "Pending"),
+            Get(values, "reviewNote"),
+            Get(values, "submissionVersion", "1"),
+            Get(values, "submittedAtUtc"),
+            Get(values, "reviewedAtUtc"),
             Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
     private async Task<GradeRecord> BuildAsync(GradeRecord entity, Dictionary<string, string> values, CancellationToken ct)
@@ -133,6 +140,13 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             grade.LetterGrade,
             grade.AcademicYear,
             grade.Term,
+            grade.SubmittedByTeacherId?.ToString() ?? "",
+            grade.SubmittedByTeacher?.FullName ?? "—",
+            grade.ReviewStatus,
+            grade.ReviewNote,
+            grade.SubmissionVersion.ToString(),
+            grade.SubmittedAtUtc?.ToString("O") ?? "",
+            grade.ReviewedAtUtc?.ToString("O") ?? "",
             grade.CreateAt.ToString("yyyy-MM-dd")));
     }
     private async Task<(string AcademicYear, string Term)> CurrentPeriodAsync(CancellationToken ct)

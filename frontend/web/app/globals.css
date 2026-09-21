@@ -46,6 +46,7 @@
 @import "../styles/records/records.css";
 @import "../styles/records/student-records.css";
 @import "../styles/records/grade-records.css";
+@import "../styles/records/assessment.css";
 @import "../styles/records/attendance-records.css";
 @import "../styles/records/history.css";
 @import "../styles/search/global-search.css";

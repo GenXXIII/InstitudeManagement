@@ -11,7 +11,6 @@ export const policyGroups = {
         field("attendanceRequired", "Attendance required", "Require attendance for scheduled classes.", "toggle"),
         field("checkInRequired", "Check-in required", "Require an arrival check-in.", "toggle"),
         field("checkOutRequired", "Check-out required", "Require a departure check-out.", "toggle"),
-        field("teacherCanRecord", "Teacher can record attendance", "Allow teachers to capture class attendance.", "toggle"),
         field("studentCanView", "Student can view attendance", "Allow students to view their attendance record.", "toggle"),
       ],
     },
@@ -40,7 +39,6 @@ export const policyGroups = {
       title: "Editing and audit",
       description: "Correction controls for active-period attendance records.",
       fields: [
-        field("teacherCanEdit", "Teacher can edit", "Allow teachers to correct their attendance records.", "toggle"),
         field("allowCorrection", "Allow corrections", "Enable attendance correction workflows.", "toggle"),
         field("correctionPeriodDays", "Correction period", "Number of days after a class that corrections remain available.", "number", { required: true, min: 0, max: 365, unit: "days" }),
         field("requireCorrectionReason", "Require correction reason", "Require an explanation for each correction.", "toggle"),

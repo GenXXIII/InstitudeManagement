@@ -83,9 +83,7 @@ public sealed class BakongPaymentGatewayTests
 
     private static FinanceSettings Settings() => new(
         TuitionFee: 25.50m,
-        YearFee: 51m,
         OtherFee: 0m,
-        DefaultPaymentPlan: "Semester",
         Currency: "USD",
         PaymentDueDays: 14,
         LatePenaltyPerDay: 0m,

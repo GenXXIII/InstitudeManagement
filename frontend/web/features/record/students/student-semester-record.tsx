@@ -19,9 +19,8 @@ export function StudentSemesterRecord({ row, stage = "record", detailHref, detai
   const open = () => { if (detailHref) router.push(detailHref); };
   const history = stage === "history";
   const totalScore = history ? programPeriods(row).reduce((total, period) => total + period.total, 0) : insights.totalScore;
-  return <article className="student-semester-record-row record-row-clickable" role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
+  return <article className={`student-semester-record-row record-row-clickable ${history ? "student-history-row" : "student-active-row"}`} role="link" tabIndex={0} onClick={open} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}>
     <div className="workflow-ledger-code"><strong className="student-record-code">{workflowCode(row.code || row.identifier.split(" · ")[0], "student", stage)}</strong></div>
-    <StudentPhoto row={row}/>
     <div className="student-record-name"><strong>{row.subject}</strong></div>
     <div className="student-record-department"><strong>{row.department || "Unassigned"}</strong></div>
     <div className="student-record-year"><strong>{history ? "Year 4 Semester 2" : recordYear(row)}</strong></div>
@@ -39,7 +38,7 @@ export function StudentSemesterRecord({ row, stage = "record", detailHref, detai
 function StudentSemesterDetail({ row, stage, insights, gradeSlots, editable, onUpdated }: { row: OperationalRecord; stage: WorkflowCodeStage; insights: OperationalRecordInsights; gradeSlots: Array<OperationalRecordGrade | null>; editable: boolean; onUpdated?: () => void }) {
   if (stage === "history") return <StudentProgramHistoryDetail row={row} insights={insights}/>;
   const sessions = row.activities.filter(activity => activity.Activity === "Class attendance");
-  return <article className="student-semester-detail">
+  return <article className="student-semester-detail student-active-semester-detail">
     <header><StudentPhoto row={row}/><div><span className="eyebrow">{row.academicYear} · {row.term}</span><h2>{row.subject}</h2><p>{workflowCode(row.code, "student", stage)} · {row.department} · {identityDetail(row.identifier)}</p></div></header>
     <section className="semester-record-information" aria-label="Student semester information"><Information label="Record code" value={workflowCode(row.code, "student", stage)}/><Information label="Enrollment source" value={workflowCode(row.code, "student", "enrollment")}/><Information label="Department" value={row.department}/><Information label="Year" value={recordYear(row)}/><Information label="Shift" value={recordShift(row)}/><Information label="Academic year" value={row.academicYear}/><Information label="Semester" value={row.term}/><Information label="Enrollment" value={enrollmentValue(row, "Enrollment status")}/></section>
     <div className="student-detail-insights"><AttendanceCards insights={insights}/><GradeCards grades={gradeSlots} stage={stage}/><ResultCard insights={insights}/></div>

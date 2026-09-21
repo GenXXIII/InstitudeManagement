@@ -14,7 +14,9 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
     public DbSet<ScheduleEntry> ScheduleEntries => Set<ScheduleEntry>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<ClassSessionStart> ClassSessionStarts => Set<ClassSessionStart>();
+    public DbSet<ClassPermissionRequest> ClassPermissionRequests => Set<ClassPermissionRequest>();
     public DbSet<GradeRecord> GradeRecords => Set<GradeRecord>();
+    public DbSet<SemesterResultPublication> SemesterResultPublications => Set<SemesterResultPublication>();
     public DbSet<ClassSessionRecord> ClassSessionRecords => Set<ClassSessionRecord>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Notification> Notifications => Set<Notification>();

@@ -6,9 +6,7 @@ namespace InstituteManagement.Infrastructure.Services.Finance;
 
 public sealed record FinanceSettings(
     decimal TuitionFee,
-    decimal YearFee,
     decimal OtherFee,
-    string DefaultPaymentPlan,
     string Currency,
     int PaymentDueDays,
     decimal LatePenaltyPerDay,
@@ -39,7 +37,6 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
             .Where(setting => setting.Section == "finance")
             .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, cancellationToken);
         var tuitionFee = Decimal(values, "semesterPrice", 500m);
-        var yearFee = Decimal(values, "yearPrice", 1000m);
         var otherFee = Decimal(values, "otherFee", 0m);
         var dueDays = int.TryParse(values.GetValueOrDefault("paymentDueDays"), out var configuredDays)
             ? configuredDays
@@ -57,9 +54,7 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
         AddProvider(paymentProviders, values, "acleda", "ACLEDA");
         return new(
             decimal.Max(0, tuitionFee),
-            decimal.Max(0, yearFee),
             decimal.Max(0, otherFee),
-            values.GetValueOrDefault("defaultPaymentPlan", "Semester") is "Year" ? "Year" : "Semester",
             currency is "USD" or "KHR" ? currency : "USD",
             Math.Clamp(dueDays, 0, 365),
             decimal.Max(0, Decimal(values, "latePenaltyPerDay", 0m)),

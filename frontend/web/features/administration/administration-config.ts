@@ -7,12 +7,14 @@ import { policyGroups } from "./schema/policy-schema";
 import { codeFormatGroups } from "./schema/code-format-schema";
 
 export const administrationCategories: ReadonlyArray<{ id: AdministrationCategory; title: string; description: string }> = [
-  { id: "general", title: "General", description: "Institute identity, branding, contact, address, and regional profile." },
-  { id: "academic", title: "Academic", description: "Academic calendar and defaults for record-backed academic resources." },
-  { id: "access", title: "Users & access", description: "Future account lifecycle, roles, statuses, and permission catalog." },
-  { id: "people", title: "Students & teachers", description: "Identifiers, enrollment, status, and assignment policies." },
-  { id: "policies", title: "Attendance & grading", description: "Institute-wide academic rules used by live workflows." },
-  { id: "platform", title: "Communication, system & security", description: "Delivery, localization, maintenance, logging, and access policy." },
+  { id: "essential", title: "1. Essential institute setup", description: "Institute identity, branding, contact details, and location." },
+  { id: "calendar", title: "2. Academic calendar", description: "Current academic year, semester, term windows, and lifecycle dates." },
+  { id: "finance", title: "3. Finance", description: "Fees, payment timing, QR providers, and advancement eligibility rules." },
+  { id: "structure", title: "4. Academic structure rules", description: "Defaults and governance for departments, courses, and classrooms." },
+  { id: "people", title: "5. People and access", description: "Student, teacher, role, status, and workload policies." },
+  { id: "policies", title: "6. Attendance and grading", description: "Attendance outcomes, academic weights, thresholds, and grade boundaries." },
+  { id: "communication", title: "7. Communication", description: "Notification channels, audiences, templates, and operational events." },
+  { id: "platform", title: "8. Advanced platform controls", description: "Code formats, localization, maintenance, logging, and security policy." },
 ];
 
 const groups = {
@@ -27,7 +29,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   institute: ["name", "shortName", "code", "logoUrl", "email", "phone", "address"],
   "academic-year": ["currentYear", "code", "startsOn", "endsOn", "status"],
   semester: ["currentTerm"],
-  finance: ["semesterPrice", "yearPrice", "otherFee", "defaultPaymentPlan", "paymentDueDays", "latePenaltyPerDay", "bakongEnabled", "bakongEnvironment", "bakongAccountId", "bakongAccountInformation", "bakongAcquiringBank", "bakongMerchantName", "bakongMerchantCity", "abaEnabled", "abaAccountName", "abaAccountCode", "acledaEnabled", "acledaAccountName", "acledaAccountCode", "allowPartialPayments", "allowOverpayment", "maximumAdjustmentAmount", "requirePaidForAdvancement"],
+  finance: ["semesterPrice", "otherFee", "paymentDueDays", "latePenaltyPerDay", "bakongEnabled", "bakongEnvironment", "bakongAccountId", "bakongAccountInformation", "bakongAcquiringBank", "bakongMerchantName", "bakongMerchantCity", "abaEnabled", "abaAccountName", "abaAccountCode", "acledaEnabled", "acledaAccountName", "acledaAccountCode", "allowPartialPayments", "allowOverpayment", "maximumAdjustmentAmount", "requirePaidForAdvancement"],
   departments: ["defaultStatus", "requireDepartmentHead", "allowCrossDepartmentTeaching"],
   courses: ["defaultCapacity", "requireAssignedTeacher"],
   classrooms: ["defaultCapacity", "attendanceDeviceRequired"],
@@ -35,7 +37,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   "users-access": ["defaultUserStatus", "availableRoles"],
   "student-rules": ["maximumCoursesPerSemester", "statuses"],
   "teacher-rules": ["statuses", "maximumCourses", "maximumClasses"],
-  "attendance-rules": ["method", "attendanceRequired", "lateThresholdMinutes", "absentAfterMinutes", "autoAbsent", "teacherCanRecord", "notifyAdministrator"],
+  "attendance-rules": ["method", "attendanceRequired", "lateThresholdMinutes", "absentAfterMinutes", "autoAbsent", "notifyAdministrator"],
   "grade-rules": ["gradingSystem", "attendanceWeight", "assignmentWeight", "midtermWeight", "finalExamWeight", "passMark", "gpaEnabled"],
   notifications: ["emailEnabled", "inAppEnabled", "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary"],
   system: ["language", "dateFormat", "timeFormat", "timeZone", "autoRefreshSeconds"],
@@ -43,20 +45,20 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
 };
 
 export const administrationSections: readonly AdministrationSectionDefinition[] = [
-  section("institute", "General settings", "General", "Institute identity, branding, contact details, and address.", "general", "building"),
-  section("academic-year", "Academic year", "Academic year", "Active academic-year identity, dates, and lifecycle status.", "academic", "calendar"),
-  section("semester", "Semester and term", "Terms", "Current term plus Semester 1, Semester 2, and Summer Term windows.", "academic", "calendar"),
-  section("finance", "Finance settings", "Finance", "Configure fee defaults, declaration expiry, and financial rules used by Finance and the enrollment eligibility gate.", "academic", "finance"),
-  section("departments", "Department rules", "Departments", "Defaults and governance rules; a DepartmentCode sequence is required during creation and remains permanent.", "academic", "building"),
-  section("courses", "Course rules", "Courses", "Defaults and assignment requirements; a CourseCode sequence is required during creation and remains permanent.", "academic", "book"),
-  section("classrooms", "Classroom rules", "Classrooms", "Learning-space defaults; a ClassroomCode sequence is required during creation and remains permanent.", "academic", "room"),
-  section("code-formats", "Code formats", "Codes", "Configure formatting for assigned Management and Alert codes plus automatic Notification, Record, and History codes.", "academic", "settings"),
-  section("users-access", "Users and access", "Users & access", "Future account statuses, roles, and permission catalog without fake user records.", "access", "users"),
+  section("institute", "General settings", "General", "Institute identity, branding, contact details, and address.", "essential", "building"),
+  section("academic-year", "Academic year", "Academic year", "Active academic-year identity, dates, and lifecycle status.", "calendar", "calendar"),
+  section("semester", "Semester and term", "Terms", "Current term plus Semester 1, Semester 2, and Summer Term windows.", "calendar", "calendar"),
+  section("finance", "Finance settings", "Finance", "Configure fee defaults, declaration expiry, and financial rules used by Finance and the enrollment eligibility gate.", "finance", "finance"),
+  section("departments", "Department rules", "Departments", "Defaults and governance rules; a DepartmentCode sequence is required during creation and remains permanent.", "structure", "building"),
+  section("courses", "Course rules", "Courses", "Defaults and assignment requirements; a CourseCode sequence is required during creation and remains permanent.", "structure", "book"),
+  section("classrooms", "Classroom rules", "Classrooms", "Learning-space defaults; a ClassroomCode sequence is required during creation and remains permanent.", "structure", "room"),
+  section("code-formats", "Code formats", "Codes", "Configure formatting for assigned Management and Alert codes plus automatic Notification, Record, and History codes.", "platform", "settings"),
+  section("users-access", "Users and access", "Users & access", "Future account statuses, roles, and permission catalog without fake user records.", "people", "users"),
   section("student-rules", "Student settings", "Students", "Enrollment rules, statuses, and required information; a unique StudentCode sequence is required.", "people", "users"),
   section("teacher-rules", "Teacher settings", "Teachers", "Statuses, workloads, and assignment requirements; a unique TeacherCode sequence is required.", "people", "teacher"),
   section("attendance-rules", "Attendance settings", "Attendance", "Capture, threshold, absence, correction, audit, and alert rules.", "policies", "check"),
   section("grade-rules", "Grading settings", "Grading", "Configurable attendance, assignment, midterm, and final-exam weights with A, B, C, D, E, and F boundaries.", "policies", "grade"),
-  section("notifications", "Notification settings", "Notifications", "Email, SMS, in-app audiences, templates, and operational events.", "platform", "bell"),
+  section("notifications", "Notification settings", "Notifications", "Email, SMS, in-app audiences, templates, and operational events.", "communication", "bell"),
   section("system", "System settings", "System", "Localization, time, live refresh, and logging policy.", "platform", "settings"),
   section("security", "Security policy", "Security", "Password, session, lockout, and two-factor policy readiness.", "platform", "archive"),
 ];
@@ -91,7 +93,7 @@ export function configurationSummary(sectionName: SettingSection, values: Record
   if (sectionName === "institute") return `${values.shortName || values.code || "Institute"} · ${values.city || values.country || "Address required"}`;
   if (sectionName === "academic-year") return `${values.currentYear || "Year required"} · ${values.status || "Status required"}`;
   if (sectionName === "semester") return `${values.currentTerm || "Term required"} · ${values.startsOn || "Start date required"}`;
-  if (sectionName === "finance") return `${values.semesterPrice || "0"} semester · ${values.yearPrice || "0"} year · expires ${values.paymentDueDays || "0"} days after declaration`;
+  if (sectionName === "finance") return `${values.semesterPrice || "0"} per semester · expires ${values.paymentDueDays || "0"} days after declaration`;
   if (sectionName === "departments") return `Assigned DepartmentCode · ${values.requireDepartmentHead === "true" ? "Head required" : "Head optional"}`;
   if (sectionName === "courses") return `Assigned CourseCode · ${values.defaultCapacity || "–"} default seats`;
   if (sectionName === "classrooms") return `Assigned ClassroomCode · ${values.defaultCapacity || "–"} default seats`;

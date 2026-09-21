@@ -39,6 +39,36 @@ public sealed class GradeServiceTests
         Assert.Equal("C", grade.LetterGrade);
     }
 
+    [Fact]
+    public async Task Rejected_submission_requires_administrator_permission_before_teacher_can_resubmit()
+    {
+        await using var db = CreateContext();
+        var department = new Department { DepartmentCode = "DEP-2", Name = "Business" };
+        var student = new Student { StudentCode = "STU-2", FullName = "Student Two", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
+        var course = new Course { CourseCode = "COU-2", Name = "Accounting", DepartmentId = department.Id, Department = department };
+        var teacher = new Teacher { TeacherCode = "TEA-2", FullName = "Teacher Two", DepartmentId = department.Id, Department = department };
+        db.AddRange(department, student, course, teacher);
+        AddSetting(db, "academic-year", "currentYear", "2026–2027");
+        AddSetting(db, "semester", "currentTerm", "Semester 1");
+        await db.SaveChangesAsync();
+        var service = new GradeService(db, new InstituteCache());
+
+        await service.SubmitAsync(student.Id, course.Id, 12, 14, 40, CancellationToken.None);
+        var grade = Assert.Single(db.GradeRecords);
+        grade.SubmittedByTeacherId = teacher.Id;
+        await db.SaveChangesAsync();
+        await service.ReviewAsync(grade.Id, "Rejected", "Correct the Midterm score.", CancellationToken.None);
+        await service.RequestResubmissionAsync(grade.Id, teacher.Id, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SubmitAsync(student.Id, course.Id, 12, 16, 40, CancellationToken.None));
+        await service.AuthorizeResubmissionAsync(grade.Id, CancellationToken.None);
+        await service.SubmitAsync(student.Id, course.Id, 12, 16, 40, CancellationToken.None);
+
+        Assert.Equal("Pending", grade.ReviewStatus);
+        Assert.Equal(2, grade.SubmissionVersion);
+        Assert.Equal(16, grade.MidtermScore);
+        Assert.Equal(string.Empty, grade.ReviewNote);
+    }
+
     private static ClassSessionRecord Session(Student student, Course course, DateOnly date, string status) => new()
     {
         ScheduleEntryId = Guid.NewGuid(),

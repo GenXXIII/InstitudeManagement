@@ -27,19 +27,10 @@ public sealed class FinanceService(
             .Where(account =>
                 (string.IsNullOrWhiteSpace(academicYear) || account.AcademicYear == academicYear)
                 && (string.IsNullOrWhiteSpace(semester) || account.Semester == semester))
-            .OrderBy(account => account.Status == "Paid")
-            .ThenBy(account => account.DueOn)
+            .OrderBy(account => account.StudentEnrollment!.YearLevel)
+            .ThenBy(account => account.StudentEnrollment!.Shift == "Morning" ? 0 : account.StudentEnrollment.Shift == "Afternoon" ? 1 : account.StudentEnrollment.Shift == "Evening" ? 2 : account.StudentEnrollment.Shift == "Weekend" ? 3 : 4)
             .ThenBy(account => account.Student!.FullName)
             .ToListAsync(cancellationToken);
-        var annualCoverage = accounts
-            .Where(account => account.Semester == "Semester 1" && account.PaymentPlan == "Year" && account.DeclaredAtUtc != null && account.Status == "Paid")
-            .Select(account => $"{account.StudentId:N}|{account.AcademicYear}")
-            .ToHashSet(StringComparer.Ordinal);
-        accounts = accounts.Where(account =>
-            account.Semester != "Semester 2"
-            || account.DeclaredAtUtc != null
-            || !annualCoverage.Contains($"{account.StudentId:N}|{account.AcademicYear}"))
-            .ToList();
         await ApplyLatePenaltiesAsync(accounts, cancellationToken);
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -58,7 +49,7 @@ public sealed class FinanceService(
 
         var mapped = await MapAsync(accounts, cancellationToken);
         return string.IsNullOrWhiteSpace(status) || status == "All"
-            ? mapped
+            ? mapped.Where(account => account.Status != "Paid").ToList()
             : mapped.Where(account => account.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
@@ -96,7 +87,6 @@ public sealed class FinanceService(
             settings.RequirePaidForAdvancement,
             settings.PaymentDueDays,
             settings.TuitionFee,
-            settings.YearFee,
             settings.OtherFee,
             providers,
             settings.BakongEnabled,
@@ -118,9 +108,7 @@ public sealed class FinanceService(
         var title = request.Title?.Trim() ?? string.Empty;
         if (title.Length is < 3 or > 160) throw new ArgumentException("Declaration title must contain 3 to 160 characters.");
         var paymentPlan = request.PaymentPlan?.Trim();
-        if (paymentPlan is not ("Semester" or "Year")) throw new ArgumentException("Payment plan must be Semester or Year.");
-        if (paymentPlan == "Year" && account.Semester != "Semester 1")
-            throw new ArgumentException("A Year payment can only be declared from Semester 1 and covers Semester 1 and Semester 2.");
+        if (paymentPlan != "Semester") throw new ArgumentException("Only Semester payment declarations are available.");
         var amount = decimal.Round(request.Amount, 2);
         if (amount <= 0) throw new ArgumentException("Declaration amount must be greater than zero.");
         var expiresAtUtc = request.ExpiresAtUtc.ToUniversalTime();
@@ -198,7 +186,7 @@ public sealed class FinanceService(
             .OrderBy(account => account.Student!.FullName)
             .ToListAsync(cancellationToken);
         var settings = await settingsReader.GetAsync(cancellationToken);
-        var paymentPlan = settings.DefaultPaymentPlan == "Year" && semester == "Semester 1" ? "Year" : "Semester";
+        const string paymentPlan = "Semester";
         var announcedAtUtc = DateTime.UtcNow;
         var dueOn = DateOnly.FromDateTime(announcedAtUtc).AddDays(settings.PaymentDueDays);
         var expiresAtUtc = DateTime.SpecifyKind(dueOn.ToDateTime(TimeOnly.MaxValue), DateTimeKind.Utc);
@@ -206,7 +194,7 @@ public sealed class FinanceService(
 
         foreach (var account in accounts)
         {
-            var amount = decimal.Round((paymentPlan == "Year" ? settings.YearFee : settings.TuitionFee) + settings.OtherFee, 2);
+            var amount = decimal.Round(settings.TuitionFee + settings.OtherFee, 2);
             if (amount <= 0) continue;
             var wasDeclared = account.DeclaredAtUtc.HasValue;
             var oldTitle = account.Title;
@@ -219,7 +207,7 @@ public sealed class FinanceService(
             var oldLatePenaltyAmount = account.LatePenaltyAmount;
             var oldStatus = account.Status;
             var oldBalance = Balance(account);
-            account.Title = paymentPlan == "Year" ? $"{academicYear} full-year payment" : $"{semester} payment";
+            account.Title = $"{semester} payment";
             account.PaymentPlan = paymentPlan;
             account.DeclaredAmount = amount;
             account.DeclaredAtUtc = announcedAtUtc;

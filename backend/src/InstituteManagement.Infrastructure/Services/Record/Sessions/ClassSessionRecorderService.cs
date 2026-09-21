@@ -85,11 +85,14 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                     var students = studentEnrollments.Where(x => x.Student is not null && x.Student.Status != "Inactive").Select(x => x.Student!).ToList();
                     var studentIds = students.Select(x => x.Id).ToList();
                     var attendance = await db.AttendanceRecords.AsNoTracking().Where(x => studentIds.Contains(x.StudentId) && x.Date == date && x.AcademicYear == academicYear && x.Term == term).ToDictionaryAsync(x => x.StudentId, cancellationToken);
+                    var approvedPermissions = (await db.ClassPermissionRequests.AsNoTracking().Where(x => studentIds.Contains(x.StudentId) && x.SessionDate == date && x.Status == "Approved").Select(x => x.StudentId).ToListAsync(cancellationToken)).ToHashSet();
                     var snapshots = students.Select(student =>
                     {
                         if (!classHeld)
                             return new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, "Class not held", "");
                         var entry = attendance.GetValueOrDefault(student.Id);
+                        if (entry?.Status is not ("Present" or "Late") && approvedPermissions.Contains(student.Id))
+                            return new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, "Permission", "");
                         return new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, entry?.Status ?? (autoAbsent ? "Absent" : "Not recorded"), entry?.CheckedInAt?.ToString("HH:mm") ?? "");
                     }).ToList();
                     var endedAtUtc = TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(schedule.EndsAt), timeZone);
@@ -115,7 +118,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                         PresentCount = snapshots.Count(x => x.Status == "Present"),
                         LateCount = snapshots.Count(x => x.Status == "Late"),
                         AbsentCount = snapshots.Count(x => x.Status == "Absent"),
-                        ExcusedCount = snapshots.Count(x => x.Status == "Excused"),
+                        ExcusedCount = snapshots.Count(x => x.Status is "Excused" or "Permission"),
                         StudentAttendanceJson = JsonSerializer.Serialize(snapshots),
                         CreateAt = endedAtUtc,
                         UpdatedAtUtc = endedAtUtc

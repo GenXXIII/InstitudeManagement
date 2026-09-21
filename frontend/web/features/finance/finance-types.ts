@@ -70,7 +70,6 @@ export type FinanceOptions = {
   requirePaidForAdvancement: boolean;
   paymentDueDays: number;
   semesterPrice: number;
-  yearPrice: number;
   otherFee: number;
   paymentProviders: BankPaymentOption[];
   bakongEnabled: boolean;

@@ -99,31 +99,25 @@
 .administration-mode-compact input:checked + i::after{transform:translateX(14px)}
 /* Overview */
 .administration-overview-scroll,.administration-section-scroll{flex:1;height:auto;min-height:0;overflow-y:auto;padding:1px 4px 18px 1px;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#d7e3f1 transparent}
-.administration-status-hero{flex:none;display:grid;grid-template-columns:minmax(260px,1.15fr) auto minmax(230px,.8fr);align-items:center;gap:24px;margin-bottom:14px;padding:22px 24px;background:linear-gradient(118deg,#f8fbff,#edf5ff 56%,#eef9f5)}
-.administration-status-hero > div:first-child{display:flex;min-width:0;flex-direction:column;gap:7px}
-.administration-status-hero > div:first-child > span{color:#71849c;font-size:10px;font-weight:800;letter-spacing:.75px;text-transform:uppercase}
-.administration-status-hero > div:first-child > strong{color:#2768c5;font-size:28px;line-height:1}
-.administration-status-hero > div:first-child > p{margin:0;color:#687b92;font-size:12px}
-.administration-status-hero > div:first-child > div{height:7px;overflow:hidden;border-radius:5px;background:#dbe7f5}
-.administration-status-hero > div:first-child i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#276bf1,#4b9ce7,#31b082);transition:width .25s ease}
-.administration-status-hero dl{display:grid;grid-template-columns:repeat(3,minmax(68px,1fr));margin:0;border:1px solid #dce7f2;border-radius:11px;background:rgba(255,255,255,.74)}
-.administration-status-hero dl > div{padding:13px 15px;border-right:1px solid #e4ebf3}
-.administration-status-hero dl > div:last-child{border-right:0}
-.administration-status-hero dt{color:#8291a5;font-size:10px;font-weight:750;text-transform:uppercase}
-.administration-status-hero dd{margin:5px 0 0;color:#304966;font-size:19px;font-weight:800}
-.administration-status-hero > aside{display:flex;align-items:flex-start;gap:10px;color:#2b8467}
-.administration-status-hero > aside > svg{width:34px;height:34px;flex:none;padding:8px;border-radius:9px;background:#e3f5ee}
-.administration-status-hero > aside > span{display:flex;flex-direction:column;gap:4px}
-.administration-status-hero > aside strong{color:#315f52;font-size:12.5px}
-.administration-status-hero > aside small{color:#6f847e;font-size:10.5px;line-height:1.5}
-.administration-category-catalog{display:flex;flex-direction:column;gap:18px}
-.administration-category-catalog > section{display:flex;flex-direction:column;gap:10px}
-.administration-category-catalog > section > header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:0 3px}
+.administration-status-summary{flex:none;display:grid;grid-template-columns:auto minmax(220px,1fr) auto;align-items:center;gap:16px;margin-bottom:16px;padding:17px 20px;border-color:#dbe6f2;background:#fff;transition:color .2s ease,border-color .2s ease,background .2s ease}
+.administration-status-summary.is-red{color:#c63d4d;border-color:#f0cbd0;background:#fffafb}
+.administration-status-summary.is-yellow{color:#bd7b00;border-color:#eedaaa;background:#fffdf7}
+.administration-status-summary.is-light-green{color:#639742;border-color:#d3e5c5;background:#fbfef9}
+.administration-status-summary.is-green{color:#19805b;border-color:#bfe0d2;background:#f8fdfb}
+.administration-status-summary > strong{font-size:20px;line-height:1}
+.administration-status-summary > p{margin:0;color:inherit;font-size:11px;font-weight:700;white-space:nowrap}
+.administration-status-summary > p b{font-size:13px}
+.administration-status-summary > p span{padding:0 5px;opacity:.55}
+.administration-progress-track{position:relative;height:10px;overflow:hidden;border-radius:999px;background:#e7edf4;box-shadow:inset 0 1px 2px rgba(46,69,98,.09)}
+.administration-progress-track i{position:absolute;inset:0;display:block;background:linear-gradient(90deg,#d94b5a 0%,#d94b5a 25%,#e2a51c 50%,#8dbd62 75%,#21936a 100%);transition:clip-path .25s ease}
+.administration-category-catalog{display:flex;flex-direction:column;gap:14px}
+.administration-category-catalog > section{display:flex;flex-direction:column;gap:12px;border:1px solid #e0e8f2;border-radius:16px;background:#f8fafd;padding:16px}
+.administration-category-catalog > section > header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:0 2px}
 .administration-category-catalog > section > header > div{display:flex;flex-direction:column;gap:3px}
 .administration-category-catalog h2{margin:0;color:#304967;font-size:17px}
 .administration-category-catalog header p{margin:0;color:#76879c;font-size:11.5px}
 .administration-category-catalog > section > header > span{color:#7d8da1;font-size:10.5px;font-weight:700}
-.administration-category-catalog > section > div{display:grid;grid-template-columns:repeat(2,minmax(290px,1fr));grid-auto-flow:row dense;gap:11px}
+.administration-category-catalog > section > div{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));grid-auto-flow:row dense;gap:11px}
 .administration-section-card{min-height:150px;display:grid;grid-template-columns:40px minmax(0,1fr) 17px;align-items:start;gap:13px;padding:16px;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
 .administration-section-card:hover{transform:translateY(-1px);border-color:#b9cfea;box-shadow:0 13px 30px rgba(44,86,141,.11)}
 .administration-section-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:10px;background:#e9f2ff;color:#2e6fc9}
@@ -133,7 +127,7 @@
 .administration-section-card > div > strong{margin-top:10px;color:#416891;font-size:11px;line-height:1.45}
 .administration-section-card > div > small{margin-top:4px;color:#91a0b2;font-size:10px}
 .administration-section-card > svg{align-self:center;color:#8395aa}
-.maintenance-section-card{grid-column:2}
+.maintenance-section-card{grid-column:auto}
 .maintenance-section-card.is-active{border-color:#e4c470;background:linear-gradient(115deg,#fffdf8,#fff7e3)}
 .maintenance-section-card.is-active .administration-section-icon{background:#ffedbd;color:#a66a00}
 .administration-section-status{display:inline-flex;align-items:center;gap:6px;color:#976614;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase}
@@ -291,8 +285,7 @@
 .administration-section-pager small{color:#8795a8;font-size:9px;text-transform:uppercase}
 .administration-section-pager strong{font-size:11px}
 @media (max-width:1180px){
-  .administration-status-hero{grid-template-columns:minmax(250px,1fr) auto}
-  .administration-status-hero > aside{grid-column:1/-1}
+  .administration-status-summary{grid-template-columns:auto minmax(180px,1fr) auto}
   .administration-choice-list.is-checklist > div{grid-template-columns:repeat(2,minmax(0,1fr))}
   .maintenance-control-layout{grid-template-columns:1fr}
   .maintenance-command-panel{grid-row:auto}
@@ -300,9 +293,8 @@
 @media (max-width:760px){
   .administration-overview-page,.administration-section-page{overflow:auto}
   .administration-overview-scroll,.administration-section-scroll{height:auto;overflow:visible;padding-right:1px}
-  .administration-status-hero{grid-template-columns:1fr;gap:16px}
-  .administration-status-hero dl{width:100%}
-  .administration-status-hero > aside{grid-column:auto}
+  .administration-status-summary{grid-template-columns:auto minmax(0,1fr);gap:10px 13px}
+  .administration-status-summary > p{grid-column:1/-1;white-space:normal}
   .administration-category-catalog > section > div{grid-template-columns:1fr}
   .maintenance-section-card{grid-column:auto}
   .administration-field{grid-template-columns:1fr;gap:9px}
@@ -316,11 +308,7 @@
   .administration-mode-panel{grid-template-columns:38px minmax(0,1fr);padding:13px}
   .administration-mode-icon{width:38px;height:38px}
   .administration-mode-switch{grid-column:1/-1;justify-content:space-between;border-top:1px solid #dde7f2;padding-top:11px}
-  .administration-status-hero{padding:18px}
-  .administration-status-hero dl{grid-template-columns:1fr}
-  .administration-status-hero dl > div{display:flex;align-items:center;justify-content:space-between;border-right:0;border-bottom:1px solid #e4ebf3;padding:10px 13px}
-  .administration-status-hero dl > div:last-child{border-bottom:0}
-  .administration-status-hero dd{margin:0}
+  .administration-status-summary{padding:16px}
   .administration-current-summary{grid-template-columns:38px minmax(0,1fr)}
   .administration-current-summary > span{width:38px;height:38px}
   .administration-current-summary > b{grid-column:2;justify-self:start}

@@ -85,12 +85,10 @@ export const organizationAcademicGroups = {
   finance: [
     {
       title: "Payment prices",
-      description: "Default Semester and Year prices used when Finance declares a student payment.",
+      description: "Default semester price used when Finance declares a student payment.",
       fields: [
-        field("semesterPrice", "Pay as Semester", "Default tuition charged for one enrolled semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
-        field("yearPrice", "Pay as Year", "Default tuition charged for Semester 1 and Semester 2 together.", "number", { required: true, min: 0, max: 2000000, step: 0.01 }),
+        field("semesterPrice", "Semester payment", "Default tuition charged for one enrolled semester.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
         field("otherFee", "Other fee", "Default non-tuition charge added to the selected payment price.", "number", { required: true, min: 0, max: 1000000, step: 0.01 }),
-        field("defaultPaymentPlan", "Declare to all as", "Plan used by Declare payment to all students. Year is available from Semester 1; Semester creates the 50% installment.", "select", { required: true, options: options("Semester", "Year") }),
         field("paymentDueDays", "Payment expires after", "Number of days in the payment countdown. The countdown starts when Finance declares the payment to students.", "number", { required: true, min: 0, max: 365, unit: "days" }),
         field("latePenaltyPerDay", "Punishment per missed day", "Extra amount charged for every calendar day after the payment expires.", "number", { required: true, min: 0, max: 1000000, step: 0.01, unit: "per day" }),
       ],

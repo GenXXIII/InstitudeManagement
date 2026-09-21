@@ -52,7 +52,7 @@ function PaymentCard({ payment, options, onPaid }: { payment: StudentPayment; op
   const [generating, setGenerating] = useState(false);
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState('');
-  const coverage = payment.paymentPlan === 'Year' ? 'Full year · Semester 1 + Semester 2' : `50% installment · ${payment.semester}`;
+  const coverage = `Semester payment · ${payment.semester}`;
   const provider = options.paymentProviders.find(item => options.dynamicQrBank.toLowerCase().includes(item.name.toLowerCase())) ?? options.paymentProviders[0];
   const receiverBank = options.dynamicQrBank || provider?.name || 'Bakong KHQR';
   const receiverName = options.dynamicQrAccountName || provider?.accountName || 'Account name not configured';
@@ -103,7 +103,7 @@ function PaymentCard({ payment, options, onPaid }: { payment: StudentPayment; op
   }
 
   return <Card style={styles.paymentCard}>
-    <View style={styles.declarationTop}><View style={styles.planPill}><Ionicons name={payment.paymentPlan === 'Year' ? 'layers-outline' : 'calendar-outline'} size={13} color={palette.blue}/><Text style={styles.planText}>Pay as {payment.paymentPlan}</Text></View><Text style={styles.createdText}>{formatDate(payment.declaredAtUtc)}</Text></View>
+    <View style={styles.declarationTop}><View style={styles.planPill}><Ionicons name="calendar-outline" size={13} color={palette.blue}/><Text style={styles.planText}>Semester payment</Text></View><Text style={styles.createdText}>{formatDate(payment.declaredAtUtc)}</Text></View>
     <Text style={styles.declarationTitle}>{payment.title}</Text>
     <Text style={styles.coverage}>{coverage}</Text>
     <Text style={styles.amount}>{money(payment.balance, payment.currency)}</Text>
@@ -141,7 +141,7 @@ function Detail({ label, value }: { label: string; value: string }) {
 function HistoryCard({ payment }: { payment: StudentPayment }) {
   const paid = payment.status === 'Paid';
   return <Card style={[styles.historyCard, paid && styles.historyCardPaid]}>
-    <View style={styles.historyTop}><View style={[styles.historyIcon, paid ? styles.historyIconPaid : styles.historyIconMuted]}><Ionicons name={paid ? 'checkmark-circle-outline' : 'time-outline'} size={21} color={paid ? palette.green : palette.muted}/></View><View style={styles.historyCopy}><Text style={styles.historyTitle}>{payment.title}</Text><Text style={styles.historyPeriod}>{payment.academicYear} · {payment.paymentPlan === 'Year' ? 'Full year' : payment.semester}</Text></View><Text style={[styles.historyStatus, paid && styles.historyStatusPaid]}>{payment.status}</Text></View>
+    <View style={styles.historyTop}><View style={[styles.historyIcon, paid ? styles.historyIconPaid : styles.historyIconMuted]}><Ionicons name={paid ? 'checkmark-circle-outline' : 'time-outline'} size={21} color={paid ? palette.green : palette.muted}/></View><View style={styles.historyCopy}><Text style={styles.historyTitle}>{payment.title}</Text><Text style={styles.historyPeriod}>{payment.academicYear} · {payment.semester}</Text></View><Text style={[styles.historyStatus, paid && styles.historyStatusPaid]}>{payment.status}</Text></View>
     <View style={styles.historyAmount}><Text>{paid ? money(payment.totalPaid, payment.currency) : money(payment.totalDue, payment.currency)}</Text><Text>{formatDate(payment.paidAtUtc ?? payment.expiresAtUtc)}</Text></View>
   </Card>;
 }

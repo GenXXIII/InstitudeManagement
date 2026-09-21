@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Card, EmptyBlock, MetricCard, PortalPage, portalStyles, SectionHeading } from '@/components/portal-ui';
+import { Card, EmptyBlock, PortalPage, SectionHeading } from '@/components/portal-ui';
 import { palette, radius } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
 import type { Announcement } from '../portal-types';
@@ -29,10 +29,6 @@ export function NotificationsScreen({ role }: { role: MobileRole }) {
   if (selected) return <NotificationDetail item={selected} role={role} onBack={() => setSelectedId(null)}/>;
 
   return <PortalPage title="Notifications" subtitle="Institute announcements, attendance notices, results, and urgent updates for your account.">
-    <View style={portalStyles.grid}>
-      <MetricCard icon="mail-unread-outline" label="Unread" value={unread}/>
-      <MetricCard icon="mail-open-outline" label="Read" value={read} tone="green"/>
-    </View>
     <View style={styles.filters}>
       {(['all', 'unread', 'read'] as const).map(value => <Pressable key={value} onPress={() => setFilter(value)} style={[styles.filter, filter === value && { backgroundColor: accent, borderColor: accent }]}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{`${value[0].toUpperCase()}${value.slice(1)} (${filterCounts[value]})`}</Text></Pressable>)}
     </View>

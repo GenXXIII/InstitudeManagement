@@ -31,9 +31,7 @@ public static partial class SettingsCatalog
 
     private static readonly SettingsSectionDefinition FinanceSection = Section("finance",
         Decimal("semesterPrice", "500.00", 0, 1000000),
-        Decimal("yearPrice", "1000.00", 0, 2000000),
         Decimal("otherFee", "0.00", 0, 1000000),
-        Option("defaultPaymentPlan", "Semester", "Semester", "Year"),
         Option("currency", "USD", "USD", "KHR"),
         Integer("paymentDueDays", "14", 0, 365),
         Decimal("latePenaltyPerDay", "0.00", 0, 1000000),

@@ -12,6 +12,9 @@ public sealed class SubmitGradeCommandValidator : IRequestValidator<SubmitGradeC
         if (request.CourseId == Guid.Empty)
             yield return new ValidationError(nameof(request.CourseId), "CourseId is required.");
 
+        if (request.TeacherId == Guid.Empty)
+            yield return new ValidationError(nameof(request.TeacherId), "TeacherId is required.");
+
         foreach (var error in ComponentErrors(nameof(request.AssignmentScore), request.AssignmentScore)) yield return error;
         foreach (var error in ComponentErrors(nameof(request.MidtermScore), request.MidtermScore)) yield return error;
         foreach (var error in ComponentErrors(nameof(request.FinalExamScore), request.FinalExamScore)) yield return error;

@@ -8,7 +8,7 @@ public sealed class SubmitGradeHandler(IGradeService service, ILiveUpdatePublish
 {
     public async Task Handle(SubmitGradeCommand request, CancellationToken cancellationToken)
     {
-        await service.SubmitAsync(request.StudentId, request.CourseId, request.AssignmentScore, request.MidtermScore, request.FinalExamScore, cancellationToken);
-        await publisher.PublishAsync("GRADE_SUBMITTED", new { request.StudentId, request.CourseId, request.AssignmentScore, request.MidtermScore, request.FinalExamScore }, cancellationToken);
+        await service.SubmitAsync(request.StudentId, request.CourseId, request.TeacherId, request.AssignmentScore, request.MidtermScore, request.FinalExamScore, cancellationToken);
+        await publisher.PublishAsync("GRADE_SUBMITTED", new { request.StudentId, request.CourseId, request.TeacherId, request.AssignmentScore, request.MidtermScore, request.FinalExamScore }, cancellationToken);
     }
 }

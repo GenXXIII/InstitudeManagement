@@ -21,4 +21,10 @@ public sealed class ClassSessionStartsController(IClassSessionStartService servi
         Guid teacherId,
         CancellationToken cancellationToken) =>
         Ok(await service.GetTodayAsync(teacherId, cancellationToken));
+
+    [HttpGet("students/{studentId:guid}/today")]
+    public async Task<ActionResult<IReadOnlyList<ClassSessionStartDto>>> GetStudentToday(
+        Guid studentId,
+        CancellationToken cancellationToken) =>
+        Ok(await service.GetTodayForStudentAsync(studentId, cancellationToken));
 }

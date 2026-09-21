@@ -102,6 +102,22 @@ public sealed class ClassSessionStartService(
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ClassSessionStartDto>> GetTodayForStudentAsync(Guid studentId, CancellationToken cancellationToken)
+    {
+        if (studentId == Guid.Empty) throw new ArgumentException("Student is required.", nameof(studentId));
+        var enrollment = await db.StudentEnrollments.AsNoTracking().Where(item => item.StudentId == studentId && item.Status == "Active").OrderByDescending(item => item.CreateAt).FirstOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException("The student does not have an active enrollment.");
+        var scheduleIds = await db.TimetableEnrollments.AsNoTracking().Include(item => item.Course).Include(item => item.ScheduleEntry)
+            .Where(item => item.Status == "Active" && item.YearLevel == enrollment.YearLevel && item.Course!.DepartmentId == enrollment.DepartmentId && item.ScheduleEntry!.Shift == enrollment.Shift)
+            .Select(item => item.ScheduleEntryId).ToListAsync(cancellationToken);
+        var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
+        var sessionDate = DateOnly.FromDateTime(localNow);
+        return await db.ClassSessionStarts.AsNoTracking().Where(item => scheduleIds.Contains(item.ScheduleEntryId) && item.SessionDate == sessionDate)
+            .OrderBy(item => item.StartedAtUtc)
+            .Select(item => new ClassSessionStartDto(item.Id, item.ScheduleEntryId, item.TeacherId, item.SessionDate, item.StartedAtUtc))
+            .ToListAsync(cancellationToken);
+    }
+
     private static ClassSessionStartDto Map(ClassSessionStart item) =>
         new(item.Id, item.ScheduleEntryId, item.TeacherId, item.SessionDate, item.StartedAtUtc);
 }

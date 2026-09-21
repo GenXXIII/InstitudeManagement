@@ -42,8 +42,6 @@ public sealed class FinancialAccountSynchronizer(
         Student student,
         CancellationToken cancellationToken)
     {
-        var annualCoverage = await FindAnnualCoverageAsync(enrollment, cancellationToken);
-        if (annualCoverage is not null) return annualCoverage;
         var local = db.FinancialAccounts.Local.FirstOrDefault(account => account.StudentEnrollmentId == enrollment.Id);
         var existing = local ?? await db.FinancialAccounts.FirstOrDefaultAsync(
             account => account.StudentEnrollmentId == enrollment.Id,
@@ -76,27 +74,9 @@ public sealed class FinancialAccountSynchronizer(
         }
 
         var settings = await settingsReader.GetAsync(cancellationToken);
-        var annualCoverageKeys = (await db.FinancialAccounts.AsNoTracking()
-                .Where(account =>
-                    account.Semester == "Semester 1"
-                    && account.PaymentPlan == "Year"
-                    && account.DeclaredAtUtc != null
-                    && account.Status == "Paid")
-                .Select(account => new { account.StudentId, account.AcademicYear })
-                .ToListAsync(cancellationToken))
-            .Select(account => AnnualCoverageKey(account.StudentId, account.AcademicYear))
-            .ToHashSet(StringComparer.Ordinal);
-        foreach (var localAnnual in db.FinancialAccounts.Local.Where(account =>
-                     account.Semester == "Semester 1"
-                     && account.PaymentPlan == "Year"
-                     && account.DeclaredAtUtc != null
-                     && account.Status == "Paid"))
-            annualCoverageKeys.Add(AnnualCoverageKey(localAnnual.StudentId, localAnnual.AcademicYear));
         var created = 0;
         foreach (var enrollment in enrollments)
         {
-            if (enrollment.Semester == "Semester 2" && annualCoverageKeys.Contains(AnnualCoverageKey(enrollment.StudentId, enrollment.AcademicYear)))
-                continue;
             if (existing.TryGetValue(enrollment.Id, out var account))
             {
                 ApplyPendingFees(account, settings);
@@ -107,27 +87,6 @@ public sealed class FinancialAccountSynchronizer(
             created++;
         }
         return created;
-    }
-
-    private async Task<FinancialAccount?> FindAnnualCoverageAsync(
-        StudentEnrollment enrollment,
-        CancellationToken cancellationToken)
-    {
-        if (enrollment.Semester != "Semester 2") return null;
-        var local = db.FinancialAccounts.Local.FirstOrDefault(account =>
-            account.StudentId == enrollment.StudentId
-            && account.AcademicYear == enrollment.AcademicYear
-            && account.Semester == "Semester 1"
-            && account.PaymentPlan == "Year"
-            && account.DeclaredAtUtc != null
-            && account.Status == "Paid");
-        return local ?? await db.FinancialAccounts.FirstOrDefaultAsync(account =>
-            account.StudentId == enrollment.StudentId
-            && account.AcademicYear == enrollment.AcademicYear
-            && account.Semester == "Semester 1"
-            && account.PaymentPlan == "Year"
-            && account.DeclaredAtUtc != null
-            && account.Status == "Paid", cancellationToken);
     }
 
     private static FinancialAccount Create(
@@ -165,5 +124,4 @@ public sealed class FinancialAccountSynchronizer(
         return $"FIN-{safeCode}";
     }
 
-    private static string AnnualCoverageKey(Guid studentId, string academicYear) => $"{studentId:N}|{academicYear}";
 }
