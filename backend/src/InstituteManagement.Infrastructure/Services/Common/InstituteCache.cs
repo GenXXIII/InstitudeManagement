@@ -5,7 +5,7 @@ namespace InstituteManagement.Infrastructure.Services.Common;
 
 public sealed class InstituteCache(IConnectionMultiplexer? redis = null)
 {
-    private const string DashboardKeyPrefix = "institute:dashboard:v5";
+    private const string DashboardKeyPrefix = "institute:dashboard:v6";
     private static readonly string[] DashboardRanges = ["daily", "weekly", "monthly", "yearly", "all"];
 
     public async Task<T?> ReadDashboardAsync<T>(string range, CancellationToken cancellationToken)

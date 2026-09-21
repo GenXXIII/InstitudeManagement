@@ -10,10 +10,18 @@ public sealed record DashboardDto(
     decimal AttendanceRate,
     decimal AttendanceChange,
     IReadOnlyList<StatusItemDto> LiveStatus,
-    IReadOnlyList<StatusItemDto> TodaySchedule,
     IReadOnlyList<ChartPointDto> AttendanceTrend,
-    IReadOnlyList<ActivityDto> Attention,
-    IReadOnlyList<ActivityDto> Activity,
     IReadOnlyList<StatusItemDto> DepartmentStatus,
     decimal AverageGrade,
-    IReadOnlyList<ChartPointDto> GradeDistribution);
+    IReadOnlyList<ChartPointDto> GradeDistribution,
+    FinanceSummaryDto Finance);
+
+public sealed record FinanceSummaryDto(
+    string Currency,
+    string PeriodLabel,
+    decimal TotalDue,
+    decimal Collected,
+    decimal Outstanding,
+    decimal CollectionRate,
+    int PaidAccounts,
+    int OpenAccounts);

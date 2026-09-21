@@ -35,13 +35,12 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseMiddleware<InstituteManagement.API.Middleware.MaintenanceModeMiddleware>();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
 {
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
 app.MapControllers();
 app.MapHub<InstituteHub>("/hubs/institute");
 app.MapHealthChecks("/health");

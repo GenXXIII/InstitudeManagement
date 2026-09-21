@@ -1,4 +1,4 @@
-import type { Activity, ChartPoint, Metric, StatusItem } from "@/lib/types/presentation-types";
+import type { ChartPoint, Metric, StatusItem } from "@/lib/types/presentation-types";
 
 export type Dashboard = {
   range: DashboardRange;
@@ -10,13 +10,22 @@ export type Dashboard = {
   attendanceRate: number;
   attendanceChange: number;
   liveStatus: StatusItem[];
-  todaySchedule: StatusItem[];
   attendanceTrend: ChartPoint[];
-  attention: Activity[];
-  activity: Activity[];
   departmentStatus: StatusItem[];
   averageGrade: number;
   gradeDistribution: ChartPoint[];
+  finance: FinanceSummary;
+};
+
+export type FinanceSummary = {
+  currency: string;
+  periodLabel: string;
+  totalDue: number;
+  collected: number;
+  outstanding: number;
+  collectionRate: number;
+  paidAccounts: number;
+  openAccounts: number;
 };
 
 export type DashboardRange = "daily" | "weekly" | "monthly" | "yearly" | "all";

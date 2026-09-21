@@ -50,16 +50,16 @@ public sealed class ResultQueryService(InstituteDbContext db) : IResultQueryServ
                 var timetableAttendance = sessionAttendance.Where(item => item.StudentId == student.Id && item.AcademicYear == period.AcademicYear && item.Semester == period.Semester).ToList();
                 var periodGrades = approvedGrades.Where(item => item.StudentId == student.Id && item.AcademicYear == period.AcademicYear && item.Term == period.Semester)
                     .OrderBy(item => item.Course!.CourseCode)
-                    .Select(item => new CourseResultDto(item.CourseId, item.Course?.CourseCode ?? "—", item.Course?.Name ?? "Course", item.Score, item.LetterGrade))
+                    .Select(item => new CourseResultDto(item.CourseId, item.Course?.CourseCode ?? "—", item.Course?.Name ?? "Course", item.Score, item.LetterGrade, true))
                     .Take(SemesterResultRules.ExpectedCourseCount).ToList();
-                var total = periodGrades.Sum(item => item.Score);
-                var average = SemesterResultRules.Average(periodGrades.Select(item => item.Score));
+                var total = periodGrades.Sum(item => item.Score ?? 0m);
+                var average = SemesterResultRules.Average(periodGrades.Select(item => item.Score ?? 0m));
                 var statuses = timetableAttendance.Count > 0 ? timetableAttendance.Select(item => item.Status).ToList() : periodAttendance.Select(item => item.Status).ToList();
                 var absent = statuses.Count(item => item == "Absent");
                 var totalGrade = SemesterResultRules.Outcome(absent, periodGrades.Select(item => item.Grade).ToList(), average, thresholds, autoPercentage);
                 var publicationStatus = publication is not null ? "Published" : periodGrades.Count == SemesterResultRules.ExpectedCourseCount ? "Ready" : "Draft";
                 results.Add(new SemesterResultDto(
-                    student.Id, student.StudentCode, student.FullName, student.DepartmentId ?? Guid.Empty, student.Department?.Name ?? "Unassigned", student.YearLevel,
+                    student.Id, student.StudentCode, student.FullName, student.DepartmentId ?? Guid.Empty, student.Department?.Name ?? "Unassigned", student.YearLevel, student.Shift,
                     period.AcademicYear, period.Semester,
                     statuses.Count(item => item is "Present" or "Late"), absent,
                     statuses.Count(item => item is "Excused" or "Permission"),

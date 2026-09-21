@@ -68,7 +68,7 @@ services:
       context: .
       dockerfile: backend/src/InstituteManagement.API/Dockerfile
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:8080
       Database__UseInMemory: "false"
       ConnectionStrings__Database: "Server=sqlserver,1433;Database=${SQL_DATABASE:-INK_Manangement};User Id=sa;Password=${SQL_PASSWORD:?Set SQL_PASSWORD in .env};TrustServerCertificate=True"

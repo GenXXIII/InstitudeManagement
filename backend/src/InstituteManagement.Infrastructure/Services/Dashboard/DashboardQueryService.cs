@@ -18,7 +18,6 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
         var localNow = await InstituteLocalTime.NowAsync(db, ct);
         var context = DashboardRangeContext.Create(reportingRange, localNow);
         var today = DateOnly.FromDateTime(localNow);
-        var currentDay = localNow.DayOfWeek;
         var utcStart = context.Start?.ToDateTime(TimeOnly.MinValue);
         var utcEndExclusive = today.AddDays(1).ToDateTime(TimeOnly.MinValue);
 
@@ -26,6 +25,7 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
         var teacherCount = await db.Teachers.AsNoTracking().CountAsync(teacher => teacher.Status != "Inactive", ct);
         var courseCount = await db.Courses.AsNoTracking().CountAsync(course => course.IsActive, ct);
         var classroomCount = await db.Classrooms.AsNoTracking().CountAsync(classroom => classroom.Status != "Inactive", ct);
+        var departmentCount = await db.Departments.AsNoTracking().CountAsync(department => department.IsActive, ct);
 
         var attendanceQuery = db.AttendanceRecords.AsNoTracking().Where(record => record.Date <= today);
         if (context.Start.HasValue) attendanceQuery = attendanceQuery.Where(record => record.Date >= context.Start.Value);
@@ -41,10 +41,6 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
         if (utcStart.HasValue) gradeQuery = gradeQuery.Where(grade => grade.UpdatedAtUtc >= utcStart.Value);
         var grades = await gradeQuery.Select(grade => grade.Score).ToListAsync(ct);
 
-        var sessionQuery = db.ClassSessionRecords.AsNoTracking().Where(session => session.SessionDate <= today);
-        if (context.Start.HasValue) sessionQuery = sessionQuery.Where(session => session.SessionDate >= context.Start.Value);
-        var sessionCount = await sessionQuery.CountAsync(ct);
-
         var settings = await db.SystemSettings.AsNoTracking()
             .Where(setting => setting.Section == "academic-year" || setting.Section == "semester" || setting.Section == "grade-rules" || setting.Section == "attendance-rules")
             .ToListAsync(ct);
@@ -54,33 +50,8 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
         var autoPercentage = !bool.TryParse(autoPercentageValue, out var calculatePercentage) || calculatePercentage;
         var gradeScale = GradeThresholds.From(settings.Where(setting => setting.Section == "grade-rules").ToDictionary(setting => setting.Key, setting => setting.Value));
 
-        var scheduleRows = await db.ScheduleEntries.AsNoTracking()
-            .Where(entry => entry.DayOfWeek == currentDay && entry.Status != "Cancelled")
-            .OrderBy(entry => entry.StartsAt)
-            .Take(6)
-            .Select(entry => new { entry.StartsAt, Course = entry.Course!.Name, Classroom = entry.Classroom!.ClassroomCode, entry.Status })
-            .ToListAsync(ct);
-        var schedule = scheduleRows
-            .Select(entry => new StatusItemDto(entry.StartsAt.ToString("HH:mm"), entry.Course, entry.Classroom, entry.Status))
-            .ToList();
-
-        var notificationQuery = db.Notifications.AsNoTracking().Where(notification => !notification.IsRead && notification.CreateAt < utcEndExclusive);
-        if (utcStart.HasValue) notificationQuery = notificationQuery.Where(notification => notification.CreateAt >= utcStart.Value);
-        var notifications = await notificationQuery.OrderByDescending(notification => notification.CreateAt).Take(5)
-            .Select(notification => new ActivityDto(notification.CreateAt.ToString("dd MMM"), notification.Title, notification.Message, notification.Severity.ToLower(), notification.NotificationCode))
-            .ToListAsync(ct);
-
-        var activityQuery = db.AuditLogs.AsNoTracking().Where(log => log.CreateAt < utcEndExclusive);
-        if (utcStart.HasValue) activityQuery = activityQuery.Where(log => log.CreateAt >= utcStart.Value);
-        var activityRows = await activityQuery.OrderByDescending(log => log.CreateAt).Take(7)
-            .Select(log => new { log.CreateAt, log.Action, log.Subject, log.Type })
-            .ToListAsync(ct);
-        var activity = activityRows
-            .Select(log => new ActivityDto(log.CreateAt.ToString("dd MMM · HH:mm"), log.Action, $"{log.Type} · {log.Subject}", "blue"))
-            .ToList();
-
         var departments = await BuildDepartmentStatusAsync(academicYear, term, ct);
-        var present = attendance.Count(record => record.Status is "Present" or "Late");
+        var finance = await BuildFinanceSummaryAsync(academicYear, term, ct);
         var attendanceRate = autoPercentage ? AttendanceRate(attendance) : 0;
         var previousRate = autoPercentage ? AttendanceRate(previousAttendance) : 0;
         var attendanceChange = context.PreviousStart.HasValue ? attendanceRate - previousRate : 0;
@@ -95,9 +66,9 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
             [
                 new("Active students", studentCount.ToString("N0"), "Current institute total"),
                 new("Teaching staff", teacherCount.ToString("N0"), "Current active faculty", "violet"),
-                new("Academic resources", courseCount.ToString("N0"), $"{classroomCount:N0} available classrooms", "cyan"),
-                new("Class sessions", sessionCount.ToString("N0"), $"{context.Label} · {attendance.Count:N0} attendance entries", "green"),
-                new("Grades recorded", grades.Count.ToString("N0"), context.Label, "amber")
+                new("Active courses", courseCount.ToString("N0"), "Academic course catalog", "cyan"),
+                new("Learning spaces", classroomCount.ToString("N0"), "Available classrooms", "green"),
+                new("Departments", departmentCount.ToString("N0"), "Active institute structure", "amber")
             ],
             attendanceRate,
             attendanceChange,
@@ -107,10 +78,7 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
                 new("Absent", attendance.Count(record => record.Status == "Absent").ToString("N0"), "No attendance recorded", "Absent"),
                 new("Permission", attendance.Count(record => record.Status is "Excused" or "Permission").ToString("N0"), "Approved absence", "Excused")
             ],
-            schedule,
             BuildAttendanceTrend(attendance, context, today, autoPercentage),
-            notifications,
-            activity,
             departments,
             averageGrade,
             [
@@ -120,10 +88,48 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
                 new("D", Percentage(grades, gradeScale.D, gradeScale.C)),
                 new("E", Percentage(grades, gradeScale.E, gradeScale.D)),
                 new("F", Percentage(grades, 0, gradeScale.E))
-            ]);
+            ],
+            finance);
 
         await cache.WriteDashboardAsync(reportingRange, result, ct);
         return result;
+    }
+
+    private async Task<FinanceSummaryDto> BuildFinanceSummaryAsync(string academicYear, string term, CancellationToken ct)
+    {
+        var accounts = await db.FinancialAccounts.AsNoTracking()
+            .Where(account =>
+                account.AcademicYear == academicYear
+                && account.Semester == term
+                && account.DeclaredAtUtc.HasValue
+                && account.Status != "Cancelled")
+            .Select(account => new
+            {
+                account.Currency,
+                account.Status,
+                TotalDue = (account.DeclaredAmount ?? account.TuitionFee + account.OtherFee)
+                    + account.AdjustmentAmount
+                    + account.LatePenaltyAmount,
+                TotalPaid = account.Payments
+                    .Where(payment => payment.Status == "Completed")
+                    .Sum(payment => (decimal?)payment.Amount) ?? 0
+            })
+            .ToListAsync(ct);
+
+        var totalDue = accounts.Sum(account => Math.Max(0, account.TotalDue));
+        var collected = accounts.Sum(account => account.TotalPaid);
+        var outstanding = accounts.Sum(account => Math.Max(0, account.TotalDue - account.TotalPaid));
+        var collectionRate = totalDue <= 0 ? 0 : Math.Round(Math.Min(100, collected * 100 / totalDue), 1);
+
+        return new FinanceSummaryDto(
+            accounts.FirstOrDefault()?.Currency ?? "USD",
+            $"{academicYear} · {term}",
+            totalDue,
+            collected,
+            outstanding,
+            collectionRate,
+            accounts.Count(account => account.Status == "Paid"),
+            accounts.Count(account => account.Status != "Paid"));
     }
 
     private async Task<IReadOnlyList<StatusItemDto>> BuildDepartmentStatusAsync(string academicYear, string term, CancellationToken ct)

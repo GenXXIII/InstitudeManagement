@@ -129,29 +129,29 @@
 }
 @media (max-width:1250px){
   .dashboard-metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .dashboard-priority-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .dashboard-trend-card,.dashboard-schedule-card,.dashboard-activity-card{grid-column:span 7}
-  .dashboard-breakdown-card,.dashboard-department-card,.dashboard-grade-card{grid-column:span 5}
 }
 @media (max-width:900px){
-  .dashboard-header{align-items:flex-start;flex-direction:column}
-  .dashboard-header-actions{width:100%}
-  .dashboard-period-control{flex:1}
+  .dashboard-hero{min-height:0;align-items:stretch;flex-direction:column;padding:25px}
+  .dashboard-hero-controls{width:100%;display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:16px}
+  .dashboard-updated{margin:0;border-top:0;border-left:1px solid rgba(255,255,255,.1);padding:0 0 0 16px}
   .dashboard-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .dashboard-section-grid>article{grid-column:1/-1!important}
-  .dashboard-section-heading{align-items:flex-start;flex-direction:column;gap:6px}
-  .dashboard-section-heading p{text-align:left}
+  .dashboard-bento>article{grid-column:1/-1}
 }
 @media (max-width:560px){
-  .dashboard-header h1{font-size:25px}
-  .dashboard-header-actions{align-items:stretch;flex-direction:column}
+  .dashboard-page{gap:12px}
+  .dashboard-hero{border-radius:18px;padding:21px 18px}
+  .dashboard-hero h1{font-size:28px}
+  .dashboard-hero-meta{align-items:flex-start;flex-direction:column}
+  .dashboard-hero-controls{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+  .dashboard-updated{border-top:1px solid rgba(255,255,255,.1);border-left:0;padding:10px 0 0}
   .dashboard-metric-grid{grid-template-columns:1fr}
-  .dashboard-priority-strip{grid-template-columns:1fr}
-  .dashboard-metric{min-height:96px}
+  .dashboard-metric{min-height:116px}
   .dashboard-card{padding:15px}
-  .dashboard-trend-card{min-height:350px}
+  .dashboard-trend-card{min-height:390px}
   .dashboard-card-heading{flex-direction:column}
-  .dashboard-attention-card .activity-list{grid-template-columns:1fr}
+  .dashboard-status-list{grid-template-columns:1fr 1fr}
+  .dashboard-finance-values{grid-template-columns:1fr}
+  .dashboard-department-summary{grid-template-columns:1fr}
 }
 @media (max-width:1000px){
   .management-timetable-controls{grid-template-columns:1fr}
