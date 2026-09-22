@@ -19,8 +19,8 @@ public sealed class TeacherManagementService(InstituteDbContext db, InstituteCac
     {
         var code = await ConfiguredCodeAsync(values, "teacherCode", "teacher", ct); values["teacherCode"] = code;
         await EnsureUniqueCodeAsync(Db.Teachers.Select(teacher => teacher.TeacherCode), code, "TeacherCode", ct);
-        var entity = new Teacher { TeacherCode = code, FullName = Required(values, "name"), Email = Email(values, "email"), PhotoDataUrl = Required(values, "photoDataUrl"), DepartmentId = null, Status = "Available" };
-        entity.PublicId = PublicAccessId.ForTeacher(entity.Id); values["publicId"] = entity.PublicId;
+        var entity = new Teacher { TeacherCode = code, PublicId = string.Empty, FullName = Required(values, "name"), Email = Email(values, "email"), PhotoDataUrl = Required(values, "photoDataUrl"), DepartmentId = null, Status = "Available" };
+        values["publicId"] = string.Empty;
         return await SaveCreatedAsync(entity, values, ct);
     }
     public override async Task<TeacherResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)

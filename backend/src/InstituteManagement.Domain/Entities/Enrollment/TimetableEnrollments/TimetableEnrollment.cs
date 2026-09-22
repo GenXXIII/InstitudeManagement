@@ -3,6 +3,9 @@ namespace InstituteManagement.Domain.Entities;
 public sealed class TimetableEnrollment : Entity
 {
     public string EnrollmentCode { get; set; } = string.Empty;
+    public string OperationCode { get; set; } = string.Empty;
+    public string RecordCode { get; set; } = string.Empty;
+    public string HistoryCode { get; set; } = string.Empty;
     public Guid ScheduleEntryId { get; set; }
     public ScheduleEntry? ScheduleEntry { get; set; }
     public Guid CourseId { get; set; }

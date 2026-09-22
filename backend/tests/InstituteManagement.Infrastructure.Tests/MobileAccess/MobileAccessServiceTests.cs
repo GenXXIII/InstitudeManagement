@@ -10,7 +10,7 @@ namespace InstituteManagement.Infrastructure.Tests.MobileAccess;
 public sealed class MobileAccessServiceTests
 {
     [Fact]
-    public async Task Creating_student_assigns_public_id_automatically()
+    public async Task Creating_management_student_does_not_assign_mobile_public_id()
     {
         await using var db = CreateContext();
         var values = new Dictionary<string, string>
@@ -23,7 +23,7 @@ public sealed class MobileAccessServiceTests
 
         var created = await new StudentManagementService(db, new InstituteCache()).CreateAsync(values, CancellationToken.None);
 
-        Assert.StartsWith("STU-", created.Values.PublicId);
+        Assert.Equal(string.Empty, created.Values.PublicId);
         Assert.Equal(created.Values.PublicId, (await db.Students.SingleAsync()).PublicId);
     }
 
@@ -32,15 +32,19 @@ public sealed class MobileAccessServiceTests
     {
         await using var db = CreateContext();
         var student = new Student { StudentCode = "STU-1", FullName = "Student One" };
-        student.PublicId = PublicAccessId.ForStudent(student.Id);
-        db.Students.Add(student);
+        var enrollment = new StudentEnrollment { EnrollmentCode = "ENR-1-STU-1", StudentId = student.Id, Student = student, DepartmentId = Guid.NewGuid(), AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" };
+        enrollment.PublicId = PublicAccessId.ForStudentEnrollment(enrollment.Id);
+        db.AddRange(student, enrollment,
+            new SystemSetting { Section = "academic-year", Key = "currentYear", Value = "2026–2027" },
+            new SystemSetting { Section = "semester", Key = "currentTerm", Value = "Semester 1" });
         await db.SaveChangesAsync();
 
-        var session = await new MobileAccessService(db).SignInAsync(student.PublicId.ToLowerInvariant(), "1234", CancellationToken.None);
+        var session = await new MobileAccessService(db).SignInAsync(enrollment.PublicId.ToLowerInvariant(), "1234", CancellationToken.None);
 
         Assert.NotNull(session);
+        Assert.Equal($"STU-{enrollment.Id:N}".ToUpperInvariant(), enrollment.PublicId);
         Assert.Equal("student", session.Role);
-        Assert.Equal(student.PublicId, session.PublicId);
+        Assert.Equal(enrollment.PublicId, session.PublicId);
         Assert.Equal(student.Id, session.ProfileId);
     }
 

@@ -6,6 +6,8 @@ import {
   enrollmentCopy,
 } from "../enrollment-workspace-model";
 
+const primaryColumns = new Set(["Name", "Student", "Teacher", "Course", "Classroom", "Department", "Day / time"]);
+
 export function EnrollmentRow({ resource, item, onEdit, onRemove }: {
   resource: EnrollmentResource;
   item: EnrollmentDisplayItem;
@@ -18,7 +20,7 @@ export function EnrollmentRow({ resource, item, onEdit, onRemove }: {
     {cells.map((cell, index) => {
       const column = enrollmentCopy[resource].columns[index];
       const relationship = column === "Assigned course" || column === "Assigned courses" || column === "Year levels";
-      const className = [index === 1 ? "horizontal-primary" : "horizontal-detail", relationship ? "enrollment-relationship-cell" : ""].filter(Boolean).join(" ");
+      const className = [primaryColumns.has(column) ? "horizontal-primary" : "horizontal-detail", relationship ? "enrollment-relationship-cell" : ""].filter(Boolean).join(" ");
       return <ManagementDataCell label={column} className={className} key={`${item.id}-${index}`}>
         {index === 0
           ? <strong className="management-code-value" title={cell}>{cell}</strong>

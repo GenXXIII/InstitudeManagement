@@ -44,7 +44,7 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
             .Where(enrollment =>
                 (!departmentId.HasValue || enrollment.DepartmentId == departmentId)
                 && (!year.HasValue || enrollment.YearLevel == year)
-                && Matches(search, enrollment.EnrollmentCode, studentById[enrollment.StudentId].StudentCode, studentById[enrollment.StudentId].PublicId, studentById[enrollment.StudentId].FullName, enrollment.Department?.Name))
+                && Matches(search, enrollment.EnrollmentCode, studentById[enrollment.StudentId].StudentCode, enrollment.PublicId, studentById[enrollment.StudentId].FullName, enrollment.Department?.Name))
             .Select(enrollment =>
             {
                 var student = studentById[enrollment.StudentId];
@@ -52,7 +52,7 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
                     student.Id,
                     ("enrollmentCode", enrollment.EnrollmentCode),
                     ("studentCode", student.StudentCode),
-                    ("publicId", student.PublicId),
+                    ("publicId", enrollment.PublicId),
                     ("name", student.FullName),
                     ("email", student.Email),
                     ("photoDataUrl", student.PhotoDataUrl),

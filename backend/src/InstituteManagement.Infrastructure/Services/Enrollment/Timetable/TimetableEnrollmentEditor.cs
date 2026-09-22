@@ -39,11 +39,15 @@ internal sealed class TimetableEnrollmentEditor(
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
-        var enrollmentCode = await BusinessCodeFormatter.DeriveAsync(db, entry.TimetableCode, "timetable", "enrollment", cancellationToken);
         if (enrollment is null)
         {
+            var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, entry.TimetableCode, "timetable", id, cancellationToken);
             enrollment = new TimetableEnrollment
             {
+                EnrollmentCode = codes.Enrollment,
+                OperationCode = codes.Operation,
+                RecordCode = codes.Record,
+                HistoryCode = codes.History,
                 ScheduleEntryId = id,
                 AcademicYear = period.AcademicYear,
                 Semester = period.Semester
@@ -51,7 +55,6 @@ internal sealed class TimetableEnrollmentEditor(
             db.TimetableEnrollments.Add(enrollment);
         }
 
-        enrollment.EnrollmentCode = enrollmentCode;
         enrollment.CourseId = courseId;
         enrollment.Course = validated.Course;
         enrollment.TeacherId = teacherId;

@@ -39,14 +39,14 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
             var completed = sessions.Where(x => x.ClassroomId == room.Id).OrderByDescending(x => x.UpdatedAtUtc).ToList();
             var assignmentEvents = assignments.Where(x => x.ClassroomId == room.Id).Select(assignment =>
             {
-                var codes = codeFormat.Chain(room.ClassroomCode, assignment.EnrollmentCode, "classroom");
+                var codes = codeFormat.Chain(room.ClassroomCode, assignment.EnrollmentCode, assignment.OperationCode, assignment.RecordCode, assignment.HistoryCode, "classroom");
                 var schedules = timetableEnrollments.Where(x => x.ScheduleEntry?.ClassroomId == room.Id && x.AcademicYear == assignment.AcademicYear && x.Semester == assignment.Semester && x.Status == "Active").Select(x => x.ScheduleEntry!).ToList();
                 var courseNames = schedules.Select(x => x.Course?.Name ?? "Course").Distinct().OrderBy(x => x).ToList();
                 var years = schedules.Select(x => $"Year {x.YearLevel}").Distinct().OrderBy(x => x).ToList();
                 return (assignment.UpdatedAtUtc, Create(
                     ("Activity", "Classroom assignment"),
                     ("Management code", codes.Management), ("Enrollment code", codes.Enrollment),
-                    ("Operation code", codes.Operation), ("Record code", codes.Record), ("Permanent code", codes.Management),
+                    ("Operation code", codes.Operation), ("Record code", codes.Record), ("History code", codes.History), ("Permanent code", codes.Management),
                     ("Academic year", assignment.AcademicYear), ("Term", assignment.Semester),
                     ("Date", assignment.UpdatedAtUtc.ToString("yyyy-MM-dd")), ("Time", assignment.UpdatedAtUtc.ToString("HH:mm")),
                     ("Year", years.Count == 0 ? "Not scheduled" : string.Join(", ", years)),
@@ -76,11 +76,11 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
             };
             var recordSource = assignments.Where(x => x.ClassroomId == room.Id)
                 .OrderByDescending(x => x.AcademicYear).ThenByDescending(x => x.Semester)
-                .Select(x => codeFormat.Chain(room.ClassroomCode, x.EnrollmentCode, "classroom").Operation)
+                .Select(x => string.IsNullOrWhiteSpace(x.RecordCode) ? codeFormat.Chain(room.ClassroomCode, x.EnrollmentCode, "classroom").Record : x.RecordCode)
                 .FirstOrDefault() ?? room.ClassroomCode;
             return new OperationalRecordDto(room.Id, "Classroom", room.ClassroomCode, $"{room.RoomType} · {room.Building}", status,
                 $"{completed.Count} recorded timetable periods", events.Count == 0 ? null : events[0].Item1,
-                events.Select(x => x.Item2).ToList(), Code: codeFormat.Derive(recordSource, "classroom", "record"), Department: room.Building, ResourceId: room.Id);
+                events.Select(x => x.Item2).ToList(), Code: recordSource, Department: room.Building, ResourceId: room.Id);
         }).ToList();
     }
 

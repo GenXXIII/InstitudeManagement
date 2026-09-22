@@ -16,6 +16,9 @@ public sealed class CourseAssignmentConfiguration : IEntityTypeConfiguration<Cou
         builder.HasIndex(x => new { x.DepartmentId, x.YearLevel });
         builder.HasIndex(x => x.TeacherId);
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.OperationCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.RecordCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.HistoryCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Semester).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();

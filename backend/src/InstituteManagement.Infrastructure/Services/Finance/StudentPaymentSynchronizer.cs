@@ -1,5 +1,6 @@
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Finance;
@@ -53,7 +54,8 @@ public sealed class FinancialAccountSynchronizer(
             return existing;
         }
 
-        var account = Create(enrollment, student, settings);
+        var financeCode = await FinanceCodeAsync(enrollment, student, cancellationToken);
+        var account = Create(enrollment, settings, financeCode);
         db.FinancialAccounts.Add(account);
         return account;
     }
@@ -83,7 +85,8 @@ public sealed class FinancialAccountSynchronizer(
                 continue;
             }
 
-            db.FinancialAccounts.Add(Create(enrollment, enrollment.Student!, settings));
+            var financeCode = await FinanceCodeAsync(enrollment, enrollment.Student!, cancellationToken);
+            db.FinancialAccounts.Add(Create(enrollment, settings, financeCode));
             created++;
         }
         return created;
@@ -91,12 +94,12 @@ public sealed class FinancialAccountSynchronizer(
 
     private static FinancialAccount Create(
         StudentEnrollment enrollment,
-        Student student,
-        FinanceSettings settings)
+        FinanceSettings settings,
+        string financeCode)
     {
         return new FinancialAccount
         {
-            FinancialAccountCode = FinancialAccountCode(student.StudentCode),
+            FinancialAccountCode = financeCode,
             StudentEnrollmentId = enrollment.Id,
             StudentId = enrollment.StudentId,
             AcademicYear = enrollment.AcademicYear,
@@ -109,19 +112,20 @@ public sealed class FinancialAccountSynchronizer(
         };
     }
 
+    private async Task<string> FinanceCodeAsync(StudentEnrollment enrollment, Student student, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(enrollment.FinanceCode)) return enrollment.FinanceCode;
+        var code = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", enrollment.EnrollmentCode, "financeCodePrefix", "FIN", cancellationToken);
+        if (db.Entry(enrollment).State != EntityState.Detached) enrollment.FinanceCode = code;
+        return code;
+    }
+
     private static void ApplyPendingFees(FinancialAccount account, FinanceSettings settings)
     {
         if (account.Status != "Pending" || account.DeclaredAtUtc.HasValue) return;
         account.TuitionFee = settings.TuitionFee;
         account.OtherFee = settings.OtherFee;
         account.Currency = settings.Currency;
-    }
-
-    private static string FinancialAccountCode(string studentCode)
-    {
-        var safeCode = studentCode.Trim();
-        if (safeCode.Length > 52) safeCode = safeCode[..52];
-        return $"FIN-{safeCode}";
     }
 
 }

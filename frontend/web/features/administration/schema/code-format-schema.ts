@@ -3,21 +3,21 @@ import { field, options } from "./schema-helpers";
 
 const stages = ["management", "enrollment", "operation", "record", "history"] as const;
 const resources = [
-  ["student", "Student", ["STU", "ESTU", "OPE", "REC", "HIS"]],
-  ["teacher", "Teacher", ["TEA", "ETEA", "OPE", "REC", "HIS"]],
-  ["department", "Department", ["DEP", "EDEP", "OPE", "REC", "HIS"]],
-  ["course", "Course", ["COU", "ECOU", "OPE", "REC", "HIS"]],
-  ["classroom", "Classroom", ["CLA", "ECLA", "OPE", "REC", "HIS"]],
-  ["timetable", "Timetable", ["TIM", "ETIM", "OPE", "REC", "HIS"]],
-  ["attendance", "Attendance", ["ATT", "EATT", "OPE", "REC", "HIS"]],
-  ["grade", "Grade", ["GRD", "EGRD", "OPE", "REC", "HIS"]],
-  ["session", "Class session", ["SES", "ESES", "OPE", "REC", "HIS"]],
+  ["student", "Student", ["STU", "ENR", "OPE", "REC", "HIS"]],
+  ["teacher", "Teacher", ["TEA", "ENR", "OPE", "REC", "HIS"]],
+  ["department", "Department", ["DEP", "ENR", "OPE", "REC", "HIS"]],
+  ["course", "Course", ["COU", "ENR", "OPE", "REC", "HIS"]],
+  ["classroom", "Classroom", ["CLA", "ENR", "OPE", "REC", "HIS"]],
+  ["timetable", "Timetable", ["TIM", "ENR", "OPE", "REC", "HIS"]],
+  ["attendance", "Attendance", ["ATT", "ENR", "OPE", "REC", "HIS"]],
+  ["grade", "Grade", ["GRD", "ENR", "OPE", "REC", "HIS"]],
+  ["session", "Class session", ["SES", "ENR", "OPE", "REC", "HIS"]],
 ] as const;
 
 export const codeFormatGroups: readonly ConfigurationGroup[] = [
   {
     title: "Shared linked-code format",
-    description: "Management and Alert forms format the sequence you enter; the API then validates it and automatically builds linked stage codes with the same sequence.",
+    description: "Management codes use the assigned sequence. Enrollment-linked codes save the enrollment occurrence before the permanent Management code, such as REC-2-STU-1.",
     fields: [
       field("codeIncludeYear", "Include year", "Place the active academic year's first year inside the Management code.", "toggle"),
       field("codeStartingNumber", "Starting number", "Initial sequence shown in previews and used by records that the backend creates automatically.", "number", { required: true, min: 0, max: 999999999999 }),
@@ -33,6 +33,20 @@ export const codeFormatGroups: readonly ConfigurationGroup[] = [
       field(`${resource}${capitalize(stage)}Example`, `${capitalize(stage)} example`, "Preview of the backend-generated linked code.", "derived", { derive: values => example(values, resource, stage, prefixes) }),
     ]),
   })),
+  {
+    title: "Enrollment-scoped access and outcome codes",
+    description: "Finance and Result codes use the saved enrollment occurrence and Management code. Public IDs use the Enrollment database GUID. New settings affect only values created afterward.",
+    fields: [
+      field("financeCodePrefix", "Finance prefix", "Prefix for a Student finance account linked to one enrollment.", "text", { required: true }),
+      field("financeCodeExample", "Finance example", "Example: FIN-1-STU-1.", "derived", { derive: values => enrollmentScopedExample(values, "financeCodePrefix", "FIN", "studentManagementPrefix", "STU") }),
+      field("resultCodePrefix", "Academic Result prefix", "Prefix for one Student semester result.", "text", { required: true }),
+      field("resultCodeExample", "Academic Result example", "Example: RES-1-STU-1.", "derived", { derive: values => enrollmentScopedExample(values, "resultCodePrefix", "RES", "studentManagementPrefix", "STU") }),
+      field("studentPublicIdPrefix", "Student Public ID prefix", "Issued only when the Student is enrolled and joined to the Enrollment database GUID.", "text", { required: true }),
+      field("studentPublicIdExample", "Student Public ID example", "Enrollment-scoped mobile sign-in identity, such as STU-{GUID}.", "derived", { derive: values => publicIdExample(values, "studentPublicIdPrefix", "STU") }),
+      field("teacherPublicIdPrefix", "Teacher Public ID prefix", "Issued only when the Teacher is assigned in Enrollment.", "text", { required: true }),
+      field("teacherPublicIdExample", "Teacher Public ID example", "Enrollment-scoped mobile sign-in identity.", "derived", { derive: values => enrollmentScopedExample(values, "teacherPublicIdPrefix", "TID", "teacherManagementPrefix", "TEA") }),
+    ],
+  },
   {
     title: "Alert, notification, and history codes",
     description: "Alerts and system notifications keep separate identities while using the shared year, padding, and separator configured above.",
@@ -58,7 +72,23 @@ function example(values: Record<string, string>, resource: string, stage: typeof
   if (stage === "management") return managementCode;
   const stageIndex = stages.indexOf(stage);
   const stagePrefix = values[`${resource}${capitalize(stage)}Prefix`]?.trim().toUpperCase() || fallbacks[stageIndex];
-  return `${managementCode}${separator}${stagePrefix}${separator}${sequence}`;
+  const occurrence = "1".padStart(width, "0");
+  return `${stagePrefix}${separator}${occurrence}${separator}${managementCode}`;
+}
+
+function enrollmentScopedExample(values: Record<string, string>, prefixKey: string, fallbackPrefix: string, managementPrefixKey: string, fallbackManagementPrefix: string) {
+  const separator = ["-", "/", ".", "_"].includes(values.codeSeparator) ? values.codeSeparator : "-";
+  const width = Math.min(12, Math.max(1, Number(values.codePaddingWidth) || 1));
+  const managementSequence = (/^\d+$/.test(values.codeStartingNumber || "") ? values.codeStartingNumber : "1").padStart(width, "0");
+  const occurrence = "1".padStart(width, "0");
+  const year = values.codeIncludeYear === "true" ? `${new Date().getFullYear()}${separator}` : "";
+  const management = `${values[managementPrefixKey]?.trim().toUpperCase() || fallbackManagementPrefix}${separator}${year}${managementSequence}`;
+  return `${values[prefixKey]?.trim().toUpperCase() || fallbackPrefix}${separator}${occurrence}${separator}${management}`;
+}
+
+function publicIdExample(values: Record<string, string>, prefixKey: string, fallbackPrefix: string) {
+  const prefix = values[prefixKey]?.trim().toUpperCase() || fallbackPrefix;
+  return `${prefix}-550e8400e29b41d4a716446655440000`;
 }
 
 function standaloneExample(values: Record<string, string>, prefixKey: string, fallback: string) {

@@ -5,6 +5,7 @@ public sealed record CourseResultDto(Guid CourseId, string CourseCode, string Na
 public sealed record SemesterResultDto(
     Guid StudentId,
     string StudentCode,
+    string ResultCode,
     string FullName,
     Guid DepartmentId,
     string Department,

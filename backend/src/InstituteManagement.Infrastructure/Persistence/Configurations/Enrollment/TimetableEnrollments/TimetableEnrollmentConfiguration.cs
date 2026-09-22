@@ -14,6 +14,9 @@ public sealed class TimetableEnrollmentConfiguration : IEntityTypeConfiguration<
         builder.HasIndex(x => new { x.AcademicYear, x.Semester, x.Status })
             .IncludeProperties(x => new { x.ScheduleEntryId, x.EnrollmentCode });
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.OperationCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.RecordCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.HistoryCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.YearLevel).HasDefaultValue(1).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Semester).HasMaxLength(32).IsRequired();

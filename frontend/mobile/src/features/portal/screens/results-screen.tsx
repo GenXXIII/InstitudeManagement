@@ -121,7 +121,7 @@ function TeacherAssessment() {
 
   async function saveStudent(student: StudentItem) {
     const existing = gradeFor(portal.grades, student.id, courseId);
-    if (existing && existing.values.reviewStatus !== 'ResubmitAuthorized') {
+    if (existing && !canSubmitGrade(existing)) {
       const message = existing.values.reviewStatus === 'Approved' ? 'This grade is confirmed and locked.' : existing.values.reviewStatus === 'Rejected' ? 'Ask Administrator for permission to refill and resubmit this score.' : existing.values.reviewStatus === 'ResubmitRequested' ? 'Your resubmission request is waiting for Administrator permission.' : 'This submission is waiting for Administrator review.';
       Alert.alert('Administrator review', message);
       return;
@@ -143,7 +143,7 @@ function TeacherAssessment() {
   }
 
   async function saveAll() {
-    const eligible = roster.filter(student => { const existing = gradeFor(portal.grades, student.id, courseId); return !existing || existing.values.reviewStatus === 'ResubmitAuthorized'; });
+    const eligible = roster.filter(student => canSubmitGrade(gradeFor(portal.grades, student.id, courseId)));
     const payloads = eligible.map(payloadFor);
     if (!payloads.length || payloads.some(item => !item.complete)) {
       Alert.alert('Complete the roster', 'Every student needs Assignment, Midterm, and Final Term scores before Submit all is available. Your current work remains saved as drafts.');
@@ -161,7 +161,7 @@ function TeacherAssessment() {
     }
   }
 
-  const eligibleRoster = roster.filter(student => { const existing = gradeFor(portal.grades, student.id, courseId); return !existing || existing.values.reviewStatus === 'ResubmitAuthorized'; });
+  const eligibleRoster = roster.filter(student => canSubmitGrade(gradeFor(portal.grades, student.id, courseId)));
   const readyCount = eligibleRoster.filter(student => payloadFor(student).complete).length;
   const draftCount = Object.values(drafts).filter(draft => Object.values(draft).some(Boolean)).length;
   const allReady = eligibleRoster.length > 0 && readyCount === eligibleRoster.length && draftsLoaded;
@@ -194,7 +194,8 @@ function TeacherAssessment() {
       <SectionHeading title={selected?.values.course ?? 'Course'} detail={`${roster.length} students`}/>
       <View style={portalStyles.stack}>{roster.map(student => {
         const existing = gradeFor(portal.grades, student.id, courseId);
-        const canSubmit = !existing || existing.values.reviewStatus === 'ResubmitAuthorized';
+        const canSubmit = canSubmitGrade(existing);
+        const canRequest = canRequestNewSubmission(existing);
         const values = valuesFor(student);
         const ready = payloadFor(student).complete;
         const hasDraft = Object.values(drafts[student.id] ?? {}).some(Boolean);
@@ -207,7 +208,7 @@ function TeacherAssessment() {
             <ComponentInput disabled={!canSubmit} label="Midterm" maximum={portal.gradeWeights.midterm} value={values.midterm} onChange={value => changeScore(student.id, 'midterm', value)}/>
             <ComponentInput disabled={!canSubmit} label="Final Term" maximum={portal.gradeWeights.finalExam} value={values.finalExam} onChange={value => changeScore(student.id, 'finalExam', value)}/>
           </View>
-          <View style={styles.studentActions}><View style={styles.savedState}><Ionicons name={canSubmit && hasDraft ? 'cloud-done-outline' : existing?.values.reviewStatus === 'Approved' ? 'checkmark-circle-outline' : 'ellipse-outline'} size={14} color={existing?.values.reviewStatus === 'Approved' ? palette.green : palette.blue}/><Text>{existing?.values.reviewStatus === 'Pending' ? 'Waiting for Administrator' : existing?.values.reviewStatus === 'Approved' ? 'Confirmed by Administrator' : existing?.values.reviewStatus === 'Rejected' ? 'Resubmit permission required' : existing?.values.reviewStatus === 'ResubmitRequested' ? 'Permission request pending' : existing?.values.reviewStatus === 'ResubmitAuthorized' ? hasDraft ? 'Refill draft saved' : ready ? 'Ready to resubmit' : 'Refill scores' : hasDraft ? 'Draft saved' : ready ? 'Ready' : 'Scores incomplete'}</Text></View>{existing?.values.reviewStatus === 'Rejected' ? <Pressable onPress={() => void requestResubmission(existing)} disabled={requestingId === existing.id} style={styles.requestResubmit}><Text style={styles.requestResubmitText}>{requestingId === existing.id ? 'Requesting…' : 'Ask to resubmit'}</Text></Pressable> : <Pressable onPress={() => void saveStudent(student)} disabled={!canSubmit || !ready || savingId === student.id || savingAll} style={[styles.saveButton, (!canSubmit || !ready || savingId === student.id || savingAll) && styles.buttonDisabled]}><Text style={styles.saveText}>{savingId === student.id ? 'Submitting…' : existing?.values.reviewStatus === 'ResubmitAuthorized' ? 'Resubmit student' : 'Submit student'}</Text></Pressable>}</View>
+          <View style={styles.studentActions}><View style={styles.savedState}><Ionicons name={canSubmit && hasDraft ? 'cloud-done-outline' : existing?.values.reviewStatus === 'Approved' ? 'checkmark-circle-outline' : 'ellipse-outline'} size={14} color={existing?.values.reviewStatus === 'Approved' ? palette.green : palette.blue}/><Text>{existing?.values.reviewStatus === 'Pending' ? 'Waiting for Administrator' : existing?.values.reviewStatus === 'Approved' ? 'Confirmed by Administrator' : existing?.values.reviewStatus === 'Rejected' ? 'Resubmit permission required' : existing?.values.reviewStatus === 'ResubmitRequested' ? 'Permission request pending' : existing?.values.reviewStatus === 'ResubmitAuthorized' ? hasDraft ? 'Refill draft saved' : ready ? 'Ready to resubmit' : 'Refill scores' : hasDraft ? 'Draft saved' : ready ? 'Ready' : 'Scores incomplete'}</Text></View>{canRequest && existing ? <Pressable onPress={() => void requestResubmission(existing)} disabled={requestingId === existing.id} style={styles.requestResubmit}><Text style={styles.requestResubmitText}>{requestingId === existing.id ? 'Requesting…' : 'Ask permission for new submit'}</Text></Pressable> : <Pressable onPress={() => void saveStudent(student)} disabled={!canSubmit || !ready || savingId === student.id || savingAll} style={[styles.saveButton, (!canSubmit || !ready || savingId === student.id || savingAll) && styles.buttonDisabled]}><Text style={styles.saveText}>{savingId === student.id ? 'Submitting…' : existing?.values.reviewStatus === 'ResubmitAuthorized' ? 'Resubmit student' : 'Submit student'}</Text></Pressable>}</View>
         </Card>;
       })}</View>
     </> : <EmptyBlock icon="book-outline" title="No assigned course" detail="Administrator must connect this Teacher to a course in Timetable Enrollment before assessments can be submitted."/>}
@@ -255,6 +256,15 @@ function ResultComponent({ label, score, maximum, detail }: { label: string; sco
 
 function gradeFor(grades: GradeItem[], studentId: string, courseId: string) {
   return grades.find(item => item.values.studentId === studentId && item.values.courseId === courseId);
+}
+
+function canSubmitGrade(item: GradeItem | undefined) {
+  return !item || !item.values.submittedByTeacherId || item.values.reviewStatus === 'ResubmitAuthorized';
+}
+
+function canRequestNewSubmission(item: GradeItem | undefined) {
+  if (!item?.values.submittedByTeacherId) return false;
+  return ['Pending', 'Approved', 'Rejected'].includes(item.values.reviewStatus);
 }
 
 function formatAttendanceDate(value: string) {

@@ -25,11 +25,16 @@ internal sealed class TeacherAssignmentEditor(InstituteDbContext db, TeacherAssi
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
-        var enrollmentCode = await BusinessCodeFormatter.DeriveAsync(db, teacher.TeacherCode, "teacher", "enrollment", cancellationToken);
         if (assignment is null)
         {
+            var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, teacher.TeacherCode, "teacher", id, cancellationToken);
             assignment = new TeacherAssignment
             {
+                EnrollmentCode = codes.Enrollment,
+                PublicId = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, teacher.TeacherCode, "teacher", codes.Enrollment, "teacherPublicIdPrefix", "TID", cancellationToken),
+                OperationCode = codes.Operation,
+                RecordCode = codes.Record,
+                HistoryCode = codes.History,
                 TeacherId = id,
                 AcademicYear = period.AcademicYear,
                 Semester = period.Semester
@@ -43,7 +48,6 @@ internal sealed class TeacherAssignmentEditor(InstituteDbContext db, TeacherAssi
         }
 
         assignment.DepartmentId = departmentId;
-        assignment.EnrollmentCode = enrollmentCode;
         assignment.Status = Choice(
             values,
             "status",
@@ -62,6 +66,7 @@ internal sealed class TeacherAssignmentEditor(InstituteDbContext db, TeacherAssi
             id,
             ("enrollmentCode", assignment.EnrollmentCode),
             ("teacherCode", teacher.TeacherCode),
+            ("publicId", assignment.PublicId),
             ("name", teacher.FullName),
             ("departmentId", departmentId?.ToString() ?? ""),
             ("status", assignment.Status),

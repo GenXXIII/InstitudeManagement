@@ -26,11 +26,15 @@ internal sealed class ClassroomAssignmentEditor(InstituteDbContext db)
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
-        var enrollmentCode = await BusinessCodeFormatter.DeriveAsync(db, room.ClassroomCode, "classroom", "enrollment", cancellationToken);
         if (assignment is null)
         {
+            var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, room.ClassroomCode, "classroom", id, cancellationToken);
             assignment = new ClassroomAssignment
             {
+                EnrollmentCode = codes.Enrollment,
+                OperationCode = codes.Operation,
+                RecordCode = codes.Record,
+                HistoryCode = codes.History,
                 ClassroomId = id,
                 AcademicYear = period.AcademicYear,
                 Semester = period.Semester
@@ -39,7 +43,6 @@ internal sealed class ClassroomAssignmentEditor(InstituteDbContext db)
         }
 
         assignment.DepartmentId = departmentId;
-        assignment.EnrollmentCode = enrollmentCode;
         assignment.Capacity = capacity;
         assignment.Access = Choice(
             values,

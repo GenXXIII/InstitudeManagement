@@ -14,6 +14,14 @@ public sealed class AcademicCalendarRolloverServiceTests
     {
         await using var db = CreateContext();
         AddCalendar(db, "Semester 1");
+        db.SystemSettings.AddRange(
+            Setting("code-formats", "studentEnrollmentPrefix", "JOIN"),
+            Setting("code-formats", "studentOperationPrefix", "ACT"),
+            Setting("code-formats", "studentRecordPrefix", "DOC"),
+            Setting("code-formats", "studentHistoryPrefix", "ARC"),
+            Setting("code-formats", "studentPublicIdPrefix", "LOGIN"),
+            Setting("code-formats", "financeCodePrefix", "FEE"),
+            Setting("code-formats", "resultCodePrefix", "RESULT"));
         var department = Department();
         var student = Student(department, 1, "Morning", "STU-1");
         var oldEnrollment = Enrollment(student, department, 1, "Morning", "2026\u20132027", "Semester 1");
@@ -29,13 +37,21 @@ public sealed class AcademicCalendarRolloverServiceTests
         var enrollments = await db.StudentEnrollments.OrderBy(item => item.Semester).ToListAsync();
         Assert.Equal(2, enrollments.Count);
         Assert.Contains(enrollments, item => item.Id == oldEnrollment.Id && item.Semester == "Semester 1");
-        Assert.Contains(enrollments, item =>
+        var newEnrollment = Assert.Single(enrollments, item =>
             item.Id != oldEnrollment.Id
             && item.AcademicYear == "2026\u20132027"
             && item.Semester == "Semester 2"
             && item.YearLevel == 1
             && item.Shift == "Morning"
             && item.Status == "Active");
+        Assert.Equal("STU-1-ESTU-1", enrollments.Single(item => item.Id == oldEnrollment.Id).EnrollmentCode);
+        Assert.Equal("JOIN-2-STU-1", newEnrollment.EnrollmentCode);
+        Assert.Equal("ACT-2-STU-1", newEnrollment.OperationCode);
+        Assert.Equal("DOC-2-STU-1", newEnrollment.RecordCode);
+        Assert.Equal("ARC-2-STU-1", newEnrollment.HistoryCode);
+        Assert.Equal($"LOGIN-{newEnrollment.Id:N}".ToUpperInvariant(), newEnrollment.PublicId);
+        Assert.Equal("FEE-2-STU-1", newEnrollment.FinanceCode);
+        Assert.Equal("RESULT-2-STU-1", newEnrollment.ResultCode);
         Assert.Single(db.Students);
         Assert.Equal(oldTimetable.Id, Assert.Single(db.TimetableEnrollments).Id);
     }

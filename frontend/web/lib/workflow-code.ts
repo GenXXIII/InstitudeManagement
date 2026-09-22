@@ -4,16 +4,16 @@ export type WorkflowCodeStage = "management" | "enrollment" | "operation" | "rec
 type ResourcePrefixes = Record<WorkflowCodeStage, string>;
 
 const fallbackPrefixes: Record<WorkflowCodeResource, ResourcePrefixes> = {
-  student: prefixes("STU", "ESTU", "OPE", "REC", "HIS"),
-  teacher: prefixes("TEA", "ETEA", "OPE", "REC", "HIS"),
-  course: prefixes("COU", "ECOU", "OPE", "REC", "HIS"),
-  classroom: prefixes("CLA", "ECLA", "OPE", "REC", "HIS"),
-  timetable: prefixes("TIM", "ETIM", "OPE", "REC", "HIS"),
-  department: prefixes("DEP", "EDEP", "OPE", "REC", "HIS"),
-  attendance: prefixes("ATT", "EATT", "OPE", "REC", "HIS"),
-  grade: prefixes("GRD", "EGRD", "OPE", "REC", "HIS"),
-  session: prefixes("SES", "ESES", "OPE", "REC", "HIS"),
-  alert: prefixes("ALT", "EALT", "OPE", "REC", "HIS"),
+  student: prefixes("STU", "ENR", "OPE", "REC", "HIS"),
+  teacher: prefixes("TEA", "ENR", "OPE", "REC", "HIS"),
+  course: prefixes("COU", "ENR", "OPE", "REC", "HIS"),
+  classroom: prefixes("CLA", "ENR", "OPE", "REC", "HIS"),
+  timetable: prefixes("TIM", "ENR", "OPE", "REC", "HIS"),
+  department: prefixes("DEP", "ENR", "OPE", "REC", "HIS"),
+  attendance: prefixes("ATT", "ENR", "OPE", "REC", "HIS"),
+  grade: prefixes("GRD", "ENR", "OPE", "REC", "HIS"),
+  session: prefixes("SES", "ENR", "OPE", "REC", "HIS"),
+  alert: prefixes("ALT", "ENR", "OPE", "REC", "HIS"),
 };
 
 export const workflowStages: WorkflowCodeStage[] = ["management", "enrollment", "operation", "record", "history"];
@@ -36,8 +36,7 @@ export function formatAssignedCode(sourceCode: string | undefined, resource: Wor
   if (!sequence) return "";
   const management = [prefix, ...(runtimeValues.codeIncludeYear === "true" ? [runtimeYear] : []), sequence].join(separator).toUpperCase();
   if (stage === "management") return management;
-  const numericSequence = numericSuffix(management);
-  return numericSequence ? linkedCode(management, resource, stage, numericSequence.padStart(configuredPadding(), "0")) : management;
+  return linkedCode(management, resource, stage, workflowOccurrence(raw, resource));
 }
 
 export function formatNotificationCode(sourceCode: string | undefined) {
@@ -72,8 +71,7 @@ export function workflowCode(sourceCode: string | undefined, resource: WorkflowC
   const management = managementSource(sourceCode, resource);
   if (!management) return `${configuredPrefix(resource, "management")}${configuredSeparator()}UNASSIGNED`;
   if (stage === "management") return management;
-  const sequence = numericSuffix(management);
-  return sequence ? linkedCode(management, resource, stage, sequence.padStart(configuredPadding(), "0")) : management;
+  return linkedCode(management, resource, stage, workflowOccurrence(sourceCode ?? "", resource));
 }
 
 export function workflowCodeExample(resource: WorkflowCodeResource, stage: WorkflowCodeStage = "management") {
@@ -122,20 +120,36 @@ export function workflowSourceSearch(query: string) {
   return trimmed;
 }
 
-function linkedCode(management: string, resource: WorkflowCodeResource, stage: Exclude<WorkflowCodeStage, "management">, sequence: string) {
+function linkedCode(management: string, resource: WorkflowCodeResource, stage: Exclude<WorkflowCodeStage, "management">, occurrence: number) {
   const separator = configuredSeparator();
-  return `${management}${separator}${configuredPrefix(resource, stage)}${separator}${sequence}`.toUpperCase();
+  const sequence = String(Math.max(1, occurrence)).padStart(configuredPadding(), "0");
+  return `${configuredPrefix(resource, stage)}${separator}${sequence}${separator}${management}`.toUpperCase();
 }
 
 function managementSource(sourceCode: string | undefined, resource: WorkflowCodeResource) {
   let normalized = (sourceCode ?? "").trim().toUpperCase().replace(/[._/-]+$/g, "");
   if (!normalized) return "";
   const separator = escapeRegExp(configuredSeparator());
+  const current = normalized.match(new RegExp(`^[^${separator}]+${separator}\\d+${separator}(.+)$`, "i"));
+  if (current) return current[1];
   for (const stage of workflowStages.filter(value => value !== "management")) {
     const prefix = escapeRegExp(configuredPrefix(resource, stage));
     normalized = normalized.replace(new RegExp(`${separator}${prefix}${separator}\\d+$`, "i"), "");
   }
   return normalized;
+}
+
+function workflowOccurrence(sourceCode: string, resource: WorkflowCodeResource) {
+  const normalized = sourceCode.trim().toUpperCase().replace(/[._/-]+$/g, "");
+  const separator = escapeRegExp(configuredSeparator());
+  const current = normalized.match(new RegExp(`^[^${separator}]+${separator}(\\d+)${separator}.+$`, "i"));
+  if (current) return Number(current[1]) || 1;
+  for (const stage of workflowStages.filter(value => value !== "management")) {
+    const prefix = escapeRegExp(configuredPrefix(resource, stage));
+    const legacy = normalized.match(new RegExp(`${separator}${prefix}${separator}(\\d+)$`, "i"));
+    if (legacy) return Number(legacy[1]) || 1;
+  }
+  return 1;
 }
 
 function stripPrefix(value: string, prefixesToStrip: string[]) {
@@ -147,10 +161,6 @@ function stripPrefix(value: string, prefixesToStrip: string[]) {
     if (/^\d/.test(remainder)) return remainder;
   }
   return value;
-}
-
-function numericSuffix(value: string) {
-  return value.match(/\d+$/)?.[0] ?? "";
 }
 
 function configuredPrefix(resource: WorkflowCodeResource, stage: WorkflowCodeStage) {

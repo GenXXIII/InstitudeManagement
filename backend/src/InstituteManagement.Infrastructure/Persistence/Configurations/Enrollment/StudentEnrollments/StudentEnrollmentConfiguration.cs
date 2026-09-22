@@ -15,6 +15,15 @@ public sealed class StudentEnrollmentConfiguration : IEntityTypeConfiguration<St
             .IncludeProperties(x => new { x.StudentId, x.EnrollmentCode });
         builder.HasIndex(x => new { x.DepartmentId, x.YearLevel });
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.PublicId).HasMaxLength(64).IsRequired();
+        builder.HasIndex(x => x.PublicId).IsUnique().HasFilter("[PublicId] <> ''");
+        builder.Property(x => x.FinanceCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.ResultCode).HasMaxLength(64).IsRequired();
+        builder.HasIndex(x => x.FinanceCode).IsUnique().HasFilter("[FinanceCode] <> ''");
+        builder.HasIndex(x => x.ResultCode).IsUnique().HasFilter("[ResultCode] <> ''");
+        builder.Property(x => x.OperationCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.RecordCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.HistoryCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Shift).HasMaxLength(32).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Semester).HasMaxLength(32).IsRequired();

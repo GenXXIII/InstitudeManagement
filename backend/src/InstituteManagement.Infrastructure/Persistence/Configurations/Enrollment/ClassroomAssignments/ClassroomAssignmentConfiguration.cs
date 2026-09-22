@@ -15,6 +15,9 @@ public sealed class ClassroomAssignmentConfiguration : IEntityTypeConfiguration<
             .IncludeProperties(x => new { x.ClassroomId, x.EnrollmentCode });
         builder.HasIndex(x => x.DepartmentId);
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.OperationCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.RecordCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.HistoryCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Access).HasMaxLength(64).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Semester).HasMaxLength(32).IsRequired();

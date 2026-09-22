@@ -1,5 +1,6 @@
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Administration;
@@ -72,9 +73,18 @@ public sealed class AcademicPeriodEnrollmentAdvancer(InstituteDbContext db)
                 continue;
             }
 
-            db.StudentEnrollments.Add(new StudentEnrollment
+            var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, student.StudentCode, "student", student.Id, cancellationToken);
+            var enrollmentId = Guid.NewGuid();
+            var nextEnrollment = new StudentEnrollment
             {
-                EnrollmentCode = previous.EnrollmentCode,
+                Id = enrollmentId,
+                EnrollmentCode = codes.Enrollment,
+                PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken),
+                FinanceCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "financeCodePrefix", "FIN", cancellationToken),
+                ResultCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "resultCodePrefix", "RES", cancellationToken),
+                OperationCode = codes.Operation,
+                RecordCode = codes.Record,
+                HistoryCode = codes.History,
                 StudentId = previous.StudentId,
                 DepartmentId = previous.DepartmentId,
                 YearLevel = student.YearLevel,
@@ -82,7 +92,8 @@ public sealed class AcademicPeriodEnrollmentAdvancer(InstituteDbContext db)
                 AcademicYear = nextAcademicYear,
                 Semester = nextSemester,
                 Status = "Active"
-            });
+            };
+            db.StudentEnrollments.Add(nextEnrollment);
             alreadyEnrolled.Add(previous.StudentId);
             created++;
         }

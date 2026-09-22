@@ -6,10 +6,9 @@ import { ManagementActions } from "../components/management-actions";
 import { ManagementDataCell } from "@/components/management-data-cell";
 
 export function StudentRoster({ items, onEdit, onDeactivate }: { items: StudentItem[]; onEdit: (item: StudentItem) => void; onDeactivate: (item: StudentItem) => void }) {
-  return <DataTable as="section" className="panel horizontal-management-table people-horizontal student-profile-horizontal" headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={["Student code", "Public ID", "Photo", "Student Name", "Email", "Create At", "Actions"]}>
+  return <DataTable as="section" className="panel horizontal-management-table people-horizontal student-profile-horizontal" headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={["Student code", "Photo", "Student Name", "Email", "Create At", "Actions"]}>
     {items.map(item => <article className="horizontal-management-row" key={item.id}>
       <ManagementDataCell label="Student code"><strong className="management-code-value">{workflowCode(item.values.studentCode, "student", "management")}</strong></ManagementDataCell>
-      <ManagementDataCell label="Public ID"><strong className="management-code-value">{item.values.publicId}</strong></ManagementDataCell>
       <ManagementDataCell label="Photo" className="horizontal-portrait"><Image unoptimized width={48} height={72} src={item.values.photoDataUrl} alt={`${item.values.name} profile`}/></ManagementDataCell>
       <ManagementDataCell label="Student Name" className="horizontal-primary"><strong>{item.values.name}</strong></ManagementDataCell>
       <ManagementDataCell label="Email" className="horizontal-detail"><strong>{item.values.email}</strong></ManagementDataCell>

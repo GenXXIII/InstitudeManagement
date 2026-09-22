@@ -69,6 +69,57 @@ public sealed class GradeServiceTests
         Assert.Equal(string.Empty, grade.ReviewNote);
     }
 
+    [Fact]
+    public async Task Teacher_can_replace_imported_grade_with_first_reviewed_submission()
+    {
+        await using var db = CreateContext();
+        var department = new Department { DepartmentCode = "DEP-3", Name = "Technology" };
+        var student = new Student { StudentCode = "STU-3", FullName = "Student Three", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
+        var course = new Course { CourseCode = "COU-3", Name = "Networks", DepartmentId = department.Id, Department = department };
+        var teacher = new Teacher { TeacherCode = "TEA-3", FullName = "Teacher Three", DepartmentId = department.Id, Department = department };
+        var enrollment = new StudentEnrollment { EnrollmentCode = "ENR-1-STU-3", StudentId = student.Id, Student = student, DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning", AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" };
+        var schedule = new ScheduleEntry { TimetableCode = "TIM-3", CourseId = course.Id, Course = course, TeacherId = teacher.Id, Teacher = teacher, YearLevel = 1, Shift = "Morning", DayOfWeek = DayOfWeek.Monday, StartsAt = new TimeOnly(7, 30), EndsAt = new TimeOnly(9, 0) };
+        var assignment = new TimetableEnrollment { EnrollmentCode = "ENR-1-TIM-3", ScheduleEntryId = schedule.Id, ScheduleEntry = schedule, CourseId = course.Id, Course = course, TeacherId = teacher.Id, Teacher = teacher, ClassroomId = Guid.NewGuid(), YearLevel = 1, AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" };
+        var imported = new GradeRecord { GradeCode = "GRD-3", StudentId = student.Id, Student = student, CourseId = course.Id, Course = course, AcademicYear = "2026–2027", Term = "Semester 1", AssignmentScore = 1, MidtermScore = 1, FinalExamScore = 1, ReviewStatus = "Approved", SubmissionVersion = 1 };
+        db.AddRange(department, student, course, teacher, enrollment, schedule, assignment, imported);
+        AddSetting(db, "academic-year", "currentYear", "2026–2027");
+        AddSetting(db, "semester", "currentTerm", "Semester 1");
+        await db.SaveChangesAsync();
+
+        await new GradeService(db, new InstituteCache()).SubmitAsync(student.Id, course.Id, teacher.Id, 15, 16, 42, CancellationToken.None);
+
+        Assert.Equal(teacher.Id, imported.SubmittedByTeacherId);
+        Assert.Equal("Pending", imported.ReviewStatus);
+        Assert.Equal(1, imported.SubmissionVersion);
+        Assert.Equal(15, imported.AssignmentScore);
+        Assert.Equal(16, imported.MidtermScore);
+        Assert.Equal(42, imported.FinalExamScore);
+    }
+
+    [Fact]
+    public async Task Confirmed_teacher_submission_can_request_permission_for_a_new_submit()
+    {
+        await using var db = CreateContext();
+        var department = new Department { DepartmentCode = "DEP-4", Name = "Design" };
+        var student = new Student { StudentCode = "STU-4", FullName = "Student Four", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
+        var course = new Course { CourseCode = "COU-4", Name = "Drawing", DepartmentId = department.Id, Department = department };
+        var teacher = new Teacher { TeacherCode = "TEA-4", FullName = "Teacher Four", DepartmentId = department.Id, Department = department };
+        db.AddRange(department, student, course, teacher);
+        AddSetting(db, "academic-year", "currentYear", "2026–2027");
+        AddSetting(db, "semester", "currentTerm", "Semester 1");
+        await db.SaveChangesAsync();
+        var service = new GradeService(db, new InstituteCache());
+
+        await service.SubmitAsync(student.Id, course.Id, 12, 14, 40, CancellationToken.None);
+        var grade = Assert.Single(db.GradeRecords);
+        grade.SubmittedByTeacherId = teacher.Id;
+        await db.SaveChangesAsync();
+        await service.ReviewAsync(grade.Id, "Approved", string.Empty, CancellationToken.None);
+        await service.RequestResubmissionAsync(grade.Id, teacher.Id, CancellationToken.None);
+
+        Assert.Equal("ResubmitRequested", grade.ReviewStatus);
+    }
+
     private static ClassSessionRecord Session(Student student, Course course, DateOnly date, string status) => new()
     {
         ScheduleEntryId = Guid.NewGuid(),

@@ -78,7 +78,7 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
                 new("Absent", attendance.Count(record => record.Status == "Absent").ToString("N0"), "No attendance recorded", "Absent"),
                 new("Permission", attendance.Count(record => record.Status is "Excused" or "Permission").ToString("N0"), "Approved absence", "Excused")
             ],
-            BuildAttendanceTrend(attendance, context, today, autoPercentage),
+            BuildAttendanceTrend(attendance, context, localNow, autoPercentage),
             departments,
             averageGrade,
             [
@@ -156,31 +156,28 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
             department.Head ?? "Head not assigned")).ToList();
     }
 
-    private static IReadOnlyList<ChartPointDto> BuildAttendanceTrend(List<AttendanceRecord> records, DashboardRangeContext context, DateOnly today, bool enabled)
+    private static IReadOnlyList<ChartPointDto> BuildAttendanceTrend(List<AttendanceRecord> records, DashboardRangeContext context, DateTime localNow, bool enabled)
     {
         if (!enabled) return [];
+        var today = DateOnly.FromDateTime(localNow);
         if (context.Range == "daily")
         {
             var dayRecords = records.Where(record => record.Date == today).ToList();
-            return new[] { 8, 10, 12, 14, 16, 18 }.Select(hour => new ChartPointDto(
+            return Enumerable.Range(0, localNow.Hour + 1).Select(hour => new ChartPointDto(
                 $"{hour:00}:00",
-                dayRecords.Count == 0 ? 0 : Math.Round(dayRecords.Count(record => (record.Status is "Present" or "Late") && record.CheckedInAt.HasValue && record.CheckedInAt.Value <= new TimeOnly(hour, 0)) * 100m / dayRecords.Count, 1))).ToList();
+                AttendanceRate(dayRecords.Where(record => record.CheckedInAt?.Hour == hour)))).ToList();
         }
         if (context.Range == "weekly")
             return Enumerable.Range(0, 7).Select(offset => context.Start!.Value.AddDays(offset)).Where(date => date <= today)
                 .Select(date => new ChartPointDto(date.ToString("ddd"), AttendanceRate(records.Where(record => record.Date == date)))).ToList();
         if (context.Range == "monthly")
-            return DateBuckets(context.Start!.Value, today, 7).Select(bucket => new ChartPointDto(bucket.Start.ToString("dd MMM"), AttendanceRate(records.Where(record => record.Date >= bucket.Start && record.Date <= bucket.End)))).ToList();
+            return Enumerable.Range(0, today.Day).Select(offset => context.Start!.Value.AddDays(offset))
+                .Select(date => new ChartPointDto(date.ToString("dd"), AttendanceRate(records.Where(record => record.Date == date)))).ToList();
         if (context.Range == "yearly")
             return Enumerable.Range(1, today.Month).Select(month => new ChartPointDto(new DateOnly(today.Year, month, 1).ToString("MMM"), AttendanceRate(records.Where(record => record.Date.Year == today.Year && record.Date.Month == month)))).ToList();
-        var years = records.Select(record => record.Date.Year).Distinct().OrderBy(year => year).ToList();
+        var firstYear = records.Count == 0 ? today.Year : records.Min(record => record.Date.Year);
+        var years = Enumerable.Range(firstYear, today.Year - firstYear + 1);
         return years.Select(year => new ChartPointDto(year.ToString(), AttendanceRate(records.Where(record => record.Date.Year == year)))).ToList();
-    }
-
-    private static IEnumerable<(DateOnly Start, DateOnly End)> DateBuckets(DateOnly start, DateOnly end, int days)
-    {
-        for (var cursor = start; cursor <= end; cursor = cursor.AddDays(days))
-            yield return (cursor, cursor.AddDays(days - 1) < end ? cursor.AddDays(days - 1) : end);
     }
 
     private static decimal Percentage(List<decimal> values, decimal min, decimal max) =>

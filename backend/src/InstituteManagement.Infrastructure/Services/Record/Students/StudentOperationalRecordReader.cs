@@ -29,13 +29,14 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
             var studentEnrollments = enrollments.Where(x => x.StudentId == student.Id).ToList();
             var enrollmentEvents = studentEnrollments.Select(x =>
             {
-                var codes = codeFormat.Chain(student.StudentCode, x.EnrollmentCode, "student");
+                var codes = codeFormat.Chain(student.StudentCode, x.EnrollmentCode, x.OperationCode, x.RecordCode, x.HistoryCode, "student");
                 return (At: x.UpdatedAtUtc, Activity: Create(
                     ("Activity", "Student enrollment"),
                     ("Management code", codes.Management),
                     ("Enrollment code", codes.Enrollment),
                     ("Operation code", codes.Operation),
                     ("Record code", codes.Record),
+                    ("History code", codes.History),
                     ("Permanent code", codes.Management),
                     ("Academic year", x.AcademicYear),
                     ("Term", x.Semester),
@@ -75,7 +76,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
             var recordSource = studentEnrollments
                 .OrderByDescending(x => x.AcademicYear)
                 .ThenByDescending(x => x.Semester)
-                .Select(x => codeFormat.Chain(student.StudentCode, x.EnrollmentCode, "student").Operation)
+                .Select(x => string.IsNullOrWhiteSpace(x.RecordCode) ? codeFormat.Chain(student.StudentCode, x.EnrollmentCode, "student").Record : x.RecordCode)
                 .FirstOrDefault() ?? student.StudentCode;
             return new OperationalRecordDto(
                 student.Id,
@@ -86,7 +87,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
                 $"{completed.Count} recorded class sessions · {studentGrades.Count} recorded course grades",
                 events.Count == 0 ? null : events[0].At,
                 events.Select(x => x.Activity).ToList(),
-                Code: codeFormat.Derive(recordSource, "student", "record"),
+                Code: recordSource,
                 PhotoDataUrl: student.PhotoDataUrl,
                 Department: student.Department?.Name ?? "Unassigned",
                 ResourceId: student.Id);

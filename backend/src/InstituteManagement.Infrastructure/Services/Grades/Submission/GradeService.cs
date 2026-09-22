@@ -46,12 +46,13 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         var academicYear = period.GetValueOrDefault("academic-year:currentYear", "2026–2027");
         var currentTerm = period.GetValueOrDefault("semester:currentTerm", "Semester 1");
         var grade = await db.GradeRecords.FirstOrDefaultAsync(item => item.StudentId == studentId && item.CourseId == courseId && item.AcademicYear == academicYear && item.Term == currentTerm, cancellationToken);
+        var importedGrade = grade is not null && verifyTeacher && !grade.SubmittedByTeacherId.HasValue;
         if (grade is null)
         {
             grade = new GradeRecord { GradeCode = await BusinessCodeFormatter.GenerateAsync(db, "grade", cancellationToken), StudentId = studentId, CourseId = courseId, AcademicYear = academicYear, Term = currentTerm, SubmissionVersion = 1 };
             db.GradeRecords.Add(grade);
         }
-        else
+        else if (!importedGrade)
         {
             if (grade.ReviewStatus != "ResubmitAuthorized")
             {
@@ -66,6 +67,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
             }
             grade.SubmissionVersion++;
         }
+        else grade.SubmissionVersion = Math.Max(1, grade.SubmissionVersion);
 
         var rules = await GradeCompositionCalculator.LoadRulesAsync(db, cancellationToken);
         var attendance = await GradeCompositionCalculator.AttendanceAsync(db, studentId, courseId, academicYear, currentTerm, rules.Weights.Attendance, cancellationToken);
@@ -105,7 +107,8 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         var grade = await db.GradeRecords.Include(item => item.Student).Include(item => item.Course).Include(item => item.SubmittedByTeacher)
             .FirstOrDefaultAsync(item => item.Id == gradeId, cancellationToken) ?? throw new KeyNotFoundException("Grade submission not found.");
         if (grade.SubmittedByTeacherId != teacherId) throw new InvalidOperationException("Only the Teacher who submitted this grade can request permission to resubmit it.");
-        if (grade.ReviewStatus != "Rejected") throw new InvalidOperationException("Resubmission permission can only be requested for a rejected grade.");
+        if (grade.ReviewStatus is not ("Pending" or "Approved" or "Rejected"))
+            throw new InvalidOperationException("A new submission request is already pending or has been authorized.");
         grade.ReviewStatus = "ResubmitRequested";
         grade.UpdatedAtUtc = DateTime.UtcNow;
         db.AuditLogs.Add(new AuditLog { ResourceId = grade.Id, Type = "Grade assessment", Subject = grade.Student?.FullName ?? "Student", Action = "Resubmission permission requested", Details = $"{grade.Course?.Name ?? "Course"} · version {grade.SubmissionVersion} · {grade.SubmittedByTeacher?.FullName ?? "Teacher"}" });

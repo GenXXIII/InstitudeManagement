@@ -42,9 +42,16 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
             .Select(record => record.Module == "Student" ? AddStudentInsights(record, thresholds, applyAttendanceRules, academicYear, term, history) : record)
             .ToList();
         var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
-        records = records.Select(record => string.IsNullOrWhiteSpace(record.Code)
-            ? record
-            : record with { Code = codeFormat.Derive(record.Code, CodeResource(record.Module), history ? "history" : "record") }).ToList();
+        records = records.Select(record =>
+        {
+            var stored = record.Activities
+                .Select(activity => activity.GetValueOrDefault(history ? "History code" : "Record code"))
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            if (!string.IsNullOrWhiteSpace(stored)) return record with { Code = stored };
+            return string.IsNullOrWhiteSpace(record.Code)
+                ? record
+                : record with { Code = codeFormat.Derive(record.Code, CodeResource(record.Module), history ? "history" : "record") };
+        }).ToList();
         if (string.IsNullOrWhiteSpace(search)) return records;
         var searchTerm = search.Trim();
         return records.Where(x => Matches(searchTerm, x.Subject, x.Code, x.Department, x.Identifier, x.Summary, x.AcademicYear, x.Term)

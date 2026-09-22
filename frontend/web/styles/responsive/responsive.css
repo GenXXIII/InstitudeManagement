@@ -131,19 +131,14 @@
   .dashboard-metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:900px){
-  .dashboard-hero{min-height:0;align-items:stretch;flex-direction:column;padding:25px}
-  .dashboard-hero-controls{width:100%;display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:16px}
-  .dashboard-updated{margin:0;border-top:0;border-left:1px solid rgba(255,255,255,.1);padding:0 0 0 16px}
+  .dashboard-toolbar{align-items:stretch;flex-direction:column}
+  .dashboard-period-control select{width:100%}
   .dashboard-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .dashboard-bento>article{grid-column:1/-1}
 }
 @media (max-width:560px){
   .dashboard-page{gap:12px}
-  .dashboard-hero{border-radius:18px;padding:21px 18px}
-  .dashboard-hero h1{font-size:28px}
-  .dashboard-hero-meta{align-items:flex-start;flex-direction:column}
-  .dashboard-hero-controls{display:flex;flex-direction:column;align-items:stretch;gap:10px}
-  .dashboard-updated{border-top:1px solid rgba(255,255,255,.1);border-left:0;padding:10px 0 0}
+  .dashboard-toolbar h1{font-size:22px}
   .dashboard-metric-grid{grid-template-columns:1fr}
   .dashboard-metric{min-height:116px}
   .dashboard-card{padding:15px}
@@ -324,7 +319,7 @@
   .student-record-summary,.grade-totals{grid-column:1/-1;justify-content:flex-end}
 }
 @media (max-width:800px){
-  .student-profile-horizontal,.teacher-profile-horizontal{grid-template-columns:110px 155px 100px 155px 190px 110px 160px;min-width:980px;overflow-x:auto}
+  .student-profile-horizontal,.teacher-profile-horizontal{grid-template-columns:110px 100px 155px 190px 110px 160px;min-width:825px;overflow-x:auto}
 }
 @media (max-width:1250px){
   .enrollment-overview-metrics{grid-template-columns:repeat(3,minmax(160px,1fr))}

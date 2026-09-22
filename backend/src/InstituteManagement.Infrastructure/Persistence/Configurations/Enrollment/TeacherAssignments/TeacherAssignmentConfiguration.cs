@@ -15,6 +15,11 @@ public sealed class TeacherAssignmentConfiguration : IEntityTypeConfiguration<Te
             .IncludeProperties(x => new { x.TeacherId, x.EnrollmentCode });
         builder.HasIndex(x => x.DepartmentId);
         builder.Property(x => x.EnrollmentCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.PublicId).HasMaxLength(64).IsRequired();
+        builder.HasIndex(x => x.PublicId).IsUnique().HasFilter("[PublicId] <> ''");
+        builder.Property(x => x.OperationCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.RecordCode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.HistoryCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Semester).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();

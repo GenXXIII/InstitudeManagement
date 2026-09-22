@@ -14,7 +14,7 @@ export function AssessmentWorkspace() {
   const departmentId = searchParams.get("departmentId") ?? "";
   const [rows, setRows] = useState<GradeAssessment[]>([]);
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
-  const [status, setStatus] = useState("Action");
+  const [status, setStatus] = useState("All");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [working, setWorking] = useState("");
   const [actionError, setActionError] = useState("");
@@ -46,9 +46,9 @@ export function AssessmentWorkspace() {
   }
 
   return <div className="viewport-data-page assessment-viewport-page">
-    <PageHeading eyebrow="Administrator grade control" title="Assessment" description="Confirm accurate Teacher submissions or reject them with a correction note. Rejected grades return to the Teacher for a new submission."/>
+    <PageHeading eyebrow="Administrator grade control" title="Assessment" description="Manage every course grade: review Teacher submissions, confirm or reject scores, and approve requests for a new submission."/>
     {actionError && <section className="result-action-error" role="alert">{actionError}</section>}
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search student, Teacher, course…" searchAriaLabel="Search assessments" resultLabel={`${visible.length} submissions`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field"><select value={status} onChange={event => setStatus(event.target.value)} aria-label="Review status"><option value="Action">Action required</option><option>Pending</option><option value="ResubmitRequested">Resubmit requests</option><option>Approved</option><option>Rejected</option><option value="ResubmitAuthorized">Resubmit allowed</option><option>All</option></select></DataTableToolbar>
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search student, Teacher, course…" searchAriaLabel="Search assessments" resultLabel={`${visible.length} grade submissions`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field"><select value={status} onChange={event => setStatus(event.target.value)} aria-label="Review status"><option>All</option><option value="Action">Action required</option><option>Pending</option><option value="ResubmitRequested">Resubmit requests</option><option>Approved</option><option>Rejected</option><option value="ResubmitAuthorized">Resubmit allowed</option></select></DataTableToolbar>
     <PaginatedDataRegion items={visible} resetKey={`${query}-${status}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="check" size={28}/>} title="No assessment submissions" description="Teacher grade submissions matching this filter will appear here."/>}>{pageItems => <DataTable className="panel assessment-record-table" headerClassName="assessment-record-head" rowSelector=".assessment-record-row" columns={assessmentColumns}><div>{pageItems.map(item => <AssessmentRow item={item} note={notes[item.id] ?? ""} working={working === item.id} onNote={value => setNotes(current => ({ ...current, [item.id]: value }))} onReview={decision => void review(item, decision)} onAuthorize={() => void authorizeResubmission(item)} key={item.id}/>)}</div></DataTable>}</PaginatedDataRegion>
   </div>;
 }
@@ -63,7 +63,7 @@ function AssessmentRow({ item, note, working, onNote, onReview, onAuthorize }: {
     <div className="assessment-course"><strong>{value.course}</strong><span>{value.academicYear} · {value.term}</span></div>
     <div className="assessment-components"><Score label="Attendance" score={value.attendanceScore} maximum={value.attendanceMaximum}/><Score label="Assignment" score={value.assignmentScore} maximum={value.assignmentMaximum}/><Score label="Midterm" score={value.midtermScore} maximum={value.midtermMaximum}/><Score label="Final" score={value.finalExamScore} maximum={value.finalExamMaximum}/></div>
     <div className="assessment-total"><strong>{value.score || "0"}</strong><span>{value.grade || "—"}</span></div>
-    <div className="assessment-submitter"><strong>{value.submittedByTeacher || "Teacher"}</strong><small>{value.submittedAtUtc ? new Date(value.submittedAtUtc).toLocaleDateString() : "No date"}</small></div>
+    <div className="assessment-submitter"><strong>{value.submittedByTeacher || "Imported grade"}</strong><small>{value.submittedAtUtc ? new Date(value.submittedAtUtc).toLocaleDateString() : "Existing record"}</small></div>
     <span className={`assessment-status status-${value.reviewStatus.toLowerCase()}`}>{statusLabel(value.reviewStatus)}</span>
     <div className="assessment-decision">{pending ? <><input value={note} onChange={event => onNote(event.target.value)} placeholder="Correction note for rejection…"/><div><button type="button" className="button secondary assessment-reject" disabled={working} onClick={() => onReview("Rejected")}>Reject</button><button type="button" className="button primary" disabled={working} onClick={() => onReview("Approved")}>{working ? "Saving…" : "Confirm"}</button></div></> : requested ? <><p><strong>Teacher requests permission</strong><span>{value.reviewNote || "Allow the Teacher to refill these scores."}</span></p><button type="button" className="button primary" disabled={working} onClick={onAuthorize}>{working ? "Saving…" : "Allow resubmit"}</button></> : <p><strong>{value.reviewStatus === "Rejected" ? "Correction sent" : value.reviewStatus === "ResubmitAuthorized" ? "Resubmit permission granted" : "Administrator decision"}</strong><span>{value.reviewNote || (value.reviewStatus === "Approved" ? "Grade confirmed" : "Waiting for Teacher")}</span></p>}</div>
   </article>;

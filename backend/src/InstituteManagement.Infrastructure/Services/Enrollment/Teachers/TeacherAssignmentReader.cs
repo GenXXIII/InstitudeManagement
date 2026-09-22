@@ -47,6 +47,7 @@ internal sealed class TeacherAssignmentReader(InstituteDbContext db)
                     teacher.Id,
                     ("enrollmentCode", assignment.EnrollmentCode),
                     ("teacherCode", teacher.TeacherCode),
+                    ("publicId", assignment.PublicId),
                     ("name", teacher.FullName),
                     ("email", teacher.Email),
                     ("photoDataUrl", teacher.PhotoDataUrl),

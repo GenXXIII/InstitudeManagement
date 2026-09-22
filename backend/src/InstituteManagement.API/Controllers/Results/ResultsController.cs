@@ -22,4 +22,8 @@ public sealed class ResultsController(ISender sender, IResultQueryService result
         await resultService.PublishAsync(request.StudentId, request.AcademicYear, request.Semester, cancellationToken);
         return NoContent();
     }
+
+    [HttpPost("publish-all")]
+    public async Task<IActionResult> PublishAll(Guid? departmentId, int? year, CancellationToken cancellationToken) =>
+        Ok(new { published = await resultService.PublishAllAsync(departmentId, year, cancellationToken) });
 }

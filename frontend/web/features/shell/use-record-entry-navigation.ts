@@ -10,7 +10,7 @@ type EntrySequence = {
 
 type RouteKind = "home" | "workspace" | "detail" | "other";
 
-const workspaceRoots = new Set(["management", "enrollment", "operation", "record", "record-history", "records", "finance", "assessment", "announce", "settings", "search"]);
+const workspaceRoots = new Set(["management", "enrollment", "operation", "record", "record-history", "records", "finance", "assessment", "academic-results", "announce", "settings", "search"]);
 const detailRoots = new Set(["record", "record-history", "records", "announce"]);
 const pendingDetailKey = "inkPendingDetailNavigation";
 const settingsHistoryVersionKey = "inkSettingsDetailHistoryVersion";

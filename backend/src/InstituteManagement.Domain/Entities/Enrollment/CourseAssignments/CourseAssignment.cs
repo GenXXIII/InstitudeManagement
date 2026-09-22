@@ -3,6 +3,9 @@ namespace InstituteManagement.Domain.Entities;
 public sealed class CourseAssignment : Entity
 {
     public string EnrollmentCode { get; set; } = string.Empty;
+    public string OperationCode { get; set; } = string.Empty;
+    public string RecordCode { get; set; } = string.Empty;
+    public string HistoryCode { get; set; } = string.Empty;
     public Guid CourseId { get; set; }
     public Course? Course { get; set; }
     public Guid DepartmentId { get; set; }

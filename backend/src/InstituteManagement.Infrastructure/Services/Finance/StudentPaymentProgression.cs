@@ -2,6 +2,7 @@ using System.Text.Json;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Administration;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Finance;
@@ -66,9 +67,18 @@ public sealed class FinancialProgression(
             student.UpdatedAtUtc = DateTime.UtcNow;
         }
 
+        var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, student.StudentCode, "student", student.Id, cancellationToken);
+        var enrollmentId = Guid.NewGuid();
         var nextEnrollment = new StudentEnrollment
         {
-            EnrollmentCode = previousEnrollment.EnrollmentCode,
+            Id = enrollmentId,
+            EnrollmentCode = codes.Enrollment,
+            PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken),
+            FinanceCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "financeCodePrefix", "FIN", cancellationToken),
+            ResultCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "resultCodePrefix", "RES", cancellationToken),
+            OperationCode = codes.Operation,
+            RecordCode = codes.Record,
+            HistoryCode = codes.History,
             StudentId = student.Id,
             DepartmentId = previousEnrollment.DepartmentId,
             YearLevel = student.YearLevel,

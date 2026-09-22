@@ -46,27 +46,18 @@ export default function DashboardPage() {
   const changeTone = data.attendanceChange > 0 ? "positive" : data.attendanceChange < 0 ? "negative" : "neutral";
 
   return <div className={`dashboard-page${isRefreshing ? " is-refreshing" : ""}`} aria-busy={isRefreshing}>
-    <header className="dashboard-hero">
-      <div className="dashboard-hero-orb dashboard-hero-orb-one"/>
-      <div className="dashboard-hero-orb dashboard-hero-orb-two"/>
-      <div className="dashboard-hero-copy">
-        <div className="dashboard-hero-eyebrow"><i/>Institute command center</div>
+    <header className="dashboard-toolbar">
+      <div className="dashboard-toolbar-copy">
         <h1>Institude Dashboard</h1>
         <p>Institute performance, financial health, and academic outcomes in one clear view.</p>
-        <div className="dashboard-hero-meta">
-          <span><Icon name="calendar" size={15}/>{formatPeriod(data.periodStart, data.periodEnd)}</span>
-          <span><Icon name="pulse" size={15}/>{data.rangeLabel} reporting</span>
-        </div>
+        <span className="dashboard-reporting-context">{formatPeriod(data.periodStart, data.periodEnd)} · {data.rangeLabel} reporting</span>
       </div>
-      <div className="dashboard-hero-controls">
-        <label className="dashboard-period-control">
-          <span>Reporting period</span>
-          <select aria-label="Dashboard reporting period" value={range} onChange={event => setRange(event.target.value as DashboardRange)}>
-            {reportingRanges.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}
-          </select>
-        </label>
-        <div className="dashboard-updated"><span>Data refreshed</span><strong>{formatGeneratedAt(data.generatedAt)}</strong></div>
-      </div>
+      <label className="dashboard-period-control">
+        <span>Reporting period</span>
+        <select aria-label="Dashboard reporting period" value={range} onChange={event => setRange(event.target.value as DashboardRange)}>
+          {reportingRanges.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}
+        </select>
+      </label>
     </header>
 
     <section className="dashboard-metric-grid" aria-label="Institute summary">
@@ -167,7 +158,6 @@ function AttendanceChart({ points }: { points: Dashboard["attendanceTrend"] }) {
       <defs><linearGradient id="dashboardAttendanceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5eead4" stopOpacity=".28"/><stop offset="1" stopColor="#5eead4" stopOpacity="0"/></linearGradient></defs>
       <path className="dashboard-chart-area" d={area}/>
       <path className="dashboard-chart-line" d={path}/>
-      {points.map((point, index) => <circle cx={chartX(index, points.length)} cy={chartY(point.value)} r="4" key={`${point.label}-${index}`}/>)}
     </svg>
     <div className="dashboard-chart-labels" style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}>
       {points.map((point, index) => <span key={`${point.label}-${index}`}><b>{point.label}</b><small>{Number(point.value).toFixed(0)}%</small></span>)}
@@ -191,9 +181,4 @@ function formatPeriod(start: string, end: string) {
   if (Number.isNaN(startDate.valueOf()) || Number.isNaN(endDate.valueOf())) return "Current academic period";
   const formatter = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" });
   return `${formatter.format(startDate)} - ${formatter.format(endDate)}`;
-}
-
-function formatGeneratedAt(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? "Just now" : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
 }

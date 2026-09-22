@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,6 +44,72 @@ internal static partial class BusinessCodeFormatter
         string stage,
         CancellationToken cancellationToken) =>
         (await LoadAsync(db, cancellationToken)).Derive(sourceCode, resource, stage);
+
+    public static async Task<string> GenerateEnrollmentAsync(
+        InstituteDbContext db,
+        string managementCode,
+        string resource,
+        Guid resourceId,
+        CancellationToken cancellationToken)
+        => (await GenerateEnrollmentWorkflowAsync(db, managementCode, resource, resourceId, cancellationToken)).Enrollment;
+
+    public static async Task<WorkflowCodeChain> GenerateEnrollmentWorkflowAsync(
+        InstituteDbContext db,
+        string managementCode,
+        string resource,
+        Guid resourceId,
+        CancellationToken cancellationToken)
+    {
+        var persisted = resource.ToLowerInvariant() switch
+        {
+            "student" => await db.StudentEnrollments.CountAsync(item => item.StudentId == resourceId, cancellationToken),
+            "teacher" => await db.TeacherAssignments.CountAsync(item => item.TeacherId == resourceId, cancellationToken),
+            "course" => await db.CourseAssignments.CountAsync(item => item.CourseId == resourceId, cancellationToken),
+            "classroom" => await db.ClassroomAssignments.CountAsync(item => item.ClassroomId == resourceId, cancellationToken),
+            "timetable" => await db.TimetableEnrollments.CountAsync(item => item.ScheduleEntryId == resourceId, cancellationToken),
+            _ => throw new ArgumentException("Enrollment codes are not supported for this resource.", nameof(resource))
+        };
+        var pending = resource.ToLowerInvariant() switch
+        {
+            "student" => db.StudentEnrollments.Local.Count(item => item.StudentId == resourceId && db.Entry(item).State == EntityState.Added),
+            "teacher" => db.TeacherAssignments.Local.Count(item => item.TeacherId == resourceId && db.Entry(item).State == EntityState.Added),
+            "course" => db.CourseAssignments.Local.Count(item => item.CourseId == resourceId && db.Entry(item).State == EntityState.Added),
+            "classroom" => db.ClassroomAssignments.Local.Count(item => item.ClassroomId == resourceId && db.Entry(item).State == EntityState.Added),
+            "timetable" => db.TimetableEnrollments.Local.Count(item => item.ScheduleEntryId == resourceId && db.Entry(item).State == EntityState.Added),
+            _ => 0
+        };
+        var format = await LoadAsync(db, cancellationToken);
+        var occurrence = persisted + pending + 1L;
+        return new WorkflowCodeChain(
+            format.Derive(managementCode, resource, "management"),
+            format.Linked(managementCode, resource, "enrollment", occurrence),
+            format.Linked(managementCode, resource, "operation", occurrence),
+            format.Linked(managementCode, resource, "record", occurrence),
+            format.Linked(managementCode, resource, "history", occurrence));
+    }
+
+    public static async Task<string> GenerateEnrollmentScopedAsync(
+        InstituteDbContext db,
+        string managementCode,
+        string resource,
+        string enrollmentCode,
+        string prefixKey,
+        string fallbackPrefix,
+        CancellationToken cancellationToken) =>
+        (await LoadAsync(db, cancellationToken)).LinkedWithConfiguredPrefix(
+            managementCode,
+            resource,
+            enrollmentCode,
+            prefixKey,
+            fallbackPrefix);
+
+    public static async Task<string> GenerateEnrollmentPublicIdAsync(
+        InstituteDbContext db,
+        Guid enrollmentId,
+        string prefixKey,
+        string fallbackPrefix,
+        CancellationToken cancellationToken) =>
+        (await LoadAsync(db, cancellationToken)).EnrollmentPublicId(enrollmentId, prefixKey, fallbackPrefix);
 
     public static async Task<string> FormatAsync(
         InstituteDbContext db,
@@ -164,27 +231,82 @@ internal static partial class BusinessCodeFormatter
             var source = ManagementSource(sourceCode, resource);
             if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("Source management code is required.");
             if (stage.Equals("management", StringComparison.OrdinalIgnoreCase)) return Validate(source);
-            var sequence = NumericSuffix(source);
-            if (sequence < 0) throw new ArgumentException("Source management code must end with a number.");
-            var number = sequence.ToString().PadLeft(padding, '0');
-            return Validate(string.Join(separator, source, Prefix(resource, stage), number));
+            var occurrence = WorkflowOccurrence(sourceCode, resource);
+            return Linked(source, resource, stage, occurrence < 1 ? 1 : occurrence);
         }
 
         public WorkflowCodeChain Chain(string managementCode, string? enrollmentCode, string resource)
         {
             var management = Derive(managementCode, resource, "management");
-            var enrollment = Derive(
-                string.IsNullOrWhiteSpace(enrollmentCode) ? management : enrollmentCode,
-                resource,
-                "enrollment");
-            var operation = Derive(enrollment, resource, "operation");
-            var record = Derive(operation, resource, "record");
+            var occurrence = string.IsNullOrWhiteSpace(enrollmentCode) ? 1 : WorkflowOccurrence(enrollmentCode, resource);
+            if (occurrence < 1) occurrence = 1;
+            var enrollment = Linked(management, resource, "enrollment", occurrence);
+            var operation = Linked(management, resource, "operation", occurrence);
+            var record = Linked(management, resource, "record", occurrence);
             return new WorkflowCodeChain(
                 management,
                 enrollment,
                 operation,
                 record,
-                Derive(record, resource, "history"));
+                Linked(management, resource, "history", occurrence));
+        }
+
+        public WorkflowCodeChain Chain(
+            string managementCode,
+            string enrollmentCode,
+            string operationCode,
+            string recordCode,
+            string historyCode,
+            string resource)
+        {
+            var fallback = Chain(managementCode, enrollmentCode, resource);
+            return new WorkflowCodeChain(
+                managementCode,
+                string.IsNullOrWhiteSpace(enrollmentCode) ? fallback.Enrollment : enrollmentCode,
+                string.IsNullOrWhiteSpace(operationCode) ? fallback.Operation : operationCode,
+                string.IsNullOrWhiteSpace(recordCode) ? fallback.Record : recordCode,
+                string.IsNullOrWhiteSpace(historyCode) ? fallback.History : historyCode);
+        }
+
+        public string Linked(string managementCode, string resource, string stage, long occurrence)
+        {
+            if (occurrence < 1) throw new ArgumentOutOfRangeException(nameof(occurrence));
+            var management = ManagementSource(managementCode, resource);
+            if (string.IsNullOrWhiteSpace(management)) throw new ArgumentException("Source management code is required.");
+            var number = occurrence.ToString().PadLeft(padding, '0');
+            return Validate(string.Join(separator, Prefix(resource, stage), number, management));
+        }
+
+        public string LinkedWithConfiguredPrefix(
+            string managementCode,
+            string resource,
+            string enrollmentCode,
+            string prefixKey,
+            string fallbackPrefix)
+        {
+            var occurrence = WorkflowOccurrence(enrollmentCode, resource);
+            if (occurrence < 1) occurrence = 1;
+            return LinkedWithConfiguredPrefix(managementCode, resource, occurrence, prefixKey, fallbackPrefix);
+        }
+
+        public string LinkedWithConfiguredPrefix(
+            string managementCode,
+            string resource,
+            long occurrence,
+            string prefixKey,
+            string fallbackPrefix)
+        {
+            if (occurrence < 1) throw new ArgumentOutOfRangeException(nameof(occurrence));
+            var management = ManagementSource(managementCode, resource);
+            var number = occurrence.ToString().PadLeft(padding, '0');
+            var prefix = Value(values, prefixKey, fallbackPrefix).Trim().ToUpperInvariant();
+            return Validate(string.Join(separator, prefix, number, management));
+        }
+
+        public string EnrollmentPublicId(Guid enrollmentId, string prefixKey, string fallbackPrefix)
+        {
+            var prefix = Value(values, prefixKey, fallbackPrefix).Trim().ToUpperInvariant();
+            return PublicAccessId.ForEnrollment(prefix, enrollmentId);
         }
 
         public string Format(string raw, string resource, string stage, string label)
@@ -226,10 +348,30 @@ internal static partial class BusinessCodeFormatter
             var source = sourceCode.Trim().TrimEnd('.', '_', '/', '-').ToUpperInvariant();
             foreach (var stage in Stages.Skip(1))
             {
-                var pattern = $"{Regex.Escape(separator)}{Regex.Escape(Prefix(resource, stage))}{Regex.Escape(separator)}\\d+$";
-                source = Regex.Replace(source, pattern, "", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                var prefix = Regex.Escape(Prefix(resource, stage));
+                var separatorPattern = Regex.Escape(separator);
+                var current = Regex.Match(source, $"^{prefix}{separatorPattern}\\d+{separatorPattern}(?<management>.+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (current.Success) return current.Groups["management"].Value;
+                source = Regex.Replace(source, $"{separatorPattern}{prefix}{separatorPattern}\\d+$", "", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             }
             return source;
+        }
+
+        private long WorkflowOccurrence(string sourceCode, string resource)
+        {
+            var source = sourceCode.Trim().TrimEnd('.', '_', '/', '-').ToUpperInvariant();
+            var generic = Regex.Match(source, $"^[^{Regex.Escape(separator)}]+{Regex.Escape(separator)}(?<occurrence>\\d+){Regex.Escape(separator)}.+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (generic.Success && long.TryParse(generic.Groups["occurrence"].Value, out var genericOccurrence)) return genericOccurrence;
+            foreach (var stage in Stages.Skip(1))
+            {
+                var prefix = Regex.Escape(Prefix(resource, stage));
+                var separatorPattern = Regex.Escape(separator);
+                var current = Regex.Match(source, $"^{prefix}{separatorPattern}(?<occurrence>\\d+){separatorPattern}.+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (current.Success && long.TryParse(current.Groups["occurrence"].Value, out var occurrence)) return occurrence;
+                var legacy = Regex.Match(source, $"{separatorPattern}{prefix}{separatorPattern}(?<occurrence>\\d+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (legacy.Success && long.TryParse(legacy.Groups["occurrence"].Value, out occurrence)) return occurrence;
+            }
+            return -1;
         }
 
         private string Prefix(string resource, string stage)

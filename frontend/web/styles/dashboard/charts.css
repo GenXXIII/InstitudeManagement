@@ -24,7 +24,6 @@
 .dashboard-chart>svg{position:absolute;inset:8px 4px 38px 29px;width:calc(100% - 33px);height:170px;overflow:visible}
 .dashboard-chart-area{fill:url(#dashboardAttendanceFill)}
 .dashboard-chart-line{fill:none;stroke:#15998f;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 5px 5px rgba(21,153,143,.16))}
-.dashboard-chart circle{fill:white;stroke:#15998f;stroke-width:3;vector-effect:non-scaling-stroke}
 .dashboard-chart-grid{position:absolute;inset:12px 4px 44px 29px;display:flex;justify-content:space-between;flex-direction:column}
 .dashboard-chart-grid i{height:1px;background:#e9eff1}
 .dashboard-chart-scale{position:absolute;top:7px;bottom:41px;left:0;display:flex;justify-content:space-between;flex-direction:column;color:#a2aeba;font-size:7px}

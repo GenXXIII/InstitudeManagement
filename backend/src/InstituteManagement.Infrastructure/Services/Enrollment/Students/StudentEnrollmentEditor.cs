@@ -32,11 +32,20 @@ internal sealed class StudentEnrollmentEditor(
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Semester,
             cancellationToken);
-        var enrollmentCode = await BusinessCodeFormatter.DeriveAsync(db, student.StudentCode, "student", "enrollment", cancellationToken);
         if (enrollment is null)
         {
+            var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, student.StudentCode, "student", id, cancellationToken);
+            var enrollmentId = Guid.NewGuid();
             enrollment = new StudentEnrollment
             {
+                Id = enrollmentId,
+                EnrollmentCode = codes.Enrollment,
+                PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken),
+                FinanceCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "financeCodePrefix", "FIN", cancellationToken),
+                ResultCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "resultCodePrefix", "RES", cancellationToken),
+                OperationCode = codes.Operation,
+                RecordCode = codes.Record,
+                HistoryCode = codes.History,
                 StudentId = id,
                 AcademicYear = period.AcademicYear,
                 Semester = period.Semester
@@ -58,7 +67,6 @@ internal sealed class StudentEnrollmentEditor(
         }
 
         enrollment.DepartmentId = departmentId;
-        enrollment.EnrollmentCode = enrollmentCode;
         enrollment.YearLevel = year;
         enrollment.Shift = shift;
         enrollment.Status = Choice(values, "status", ["Active", "Paused", "Completed"], "Active");
@@ -78,7 +86,7 @@ internal sealed class StudentEnrollmentEditor(
             id,
             ("enrollmentCode", enrollment.EnrollmentCode),
             ("studentCode", student.StudentCode),
-            ("publicId", student.PublicId),
+            ("publicId", enrollment.PublicId),
             ("name", student.FullName),
             ("departmentId", departmentId.ToString()),
             ("year", year.ToString()),
