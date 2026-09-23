@@ -12,6 +12,7 @@ public static class DatabaseSchemaUpdater
         var commandText = string.Join(
             Environment.NewLine,
             CoreSchemaCompatibilitySql.CommandText,
+            MobilePublicIdCompatibilitySql.CommandText,
             EnrollmentStatusCompatibilitySql.CommandText,
             NotificationCodeCompatibilitySql.CommandText,
             TimetablePeriodCompatibilitySql.CommandText);

@@ -6,7 +6,7 @@
 .finance-metric>span{color:#7d8da5;font-size:9px;font-weight:750;text-transform:uppercase;letter-spacing:.55px}
 .finance-metric>strong{margin-top:8px;color:#253650;font-size:21px;line-height:1}
 .finance-tone-green{border-left-color:#27a875}.finance-tone-amber{border-left-color:#d49a24}.finance-tone-violet{border-left-color:#735fc8}
-.finance-toolbar{grid-template-columns:repeat(2,minmax(240px,1fr))}.finance-status-filter{box-sizing:border-box;width:100%;height:53px;border:1px solid #dfe7f1;border-radius:9px;outline:0;background:#f9fbfe;padding:0 14px;color:#52627a;font-size:14px;cursor:pointer}.finance-status-filter:focus{border-color:#91b7f6;box-shadow:0 0 0 3px rgba(43,105,237,.09);background:white}
+.finance-toolbar{display:flex;align-items:center}.finance-status-filter{box-sizing:border-box;width:165px;min-width:165px;height:53px;min-height:53px;flex:none;border:1px solid #dfe7f1;border-radius:9px;outline:0;background:#f9fbfe;padding:0 36px 0 14px;color:#52627a;font-size:14px;cursor:pointer}.finance-status-filter:focus{border-color:#91b7f6;box-shadow:0 0 0 3px rgba(43,105,237,.09);background:white}
 .finance-payment-table{--data-cell-font:10px;min-width:1280px}
 .finance-payment-table .horizontal-management-row>*{min-height:78px}
 .finance-payment-table small{display:block!important;margin-top:4px;color:#8996a8!important;font-size:8px!important}
@@ -35,4 +35,18 @@
 @media(max-width:1000px){.finance-account-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-account-summary>div:nth-child(3){border-right:0}.finance-current-state{grid-template-columns:1fr 1fr}.finance-current-state>div:last-child{grid-column:1/-1}.finance-form-grid{grid-template-columns:1fr 1fr}.finance-transaction-list>article{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-transaction-list>article>footer{grid-column:1/-1}}
 @media(max-width:900px){.finance-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.finance-heading-actions{width:100%}.finance-heading-actions .button{flex:1}.finance-account-summary,.finance-current-state,.finance-form-grid,.finance-adjustment-grid,.finance-extension-grid,.finance-plan-picker{grid-template-columns:1fr}.finance-account-summary>div,.finance-current-state>div{border-right:0;border-bottom:1px solid #e2e9f2}.finance-current-state>div:last-child{grid-column:auto}.finance-transaction-list>article{grid-template-columns:1fr 1fr}}
-@media(max-width:560px){.finance-metrics,.finance-toolbar{grid-template-columns:1fr}.finance-status-filter{width:100%}}
+@media(max-width:560px){.finance-metrics{grid-template-columns:1fr}.finance-toolbar{align-items:stretch;flex-direction:column}.finance-status-filter{width:100%}}
+
+/* Readable typography across the Finance register, history, and account workspace. */
+.finance-payment-table{--data-cell-font:12px}
+.finance-payment-table small{font-size:10px!important}
+.finance-payment-table .management-code-value{font-size:11px}
+.finance-manage-button,.finance-qr-button{height:34px!important;padding:0 11px!important;font-size:11px!important}
+.finance-metric>span{font-size:11px}.finance-metric>strong{font-size:24px}
+.finance-viewport-page :is(p,small,time,dt,dd,label),.finance-account-modal :is(p,small,time,dt,dd,label){font-size:11px!important;line-height:1.45}
+.finance-viewport-page :is(input,select,textarea,button),.finance-account-modal :is(input,select,textarea,button){font-size:12px!important}
+.finance-viewport-page .table-status,.finance-account-modal .table-status{font-size:11px!important}
+.finance-account-summary span,.finance-current-state span{font-size:10px}.finance-account-summary strong{font-size:14px}.finance-account-summary .is-strong strong{font-size:18px}.finance-current-state strong{font-size:12px}
+.finance-operation-card>header strong,.finance-transactions>header strong{font-size:14px}.finance-operation-card>header span,.finance-transactions>header span{font-size:11px}.finance-plan-picker strong,.finance-semester-plan strong,.finance-payment-edit>strong{font-size:12px}.finance-plan-picker small,.finance-semester-plan span{font-size:10px!important}
+.finance-form-grid label>span{font-size:11px}.finance-form-grid input,.finance-form-grid select{font-size:12px}.finance-operation-card>footer>small{font-size:10px!important}
+.finance-transaction-list>article>div>span{font-size:10px}.finance-transaction-list>article>div>strong{font-size:11px}.finance-transaction-list>article>footer button,.finance-transaction-list>article>footer span{font-size:10px!important}

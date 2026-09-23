@@ -46,14 +46,16 @@ public sealed class ClassPermissionService(InstituteDbContext db, InstituteCache
         await db.SaveChangesAsync(cancellationToken);
         await cache.InvalidateDashboardAsync(cancellationToken);
         entity.Student = student;
-        return Map(entity);
+        return Map(entity, enrollment.PublicId);
     }
 
     public async Task<IReadOnlyList<ClassPermissionRequestDto>> GetForStudentAsync(Guid studentId, CancellationToken cancellationToken)
     {
         var today = DateOnly.FromDateTime(await InstituteLocalTime.NowAsync(db, cancellationToken));
-        return (await Query().Where(item => item.StudentId == studentId && item.SessionDate >= today.AddDays(-1))
-            .OrderBy(item => item.SessionDate).ToListAsync(cancellationToken)).Select(Map).ToList();
+        var requests = await Query().Where(item => item.StudentId == studentId && item.SessionDate >= today.AddDays(-1))
+            .OrderBy(item => item.SessionDate).ToListAsync(cancellationToken);
+        var publicIds = await CurrentStudentPublicIdsAsync([studentId], cancellationToken);
+        return requests.Select(item => Map(item, publicIds.GetValueOrDefault(item.StudentId, ""))).ToList();
     }
 
     public async Task<IReadOnlyList<ClassPermissionRequestDto>> GetForTeacherAsync(Guid teacherId, CancellationToken cancellationToken)
@@ -61,9 +63,11 @@ public sealed class ClassPermissionService(InstituteDbContext db, InstituteCache
         var today = DateOnly.FromDateTime(await InstituteLocalTime.NowAsync(db, cancellationToken));
         var studentIds = await AssignedStudentIdsAsync(teacherId, cancellationToken);
         if (studentIds.Count == 0) return [];
-        return (await Query().Where(item => studentIds.Contains(item.StudentId) && item.SessionDate >= today && item.SessionDate <= today.AddDays(14))
+        var requests = await Query().Where(item => studentIds.Contains(item.StudentId) && item.SessionDate >= today && item.SessionDate <= today.AddDays(14))
             .OrderBy(item => item.Status == "Pending" ? 0 : 1).ThenBy(item => item.SessionDate).ThenBy(item => item.Student!.FullName)
-            .ToListAsync(cancellationToken)).Select(Map).ToList();
+            .ToListAsync(cancellationToken);
+        var publicIds = await CurrentStudentPublicIdsAsync(studentIds, cancellationToken);
+        return requests.Select(item => Map(item, publicIds.GetValueOrDefault(item.StudentId, ""))).ToList();
     }
 
     public async Task<ClassPermissionRequestDto> ReviewAsync(Guid requestId, Guid teacherId, string decision, CancellationToken cancellationToken)
@@ -99,7 +103,8 @@ public sealed class ClassPermissionService(InstituteDbContext db, InstituteCache
         db.AuditLogs.Add(new AuditLog { ResourceId = entity.Id, Type = "Day permission", Subject = entity.Student?.FullName ?? "Student", Action = decision, Details = $"{entity.SessionDate:yyyy-MM-dd} · whole day · {teacher.FullName}" });
         await db.SaveChangesAsync(cancellationToken);
         await cache.InvalidateDashboardAsync(cancellationToken);
-        return Map(entity);
+        var publicIds = await CurrentStudentPublicIdsAsync([entity.StudentId], cancellationToken);
+        return Map(entity, publicIds.GetValueOrDefault(entity.StudentId, ""));
     }
 
     private async Task<List<Guid>> AssignedStudentIdsAsync(Guid teacherId, CancellationToken cancellationToken)
@@ -131,5 +136,15 @@ public sealed class ClassPermissionService(InstituteDbContext db, InstituteCache
 
     private IQueryable<ClassPermissionRequest> Query() => db.ClassPermissionRequests.Include(item => item.Student).Include(item => item.Teacher);
 
-    private static ClassPermissionRequestDto Map(ClassPermissionRequest item) => new(item.Id, item.StudentId, item.Student?.FullName ?? "Student", item.Student?.PublicId ?? "", item.TeacherId, item.Teacher?.FullName ?? "Not reviewed", item.SessionDate, item.Reason, item.Status, item.RequestedAtUtc, item.ReviewedAtUtc);
+    private async Task<Dictionary<Guid, string>> CurrentStudentPublicIdsAsync(IEnumerable<Guid> studentIds, CancellationToken cancellationToken)
+    {
+        var ids = studentIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+        var period = await CurrentPeriodAsync(cancellationToken);
+        return await db.StudentEnrollments.AsNoTracking()
+            .Where(item => ids.Contains(item.StudentId) && item.Status == "Active" && item.AcademicYear == period.AcademicYear && item.Semester == period.Semester)
+            .ToDictionaryAsync(item => item.StudentId, item => item.PublicId, cancellationToken);
+    }
+
+    private static ClassPermissionRequestDto Map(ClassPermissionRequest item, string publicId) => new(item.Id, item.StudentId, item.Student?.FullName ?? "Student", publicId, item.TeacherId, item.Teacher?.FullName ?? "Not reviewed", item.SessionDate, item.Reason, item.Status, item.RequestedAtUtc, item.ReviewedAtUtc);
 }

@@ -37,10 +37,11 @@ public sealed class GradeServiceTests
         Assert.Equal(40, grade.FinalExamScore);
         Assert.Equal(79, grade.Score);
         Assert.Equal("C", grade.LetterGrade);
+        Assert.Equal("SubmissionRequested", grade.ReviewStatus);
     }
 
     [Fact]
-    public async Task Rejected_submission_requires_administrator_permission_before_teacher_can_resubmit()
+    public async Task Approved_request_is_submitted_then_can_be_sent_back_for_resubmission()
     {
         await using var db = CreateContext();
         var department = new Department { DepartmentCode = "DEP-2", Name = "Business" };
@@ -57,15 +58,47 @@ public sealed class GradeServiceTests
         var grade = Assert.Single(db.GradeRecords);
         grade.SubmittedByTeacherId = teacher.Id;
         await db.SaveChangesAsync();
-        await service.ReviewAsync(grade.Id, "Rejected", "Correct the Midterm score.", CancellationToken.None);
-        await service.RequestResubmissionAsync(grade.Id, teacher.Id, CancellationToken.None);
+        await service.ReviewAsync(grade.Id, "Approved", string.Empty, CancellationToken.None);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.SubmitAsync(student.Id, course.Id, 12, 16, 40, CancellationToken.None));
-        await service.AuthorizeResubmissionAsync(grade.Id, CancellationToken.None);
+        await service.SubmitAuthorizedAsync(grade.Id, teacher.Id, CancellationToken.None);
+        await service.ReviewAsync(grade.Id, "ResubmitRequested", "Correct the Midterm score.", CancellationToken.None);
         await service.SubmitAsync(student.Id, course.Id, 12, 16, 40, CancellationToken.None);
 
-        Assert.Equal("Pending", grade.ReviewStatus);
+        Assert.Equal("Submitted", grade.ReviewStatus);
         Assert.Equal(2, grade.SubmissionVersion);
         Assert.Equal(16, grade.MidtermScore);
+        Assert.Equal(string.Empty, grade.ReviewNote);
+
+        await service.ReviewAsync(grade.Id, "Approved", string.Empty, CancellationToken.None);
+
+        Assert.Equal("Approved", grade.ReviewStatus);
+    }
+
+    [Fact]
+    public async Task Rejected_submission_request_requires_reason_and_can_be_requested_again()
+    {
+        await using var db = CreateContext();
+        var department = new Department { DepartmentCode = "DEP-5", Name = "Engineering" };
+        var student = new Student { StudentCode = "STU-5", FullName = "Student Five", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
+        var course = new Course { CourseCode = "COU-5", Name = "Engineering Drawing", DepartmentId = department.Id, Department = department };
+        db.AddRange(department, student, course);
+        AddSetting(db, "academic-year", "currentYear", "2026–2027");
+        AddSetting(db, "semester", "currentTerm", "Semester 1");
+        await db.SaveChangesAsync();
+        var service = new GradeService(db, new InstituteCache());
+
+        await service.SubmitAsync(student.Id, course.Id, 12, 14, 40, CancellationToken.None);
+        var grade = Assert.Single(db.GradeRecords);
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ReviewAsync(grade.Id, "Rejected", string.Empty, CancellationToken.None));
+        await service.ReviewAsync(grade.Id, "Rejected", "Correct the Assignment score.", CancellationToken.None);
+
+        Assert.Equal("Rejected", grade.ReviewStatus);
+        Assert.Equal("Correct the Assignment score.", grade.ReviewNote);
+
+        await service.SubmitAsync(student.Id, course.Id, 15, 14, 40, CancellationToken.None);
+
+        Assert.Equal("SubmissionRequested", grade.ReviewStatus);
+        Assert.Equal(15, grade.AssignmentScore);
         Assert.Equal(string.Empty, grade.ReviewNote);
     }
 
@@ -89,7 +122,7 @@ public sealed class GradeServiceTests
         await new GradeService(db, new InstituteCache()).SubmitAsync(student.Id, course.Id, teacher.Id, 15, 16, 42, CancellationToken.None);
 
         Assert.Equal(teacher.Id, imported.SubmittedByTeacherId);
-        Assert.Equal("Pending", imported.ReviewStatus);
+        Assert.Equal("SubmissionRequested", imported.ReviewStatus);
         Assert.Equal(1, imported.SubmissionVersion);
         Assert.Equal(15, imported.AssignmentScore);
         Assert.Equal(16, imported.MidtermScore);
@@ -97,7 +130,7 @@ public sealed class GradeServiceTests
     }
 
     [Fact]
-    public async Task Confirmed_teacher_submission_can_request_permission_for_a_new_submit()
+    public async Task Administrator_approval_grants_permission_but_does_not_submit_results()
     {
         await using var db = CreateContext();
         var department = new Department { DepartmentCode = "DEP-4", Name = "Design" };
@@ -115,9 +148,13 @@ public sealed class GradeServiceTests
         grade.SubmittedByTeacherId = teacher.Id;
         await db.SaveChangesAsync();
         await service.ReviewAsync(grade.Id, "Approved", string.Empty, CancellationToken.None);
-        await service.RequestResubmissionAsync(grade.Id, teacher.Id, CancellationToken.None);
 
-        Assert.Equal("ResubmitRequested", grade.ReviewStatus);
+        Assert.Equal("SubmissionAuthorized", grade.ReviewStatus);
+        Assert.NotNull(grade.ReviewedAtUtc);
+
+        await service.SubmitAuthorizedAsync(grade.Id, teacher.Id, CancellationToken.None);
+
+        Assert.Equal("Submitted", grade.ReviewStatus);
     }
 
     private static ClassSessionRecord Session(Student student, Course course, DateOnly date, string status) => new()

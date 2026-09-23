@@ -3,7 +3,7 @@ import type { EnrollmentDisplayItem } from "../common/enrollment-types";
 
 export const teacherAssignmentCopy: EnrollmentCopy = {
   title: "Teacher Assign",
-  description: "Read-only teachers from Timetable Enrollment rows that match an active Student Enrollment cohort.",
+  description: "Read-only teachers from matching Timetable Enrollment rows. Public ID is the teacher's mobile login ID.",
   columns: ["EnrollmentCode", "Public ID", "Teacher", "Department", "Assigned courses", "Year levels", "Academic year", "Semester", "Period state", "Create At"],
 };
 

@@ -31,7 +31,6 @@ internal sealed class TeacherAssignmentEditor(InstituteDbContext db, TeacherAssi
             assignment = new TeacherAssignment
             {
                 EnrollmentCode = codes.Enrollment,
-                PublicId = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, teacher.TeacherCode, "teacher", codes.Enrollment, "teacherPublicIdPrefix", "TID", cancellationToken),
                 OperationCode = codes.Operation,
                 RecordCode = codes.Record,
                 HistoryCode = codes.History,
@@ -39,6 +38,12 @@ internal sealed class TeacherAssignmentEditor(InstituteDbContext db, TeacherAssi
                 AcademicYear = period.AcademicYear,
                 Semester = period.Semester
             };
+            assignment.PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(
+                db,
+                assignment.Id,
+                "teacherPublicIdPrefix",
+                "TEA",
+                cancellationToken);
             db.TeacherAssignments.Add(assignment);
         }
 

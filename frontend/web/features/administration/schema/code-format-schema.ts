@@ -43,8 +43,8 @@ export const codeFormatGroups: readonly ConfigurationGroup[] = [
       field("resultCodeExample", "Academic Result example", "Example: RES-1-STU-1.", "derived", { derive: values => enrollmentScopedExample(values, "resultCodePrefix", "RES", "studentManagementPrefix", "STU") }),
       field("studentPublicIdPrefix", "Student Public ID prefix", "Issued only when the Student is enrolled and joined to the Enrollment database GUID.", "text", { required: true }),
       field("studentPublicIdExample", "Student Public ID example", "Enrollment-scoped mobile sign-in identity, such as STU-{GUID}.", "derived", { derive: values => publicIdExample(values, "studentPublicIdPrefix", "STU") }),
-      field("teacherPublicIdPrefix", "Teacher Public ID prefix", "Issued only when the Teacher is assigned in Enrollment.", "text", { required: true }),
-      field("teacherPublicIdExample", "Teacher Public ID example", "Enrollment-scoped mobile sign-in identity.", "derived", { derive: values => enrollmentScopedExample(values, "teacherPublicIdPrefix", "TID", "teacherManagementPrefix", "TEA") }),
+      field("teacherPublicIdPrefix", "Teacher Public ID prefix", "Issued only when the Teacher is assigned in Enrollment; the default format is TEA-{GUID}.", "text", { required: true }),
+      field("teacherPublicIdExample", "Teacher Public ID example", "Assignment GUID mobile sign-in identity, such as TEA-{GUID}.", "derived", { derive: values => publicIdExample(values, "teacherPublicIdPrefix", "TEA") }),
     ],
   },
   {

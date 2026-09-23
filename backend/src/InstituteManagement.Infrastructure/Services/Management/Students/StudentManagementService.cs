@@ -13,8 +13,8 @@ public sealed class StudentManagementService(InstituteDbContext db, InstituteCac
     public override async Task<IReadOnlyList<StudentResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
         var students = await Db.Students.AsNoTracking().Where(student => student.Status != "Inactive" && (!departmentId.HasValue || student.DepartmentId == departmentId)).ToListAsync(ct);
-        return students.Where(student => Matches(search, student.FullName, student.StudentCode, student.PublicId, student.Email))
-            .Select(student => new StudentResponseDto(student.Id, new StudentValuesDto(student.PhotoDataUrl, student.StudentCode, student.PublicId, student.FullName, student.Email, "", "", "", "", student.Status, student.CreateAt.ToString("yyyy-MM-dd")))).ToList();
+        return students.Where(student => Matches(search, student.FullName, student.StudentCode, student.Email))
+            .Select(student => new StudentResponseDto(student.Id, new StudentValuesDto(student.PhotoDataUrl, student.StudentCode, "", student.FullName, student.Email, "", "", "", "", student.Status, student.CreateAt.ToString("yyyy-MM-dd")))).ToList();
     }
     public override async Task<StudentResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
@@ -26,7 +26,7 @@ public sealed class StudentManagementService(InstituteDbContext db, InstituteCac
     }
     public override async Task<StudentResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
-        var entity = await RequiredEntityAsync(Db.Students, id, ct); values["studentCode"] = entity.StudentCode; values["publicId"] = entity.PublicId;
+        var entity = await RequiredEntityAsync(Db.Students, id, ct); values["studentCode"] = entity.StudentCode; values["publicId"] = string.Empty;
         entity.FullName = Required(values, "name"); entity.Email = Email(values, "email"); entity.PhotoDataUrl = Required(values, "photoDataUrl"); Touch(entity);
         return await SaveUpdatedAsync(id, values, ct);
     }

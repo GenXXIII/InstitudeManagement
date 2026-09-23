@@ -1,83 +1,128 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DataTable, DataTableEmptyState, DataTableToolbar, PaginatedDataRegion, type DataTableColumn } from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
-import { workflowSourceSearch } from "@/lib/workflow-code";
+import type { EnrollmentItem } from "@/features/enrollment/common/enrollment-types";
+import { studentEnrollmentApi } from "@/features/enrollment/students/student-enrollment-api";
 import { assessmentApi } from "./assessment-api";
+import { statusLabel, statusTone } from "./assessment-calculation";
+import { groupCourseAssessments, type CourseAssessmentGroup } from "./assessment-groups";
 import type { GradeAssessment } from "./assessment-types";
 
 export function AssessmentWorkspace() {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
+  const suffix = departmentId ? `?departmentId=${encodeURIComponent(departmentId)}` : "";
   const [rows, setRows] = useState<GradeAssessment[]>([]);
-  const [query, setQuery] = useState(searchParams.get("q") ?? "");
-  const [status, setStatus] = useState("All");
-  const [notes, setNotes] = useState<Record<string, string>>({});
-  const [working, setWorking] = useState("");
-  const [actionError, setActionError] = useState("");
+  const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
-  const load = useCallback(() => assessmentApi.get(departmentId).then(value => { setRows(value); setReady(true); setError(false); }).catch(() => setError(true)), [departmentId]);
+  const load = useCallback(() => Promise.all([
+    assessmentApi.get(departmentId),
+    studentEnrollmentApi.get("", departmentId),
+  ]).then(([gradeRows, enrollmentRows]) => {
+    setRows(gradeRows);
+    setEnrollments(enrollmentRows);
+    setReady(true);
+    setError(false);
+  }).catch(() => setError(true)), [departmentId]);
   useEffect(() => { void load(); }, [load]);
-  const visible = useMemo(() => rows.filter(item => {
-    const text = workflowSourceSearch(query).toLowerCase();
-    const matchesStatus = status === "All" || status === "Action" && ["Pending", "ResubmitRequested"].includes(item.values.reviewStatus) || item.values.reviewStatus === status;
-    return matchesStatus && (!text || [item.values.student, item.values.course, item.values.department, item.values.submittedByTeacher, item.values.gradeCode].some(value => value.toLowerCase().includes(text)));
-  }).toSorted((left, right) => right.values.submittedAtUtc.localeCompare(left.values.submittedAtUtc)), [query, rows, status]);
+
+  const groups = useMemo(() => groupCourseAssessments(rows, enrollments)
+    .toSorted((left, right) => dateValue(right.submittedAtUtc || right.reviewedAtUtc) - dateValue(left.submittedAtUtc || left.reviewedAtUtc)), [enrollments, rows]);
+  const summary = useMemo(() => ({
+    students: new Set(rows.map(item => item.values.studentId)).size,
+    requests: groups.filter(item => ["SubmissionRequested", "ResubmitRequested"].includes(item.status)).length,
+    review: groups.filter(item => ["Submitted", "Pending"].includes(item.status)).length,
+    authorized: groups.filter(item => ["SubmissionAuthorized", "ResubmitAuthorized"].includes(item.status)).length,
+    accepted: groups.filter(item => item.status === "Approved").length,
+  }), [groups, rows]);
+
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
-  async function review(item: GradeAssessment, decision: "Approved" | "Rejected") {
-    const note = notes[item.id]?.trim() ?? "";
-    if (decision === "Rejected" && !note) { setActionError("Add a correction note before requesting a new submission."); return; }
-    setWorking(item.id); setActionError("");
-    try { await assessmentApi.review(item.id, decision, note); await load(); }
-    catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not review this grade submission."); }
-    finally { setWorking(""); }
-  }
 
-  async function authorizeResubmission(item: GradeAssessment) {
-    setWorking(item.id); setActionError("");
-    try { await assessmentApi.authorizeResubmission(item.id); await load(); }
-    catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not grant resubmission permission."); }
-    finally { setWorking(""); }
-  }
+  const attention = [
+    { label: "Authorization requests", count: summary.requests, detail: "Teacher course rosters waiting for Administrator authorization.", href: `/assessment/submission-approvals${suffix}` },
+    { label: "Submitted rosters for review", count: summary.review, detail: "Complete course rosters waiting for acceptance or correction.", href: `/assessment/submission-approvals${suffix}` },
+    { label: "Authorized rosters not submitted", count: summary.authorized, detail: "Teachers can now submit the complete class roster.", href: `/assessment/course-submissions${suffix}` },
+  ];
 
-  return <div className="viewport-data-page assessment-viewport-page">
-    <PageHeading eyebrow="Administrator grade control" title="Assessment" description="Manage every course grade: review Teacher submissions, confirm or reject scores, and approve requests for a new submission."/>
-    {actionError && <section className="result-action-error" role="alert">{actionError}</section>}
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search student, Teacher, course…" searchAriaLabel="Search assessments" resultLabel={`${visible.length} grade submissions`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field"><select value={status} onChange={event => setStatus(event.target.value)} aria-label="Review status"><option>All</option><option value="Action">Action required</option><option>Pending</option><option value="ResubmitRequested">Resubmit requests</option><option>Approved</option><option>Rejected</option><option value="ResubmitAuthorized">Resubmit allowed</option></select></DataTableToolbar>
-    <PaginatedDataRegion items={visible} resetKey={`${query}-${status}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="check" size={28}/>} title="No assessment submissions" description="Teacher grade submissions matching this filter will appear here."/>}>{pageItems => <DataTable className="panel assessment-record-table" headerClassName="assessment-record-head" rowSelector=".assessment-record-row" columns={assessmentColumns}><div>{pageItems.map(item => <AssessmentRow item={item} note={notes[item.id] ?? ""} working={working === item.id} onNote={value => setNotes(current => ({ ...current, [item.id]: value }))} onReview={decision => void review(item, decision)} onAuthorize={() => void authorizeResubmission(item)} key={item.id}/>)}</div></DataTable>}</PaginatedDataRegion>
+  return <div className="viewport-data-page assessment-viewport-page assessment-overview-page">
+    <PageHeading eyebrow="Institutional assessment control" title="Assessment Overview" description="Monitor course assessment progress, review whole-roster submissions, and open the exact register that needs attention."/>
+    <div className="assessment-overview-scroll">
+      <section className="assessment-overview-metrics" aria-label="Assessment activity">
+        <OverviewMetric href={`/assessment/student-results${suffix}`} icon="users" label="Students with results" value={summary.students} detail="Open individual course grades"/>
+        <OverviewMetric href={`/assessment/course-submissions${suffix}`} icon="book" label="Course rosters" value={groups.length} detail="Latest course submission state"/>
+        <OverviewMetric href={`/assessment/submission-approvals${suffix}`} icon="pulse" label="Approval queue" value={summary.requests + summary.review} detail="Authorization and final review" attention={summary.requests + summary.review > 0}/>
+        <OverviewMetric href={`/assessment/course-submissions${suffix}`} icon="check" label="Accepted rosters" value={summary.accepted} detail="Administrator-approved courses"/>
+      </section>
+
+      <section className="assessment-overview-main">
+        <article className="panel assessment-overview-flow">
+          <header><div><span>Whole-course governance</span><h2>Assessment submission workflow</h2><p>Every action applies to one Teacher, one course, and the complete enrolled Student roster.</p></div></header>
+          <div className="assessment-overview-flow-list">
+            <WorkflowStep number="1" title="Teacher requests authorization" detail="The request covers the complete assigned course roster." href={`/assessment/course-submissions${suffix}`}/>
+            <WorkflowStep number="2" title="Administrator authorizes submission" detail="Authorization is granted once for the entire course cohort." href={`/assessment/submission-approvals${suffix}`}/>
+            <WorkflowStep number="3" title="Teacher submits all results" detail="One submission sends every Student grade in the roster." href={`/assessment/course-submissions${suffix}`}/>
+            <WorkflowStep number="4" title="Administrator accepts or returns" detail="Accepted results become Student Results and permanent Assessment History." href={`/assessment/submission-approvals${suffix}`}/>
+          </div>
+        </article>
+
+        <aside className="panel assessment-overview-attention">
+          <header><div><span>Automatic checks</span><h2>Needs attention</h2></div><strong>{summary.requests + summary.review + summary.authorized}</strong></header>
+          <div>{attention.map(item => <Link href={item.href} className={item.count ? "has-issue" : "is-ready"} key={item.label}>
+            <span>{item.count || <Icon name="check" size={15}/>}</span>
+            <div><strong>{item.label}</strong><small>{item.count ? item.detail : "No course rosters are waiting in this stage."}</small></div>
+            <Icon name="arrow" size={14}/>
+          </Link>)}</div>
+        </aside>
+      </section>
+
+      <section className="panel assessment-overview-latest">
+        <header><div><span>Current assessment activity</span><h2>Latest course submissions</h2><p>Newest whole-roster activity across the current assessment workspace.</p></div><Link className="button secondary" href={`/assessment/course-submissions${suffix}`}>View all courses <Icon name="arrow" size={14}/></Link></header>
+        <DataTable className="horizontal-management-table assessment-overview-register" headerClassName="horizontal-management-head" rowSelector=":scope > .assessment-overview-row" columns={[{ key: "course", label: "Course", minimumWidth: 190 }, { key: "teacher", label: "Assigned Teacher", minimumWidth: 150 }, { key: "cohort", label: "Cohort", minimumWidth: 150 }, { key: "students", label: "Students", minimumWidth: 80, align: "right" }, { key: "status", label: "Latest Status", minimumWidth: 130, align: "center" }, { key: "date", label: "Latest Submission", minimumWidth: 140, align: "center" }]}>
+          {groups.slice(0, 6).map(group => <LatestCourseRow group={group} suffix={suffix} key={group.key}/>)}
+          {!groups.length && <div className="assessment-overview-empty"><Icon name="grade" size={22}/><strong>No assessment activity yet</strong><span>Teacher course-roster activity will appear here.</span></div>}
+        </DataTable>
+      </section>
+    </div>
   </div>;
 }
 
-function AssessmentRow({ item, note, working, onNote, onReview, onAuthorize }: { item: GradeAssessment; note: string; working: boolean; onNote: (value: string) => void; onReview: (decision: "Approved" | "Rejected") => void; onAuthorize: () => void }) {
-  const value = item.values;
-  const pending = value.reviewStatus === "Pending";
-  const requested = value.reviewStatus === "ResubmitRequested";
-  return <article className="assessment-record-row">
-    <div className="assessment-code"><strong>{value.gradeCode}</strong><span>Version {value.submissionVersion}</span></div>
-    <div className="assessment-student"><strong>{value.student}</strong><span>{value.department}</span></div>
-    <div className="assessment-course"><strong>{value.course}</strong><span>{value.academicYear} · {value.term}</span></div>
-    <div className="assessment-components"><Score label="Attendance" score={value.attendanceScore} maximum={value.attendanceMaximum}/><Score label="Assignment" score={value.assignmentScore} maximum={value.assignmentMaximum}/><Score label="Midterm" score={value.midtermScore} maximum={value.midtermMaximum}/><Score label="Final" score={value.finalExamScore} maximum={value.finalExamMaximum}/></div>
-    <div className="assessment-total"><strong>{value.score || "0"}</strong><span>{value.grade || "—"}</span></div>
-    <div className="assessment-submitter"><strong>{value.submittedByTeacher || "Imported grade"}</strong><small>{value.submittedAtUtc ? new Date(value.submittedAtUtc).toLocaleDateString() : "Existing record"}</small></div>
-    <span className={`assessment-status status-${value.reviewStatus.toLowerCase()}`}>{statusLabel(value.reviewStatus)}</span>
-    <div className="assessment-decision">{pending ? <><input value={note} onChange={event => onNote(event.target.value)} placeholder="Correction note for rejection…"/><div><button type="button" className="button secondary assessment-reject" disabled={working} onClick={() => onReview("Rejected")}>Reject</button><button type="button" className="button primary" disabled={working} onClick={() => onReview("Approved")}>{working ? "Saving…" : "Confirm"}</button></div></> : requested ? <><p><strong>Teacher requests permission</strong><span>{value.reviewNote || "Allow the Teacher to refill these scores."}</span></p><button type="button" className="button primary" disabled={working} onClick={onAuthorize}>{working ? "Saving…" : "Allow resubmit"}</button></> : <p><strong>{value.reviewStatus === "Rejected" ? "Correction sent" : value.reviewStatus === "ResubmitAuthorized" ? "Resubmit permission granted" : "Administrator decision"}</strong><span>{value.reviewNote || (value.reviewStatus === "Approved" ? "Grade confirmed" : "Waiting for Teacher")}</span></p>}</div>
-  </article>;
+function OverviewMetric({ href, icon, label, value, detail, attention = false }: { href: string; icon: Parameters<typeof Icon>[0]["name"]; label: string; value: number; detail: string; attention?: boolean }) {
+  return <Link className="panel assessment-overview-metric" href={href}>
+    <span className={attention ? "attention" : "complete"}><Icon name={icon} size={17}/></span>
+    <div><small>{label}</small><strong>{value.toLocaleString()}</strong><p>{detail}</p></div>
+    <Icon name="arrow" size={14}/>
+  </Link>;
 }
 
-function Score({ label, score, maximum }: { label: string; score: string; maximum: string }) { return <span><small>{label}</small><strong>{score || "0"}/{maximum}</strong></span>; }
-function statusLabel(status: GradeAssessment["values"]["reviewStatus"]) { return status === "Approved" ? "Confirmed" : status === "ResubmitRequested" ? "Resubmit requested" : status === "ResubmitAuthorized" ? "Resubmit allowed" : status; }
-const assessmentColumns: DataTableColumn[] = [
-  { key: "code", label: "Grade code", align: "center", minimumWidth: 100 },
-  { key: "student", label: "Student", align: "left", minimumWidth: 145 },
-  { key: "course", label: "Course", align: "left", minimumWidth: 145 },
-  { key: "components", label: "Recorded scores", align: "center", minimumWidth: 285 },
-  { key: "total", label: "Total", align: "center", minimumWidth: 72 },
-  { key: "teacher", label: "Teacher", align: "left", minimumWidth: 125 },
-  { key: "status", label: "Status", align: "center", minimumWidth: 120 },
-  { key: "decision", label: "Administrator review", align: "center", minimumWidth: 285 },
-];
+function WorkflowStep({ number, title, detail, href }: { number: string; title: string; detail: string; href: string }) {
+  return <Link href={href}><b>{number}</b><div><strong>{title}</strong><small>{detail}</small></div><Icon name="arrow" size={14}/></Link>;
+}
+
+function LatestCourseRow({ group, suffix }: { group: CourseAssessmentGroup; suffix: string }) {
+  return <Link className="horizontal-management-row assessment-overview-row" href={`/assessment/course-submissions${suffix}`}>
+    <span className="assessment-register-copy"><strong>{group.course}</strong><small>{group.department}</small></span>
+    <span className="assessment-register-copy"><strong>{group.teacher}</strong><small>Assigned Teacher</small></span>
+    <span className="assessment-register-copy"><strong>{group.year ? `Year ${group.year}` : "Year not assigned"}</strong><small>{group.shift || "Shift not assigned"} / {group.academicYear} / {group.term}</small></span>
+    <strong>{group.grades.length}</strong>
+    <span className={`assessment-course-state status-${statusTone(group.status)}`}>{statusLabel(group.status)}</span>
+    <time>{formatDate(group.submittedAtUtc)}</time>
+  </Link>;
+}
+
+function formatDate(value: string) {
+  if (!value) return "Not submitted";
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+function dateValue(value: string) {
+  const parsed = new Date(value).valueOf();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}

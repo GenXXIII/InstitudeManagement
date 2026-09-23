@@ -8,7 +8,7 @@ public sealed class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
 {
     public void Configure(EntityTypeBuilder<Teacher> builder)
     {
-        builder.HasIndex(x => x.PublicId).IsUnique();
+        builder.HasIndex(x => x.PublicId).IsUnique().HasFilter("[PublicId] <> ''");
         builder.HasIndex(x => x.TeacherCode).IsUnique();
         builder.HasIndex(x => x.DepartmentId);
         builder.Property(x => x.PublicId).HasMaxLength(16).IsRequired();

@@ -21,7 +21,7 @@ public static partial class SettingsCatalog
             Code("financeCodePrefix", "FIN", 16),
             Code("resultCodePrefix", "RES", 16),
             Code("studentPublicIdPrefix", "STU", 16),
-            Code("teacherPublicIdPrefix", "TID", 16),
+            Code("teacherPublicIdPrefix", "TEA", 16),
             Code("alertCodePrefix", "ALT", 16),
             Code("notificationCodePrefix", "NOT", 16),
             Code("historyCodePrefix", "NHS", 16)

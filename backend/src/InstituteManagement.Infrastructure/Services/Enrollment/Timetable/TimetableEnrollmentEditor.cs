@@ -64,6 +64,7 @@ internal sealed class TimetableEnrollmentEditor(
         enrollment.YearLevel = yearLevel;
         enrollment.Status = "Active";
         enrollment.UpdatedAtUtc = DateTime.UtcNow;
+        await EnsureTeacherAssignmentAsync(validated.Teacher, validated.DepartmentId, period, cancellationToken);
 
         // Keep legacy schedule columns synchronized until all operational readers use enrollment-owned relationships.
         entry.CourseId = courseId;
@@ -98,6 +99,60 @@ internal sealed class TimetableEnrollmentEditor(
             enrollment,
             validated.DepartmentId,
             validated.DepartmentName);
+    }
+
+    private async Task EnsureTeacherAssignmentAsync(
+        Teacher teacher,
+        Guid? departmentId,
+        EnrollmentPeriod period,
+        CancellationToken cancellationToken)
+    {
+        var assignment = await db.TeacherAssignments.FirstOrDefaultAsync(
+            item =>
+                item.TeacherId == teacher.Id
+                && item.AcademicYear == period.AcademicYear
+                && item.Semester == period.Semester,
+            cancellationToken);
+        if (assignment is null)
+        {
+            var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(
+                db,
+                teacher.TeacherCode,
+                "teacher",
+                teacher.Id,
+                cancellationToken);
+            assignment = new TeacherAssignment
+            {
+                EnrollmentCode = codes.Enrollment,
+                OperationCode = codes.Operation,
+                RecordCode = codes.Record,
+                HistoryCode = codes.History,
+                TeacherId = teacher.Id,
+                DepartmentId = departmentId,
+                AcademicYear = period.AcademicYear,
+                Semester = period.Semester,
+                Status = "Assigned"
+            };
+            assignment.PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(
+                db,
+                assignment.Id,
+                "teacherPublicIdPrefix",
+                "TEA",
+                cancellationToken);
+            db.TeacherAssignments.Add(assignment);
+            return;
+        }
+
+        if (!PublicAccessId.MatchesEnrollment(assignment.PublicId, assignment.Id))
+            assignment.PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(
+                db,
+                assignment.Id,
+                "teacherPublicIdPrefix",
+                "TEA",
+                cancellationToken);
+        if (!assignment.DepartmentId.HasValue) assignment.DepartmentId = departmentId;
+        assignment.Status = "Assigned";
+        assignment.UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public async Task<bool> RemoveAsync(

@@ -104,7 +104,7 @@ export const defaultSettings: InstituteSettings = {
     financeCodePrefix: "FIN",
     resultCodePrefix: "RES",
     studentPublicIdPrefix: "STU",
-    teacherPublicIdPrefix: "TID",
+    teacherPublicIdPrefix: "TEA",
     alertCodePrefix: "ALT",
     notificationCodePrefix: "NOT",
     historyCodePrefix: "NHS",

@@ -20,7 +20,7 @@ public sealed class ClassPermissionServiceTests
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var schedule = new ScheduleEntry { TimetableCode = "TIM-P", TeacherId = teacher.Id, Teacher = teacher, CourseId = course.Id, Course = course, ClassroomId = classroom.Id, Classroom = classroom, YearLevel = 1, Shift = "Morning", DayOfWeek = today.DayOfWeek, StartsAt = new TimeOnly(23, 0), EndsAt = new TimeOnly(23, 59), Status = "Upcoming" };
         db.AddRange(department, teacher, student, course, classroom, schedule,
-            new StudentEnrollment { EnrollmentCode = "ESTU-P", StudentId = student.Id, DepartmentId = department.Id, YearLevel = 1, Shift = "Morning", AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" },
+            new StudentEnrollment { EnrollmentCode = "ESTU-P", PublicId = "STU-ENROLLMENT-P", StudentId = student.Id, DepartmentId = department.Id, YearLevel = 1, Shift = "Morning", AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" },
             new TimetableEnrollment { EnrollmentCode = "ETIM-P", ScheduleEntryId = schedule.Id, CourseId = course.Id, TeacherId = teacher.Id, ClassroomId = classroom.Id, YearLevel = 1, AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" },
             new SystemSetting { Section = "system", Key = "timeZone", Value = "UTC" },
             new SystemSetting { Section = "academic-year", Key = "currentYear", Value = "2026–2027" },
@@ -32,6 +32,7 @@ public sealed class ClassPermissionServiceTests
         var approved = await service.ReviewAsync(requested.Id, teacher.Id, "Approved", CancellationToken.None);
 
         Assert.Equal("Approved", approved.Status);
+        Assert.Equal("STU-ENROLLMENT-P", approved.StudentPublicId);
         var attendance = Assert.Single(db.AttendanceRecords);
         Assert.Equal("Permission", attendance.Status);
         Assert.Equal("Student whole-day permission", attendance.Method);

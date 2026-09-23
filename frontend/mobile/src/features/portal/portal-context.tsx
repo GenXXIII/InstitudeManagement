@@ -3,19 +3,18 @@ import { useAuth, type MobileRole } from '@/features/auth/auth-context';
 import { loadPortalData, portalMutations } from './portal-api';
 import type { PortalData, StudentPayment } from './portal-types';
 
-type GradeScores = { assignmentScore: number; midtermScore: number; finalExamScore: number };
-type GradeSubmission = { studentId: string; courseId: string; scores: GradeScores };
+export type CourseGradeSubmission = { studentId: string; assignmentScore: number; midtermScore: number; finalExamScore: number };
 
 type PortalContextValue = PortalData & {
   error: string;
   loading: boolean;
   refresh: () => Promise<void>;
   startClass: (scheduleEntryId: string, teacherId: string) => Promise<void>;
-  submitGrade: (studentId: string, courseId: string, scores: GradeScores) => Promise<void>;
-  submitGrades: (submissions: GradeSubmission[]) => Promise<void>;
+  requestCourseSubmission: (courseId: string, submissions: CourseGradeSubmission[]) => Promise<void>;
   requestPermission: (sessionDate: string, reason: string) => Promise<void>;
   reviewPermission: (requestId: string, decision: 'Approved' | 'Rejected') => Promise<void>;
-  requestGradeResubmission: (gradeId: string) => Promise<void>;
+  submitAuthorizedCourse: (gradeId: string, submissions?: CourseGradeSubmission[]) => Promise<void>;
+  requestCourseResubmission: (gradeId: string, note?: string) => Promise<void>;
   markAnnouncementRead: (announcementId: string) => Promise<void>;
   generateFinanceQr: (studentId: string, paymentId: string) => Promise<StudentPayment>;
   verifyFinancePayment: (studentId: string, paymentId: string) => Promise<StudentPayment>;
@@ -43,19 +42,9 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     return () => clearTimeout(loadTimer);
   }, [refresh]);
 
-  const submitGrade = useCallback(async (studentId: string, courseId: string, scores: GradeScores) => {
+  const requestCourseSubmission = useCallback(async (courseId: string, submissions: CourseGradeSubmission[]) => {
     if (!data.profile) throw new Error('Teacher profile is unavailable.');
-    await portalMutations.submitGrade(studentId, courseId, data.profile.id, scores);
-    await refresh();
-  }, [data.profile, refresh]);
-
-  const submitGrades = useCallback(async (submissions: GradeSubmission[]) => {
-    const batchSize = 8;
-    for (let index = 0; index < submissions.length; index += batchSize) {
-      const batch = submissions.slice(index, index + batchSize);
-      if (!data.profile) throw new Error('Teacher profile is unavailable.');
-      await Promise.all(batch.map(item => portalMutations.submitGrade(item.studentId, item.courseId, data.profile!.id, item.scores)));
-    }
+    await portalMutations.requestCourseSubmission(courseId, data.profile.id, submissions);
     await refresh();
   }, [data.profile, refresh]);
 
@@ -65,9 +54,15 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     await refresh();
   }, [data.profile, refresh]);
 
-  const requestGradeResubmission = useCallback(async (gradeId: string) => {
+  const submitAuthorizedCourse = useCallback(async (gradeId: string, submissions: CourseGradeSubmission[] = []) => {
     if (!data.profile) throw new Error('Teacher profile is unavailable.');
-    await portalMutations.requestGradeResubmission(gradeId, data.profile.id);
+    await portalMutations.submitAuthorizedCourse(gradeId, data.profile.id, submissions);
+    await refresh();
+  }, [data.profile, refresh]);
+
+  const requestCourseResubmission = useCallback(async (gradeId: string, note = '') => {
+    if (!data.profile) throw new Error('Teacher profile is unavailable.');
+    await portalMutations.requestCourseResubmission(gradeId, data.profile.id, note);
     await refresh();
   }, [data.profile, refresh]);
 
@@ -119,7 +114,7 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     }
   }, [data.announcements, data.profile]);
 
-  const value = useMemo(() => ({ ...data, error, loading, refresh, startClass, submitGrade, submitGrades, requestPermission, reviewPermission, requestGradeResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment }), [data, error, loading, refresh, startClass, submitGrade, submitGrades, requestPermission, reviewPermission, requestGradeResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment]);
+  const value = useMemo(() => ({ ...data, error, loading, refresh, startClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment }), [data, error, loading, refresh, startClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment]);
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 

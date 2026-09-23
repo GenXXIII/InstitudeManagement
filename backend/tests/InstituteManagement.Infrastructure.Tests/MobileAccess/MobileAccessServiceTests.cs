@@ -48,6 +48,28 @@ public sealed class MobileAccessServiceTests
         Assert.Equal(student.Id, session.ProfileId);
     }
 
+    [Fact]
+    public async Task SignIn_resolves_current_teacher_assignment_public_id()
+    {
+        await using var db = CreateContext();
+        var teacher = new Teacher { TeacherCode = "TEA-1", PublicId = "TEA-LEGACY", FullName = "Teacher One" };
+        var assignment = new TeacherAssignment { EnrollmentCode = "ENR-1-TEA-1", TeacherId = teacher.Id, Teacher = teacher, AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Assigned" };
+        assignment.PublicId = PublicAccessId.ForTeacherEnrollment(assignment.Id);
+        db.AddRange(teacher, assignment,
+            new SystemSetting { Section = "academic-year", Key = "currentYear", Value = "2026–2027" },
+            new SystemSetting { Section = "semester", Key = "currentTerm", Value = "Semester 1" });
+        await db.SaveChangesAsync();
+
+        var session = await new MobileAccessService(db).SignInAsync(assignment.PublicId, "1234", CancellationToken.None);
+
+        Assert.NotNull(session);
+        Assert.Equal($"TEA-{assignment.Id:N}".ToUpperInvariant(), assignment.PublicId);
+        Assert.Equal("teacher", session.Role);
+        Assert.Equal(assignment.PublicId, session.PublicId);
+        Assert.Equal(teacher.Id, session.ProfileId);
+        Assert.Null(await new MobileAccessService(db).SignInAsync(teacher.PublicId, "1234", CancellationToken.None));
+    }
+
     [Theory]
     [InlineData("wrong-password")]
     [InlineData("")]
@@ -55,11 +77,14 @@ public sealed class MobileAccessServiceTests
     {
         await using var db = CreateContext();
         var teacher = new Teacher { TeacherCode = "TEA-1", FullName = "Teacher One" };
-        teacher.PublicId = PublicAccessId.ForTeacher(teacher.Id);
-        db.Teachers.Add(teacher);
+        var assignment = new TeacherAssignment { EnrollmentCode = "ENR-1-TEA-1", TeacherId = teacher.Id, Teacher = teacher, AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Assigned" };
+        assignment.PublicId = PublicAccessId.ForTeacherEnrollment(assignment.Id);
+        db.AddRange(teacher, assignment,
+            new SystemSetting { Section = "academic-year", Key = "currentYear", Value = "2026–2027" },
+            new SystemSetting { Section = "semester", Key = "currentTerm", Value = "Semester 1" });
         await db.SaveChangesAsync();
 
-        var session = await new MobileAccessService(db).SignInAsync(teacher.PublicId, password, CancellationToken.None);
+        var session = await new MobileAccessService(db).SignInAsync(assignment.PublicId, password, CancellationToken.None);
 
         Assert.Null(session);
     }

@@ -4,6 +4,7 @@ import { workflowCode } from "@/lib/workflow-code";
 import type { EnrollmentResourceClient } from "./common/enrollment-resource-client";
 import type { EnrollmentItem } from "./common/enrollment-types";
 import { studentEnrollmentApi } from "./students/student-enrollment-api";
+import { teacherAssignmentApi } from "./teachers/teacher-assignment-api";
 import { timetableEnrollmentApi } from "./timetable/timetable-enrollment-api";
 
 export type AssignmentProjectionResource = "student-assignments" | "teachers" | "courses" | "classrooms" | "departments";
@@ -13,12 +14,13 @@ export type AssignmentProjection = Record<AssignmentProjectionResource, Enrollme
 export function assignmentProjectionClient(resource: AssignmentProjectionResource): EnrollmentResourceClient {
   return {
     get: async (search = "", departmentId = "", year = "") => {
-      const [students, timetable, departments] = await Promise.all([
+      const [students, timetable, departments, teacherAssignments] = await Promise.all([
         studentEnrollmentApi.get("", departmentId, year),
         timetableEnrollmentApi.get("", departmentId, year),
         resource === "departments" ? departmentApi.get() : Promise.resolve([]),
+        resource === "teachers" ? teacherAssignmentApi.get() : Promise.resolve([]),
       ]);
-      return filterProjection(deriveAssignmentProjection(students, timetable, departments)[resource], search);
+      return filterProjection(deriveAssignmentProjection(students, timetable, departments, teacherAssignments)[resource], search);
     },
     update: async () => { throw new Error("Assignment views are generated from Student Enrollment and Timetable Enrollment."); },
     remove: async () => { throw new Error("Assignment views are generated from Student Enrollment and Timetable Enrollment."); },
@@ -29,6 +31,7 @@ export function deriveAssignmentProjection(
   studentRows: EnrollmentItem[],
   timetableRows: EnrollmentItem[],
   departments: DepartmentItem[],
+  teacherAssignmentRows: EnrollmentItem[] = [],
 ): AssignmentProjection {
   const students = studentRows.filter(item => item.values.status === "Active" && cohortKey(item, "year"));
   const timetable = timetableRows.filter(item => item.values.status === "Active" && cohortKey(item, "yearLevel"));
@@ -37,6 +40,10 @@ export function deriveAssignmentProjection(
   const matchedStudents = students.filter(item => timetableCohorts.has(cohortKey(item, "year")!));
   const matchedTimetable = timetable.filter(item => studentCohorts.has(cohortKey(item, "yearLevel")!));
   const timetableByCohort = groupBy(matchedTimetable, item => cohortKey(item, "yearLevel")!);
+  const teacherAssignmentByPeriod = new Map(teacherAssignmentRows.map(assignment => [
+    periodGroupKey(assignment, assignment.id),
+    assignment,
+  ]));
 
   const studentAssignments = matchedStudents.map(student => {
     const schedules = timetableByCohort.get(cohortKey(student, "year")!) ?? [];
@@ -55,8 +62,10 @@ export function deriveAssignmentProjection(
   const teacherAssignments = [...groupBy(matchedTimetable.filter(item => Boolean(item.values.teacherId)), item => periodGroupKey(item, item.values.teacherId)).values()]
     .map(schedules => {
       const first = schedules[0];
+      const assignment = teacherAssignmentByPeriod.get(periodGroupKey(first, first.values.teacherId));
       return item(periodRowId(first, first.values.teacherId), {
-        enrollmentCode: workflowCode(first.values.teacherCode, "teacher", "enrollment"),
+        enrollmentCode: assignment?.values.enrollmentCode || workflowCode(first.values.teacherCode, "teacher", "enrollment"),
+        publicId: assignment?.values.publicId || "",
         teacherCode: first.values.teacherCode,
         name: first.values.teacher,
         departmentId: singleValue(schedules, "departmentId"),

@@ -175,9 +175,9 @@ public static class SettingsCatalogSeeder
             var occurrence = teacherOccurrences[assignment.Id];
             var codes = Codes(format, assignment.Teacher.TeacherCode, assignment.EnrollmentCode, "teacher", occurrence);
             changed |= Assign(assignment, codes);
-            if (string.IsNullOrWhiteSpace(assignment.PublicId))
+            if (!PublicAccessId.MatchesEnrollment(assignment.PublicId, assignment.Id))
             {
-                assignment.PublicId = format.LinkedWithConfiguredPrefix(assignment.Teacher.TeacherCode, "teacher", occurrence, "teacherPublicIdPrefix", "TID");
+                assignment.PublicId = format.EnrollmentPublicId(assignment.Id, "teacherPublicIdPrefix", "TEA");
                 changed = true;
             }
         }

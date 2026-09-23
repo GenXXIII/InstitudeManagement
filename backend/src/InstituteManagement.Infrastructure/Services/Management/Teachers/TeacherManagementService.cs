@@ -13,7 +13,7 @@ public sealed class TeacherManagementService(InstituteDbContext db, InstituteCac
     public override async Task<IReadOnlyList<TeacherResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
         var teachers = await Db.Teachers.AsNoTracking().Where(teacher => teacher.Status != "Inactive" && (!departmentId.HasValue || teacher.DepartmentId == departmentId)).ToListAsync(ct);
-        return teachers.Where(teacher => Matches(search, teacher.FullName, teacher.TeacherCode, teacher.PublicId, teacher.Email)).Select(teacher => new TeacherResponseDto(teacher.Id, new TeacherValuesDto(teacher.PhotoDataUrl, teacher.TeacherCode, teacher.PublicId, teacher.FullName, teacher.Email, "", "", teacher.Status, teacher.CreateAt.ToString("yyyy-MM-dd")))).ToList();
+        return teachers.Where(teacher => Matches(search, teacher.FullName, teacher.TeacherCode, teacher.Email)).Select(teacher => new TeacherResponseDto(teacher.Id, new TeacherValuesDto(teacher.PhotoDataUrl, teacher.TeacherCode, "", teacher.FullName, teacher.Email, "", "", teacher.Status, teacher.CreateAt.ToString("yyyy-MM-dd")))).ToList();
     }
     public override async Task<TeacherResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {
@@ -25,7 +25,7 @@ public sealed class TeacherManagementService(InstituteDbContext db, InstituteCac
     }
     public override async Task<TeacherResponseDto> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct)
     {
-        var entity = await RequiredEntityAsync(Db.Teachers, id, ct); values["teacherCode"] = entity.TeacherCode; values["publicId"] = entity.PublicId;
+        var entity = await RequiredEntityAsync(Db.Teachers, id, ct); values["teacherCode"] = entity.TeacherCode; values["publicId"] = string.Empty;
         entity.FullName = Required(values, "name"); entity.Email = Email(values, "email"); entity.PhotoDataUrl = Required(values, "photoDataUrl"); Touch(entity); return await SaveUpdatedAsync(id, values, ct);
     }
     protected override async Task ValidateDeleteAsync(Entity entity, CancellationToken ct) { var id = entity.Id; if (await Db.Departments.AnyAsync(x => x.HeadTeacherId == id, ct) || await Db.CourseAssignments.AnyAsync(x => x.TeacherId == id && x.Status == "Active", ct) || await Db.ScheduleEntries.AnyAsync(x => x.TeacherId == id && x.Status != "Cancelled", ct)) throw new InvalidOperationException("Teacher is still assigned as a department head, course teacher, or timetable teacher."); }

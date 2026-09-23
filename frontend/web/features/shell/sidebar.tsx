@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Icon } from "@/components/icon";
-import { announceNavigation, enrollmentNavigation, historyNavigation, managementNavigation, operationNavigation, recordNavigation } from "./navigation-config";
+import { announceNavigation, assessmentNavigation, enrollmentNavigation, historyNavigation, managementNavigation, operationNavigation, recordNavigation } from "./navigation-config";
 import { NavGroup } from "./nav-group";
 
 export function Sidebar({ open, live, instituteName, shortName, logoUrl, departmentScope, yearScope, onClose }: { open: boolean; live: boolean; instituteName: string; shortName: string; logoUrl: string; departmentScope: string; yearScope: string; onClose: () => void }) {
@@ -22,8 +22,8 @@ export function Sidebar({ open, live, instituteName, shortName, logoUrl, departm
       <NavGroup label="Enrollment" icon="users" base="enrollment" items={enrollmentNavigation} expanded={expandedGroup === "enrollment"} onToggle={() => toggle("enrollment")} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="Management" icon="building" base="management" items={managementNavigation} expanded={expandedGroup === "management"} onToggle={() => toggle("management")} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="Record" icon="folder" base="record" items={recordNavigation} expanded={expandedGroup === "record"} onToggle={() => toggle("record")} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
+      <NavGroup label="Assessment" icon="check" base="assessment" items={assessmentNavigation} expanded={expandedGroup === "assessment"} onToggle={() => toggle("assessment")} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <Link className={`nav-item nav-direct ${pathname.startsWith("/finance") ? "active" : ""}`} href="/finance" onClick={onClose}><Icon name="finance" size={17}/><span>Finance</span></Link>
-      <Link className={`nav-item nav-direct ${pathname.startsWith("/assessment") ? "active" : ""}`} href={scopedHref("/assessment", departmentScope, yearScope)} onClick={onClose}><Icon name="check" size={17}/><span>Assessment</span></Link>
       <Link className={`nav-item nav-direct ${pathname.startsWith("/academic-results") ? "active" : ""}`} href={scopedHref("/academic-results", departmentScope, yearScope)} onClick={onClose}><Icon name="grade" size={17}/><span>Academic Results</span></Link>
       <NavGroup label="Announce" icon="bell" base="announce" items={announceNavigation} expanded={expandedGroup === "announce"} onToggle={() => toggle("announce")} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
       <NavGroup label="History" icon="archive" base="records" items={historyNavigation} expanded={expandedGroup === "records"} onToggle={() => toggle("records")} departmentScope={departmentScope} yearScope={yearScope} onNavigate={onClose}/>
@@ -36,7 +36,7 @@ export function Sidebar({ open, live, instituteName, shortName, logoUrl, departm
 function sidebarGroup(pathname: string) {
   if (pathname === "/") return "dashboard";
   const group = pathname.split("/")[1];
-  return ["operation", "enrollment", "management", "record", "records", "announce"].includes(group) ? group : null;
+  return ["operation", "enrollment", "management", "record", "assessment", "records", "announce"].includes(group) ? group : null;
 }
 
 function scopedHref(pathname: string, departmentId: string, year: string) {

@@ -56,11 +56,15 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
   }
 
   return <div className="viewport-data-page result-viewport-page">
-    <PageHeading eyebrow={details.eyebrow} title={details.title} description={`${details.description}${year ? ` Showing Year ${year}.` : ""}`}/>
+    <PageHeading
+      eyebrow={details.eyebrow}
+      title={details.title}
+      description={`${details.description}${year ? ` Showing Year ${year}.` : ""}`}
+      actions={mode === "current" ? <button type="button" className="button primary" disabled={readyCount === 0 || publishingAll || Boolean(publishing)} onClick={() => void publishAll()}>{publishingAll ? "Publishing…" : `Publish all (${readyCount})`}</button> : undefined}
+    />
     {actionError && <section className="result-action-error" role="alert">{actionError}</section>}
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search result code, student, course, or department…" searchAriaLabel="Search results" resultLabel={`${visible.length} results`} className="record-toolbar panel result-toolbar" searchClassName="record-search management-search module-search-field">
       <select value={outcome} onChange={event => setOutcome(event.target.value)} aria-label="Result outcome"><option value="all">All outcomes</option><option value="pass">Pass</option><option value="retake-exam">Retake exam</option><option value="fail">Fail</option><option value="pending">Pending</option></select>
-      {mode === "current" && <button type="button" className="button primary result-publish-all" disabled={readyCount === 0 || publishingAll || Boolean(publishing)} onClick={() => void publishAll()}>{publishingAll ? "Publishing…" : `Publish all (${readyCount})`}</button>}
     </DataTableToolbar>
     <PaginatedDataRegion items={visible} resetKey={`${outcome}-${query}`} className="result-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No semester results found" description={mode === "history" ? "Published semester results will archive here." : "Assessment evidence will appear here."}/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table" headerClassName="horizontal-management-head semester-result-head" rowSelector=":scope > .semester-result-row" columns={resultColumns(mode)}>{pageItems.map(row => <ResultRow row={row} mode={mode} publishing={publishing === resultKey(row)} onPublish={() => void publish(row)} key={resultKey(row)}/>)}</DataTable>}</PaginatedDataRegion>
   </div>;
@@ -77,6 +81,7 @@ function ResultRow({ row, mode, publishing, onPublish }: { row: SemesterResult; 
     <Cell label="Permission" className="result-attendance-number is-permission"><strong>{row.permissionCount}</strong></Cell>
     <Cell label="Absent" className="result-attendance-number is-absent"><strong>{row.absentCount}</strong></Cell>
     <Cell label="Courses" className="result-courses-cell"><CourseCards row={row}/></Cell>
+    <Cell label="Result" className="result-outcome-cell"><span className={`table-status result-${row.totalGrade.toLowerCase().replaceAll(" ", "-")}`}>{resultOutcome(row.totalGrade)}</span></Cell>
     <Cell label="Draft / Ready" className="result-status-cell"><span className={`table-status result-publication-state state-${row.publicationStatus.toLowerCase()}`}>{row.publicationStatus}</span></Cell>
     <Cell label={mode === "history" ? "Published at" : "Actions"} className="management-action-cell result-action-cell">{mode === "current" ? <div className="management-actions"><button type="button" disabled={row.publicationStatus !== "Ready" || publishing} onClick={onPublish}>{publishing ? "Publishing…" : "Publish"}</button></div> : <time>{row.publishedAtUtc ? new Date(row.publishedAtUtc).toLocaleDateString() : "—"}</time>}</Cell>
   </article>;
@@ -92,6 +97,7 @@ const baseResultColumns: DataTableColumn[] = [
   { key: "permission", label: "Permission", align: "center", minimumWidth: 75 },
   { key: "absent", label: "Absent", align: "center", minimumWidth: 65 },
   { key: "courses", label: "Courses", minimumWidth: 350 },
+  { key: "result", label: "Result", align: "center", minimumWidth: 90 },
   { key: "status", label: "Draft / Ready", align: "center", minimumWidth: 85 },
 ];
 
@@ -109,5 +115,6 @@ function Cell({ label, children, className = "horizontal-detail" }: { label: str
 }
 
 function resultKey(row: SemesterResult) { return `${row.studentId}-${row.academicYear}-${row.semester}`; }
+function resultOutcome(value: string) { return value === "Retake Exam" ? "Retake" : value; }
 function semesterNumber(value: string) { return Number(value.match(/\d+/)?.[0] ?? 0); }
 function shiftNumber(value: string) { const order = ["morning", "afternoon", "evening", "weekend"]; const index = order.indexOf(value.toLowerCase()); return index === -1 ? order.length : index; }

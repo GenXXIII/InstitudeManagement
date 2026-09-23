@@ -83,7 +83,7 @@ export function FinanceWorkspace() {
       <FinanceMetric label="Outstanding" value={money(view.outstanding, view.currency)} tone="amber"/>
       <FinanceMetric label="Eligible" value={view.eligible.toString()} tone="violet"/>
     </section>
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search account, payment, student, or enrollment..." className="management-toolbar panel management-toolbar-global finance-toolbar">
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search account, payment, student, or enrollment..." searchAriaLabel="Search Finance" resultLabel={`${view.items.length} accounts`} className="record-toolbar panel finance-toolbar" searchClassName="record-search management-search module-search-field">
       <select className="finance-status-filter" aria-label="Filter finance accounts by status" value={status} onChange={event => setStatus(event.target.value)}>{statuses.map(item => <option key={item}>{item}</option>)}</select>
     </DataTableToolbar>
     <PaginatedDataRegion items={view.items} resetKey={`${query}-${status}`} className="management-paginated-region" empty={<DataTableEmptyState icon={<Icon name="finance" size={24}/>} title="No active finance accounts" description="Paid semesters move to Finance history. Active accounts appear after Student Enrollment is saved."/>}>{pageItems => <FinanceTable accounts={pageItems} onSelect={account => setSelectedId(account.id)}/>}</PaginatedDataRegion>

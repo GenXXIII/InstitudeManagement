@@ -19,7 +19,7 @@ internal static class DatabaseInitializer
             await HasExistingInstituteSchemaAsync(db, cancellationToken))
         {
             await DatabaseSchemaUpdater.EnsureAsync(db, cancellationToken);
-            await MarkInitialMigrationAppliedAsync(db, cancellationToken);
+            await MarkMainMigrationAppliedAsync(db, cancellationToken);
         }
 
         await db.Database.MigrateAsync(cancellationToken);
@@ -44,7 +44,7 @@ internal static class DatabaseInitializer
         }
     }
 
-    private static Task MarkInitialMigrationAppliedAsync(InstituteDbContext db, CancellationToken cancellationToken) =>
+    private static Task MarkMainMigrationAppliedAsync(InstituteDbContext db, CancellationToken cancellationToken) =>
         db.Database.ExecuteSqlRawAsync("""
             IF OBJECT_ID(N'[__EFMigrationsHistory]', N'U') IS NULL
             BEGIN
@@ -54,7 +54,7 @@ internal static class DatabaseInitializer
                     CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
                 );
             END;
-            IF NOT EXISTS (SELECT 1 FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20260822023337_InitialInstituteSchema')
-                INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES (N'20260822023337_InitialInstituteSchema', N'10.0.11');
+            IF NOT EXISTS (SELECT 1 FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20260923020955_Main')
+                INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES (N'20260923020955_Main', N'10.0.11');
             """, cancellationToken);
 }

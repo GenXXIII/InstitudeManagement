@@ -59,8 +59,8 @@ export function signInMobile(publicId: string, password: string) {
 
 export async function loadPortalData(session: MobileSession): Promise<PortalData> {
   const roleResource = session.role === 'teacher' ? 'teachers' : 'students';
-  const profiles = await request<TeacherItem[] | StudentItem[]>(`/api/catalog/${roleResource}?search=${encodeURIComponent(session.publicId)}`);
-  const baseProfile = profiles.find(item => item.id === session.profileId && item.values.publicId === session.publicId) ?? null;
+  const profiles = await request<(TeacherItem | StudentItem)[]>(`/api/catalog/${roleResource}`);
+  const baseProfile = profiles.find(item => item.id === session.profileId) ?? null;
   const [announcementRows, gradeSettings] = await Promise.all([
     request<Omit<Announcement, 'source' | 'sourceId'>[]>('/api/notification-center/alerts'),
     request<{ values: Record<string, string> }>('/api/settings/grade-rules'),
@@ -130,8 +130,10 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
     request<ClassSessionStartItem[]>(`/api/mobile/classes/teachers/${teacher.id}/today`),
     request<ClassPermissionRequestItem[]>(`/api/mobile/classes/teachers/${teacher.id}/permission-requests`),
   ]);
-  const assignedStudents = students.filter(student => ownSchedule.some(item =>
-    (!item.values.departmentId || item.values.departmentId === student.values.departmentId) && item.values.yearLevel === student.values.year));
+  const assignedStudents = students.filter(student => student.values.periodState === 'Current' && ownSchedule.some(item =>
+    (!item.values.departmentId || item.values.departmentId === student.values.departmentId)
+    && item.values.yearLevel === student.values.year
+    && (!item.values.shift || item.values.shift === student.values.shift)));
   const studentIds = new Set(assignedStudents.map(student => student.id));
   const courseIds = new Set(ownSchedule.map(item => item.values.courseId));
   return {
@@ -153,10 +155,11 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
 
 export const portalMutations = {
   startClass: (scheduleEntryId: string, teacherId: string) => request<ClassSessionStartItem>(`/api/mobile/classes/${scheduleEntryId}/start`, { method: 'POST', body: JSON.stringify({ teacherId }) }),
-  submitGrade: (studentId: string, courseId: string, teacherId: string, scores: { assignmentScore: number; midtermScore: number; finalExamScore: number }) => request<void>('/api/grades', { method: 'POST', body: JSON.stringify({ studentId, courseId, teacherId, ...scores }) }),
+  requestCourseSubmission: (courseId: string, teacherId: string, students: { studentId: string; assignmentScore: number; midtermScore: number; finalExamScore: number }[]) => request<void>('/api/grades/course-submissions/request', { method: 'POST', body: JSON.stringify({ courseId, teacherId, students }) }),
   requestPermission: (studentId: string, sessionDate: string, reason: string) => request<ClassPermissionRequestItem>(`/api/mobile/classes/students/${studentId}/permission-requests`, { method: 'POST', body: JSON.stringify({ sessionDate, reason }) }),
   reviewPermission: (requestId: string, teacherId: string, decision: 'Approved' | 'Rejected') => request<ClassPermissionRequestItem>(`/api/mobile/classes/permission-requests/${requestId}/decision`, { method: 'PUT', body: JSON.stringify({ teacherId, decision }) }),
-  requestGradeResubmission: (gradeId: string, teacherId: string) => request<void>(`/api/grades/${gradeId}/resubmission-request`, { method: 'POST', body: JSON.stringify({ teacherId }) }),
+  submitAuthorizedCourse: (gradeId: string, teacherId: string, students: { studentId: string; assignmentScore: number; midtermScore: number; finalExamScore: number }[] = []) => request<void>(`/api/grades/${gradeId}/course-submit`, { method: 'POST', body: JSON.stringify({ teacherId, students }) }),
+  requestCourseResubmission: (gradeId: string, teacherId: string, note = '') => request<void>(`/api/grades/${gradeId}/course-resubmission-request`, { method: 'POST', body: JSON.stringify({ teacherId, note }) }),
   markAnnouncementRead: (announcementId: string) => request<Announcement>(`/api/notification-center/alerts/${announcementId}/read`, { method: 'PUT' }),
   markFinanceReminderRead: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/reminder/read`, { method: 'PUT' }),
   generateFinanceQr: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/qr`, { method: 'PUT' }),

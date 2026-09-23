@@ -1,7 +1,5 @@
 using InstituteManagement.API.Contracts.Grades;
-using InstituteManagement.Application.Features.Grades.SubmitGrade;
 using InstituteManagement.Application.Features.Grades;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 using InstituteManagement.API.Routes;
@@ -10,12 +8,27 @@ namespace InstituteManagement.API.Controllers.Grades;
 
 [ApiController]
 [Route(ApiRoutes.Grades)]
-public sealed class GradesController(ISender sender, IGradeService gradeService) : ControllerBase
+public sealed class GradesController(IGradeService gradeService) : ControllerBase
 {
     [HttpPost]
-    public async Task<IActionResult> Submit(SubmitGradeRequest request, CancellationToken cancellationToken)
+    public IActionResult Submit(SubmitGradeRequest request, CancellationToken cancellationToken)
     {
-        await sender.Send(new SubmitGradeCommand(request.StudentId, request.CourseId, request.TeacherId, request.AssignmentScore, request.MidtermScore, request.FinalExamScore), cancellationToken);
+        _ = request;
+        _ = cancellationToken;
+        return Problem(
+            statusCode: StatusCodes.Status409Conflict,
+            title: "Individual Student grade submission is not available.",
+            detail: "Submit the complete Teacher-assigned course roster through the course submission workflow.");
+    }
+
+    [HttpPost("course-submissions/request")]
+    public async Task<IActionResult> RequestCourseSubmission(CourseGradeSubmissionRequest request, CancellationToken cancellationToken)
+    {
+        await gradeService.RequestCourseSubmissionAsync(
+            request.TeacherId,
+            request.CourseId,
+            request.Students.Select(item => new GradeStudentScore(item.StudentId, item.AssignmentScore, item.MidtermScore, item.FinalExamScore)).ToList(),
+            cancellationToken);
         return Accepted();
     }
 
@@ -26,17 +39,28 @@ public sealed class GradesController(ISender sender, IGradeService gradeService)
         return NoContent();
     }
 
-    [HttpPost("{gradeId:guid}/resubmission-request")]
-    public async Task<IActionResult> RequestResubmission(Guid gradeId, RequestGradeResubmissionRequest request, CancellationToken cancellationToken)
+    [HttpPost("{gradeId:guid}/submit")]
+    public async Task<IActionResult> SubmitAuthorized(Guid gradeId, RequestGradeResubmissionRequest request, CancellationToken cancellationToken)
     {
-        await gradeService.RequestResubmissionAsync(gradeId, request.TeacherId, cancellationToken);
+        await gradeService.SubmitAuthorizedAsync(gradeId, request.TeacherId, cancellationToken);
         return Accepted();
     }
 
-    [HttpPut("{gradeId:guid}/resubmission-permission")]
-    public async Task<IActionResult> AuthorizeResubmission(Guid gradeId, CancellationToken cancellationToken)
+    [HttpPost("{gradeId:guid}/course-submit")]
+    public async Task<IActionResult> SubmitAuthorizedCourse(Guid gradeId, SubmitAuthorizedCourseGradesRequest request, CancellationToken cancellationToken)
     {
-        await gradeService.AuthorizeResubmissionAsync(gradeId, cancellationToken);
-        return NoContent();
+        await gradeService.SubmitAuthorizedCourseAsync(
+            gradeId,
+            request.TeacherId,
+            request.Students?.Select(item => new GradeStudentScore(item.StudentId, item.AssignmentScore, item.MidtermScore, item.FinalExamScore)).ToList() ?? [],
+            cancellationToken);
+        return Accepted();
+    }
+
+    [HttpPost("{gradeId:guid}/course-resubmission-request")]
+    public async Task<IActionResult> RequestCourseResubmission(Guid gradeId, CourseGradeResubmissionRequest request, CancellationToken cancellationToken)
+    {
+        await gradeService.RequestCourseResubmissionAsync(gradeId, request.TeacherId, request.Note, cancellationToken);
+        return Accepted();
     }
 }
