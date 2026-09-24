@@ -12,7 +12,7 @@ export function FinanceHistoryWorkspace() {
   const [accounts, setAccounts] = useState<FinancialAccount[]>();
   const [query, setQuery] = useState("");
   const [error, setError] = useState(false);
-  const load = useCallback(() => financeApi.get(query, "Paid").then(rows => { setAccounts(rows); setError(false); }).catch(() => setError(true)), [query]);
+  const load = useCallback(() => financeApi.get(query, "History").then(rows => { setAccounts(rows); setError(false); }).catch(() => setError(true)), [query]);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 180); return () => window.clearTimeout(timer); }, [load]);
   const groups = useMemo(() => {
     const values = new Map<string, FinancialAccount[]>();
@@ -25,8 +25,8 @@ export function FinanceHistoryWorkspace() {
   if (error) return <ErrorPage retry={() => void load()}/>;
   if (!accounts) return <LoadingPage/>;
   return <div className="viewport-data-page history-viewport-page finance-history-page">
-    <PageHeading eyebrow="Paid semester archive" title="Finance history" description="Every fully paid semester moves out of active Finance and remains here as a read-only financial record."/>
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search paid account or student…" searchAriaLabel="Search Finance history" resultLabel={`${accounts.length} paid semesters`} className="record-toolbar panel" searchClassName="record-search management-search module-search-field"/>
-    {groups.length ? <div className="finance-history-groups">{groups.map(group => <section className="semester-history-group" key={group.key}><header><div><span>Paid semester</span><h2>{group.academicYear}</h2></div><strong>{group.semester}</strong><small>{group.rows.length} paid account{group.rows.length === 1 ? "" : "s"}</small></header><PaginatedDataRegion items={group.rows} resetKey={group.key} as="fragment">{pageItems => <FinanceTable accounts={pageItems} history/>}</PaginatedDataRegion></section>)}</div> : <DataTableEmptyState icon={<Icon name="finance" size={28}/>} title="No paid semester history" description="A semester appears here immediately after its account becomes Paid."/>}
+    <PageHeading eyebrow="Closed semester archive" title="Finance history" description="Only semester payments explicitly closed after the semester ends are preserved here as read-only financial records."/>
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search closed account or student…" searchAriaLabel="Search Finance history" resultLabel={`${accounts.length} closed semesters`} className="record-toolbar panel" searchClassName="record-search management-search module-search-field"/>
+    {groups.length ? <div className="finance-history-groups">{groups.map(group => <section className="semester-history-group" key={group.key}><header><div><span>Closed semester</span><h2>{group.academicYear}</h2></div><strong>{group.semester}</strong><small>{group.rows.length} closed account{group.rows.length === 1 ? "" : "s"}</small></header><PaginatedDataRegion items={group.rows} resetKey={group.key} as="fragment">{pageItems => <FinanceTable accounts={pageItems} history/>}</PaginatedDataRegion></section>)}</div> : <DataTableEmptyState icon={<Icon name="finance" size={28}/>} title="No closed semester history" description="Paid accounts stay in active Finance until the semester ends and an Administrator closes the payment."/>}
   </div>;
 }

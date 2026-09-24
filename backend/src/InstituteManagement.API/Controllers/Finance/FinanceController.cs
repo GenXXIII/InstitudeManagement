@@ -102,4 +102,8 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
     [HttpPut("accounts/{financialAccountId:guid}/cancel")]
     public async Task<IActionResult> Cancel(Guid financialAccountId, CancellationToken cancellationToken) =>
         Ok(await finance.CancelAsync(financialAccountId, cancellationToken));
+
+    [HttpPut("accounts/{financialAccountId:guid}/close-payment")]
+    public async Task<IActionResult> ClosePayment(Guid financialAccountId, CancellationToken cancellationToken) =>
+        Ok(await finance.ClosePaymentAsync(financialAccountId, cancellationToken));
 }

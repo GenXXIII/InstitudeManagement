@@ -10,4 +10,8 @@ export const assessmentApi = {
   reviewCourse(id: string, decision: "Approved" | "Rejected", note = "") {
     return request<void>(`/api/grades/${id}/review`, { method: "PUT", body: JSON.stringify({ decision, note }) });
   },
+  confirmFinalGrades(departmentId = "") {
+    const query = departmentId ? `?departmentId=${encodeURIComponent(departmentId)}` : "";
+    return request<{ confirmed: number }>(`/api/grades/final-results/confirm-all${query}`, { method: "POST" });
+  },
 };

@@ -27,6 +27,7 @@ public sealed class FinancialAccount : Entity
     public string Currency { get; set; } = "USD";
     public DateOnly DueOn { get; set; }
     public string Status { get; set; } = "Pending";
+    public DateTime? ClosedAtUtc { get; set; }
     public DateTime? ReminderSentAtUtc { get; set; }
     public DateTime? ReminderReadAtUtc { get; set; }
     public ICollection<FinancialPayment> Payments { get; set; } = [];

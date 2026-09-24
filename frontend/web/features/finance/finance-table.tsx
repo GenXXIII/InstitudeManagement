@@ -5,9 +5,9 @@ import { ManagementDataCell } from "@/components/management-data-cell";
 import type { FinancialAccount } from "./finance-types";
 
 const activeColumns = ["Account", "Student", "Department", "Year", "Semester", "Shift", "Amount", "Paid", "Balance", "Status", "Due", "Actions"];
-const historyColumns = ["Account", "Student", "Department", "Year", "Semester", "Shift", "Amount", "Paid", "Balance", "Status", "Due", "Paid at"];
+const historyColumns = ["Account", "Student", "Department", "Year", "Semester", "Shift", "Amount", "Paid", "Balance", "Status", "Due", "Closed at"];
 
-export function FinanceTable({ accounts, history = false, onSelect }: { accounts: FinancialAccount[]; history?: boolean; onSelect?: (account: FinancialAccount) => void }) {
+export function FinanceTable({ accounts, history = false, onSelect, onClosePayment, closingId = "" }: { accounts: FinancialAccount[]; history?: boolean; onSelect?: (account: FinancialAccount) => void; onClosePayment?: (account: FinancialAccount) => void; closingId?: string }) {
   return <DataTable as="section" className="panel horizontal-management-table finance-payment-table" headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={history ? historyColumns : activeColumns}>
     {accounts.map(account => <article className="horizontal-management-row" key={account.id}>
       <Cell label="Account"><strong className="management-code-value">{account.financialAccountCode}</strong></Cell>
@@ -19,9 +19,9 @@ export function FinanceTable({ accounts, history = false, onSelect }: { accounts
       <Cell label="Amount"><strong>{account.isDeclared ? money(account.totalDue, account.currency) : "—"}</strong></Cell>
       <Cell label="Paid"><strong>{money(account.totalPaid, account.currency)}</strong></Cell>
       <Cell label="Balance"><strong>{money(account.balance, account.currency)}</strong></Cell>
-      <Cell label="Status"><span className={`table-status finance-state-${account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</span></Cell>
+      <Cell label="Status"><span className={`table-status finance-state-${account.closedAtUtc ? "closed" : account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.closedAtUtc ? "Paid · Closed" : account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</span></Cell>
       <Cell label="Due"><time>{account.isDeclared ? formatDate(account.dueOn) : "—"}</time></Cell>
-      {history ? <Cell label="Paid at"><time>{account.paidAtUtc ? formatDate(account.paidAtUtc) : "—"}</time></Cell> : <Cell label="Actions" className="management-action-cell"><button type="button" className="button secondary finance-manage-button" onClick={() => onSelect?.(account)}>{account.isDeclared ? "Modify" : "Declare"}</button></Cell>}
+      {history ? <Cell label="Closed at"><time>{account.closedAtUtc ? formatDate(account.closedAtUtc) : "—"}</time></Cell> : <Cell label="Actions" className="management-action-cell">{account.canClosePayment ? <button type="button" className="button primary finance-manage-button" disabled={closingId === account.id} onClick={() => onClosePayment?.(account)}>{closingId === account.id ? "Closing…" : "Close payment"}</button> : <button type="button" className="button secondary finance-manage-button" onClick={() => onSelect?.(account)}>{account.closedAtUtc ? "View" : account.isDeclared ? "Modify" : "Declare"}</button>}</Cell>}
     </article>)}
   </DataTable>;
 }

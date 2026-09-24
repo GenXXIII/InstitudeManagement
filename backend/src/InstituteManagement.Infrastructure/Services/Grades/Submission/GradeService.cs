@@ -35,6 +35,12 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
 
         var period = await CurrentPeriodAsync(cancellationToken);
         var requestedIds = students.Select(item => item.StudentId).ToHashSet();
+        if (await db.GradeRecords.AnyAsync(item => requestedIds.Contains(item.StudentId)
+                && item.AcademicYear == period.AcademicYear
+                && item.Term == period.Term
+                && item.FinalizedAtUtc.HasValue,
+            cancellationToken))
+            throw new InvalidOperationException("Final grades are confirmed and read-only.");
         var requestedEnrollments = await db.StudentEnrollments.AsNoTracking()
             .Include(item => item.Student)
             .Where(item => requestedIds.Contains(item.StudentId)
@@ -102,7 +108,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
                 SubmissionVersion = 1,
             };
             if (imported is null) db.GradeRecords.Add(grade);
-            var attendance = await GradeCompositionCalculator.AttendanceAsync(db, score.StudentId, courseId, period.AcademicYear, period.Term, rules.Weights.Attendance, cancellationToken);
+            var attendance = await GradeCompositionCalculator.AttendanceAsync(db, score.StudentId, courseId, period.AcademicYear, period.Term, rules.Weights.Attendance, rules.Attendance, cancellationToken);
             GradeCompositionCalculator.Apply(grade, rules.Weights, rules.Thresholds, attendance, score.AssignmentScore, score.MidtermScore, score.FinalExamScore);
             grade.SubmittedByTeacherId = teacherId;
             grade.ReviewStatus = "SubmissionRequested";
@@ -138,6 +144,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         if (teacherId == Guid.Empty) throw new ArgumentException("TeacherId is required.", nameof(teacherId));
         var anchor = await GradeAsync(gradeId, cancellationToken);
         var grades = await CourseGradesAsync(anchor, cancellationToken);
+        EnsureNotFinalized(grades);
         EnsureUniformStatus(grades);
         if (grades.Any(item => item.SubmittedByTeacherId != teacherId))
             throw new InvalidOperationException("Only the Teacher who requested permission can submit this course roster.");
@@ -154,7 +161,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
             foreach (var grade in grades)
             {
                 var score = scores[grade.StudentId];
-                var attendance = await GradeCompositionCalculator.AttendanceAsync(db, grade.StudentId, grade.CourseId, grade.AcademicYear, grade.Term, rules.Weights.Attendance, cancellationToken);
+                var attendance = await GradeCompositionCalculator.AttendanceAsync(db, grade.StudentId, grade.CourseId, grade.AcademicYear, grade.Term, rules.Weights.Attendance, rules.Attendance, cancellationToken);
                 GradeCompositionCalculator.Apply(grade, rules.Weights, rules.Thresholds, attendance, score.AssignmentScore, score.MidtermScore, score.FinalExamScore);
                 grade.SubmissionVersion++;
             }
@@ -180,6 +187,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
     {
         var anchor = await GradeAsync(gradeId, cancellationToken);
         var grades = await CourseGradesAsync(anchor, cancellationToken);
+        EnsureNotFinalized(grades);
         EnsureUniformStatus(grades);
         if (grades.Any(item => item.SubmittedByTeacherId != teacherId))
             throw new InvalidOperationException("Only the assigned Teacher can request a new course submission.");
@@ -206,6 +214,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         var normalized = decision.Trim();
         var anchor = await GradeAsync(gradeId, cancellationToken);
         var grades = await CourseGradesAsync(anchor, cancellationToken);
+        EnsureNotFinalized(grades);
         EnsureUniformStatus(grades);
 
         string nextStatus;
@@ -247,6 +256,72 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         await cache.InvalidateDashboardAsync(cancellationToken);
     }
 
+    public async Task ConfirmFinalGradesAsync(Guid studentId, string academicYear, string term, CancellationToken cancellationToken)
+    {
+        if (studentId == Guid.Empty) throw new ArgumentException("Student is required.", nameof(studentId));
+        if (string.IsNullOrWhiteSpace(academicYear) || string.IsNullOrWhiteSpace(term))
+            throw new ArgumentException("Academic year and semester are required.");
+        var enrollment = await db.StudentEnrollments.AsNoTracking().FirstOrDefaultAsync(item =>
+            item.StudentId == studentId
+            && item.AcademicYear == academicYear
+            && item.Semester == term
+            && item.Status == "Active", cancellationToken);
+        if (enrollment is null) throw new InvalidOperationException("The Student does not have an active enrollment for this semester.");
+        var grades = await db.GradeRecords.Include(item => item.Student)
+            .Where(item => item.StudentId == studentId && item.AcademicYear == academicYear && item.Term == term)
+            .ToListAsync(cancellationToken);
+        if (grades.Count > 0 && grades.All(item => item.FinalizedAtUtc.HasValue)) return;
+        var expectedCourseCount = await ConfiguredExpectedCourseCountAsync(cancellationToken);
+        var assignedCourseIds = await AssignedCourseIdsAsync(enrollment, cancellationToken);
+        if (!CanFinalize(grades, expectedCourseCount, assignedCourseIds))
+            throw new InvalidOperationException($"All {expectedCourseCount} assigned course grades must be Teacher-submitted and approved before final confirmation.");
+        FinalizeGrades(grades, grades[0].Student?.FullName ?? "Student", academicYear, term, DateTime.UtcNow);
+        await db.SaveChangesAsync(cancellationToken);
+        await cache.InvalidateDashboardAsync(cancellationToken);
+    }
+
+    public async Task<int> ConfirmReadyFinalGradesAsync(Guid? departmentId, CancellationToken cancellationToken)
+    {
+        var expectedCourseCount = await ConfiguredExpectedCourseCountAsync(cancellationToken);
+        var enrollments = await db.StudentEnrollments.AsNoTracking().Include(item => item.Student)
+            .Where(item => item.Status == "Active"
+                && (!departmentId.HasValue || item.DepartmentId == departmentId)
+                && item.Student != null
+                && item.Student.Status != "Inactive")
+            .ToListAsync(cancellationToken);
+        var studentIds = enrollments.Select(item => item.StudentId).Distinct().ToList();
+        var grades = await db.GradeRecords
+            .Where(item => studentIds.Contains(item.StudentId))
+            .ToListAsync(cancellationToken);
+        var timetable = await db.TimetableEnrollments.AsNoTracking()
+            .Include(item => item.Course)
+            .Include(item => item.ScheduleEntry)
+            .Where(item => item.Status == "Active")
+            .ToListAsync(cancellationToken);
+        var gradesByStudent = grades.GroupBy(item => (item.StudentId, item.AcademicYear, item.Term)).ToDictionary(item => item.Key, item => item.ToList());
+        var now = DateTime.UtcNow;
+        var confirmed = 0;
+        foreach (var enrollment in enrollments)
+        {
+            var assignedCourseIds = AssignedCourseIds(enrollment, timetable);
+            if (!gradesByStudent.TryGetValue((enrollment.StudentId, enrollment.AcademicYear, enrollment.Semester), out var studentGrades)
+                || studentGrades.All(item => item.FinalizedAtUtc.HasValue)
+                || !CanFinalize(studentGrades, expectedCourseCount, assignedCourseIds)) continue;
+            FinalizeGrades(studentGrades, enrollment.Student?.FullName ?? "Student", enrollment.AcademicYear, enrollment.Semester, now);
+            confirmed++;
+        }
+        if (confirmed == 0) return 0;
+        db.Notifications.Add(new Notification
+        {
+            Title = "Final grades confirmed",
+            Message = $"Confirmed {confirmed} complete Student result{(confirmed == 1 ? "" : "s")}. They are now read-only and available in Semester Result.",
+            Severity = "Info"
+        });
+        await db.SaveChangesAsync(cancellationToken);
+        await cache.InvalidateDashboardAsync(cancellationToken);
+        return confirmed;
+    }
+
     private async Task SubmitCoreAsync(Guid studentId, Guid courseId, Guid teacherId, decimal assignmentScore, decimal midtermScore, decimal finalExamScore, bool verifyTeacher, CancellationToken cancellationToken)
     {
         if (studentId == Guid.Empty) throw new ArgumentException("StudentId is required.", nameof(studentId));
@@ -270,6 +345,12 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         }
 
         var period = await CurrentPeriodAsync(cancellationToken);
+        if (await db.GradeRecords.AnyAsync(item => item.StudentId == studentId
+                && item.AcademicYear == period.AcademicYear
+                && item.Term == period.Term
+                && item.FinalizedAtUtc.HasValue,
+            cancellationToken))
+            throw new InvalidOperationException("Final grades are confirmed and read-only.");
         var grade = await db.GradeRecords.FirstOrDefaultAsync(item => item.StudentId == studentId && item.CourseId == courseId && item.AcademicYear == period.AcademicYear && item.Term == period.Term, cancellationToken);
         var importedGrade = grade is not null && verifyTeacher && !grade.SubmittedByTeacherId.HasValue;
         var isResubmission = grade?.ReviewStatus == "ResubmitRequested";
@@ -286,7 +367,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         else grade.SubmissionVersion = Math.Max(1, grade.SubmissionVersion);
 
         var rules = await GradeCompositionCalculator.LoadRulesAsync(db, cancellationToken);
-        var attendance = await GradeCompositionCalculator.AttendanceAsync(db, studentId, courseId, period.AcademicYear, period.Term, rules.Weights.Attendance, cancellationToken);
+        var attendance = await GradeCompositionCalculator.AttendanceAsync(db, studentId, courseId, period.AcademicYear, period.Term, rules.Weights.Attendance, rules.Attendance, cancellationToken);
         GradeCompositionCalculator.Apply(grade, rules.Weights, rules.Thresholds, attendance, assignmentScore, midtermScore, finalExamScore);
         grade.SubmittedByTeacherId = teacherId == Guid.Empty ? null : teacherId;
         grade.ReviewStatus = isResubmission ? "Submitted" : "SubmissionRequested";
@@ -326,6 +407,70 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
     {
         if (grades.Select(item => item.ReviewStatus).Distinct().Count() != 1)
             throw new InvalidOperationException("The course roster has inconsistent workflow states. Refresh it before continuing.");
+    }
+
+    private static void EnsureNotFinalized(IReadOnlyList<GradeRecord> grades)
+    {
+        if (grades.Any(item => item.FinalizedAtUtc.HasValue))
+            throw new InvalidOperationException("Final grades are confirmed and read-only.");
+    }
+
+    private static bool CanFinalize(IReadOnlyList<GradeRecord> grades, int expectedCourseCount, IReadOnlySet<Guid> assignedCourseIds) =>
+        assignedCourseIds.Count == expectedCourseCount
+        && grades.Count == expectedCourseCount
+        && grades.Select(item => item.CourseId).Distinct().Count() == expectedCourseCount
+        && assignedCourseIds.SetEquals(grades.Select(item => item.CourseId))
+        && grades.All(item => item.ReviewStatus == "Approved"
+            && item.SubmittedByTeacherId.HasValue
+            && item.SubmittedAtUtc.HasValue
+            && !item.FinalizedAtUtc.HasValue);
+
+    private async Task<IReadOnlySet<Guid>> AssignedCourseIdsAsync(StudentEnrollment enrollment, CancellationToken cancellationToken)
+    {
+        var timetable = await db.TimetableEnrollments.AsNoTracking()
+            .Include(item => item.Course)
+            .Include(item => item.ScheduleEntry)
+            .Where(item => item.Status == "Active"
+                && item.AcademicYear == enrollment.AcademicYear
+                && item.Semester == enrollment.Semester
+                && item.YearLevel == enrollment.YearLevel)
+            .ToListAsync(cancellationToken);
+        return AssignedCourseIds(enrollment, timetable);
+    }
+
+    private static IReadOnlySet<Guid> AssignedCourseIds(StudentEnrollment enrollment, IEnumerable<TimetableEnrollment> timetable) =>
+        timetable.Where(item => item.AcademicYear == enrollment.AcademicYear
+                && item.Semester == enrollment.Semester
+                && item.YearLevel == enrollment.YearLevel
+                && item.ScheduleEntry?.Shift == enrollment.Shift
+                && item.Course?.DepartmentId == enrollment.DepartmentId)
+            .Select(item => item.CourseId)
+            .ToHashSet();
+
+    private void FinalizeGrades(IReadOnlyList<GradeRecord> grades, string studentName, string academicYear, string term, DateTime finalizedAtUtc)
+    {
+        foreach (var grade in grades)
+        {
+            grade.FinalizedAtUtc = finalizedAtUtc;
+            grade.UpdatedAtUtc = finalizedAtUtc;
+        }
+        db.AuditLogs.Add(new AuditLog
+        {
+            ResourceId = grades[0].Id,
+            Type = "Student result",
+            Subject = studentName,
+            Action = "Final grades confirmed",
+            Details = $"{grades.Count} courses Â· {academicYear} Â· {term} Â· read-only Â· moved to Semester Result"
+        });
+    }
+
+    private async Task<int> ConfiguredExpectedCourseCountAsync(CancellationToken cancellationToken)
+    {
+        var value = await db.SystemSettings.AsNoTracking()
+            .Where(item => item.Section == "grade-rules" && item.Key == "expectedCourseCount")
+            .Select(item => item.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+        return int.TryParse(value, out var count) && count > 0 ? count : 5;
     }
 
     private async Task<(string AcademicYear, string Term)> CurrentPeriodAsync(CancellationToken cancellationToken)

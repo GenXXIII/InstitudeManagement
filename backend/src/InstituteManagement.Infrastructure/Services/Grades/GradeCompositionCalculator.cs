@@ -6,18 +6,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Grades;
 
-internal sealed record GradeAttendanceEvidence(decimal Score, int Attended, int Sessions);
+internal sealed record GradeAttendanceEvidence(decimal Score, int Attended, int Permission, int Absent, int Sessions);
+internal sealed record GradeCalculationRules(GradeWeights Weights, GradeThresholds Thresholds, AttendanceResultRules Attendance);
 
 internal static class GradeCompositionCalculator
 {
-    public static async Task<(GradeWeights Weights, GradeThresholds Thresholds)> LoadRulesAsync(
+    public static async Task<GradeCalculationRules> LoadRulesAsync(
         InstituteDbContext db,
         CancellationToken cancellationToken)
     {
         var settings = await db.SystemSettings.AsNoTracking()
-            .Where(setting => setting.Section == "grade-rules")
-            .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, cancellationToken);
-        return (GradeWeights.From(settings), GradeThresholds.From(settings));
+            .Where(setting => setting.Section == "grade-rules" || setting.Section == "attendance-rules")
+            .ToListAsync(cancellationToken);
+        var gradeSettings = settings.Where(setting => setting.Section == "grade-rules").ToDictionary(setting => setting.Key, setting => setting.Value);
+        var attendanceSettings = settings.Where(setting => setting.Section == "attendance-rules").ToDictionary(setting => setting.Key, setting => setting.Value);
+        return new GradeCalculationRules(GradeWeights.From(gradeSettings), GradeThresholds.From(gradeSettings), AttendanceResultRules.From(attendanceSettings));
     }
 
     public static async Task<GradeAttendanceEvidence> AttendanceAsync(
@@ -27,12 +30,13 @@ internal static class GradeCompositionCalculator
         string academicYear,
         string term,
         decimal maximum,
+        AttendanceResultRules rules,
         CancellationToken cancellationToken)
     {
         var sessions = await db.ClassSessionRecords.AsNoTracking()
             .Where(session => session.CourseId == courseId && session.AcademicYear == academicYear && session.Term == term)
             .ToListAsync(cancellationToken);
-        return Attendance(sessions, studentId, maximum);
+        return Attendance(sessions, studentId, maximum, rules);
     }
 
     public static async Task RefreshGradesAsync(
@@ -56,21 +60,29 @@ internal static class GradeCompositionCalculator
             .Where(added => sessions.All(existing => existing.Id != added.Id)));
         foreach (var grade in grades)
         {
-            var attendance = Attendance(sessions, grade.StudentId, rules.Weights.Attendance);
+            var attendance = Attendance(sessions, grade.StudentId, rules.Weights.Attendance, rules.Attendance);
             Apply(grade, rules.Weights, rules.Thresholds, attendance, grade.AssignmentScore, grade.MidtermScore, grade.FinalExamScore);
             grade.UpdatedAtUtc = DateTime.UtcNow;
         }
     }
 
-    public static GradeAttendanceEvidence Attendance(IEnumerable<ClassSessionRecord> sessions, Guid studentId, decimal maximum)
+    public static GradeAttendanceEvidence Attendance(IEnumerable<ClassSessionRecord> sessions, Guid studentId, decimal maximum) =>
+        Attendance(sessions, studentId, maximum, AttendanceResultRules.From(new Dictionary<string, string>()));
+
+    public static GradeAttendanceEvidence Attendance(
+        IEnumerable<ClassSessionRecord> sessions,
+        Guid studentId,
+        decimal maximum,
+        AttendanceResultRules rules)
     {
         var held = sessions.Where(session => TeacherPresence.SessionStatus(session.TeacherAttendanceStatus) == "Running").ToList();
-        var attended = held.Count(session => Students(session.StudentAttendanceJson)
-            .Any(student => student.StudentId == studentId && student.Status is "Present" or "Late"));
-        var score = held.Count == 0
-            ? 0
-            : decimal.Round(maximum * attended / held.Count, 2, MidpointRounding.AwayFromZero);
-        return new GradeAttendanceEvidence(score, attended, held.Count);
+        var statuses = held.SelectMany(session => Students(session.StudentAttendanceJson)
+            .Where(student => student.StudentId == studentId)
+            .Select(student => student.Status)).ToList();
+        var attended = statuses.Count(status => status is "Present" or "Late");
+        var permission = statuses.Count(status => status is "Excused" or "Permission");
+        var absent = statuses.Count(status => status == "Absent");
+        return new GradeAttendanceEvidence(rules.Score(maximum, absent, permission), attended, permission, absent, held.Count);
     }
 
     public static void Apply(

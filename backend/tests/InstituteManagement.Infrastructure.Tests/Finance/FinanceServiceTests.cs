@@ -111,7 +111,7 @@ public sealed class FinanceServiceTests
     }
 
     [Fact]
-    public async Task Verified_dynamic_khqr_releases_previous_semester_payment_hold()
+    public async Task Verified_dynamic_khqr_stays_open_until_administrator_closes_previous_semester_payment()
     {
         await using var db = CreateContext();
         AddSettings(db, "2026\u20132027", "Semester 2", dynamicQr: true);
@@ -137,6 +137,7 @@ public sealed class FinanceServiceTests
             Status = "Active"
         };
         db.AddRange(department, student, enrollment);
+        db.SemesterResultPublications.Add(new SemesterResultPublication { StudentId = student.Id, Student = student, AcademicYear = "2026\u20132027", Term = "Semester 1", PublishedAtUtc = DateTime.UtcNow });
         await db.SaveChangesAsync();
         var service = Service(db, new SuccessfulBakongHandler());
         var payment = await DeclareAsync(service, student.Id);
@@ -147,6 +148,19 @@ public sealed class FinanceServiceTests
         Assert.StartsWith("000201", generated.QrPayload);
         Assert.Equal("Paid", confirmed.Status);
         Assert.Equal("dynamic-test-transaction", confirmed.ConfirmationMethod);
+        Assert.Null(confirmed.ClosedAtUtc);
+        Assert.True(confirmed.CanClosePayment);
+        Assert.DoesNotContain(db.StudentEnrollments, item =>
+            item.StudentId == student.Id
+            && item.AcademicYear == "2026\u20132027"
+            && item.Semester == "Semester 2");
+
+        var closed = await service.ClosePaymentAsync(payment.Id, CancellationToken.None);
+
+        Assert.NotNull(closed.ClosedAtUtc);
+        Assert.Equal("Retained", closed.PeriodState);
+        Assert.Contains(await service.GetAsync(null, null, null, "History", CancellationToken.None), item => item.Id == payment.Id);
+        Assert.DoesNotContain(await service.GetAsync(null, null, null, "All", CancellationToken.None), item => item.Id == payment.Id);
         Assert.Contains(db.StudentEnrollments, item =>
             item.StudentId == student.Id
             && item.AcademicYear == "2026\u20132027"
@@ -227,14 +241,22 @@ public sealed class FinanceServiceTests
             Status = "Active"
         };
         db.AddRange(department, student, enrollment);
+        db.SemesterResultPublications.Add(new SemesterResultPublication { StudentId = student.Id, Student = student, AcademicYear = "2026\u20132027", Term = "Semester 2", PublishedAtUtc = DateTime.UtcNow });
         await db.SaveChangesAsync();
         var service = Service(db);
         var payment = await DeclareAsync(service, student.Id);
 
-        await service.RecordPaymentAsync(
+        var paid = await service.RecordPaymentAsync(
             payment.Id,
             new RecordFinancePaymentDto(payment.Balance, "ABA", "LATE-PAYMENT", DateTime.UtcNow),
             CancellationToken.None);
+
+        Assert.Equal("Paid", paid.Status);
+        Assert.Null(paid.ClosedAtUtc);
+        Assert.Equal(1, student.YearLevel);
+        Assert.Single(db.StudentEnrollments);
+
+        await service.ClosePaymentAsync(payment.Id, CancellationToken.None);
 
         Assert.Equal(2, student.YearLevel);
         Assert.Equal(2, await db.StudentEnrollments.CountAsync());
@@ -330,7 +352,7 @@ public sealed class FinanceServiceTests
         var result = await gate.EvaluateAsync(semesterTwo.AcademicYear, semesterTwo.Semester, CancellationToken.None);
         await db.SaveChangesAsync();
 
-        Assert.DoesNotContain(student.Id, result.PaidStudentIds);
+        Assert.DoesNotContain(student.Id, result.CompletedStudentIds);
         Assert.Equal(1, result.HeldStudents);
         Assert.Equal(2, await db.FinancialAccounts.CountAsync(item => item.StudentId == student.Id));
     }
@@ -401,6 +423,45 @@ public sealed class FinanceServiceTests
         Assert.Equal(0m, paid.Balance);
     }
 
+    [Fact]
+    public async Task Closed_current_semester_stays_read_only_in_finance_until_semester_ends()
+    {
+        await using var db = CreateContext();
+        AddSettings(db, "2026\u20132027", "Semester 1");
+        var department = new Department { DepartmentCode = "IT", Name = "Information Technology" };
+        var student = new Student { StudentCode = "STU-OPEN", PublicId = "INK-OPEN", FullName = "Open Payment Student", DepartmentId = department.Id, YearLevel = 1, Shift = "Morning" };
+        var enrollment = new StudentEnrollment { EnrollmentCode = "STU-OPEN-ESTU-1", StudentId = student.Id, DepartmentId = department.Id, YearLevel = 1, Shift = "Morning", AcademicYear = "2026\u20132027", Semester = "Semester 1", Status = "Active" };
+        db.AddRange(department, student, enrollment);
+        await db.SaveChangesAsync();
+        var service = Service(db);
+        var account = await DeclareAsync(service, student.Id);
+
+        Assert.Equal("Pending", account.Status);
+        Assert.False(account.CanClosePayment);
+        var pendingReason = await Assert.ThrowsAsync<ArgumentException>(() => service.ClosePaymentAsync(account.Id, CancellationToken.None));
+        Assert.Contains("full balance is paid", pendingReason.Message);
+        Assert.Single(db.StudentEnrollments);
+
+        var paid = await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(account.Balance, "ABA", "OPEN-PAID", DateTime.UtcNow), CancellationToken.None);
+
+        Assert.Equal("Paid", paid.Status);
+        Assert.Null(paid.ClosedAtUtc);
+        Assert.True(paid.CanClosePayment);
+        Assert.Contains(await service.GetAsync(null, null, null, "All", CancellationToken.None), item => item.Id == account.Id);
+        Assert.Empty(await service.GetAsync(null, null, null, "History", CancellationToken.None));
+
+        var closed = await service.ClosePaymentAsync(account.Id, CancellationToken.None);
+
+        Assert.NotNull(closed.ClosedAtUtc);
+        Assert.Equal("Current", closed.PeriodState);
+        Assert.Contains(await service.GetAsync(null, null, null, "All", CancellationToken.None), item => item.Id == account.Id && item.ClosedAtUtc.HasValue);
+        Assert.Contains(await service.GetAsync(null, null, null, "Closed", CancellationToken.None), item => item.Id == account.Id);
+        Assert.Empty(await service.GetAsync(null, null, null, "History", CancellationToken.None));
+        var reason = await Assert.ThrowsAsync<ArgumentException>(() => service.AdjustAsync(account.Id, new FinancialAdjustmentDto(-1m, "Closed account correction"), CancellationToken.None));
+        Assert.Contains("closed and read-only", reason.Message);
+        Assert.Single(db.StudentEnrollments);
+    }
+
     private static async Task<StudentPaymentDto> DeclareAsync(FinanceService service, Guid studentId)
     {
         var account = Assert.Single(await service.GetAsync(null, null, null, null, CancellationToken.None));
@@ -441,6 +502,7 @@ public sealed class FinanceServiceTests
             Setting("academic-year", "currentYear", academicYear),
             Setting("semester", "currentTerm", semester),
             Setting("semester", "startsOn", semester == "Semester 1" ? "2026-08-01" : "2027-02-01"),
+            Setting("semester", "endsOn", semester == "Semester 1" ? "2027-01-31" : "2027-06-30"),
             Setting("finance", "semesterPrice", "750.00"),
             Setting("finance", "otherFee", "0.00"),
             Setting("finance", "currency", "USD"),

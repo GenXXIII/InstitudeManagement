@@ -35,6 +35,11 @@ public static class SettingsCatalogSeeder
         "aPlusMinimum", "bPlusMinimum", "cPlusMinimum",
         "aPlusGpa", "bPlusGpa", "cPlusGpa"
     ];
+    private static readonly string[] AttendanceResultKeys =
+    [
+        "absentScoreDeduction", "permissionScoreDeduction", "retakeAbsentSections", "failAbsentSections",
+        "retakePermissionSections", "failPermissionSections"
+    ];
 
     public static async Task SeedMissingAsync(InstituteDbContext db, CancellationToken cancellationToken = default)
     {
@@ -81,15 +86,24 @@ public static class SettingsCatalogSeeder
         var hasLegacyGrades = await db.GradeRecords.AsNoTracking()
             .AnyAsync(grade => grade.LetterGrade != "A" && grade.LetterGrade != "B" && grade.LetterGrade != "C" && grade.LetterGrade != "D" && grade.LetterGrade != "E" && grade.LetterGrade != "F", cancellationToken);
         var addedGradeRules = missing.Any(setting => setting.Section == "grade-rules");
-        if (!hadGradeRules || addedGradeRules || hasLegacyGrades)
+        var addedAttendanceResultRules = missing.Any(setting => setting.Section == "attendance-rules" && AttendanceResultKeys.Contains(setting.Key));
+        if (!hadGradeRules || addedGradeRules || addedAttendanceResultRules || hasLegacyGrades)
         {
             var storedGradeRules = await db.SystemSettings.AsNoTracking()
                 .Where(setting => setting.Section == "grade-rules")
                 .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, cancellationToken);
+            var storedAttendanceRules = await db.SystemSettings.AsNoTracking()
+                .Where(setting => setting.Section == "attendance-rules")
+                .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, cancellationToken);
             var scale = GradeThresholds.From(storedGradeRules);
+            var weights = GradeWeights.From(storedGradeRules);
+            var attendanceRules = AttendanceResultRules.From(storedAttendanceRules);
+            var sessions = await db.ClassSessionRecords.AsNoTracking().ToListAsync(cancellationToken);
+            var sessionsByPeriodCourse = sessions.ToLookup(item => (item.AcademicYear, item.Term, item.CourseId));
             foreach (var grade in await db.GradeRecords.ToListAsync(cancellationToken))
             {
-                grade.LetterGrade = scale.Letter(grade.Score);
+                var attendance = GradeCompositionCalculator.Attendance(sessionsByPeriodCourse[(grade.AcademicYear, grade.Term, grade.CourseId)], grade.StudentId, weights.Attendance, attendanceRules);
+                GradeCompositionCalculator.Apply(grade, weights, scale, attendance, grade.AssignmentScore, grade.MidtermScore, grade.FinalExamScore);
                 grade.UpdatedAtUtc = now;
             }
             await db.SaveChangesAsync(cancellationToken);

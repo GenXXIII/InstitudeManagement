@@ -24,4 +24,5 @@ export const financeApi = {
   setPaymentStatus: (accountId: string, paymentId: string, status: Exclude<PaymentStatus, "Completed">) => request<FinancialAccount>(`${accountsRoute}/${accountId}/payments/${paymentId}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
   adjust: (accountId: string, amount: number, reason: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/adjustment`, { method: "PUT", body: JSON.stringify({ amount, reason }) }),
   cancel: (accountId: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/cancel`, { method: "PUT" }),
+  closePayment: (accountId: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/close-payment`, { method: "PUT" }),
 };

@@ -57,6 +57,52 @@ public sealed class AcademicRulesTests
     }
 
     [Theory]
+    [InlineData(0, 0, 10)]
+    [InlineData(1, 0, 8)]
+    [InlineData(2, 0, 6)]
+    [InlineData(5, 0, 0)]
+    [InlineData(0, 12, 0)]
+    public void Attendance_score_uses_configured_section_deductions(int absent, int permission, decimal expected)
+    {
+        var rules = AttendanceResultRules.From(new Dictionary<string, string>());
+
+        Assert.Equal(expected, rules.Score(10, absent, permission));
+    }
+
+    [Theory]
+    [InlineData(10, "A")]
+    [InlineData(8.34, "A")]
+    [InlineData(8.33, "B")]
+    [InlineData(6.67, "B")]
+    [InlineData(6.66, "C")]
+    [InlineData(5, "C")]
+    [InlineData(4.99, "D")]
+    [InlineData(3.34, "D")]
+    [InlineData(3.33, "E")]
+    [InlineData(1.67, "E")]
+    [InlineData(1.66, "F")]
+    [InlineData(0, "F")]
+    public void Attendance_grade_splits_the_configured_maximum_into_six_equal_bands(decimal score, string expected)
+    {
+        var rules = AttendanceResultRules.From(new Dictionary<string, string>());
+
+        Assert.Equal(expected, rules.Grade(score, 10));
+    }
+
+    [Theory]
+    [InlineData(5, 0, null)]
+    [InlineData(6, 0, "Retake Exam")]
+    [InlineData(8, 0, "Fail")]
+    [InlineData(0, 12, "Retake Exam")]
+    [InlineData(0, 14, "Fail")]
+    public void Attendance_outcome_uses_configured_absent_and_permission_thresholds(int absent, int permission, string? expected)
+    {
+        var rules = AttendanceResultRules.From(new Dictionary<string, string>());
+
+        Assert.Equal(expected, rules.Outcome(absent, permission));
+    }
+
+    [Theory]
     [InlineData("Active", null, "Present")]
     [InlineData("Active", "Permission", "Permission")]
     [InlineData("Inactive", null, "Absent")]

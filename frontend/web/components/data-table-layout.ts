@@ -155,7 +155,7 @@ function fitCellText(cell: HTMLElement, header = false) {
 
 function textElements(cell: HTMLElement, header = false) {
   if (header) return [cell];
-  const targets = [...cell.querySelectorAll<HTMLElement>(textSelector)].filter(target => target.innerText.trim() && !target.classList.contains("management-cell-label") && !target.closest("svg"));
+  const targets = [...cell.querySelectorAll<HTMLElement>(textSelector)].filter(target => target.innerText.trim() && !target.classList.contains("management-cell-label") && !target.closest("svg") && !target.closest("[data-preserve-table-font]"));
   if (cell.matches(textSelector) && cell.innerText.trim()) targets.unshift(cell);
   return [...new Set(targets)];
 }

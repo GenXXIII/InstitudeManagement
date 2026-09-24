@@ -15,7 +15,10 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
     {
         var period = await CurrentPeriodAsync(ct);
         var grades = await Db.GradeRecords.AsNoTracking().Include(grade => grade.Student).ThenInclude(student => student!.Department).Include(grade => grade.Course).Include(grade => grade.SubmittedByTeacher)
-            .Where(grade => grade.AcademicYear == period.AcademicYear && grade.Term == period.Term && grade.Student!.Status != "Inactive" && grade.Course!.IsActive && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId))
+            .Where(grade => (grade.AcademicYear == period.AcademicYear && grade.Term == period.Term || !grade.FinalizedAtUtc.HasValue && grade.SubmittedByTeacherId.HasValue)
+                && grade.Student!.Status != "Inactive"
+                && grade.Course!.IsActive
+                && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId))
             .ToListAsync(ct);
         var sessions = await Db.ClassSessionRecords.AsNoTracking()
             .Where(session => session.AcademicYear == period.AcademicYear && session.Term == period.Term)
@@ -67,6 +70,7 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             Get(values, "submissionVersion", "1"),
             Get(values, "submittedAtUtc"),
             Get(values, "reviewedAtUtc"),
+            Get(values, "finalizedAtUtc"),
             Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
 
     private async Task<GradeRecord> BuildAsync(GradeRecord entity, Dictionary<string, string> values, CancellationToken ct)
@@ -88,7 +92,7 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
         var assignment = DecimalInRange(values, "assignmentScore", 0, rules.Weights.Assignment);
         var midterm = DecimalInRange(values, "midtermScore", 0, rules.Weights.Midterm);
         var finalExam = DecimalInRange(values, "finalExamScore", 0, rules.Weights.FinalExam);
-        var attendance = await GradeCompositionCalculator.AttendanceAsync(Db, entity.StudentId, entity.CourseId, entity.AcademicYear, entity.Term, rules.Weights.Attendance, ct);
+        var attendance = await GradeCompositionCalculator.AttendanceAsync(Db, entity.StudentId, entity.CourseId, entity.AcademicYear, entity.Term, rules.Weights.Attendance, rules.Attendance, ct);
         GradeCompositionCalculator.Apply(entity, rules.Weights, rules.Thresholds, attendance, assignment, midterm, finalExam);
         values["attendanceScore"] = entity.AttendanceScore.ToString("0.##");
         values["attendanceMaximum"] = entity.AttendanceMaximum.ToString("0.##");
@@ -147,6 +151,7 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             grade.SubmissionVersion.ToString(),
             grade.SubmittedAtUtc?.ToString("O") ?? "",
             grade.ReviewedAtUtc?.ToString("O") ?? "",
+            grade.FinalizedAtUtc?.ToString("O") ?? "",
             grade.CreateAt.ToString("yyyy-MM-dd")));
     }
     private async Task<(string AcademicYear, string Term)> CurrentPeriodAsync(CancellationToken ct)

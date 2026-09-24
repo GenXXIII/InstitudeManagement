@@ -37,8 +37,8 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   "users-access": ["defaultUserStatus", "availableRoles"],
   "student-rules": ["maximumCoursesPerSemester", "statuses"],
   "teacher-rules": ["statuses", "maximumCourses", "maximumClasses"],
-  "attendance-rules": ["method", "attendanceRequired", "lateThresholdMinutes", "absentAfterMinutes", "autoAbsent", "notifyAdministrator"],
-  "grade-rules": ["gradingSystem", "attendanceWeight", "assignmentWeight", "midtermWeight", "finalExamWeight", "passMark", "gpaEnabled"],
+  "attendance-rules": ["method", "attendanceRequired", "lateThresholdMinutes", "absentAfterMinutes", "autoAbsent", "absentScoreDeduction", "permissionScoreDeduction", "retakeAbsentSections", "failAbsentSections", "retakePermissionSections", "failPermissionSections", "notifyAdministrator"],
+  "grade-rules": ["gradingSystem", "attendanceWeight", "assignmentWeight", "midtermWeight", "finalExamWeight", "expectedCourseCount", "semesterCalculation", "passMark", "gpaEnabled"],
   notifications: ["emailEnabled", "inAppEnabled", "attendanceAlerts", "deviceAlerts", "gradeReminders", "dailySummary"],
   system: ["language", "dateFormat", "timeFormat", "timeZone", "autoRefreshSeconds"],
   security: ["passwordMinimumLength", "maximumLoginAttempts", "lockoutDurationMinutes", "twoFactorMode"],
@@ -56,8 +56,8 @@ export const administrationSections: readonly AdministrationSectionDefinition[] 
   section("users-access", "Users and access", "Users & access", "Future account statuses, roles, and permission catalog without fake user records.", "people", "users"),
   section("student-rules", "Student settings", "Students", "Enrollment rules, statuses, and required information; a unique StudentCode sequence is required.", "people", "users"),
   section("teacher-rules", "Teacher settings", "Teachers", "Statuses, workloads, and assignment requirements; a unique TeacherCode sequence is required.", "people", "teacher"),
-  section("attendance-rules", "Attendance settings", "Attendance", "Capture, threshold, absence, correction, audit, and alert rules.", "policies", "check"),
-  section("grade-rules", "Grading settings", "Grading", "Configurable attendance, assignment, midterm, and final-exam weights with A, B, C, D, E, and F boundaries.", "policies", "grade"),
+  section("attendance-rules", "Attendance settings", "Attendance", "Capture, score deductions, Retake and Fail thresholds, correction, audit, and alert rules.", "policies", "check"),
+  section("grade-rules", "Result settings", "Results", "Configurable attendance, assessment, and exam weights with semester course-count and grade rules.", "policies", "grade"),
   section("notifications", "Notification settings", "Notifications", "Email, SMS, in-app audiences, templates, and operational events.", "communication", "bell"),
   section("system", "System settings", "System", "Localization, time, live refresh, and logging policy.", "platform", "settings"),
   section("security", "Security policy", "Security", "Password, session, lockout, and two-factor policy readiness.", "platform", "archive"),
@@ -101,8 +101,8 @@ export function configurationSummary(sectionName: SettingSection, values: Record
   if (sectionName === "users-access") return `${parseCsv(values.availableRoles).length} roles · ${parseCsv(values.permissionCatalog).length} permissions`;
   if (sectionName === "student-rules") return `Assigned StudentCode · ${values.maximumCoursesPerSemester || "–"} courses per term`;
   if (sectionName === "teacher-rules") return `Assigned TeacherCode · ${values.maximumCourses || "–"} courses maximum`;
-  if (sectionName === "attendance-rules") return `${values.method || "Method required"} · late from ${values.lateThresholdMinutes || "0"} minutes`;
-  if (sectionName === "grade-rules") return `${values.attendanceWeight || "10"}/${values.assignmentWeight || "20"}/${values.midtermWeight || "20"}/${values.finalExamWeight || "50"}% · A from ${values.aMinimum || "–"}`;
+  if (sectionName === "attendance-rules") return `${values.absentScoreDeduction || "2"} absent / ${values.permissionScoreDeduction || "0.91"} permission deduction · Retake at ${values.retakeAbsentSections || "6"} absent`;
+  if (sectionName === "grade-rules") return `${values.attendanceWeight || "10"}/${values.assignmentWeight || "20"}/${values.midtermWeight || "20"}/${values.finalExamWeight || "50"}% · ${values.expectedCourseCount || "5"} courses`;
   if (sectionName === "notifications") return `${values.emailEnabled === "true" ? "Email on" : "Email off"} · ${parseCsv(values.enabledTemplates).length} templates`;
   if (sectionName === "system") return `${values.language || "Language required"} · ${(values.timeZone || "Time zone required").replaceAll("_", " ")}`;
   return `${values.passwordMinimumLength || "–"}+ character passwords · ${values.twoFactorMode || "2FA policy required"}`;

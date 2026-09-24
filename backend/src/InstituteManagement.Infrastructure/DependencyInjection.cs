@@ -139,6 +139,7 @@ public static class DependencyInjection
         services.AddScoped<FinancialAccountSynchronizer>();
         services.AddScoped<FinancialProgression>();
         services.AddScoped<SemesterPaymentGate>();
+        services.AddScoped<SemesterResultDeclarationGate>();
         services.AddScoped<IFinanceService, FinanceService>();
         services.AddScoped<IResultQueryService, ResultQueryService>();
         services.AddScoped<IHistorySnapshotProvider, StudentHistorySnapshotProvider>();

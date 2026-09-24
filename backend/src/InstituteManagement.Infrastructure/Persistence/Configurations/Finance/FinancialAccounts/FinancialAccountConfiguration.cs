@@ -11,7 +11,7 @@ public sealed class FinancialAccountConfiguration : IEntityTypeConfiguration<Fin
         builder.ToTable("FinancialAccounts", "Finance");
         builder.HasIndex(x => x.StudentEnrollmentId).IsUnique();
         builder.HasIndex(x => new { x.StudentId, x.AcademicYear, x.Semester }).IsUnique();
-        builder.HasIndex(x => new { x.AcademicYear, x.Semester, x.Status, x.DueOn });
+        builder.HasIndex(x => new { x.AcademicYear, x.Semester, x.Status, x.ClosedAtUtc, x.DueOn });
         builder.HasIndex(x => new { x.FinancialAccountCode, x.AcademicYear, x.Semester }).IsUnique();
         builder.Property(x => x.FinancialAccountCode).HasMaxLength(64).IsRequired();
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();

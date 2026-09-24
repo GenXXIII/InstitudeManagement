@@ -28,6 +28,7 @@ public sealed class GradeRecordConfiguration : IEntityTypeConfiguration<GradeRec
         builder.Property(x => x.ReviewStatus).HasMaxLength(32).IsRequired();
         builder.Property(x => x.ReviewNote).HasMaxLength(500);
         builder.HasIndex(x => new { x.ReviewStatus, x.AcademicYear, x.Term });
+        builder.HasIndex(x => new { x.FinalizedAtUtc, x.AcademicYear, x.Term });
         builder.HasOne(x => x.Student)
             .WithMany()
             .HasForeignKey(x => x.StudentId)

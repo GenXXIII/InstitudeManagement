@@ -21,6 +21,12 @@ public sealed class FinancialProgression(
         var currentYear = periodValues.GetValueOrDefault("academic-year:currentYear", account.AcademicYear);
         var currentSemester = periodValues.GetValueOrDefault("semester:currentTerm", account.Semester);
         if (account.AcademicYear == currentYear && account.Semester == currentSemester) return "Current period paid";
+        if (!await db.SemesterResultPublications.AsNoTracking().AnyAsync(item =>
+                item.StudentId == account.StudentId
+                && item.AcademicYear == account.AcademicYear
+                && item.Term == account.Semester,
+            cancellationToken))
+            return "Waiting for Semester Result declaration";
         if (!IsNextPeriod(account.AcademicYear, account.Semester, currentYear, currentSemester)) return "Payment recorded";
 
         var previousEnrollment = await db.StudentEnrollments.AsNoTracking()

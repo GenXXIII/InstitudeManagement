@@ -65,4 +65,6 @@ public interface IFinanceService
         CancellationToken cancellationToken);
 
     Task<StudentPaymentDto> CancelAsync(Guid financialAccountId, CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> ClosePaymentAsync(Guid financialAccountId, CancellationToken cancellationToken);
 }

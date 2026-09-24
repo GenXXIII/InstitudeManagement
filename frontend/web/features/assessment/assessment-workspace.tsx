@@ -55,7 +55,7 @@ export function AssessmentWorkspace() {
     <PageHeading eyebrow="Institutional assessment control" title="Assessment Overview" description="Monitor course assessment progress, review whole-roster submissions, and open the exact register that needs attention."/>
     <div className="assessment-overview-scroll">
       <section className="assessment-overview-metrics" aria-label="Assessment activity">
-        <OverviewMetric href={`/assessment/student-results${suffix}`} icon="users" label="Students with results" value={summary.students} detail="Open individual course grades"/>
+        <OverviewMetric href={`/assessment/student-results${suffix}`} icon="users" label="Semester results" value={summary.students} detail="Attendance, course totals, and publication"/>
         <OverviewMetric href={`/assessment/course-submissions${suffix}`} icon="book" label="Course rosters" value={groups.length} detail="Latest course submission state"/>
         <OverviewMetric href={`/assessment/submission-approvals${suffix}`} icon="pulse" label="Approval queue" value={summary.requests + summary.review} detail="Authorization and final review" attention={summary.requests + summary.review > 0}/>
         <OverviewMetric href={`/assessment/course-submissions${suffix}`} icon="check" label="Accepted rosters" value={summary.accepted} detail="Administrator-approved courses"/>

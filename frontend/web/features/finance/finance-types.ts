@@ -52,6 +52,8 @@ export type FinancialAccount = {
   status: FinanceStatus;
   confirmationMethod: string;
   paidAtUtc: string | null;
+  closedAtUtc: string | null;
+  canClosePayment: boolean;
   reminderSentAtUtc: string | null;
   reminderReadAtUtc: string | null;
   timetableStatus: "Ready" | "Waiting";

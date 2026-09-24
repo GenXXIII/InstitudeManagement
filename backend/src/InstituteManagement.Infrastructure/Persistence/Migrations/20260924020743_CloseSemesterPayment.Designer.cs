@@ -4,6 +4,7 @@ using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InstituteManagement.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(InstituteDbContext))]
-    partial class InstituteDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260924020743_CloseSemesterPayment")]
+    partial class CloseSemesterPayment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -952,9 +955,6 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
-                    b.Property<DateTime?>("FinalizedAtUtc")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("GradeCode")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -1024,8 +1024,6 @@ namespace InstituteManagement.Infrastructure.Persistence.Migrations
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UpdatedAtUtc"), new[] { "Score" });
 
                     b.HasIndex("AcademicYear", "Term");
-
-                    b.HasIndex("FinalizedAtUtc", "AcademicYear", "Term");
 
                     b.HasIndex("ReviewStatus", "AcademicYear", "Term");
 

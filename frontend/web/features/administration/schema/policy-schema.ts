@@ -80,6 +80,18 @@ export const policyGroups = {
       ],
     },
     {
+      title: "Attendance result score",
+      description: "Attendance begins at the configured attendance weight. Absent and permission sections deduct points, while Present does not.",
+      fields: [
+        field("absentScoreDeduction", "Absent deduction", "Points deducted from the attendance score for each absent section.", "number", { required: true, min: 0, max: 100, step: 0.01, unit: "points / section" }),
+        field("permissionScoreDeduction", "Permission deduction", "Points deducted from the attendance score for each approved permission section.", "number", { required: true, min: 0, max: 100, step: 0.01, unit: "points / section" }),
+        field("retakeAbsentSections", "Absent Retake threshold", "Absent sections at which the semester result becomes Retake.", "number", { required: true, min: 0, max: 10000, unit: "sections" }),
+        field("failAbsentSections", "Absent Fail threshold", "Absent sections at which the semester result becomes Fail.", "number", { required: true, min: 0, max: 10000, unit: "sections" }),
+        field("retakePermissionSections", "Permission Retake threshold", "Permission sections at which the semester result becomes Retake.", "number", { required: true, min: 0, max: 10000, unit: "sections" }),
+        field("failPermissionSections", "Permission Fail threshold", "Permission sections at which the semester result becomes Fail.", "number", { required: true, min: 0, max: 10000, unit: "sections" }),
+      ],
+    },
+    {
       title: "Grade scale",
       description: "Letter grades use A, B, C, D, E, and F only. F is everything below the E minimum.",
       fields: [
@@ -90,6 +102,14 @@ export const policyGroups = {
         ...gradeBand("e", "E", "50", "0.50"),
         field("fRange", "F range", "Calculated from the minimum score and E lower bound.", "derived", { derive: values => `${values.minimumScore || 0} to below ${values.eMinimum || 50}` }),
         field("fGpa", "F GPA points", "GPA value assigned to F.", "number", { required: true, min: 0, max: 10, step: 0.01 }),
+      ],
+    },
+    {
+      title: "Semester calculation",
+      description: "Controls how many enrolled course results complete a semester and how the semester total is calculated.",
+      fields: [
+        field("expectedCourseCount", "Courses per semester", "Approved course results required before the semester result is Ready.", "number", { required: true, min: 1, max: 100, unit: "courses" }),
+        field("semesterCalculation", "Overall calculation", "Calculation used for the overall semester score.", "select", { required: true, options: options("Average of course totals") }),
       ],
     },
     {

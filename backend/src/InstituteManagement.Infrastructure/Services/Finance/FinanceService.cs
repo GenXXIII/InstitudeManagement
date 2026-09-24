@@ -49,8 +49,12 @@ public sealed class FinanceService(
 
         var mapped = await MapAsync(accounts, cancellationToken);
         return string.IsNullOrWhiteSpace(status) || status == "All"
-            ? mapped.Where(account => account.Status != "Paid").ToList()
-            : mapped.Where(account => account.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+            ? mapped.Where(account => !account.ClosedAtUtc.HasValue || account.PeriodState == "Current").ToList()
+            : status.Equals("History", StringComparison.OrdinalIgnoreCase)
+                ? mapped.Where(account => account.ClosedAtUtc.HasValue && account.PeriodState == "Retained").ToList()
+            : status.Equals("Closed", StringComparison.OrdinalIgnoreCase)
+                ? mapped.Where(account => account.ClosedAtUtc.HasValue && account.PeriodState == "Current").ToList()
+                : mapped.Where(account => !account.ClosedAtUtc.HasValue && account.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
     public async Task<IReadOnlyList<StudentPaymentDto>> GetStudentAsync(
@@ -103,6 +107,7 @@ public sealed class FinanceService(
         CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
         var settings = await settingsReader.GetAsync(cancellationToken);
         if (account.Status == "Cancelled") throw new ArgumentException("A cancelled financial account cannot be declared.");
         var title = request.Title?.Trim() ?? string.Empty;
@@ -155,7 +160,6 @@ public sealed class FinanceService(
             newBalance = Balance(account),
             performedBy = "Administrator"
         });
-        if (oldStatus != "Paid" && account.Status == "Paid") await progression.ReleaseAsync(account, cancellationToken);
         await SaveAsync(cancellationToken);
         return AssertSingle(await MapAsync([account], cancellationToken));
     }
@@ -255,6 +259,7 @@ public sealed class FinanceService(
         CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
         if (!account.DeclaredAtUtc.HasValue || !account.ExpiresAtUtc.HasValue)
             throw new ArgumentException("Declare the student payment before adding expiry days.");
         if (IsExpired(account))
@@ -295,6 +300,7 @@ public sealed class FinanceService(
         CancellationToken cancellationToken)
     {
         var account = await FindStudentAccountAsync(studentId, paymentId, cancellationToken);
+        EnsureOpen(account);
         ValidateDynamicQrAccount(account);
         var settings = await settingsReader.GetAsync(cancellationToken);
         if (!settings.BakongEnabled) throw new InvalidOperationException("Dynamic KHQR is not enabled in Finance Settings.");
@@ -340,6 +346,7 @@ public sealed class FinanceService(
     public async Task<StudentPaymentDto> RegenerateQrAsync(Guid financialAccountId, CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
         if (!account.DeclaredAtUtc.HasValue) throw new ArgumentException("Declare the student payment before generating its QR.");
         if (IsExpired(account)) throw new ArgumentException("The payment declaration has expired. Extend it before regenerating its QR.");
         if (account.Status is "Paid" or "Cancelled" || Balance(account) <= 0) throw new ArgumentException("This financial account does not need a payment QR.");
@@ -382,6 +389,7 @@ public sealed class FinanceService(
         CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
         return await RecordPaymentInternalAsync(account, request, "Administrator", cancellationToken);
     }
 
@@ -392,6 +400,7 @@ public sealed class FinanceService(
         CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
         var payment = account.Payments.SingleOrDefault(item => item.Id == paymentId)
             ?? throw new KeyNotFoundException("Finance payment not found.");
         if (payment.Status != "Completed") throw new ArgumentException("Only a completed payment can be corrected.");
@@ -430,7 +439,6 @@ public sealed class FinanceService(
             newBalance = Balance(account),
             performedBy = "Administrator"
         });
-        if (oldStatus != "Paid" && account.Status == "Paid") await progression.ReleaseAsync(account, cancellationToken);
         await SaveAsync(cancellationToken);
         return AssertSingle(await MapAsync([account], cancellationToken));
     }
@@ -442,6 +450,7 @@ public sealed class FinanceService(
         CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
         var payment = account.Payments.SingleOrDefault(item => item.Id == paymentId)
             ?? throw new KeyNotFoundException("Finance payment not found.");
         var nextStatus = request.Status?.Trim();
@@ -480,6 +489,7 @@ public sealed class FinanceService(
         CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
         if (account.Status == "Cancelled") throw new ArgumentException("A cancelled financial account cannot be adjusted.");
         var settings = await settingsReader.GetAsync(cancellationToken);
         var amount = decimal.Round(request.Amount, 2);
@@ -508,7 +518,6 @@ public sealed class FinanceService(
             newBalance = Balance(account),
             performedBy = "Administrator"
         });
-        if (oldStatus != "Paid" && account.Status == "Paid") await progression.ReleaseAsync(account, cancellationToken);
         await SaveAsync(cancellationToken);
         return AssertSingle(await MapAsync([account], cancellationToken));
     }
@@ -516,6 +525,7 @@ public sealed class FinanceService(
     public async Task<StudentPaymentDto> CancelAsync(Guid financialAccountId, CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
         if (account.Status == "Cancelled") return AssertSingle(await MapAsync([account], cancellationToken));
         if (account.Payments.Any(payment => payment.Status == "Completed"))
             throw new ArgumentException("Cancel or refund completed payments before cancelling the financial account.");
@@ -535,12 +545,40 @@ public sealed class FinanceService(
         return AssertSingle(await MapAsync([account], cancellationToken));
     }
 
+    public async Task<StudentPaymentDto> ClosePaymentAsync(Guid financialAccountId, CancellationToken cancellationToken)
+    {
+        var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        if (account.ClosedAtUtc.HasValue) return AssertSingle(await MapAsync([account], cancellationToken));
+        if (account.Status != "Paid" || Balance(account) > 0m)
+            throw new ArgumentException("Payment can only be closed after the full balance is paid.");
+
+        account.ClosedAtUtc = DateTime.UtcNow;
+        account.UpdatedAtUtc = account.ClosedAtUtc.Value;
+        ClearQr(account);
+        var progressionResult = await progression.ReleaseAsync(account, cancellationToken);
+        AddFinanceAudit(account, "Payment closed", new
+        {
+            account.FinancialAccountCode,
+            account.StudentEnrollment!.EnrollmentCode,
+            account.AcademicYear,
+            account.Semester,
+            account.Status,
+            account.ClosedAtUtc,
+            progression = progressionResult,
+            historyState = "Finalized",
+            performedBy = "Administrator"
+        });
+        await SaveAsync(cancellationToken);
+        return AssertSingle(await MapAsync([account], cancellationToken));
+    }
+
     private async Task<StudentPaymentDto> RecordPaymentInternalAsync(
         FinancialAccount account,
         RecordFinancePaymentDto request,
         string performedBy,
         CancellationToken cancellationToken)
     {
+        EnsureOpen(account);
         var settings = await settingsReader.GetAsync(cancellationToken);
         ValidatePayment(account, request.Amount, request.Method, request.TransactionReference, request.PaidAtUtc, settings);
         var oldStatus = account.Status;
@@ -575,7 +613,6 @@ public sealed class FinanceService(
             newBalance = Balance(account),
             performedBy
         });
-        if (oldStatus != "Paid" && account.Status == "Paid") await progression.ReleaseAsync(account, cancellationToken);
         await SaveAsync(cancellationToken);
         return AssertSingle(await MapAsync([account], cancellationToken));
     }
@@ -688,6 +725,8 @@ public sealed class FinanceService(
                 account.Status,
                 latest is null ? (totalDue <= 0 ? "No payment required" : string.Empty) : string.IsNullOrWhiteSpace(latest.TransactionReference) ? latest.Method : latest.TransactionReference,
                 latest?.PaidAtUtc,
+                account.ClosedAtUtc,
+                account.Status == "Paid" && balance <= 0m && !account.ClosedAtUtc.HasValue,
                 account.ReminderSentAtUtc,
                 account.ReminderReadAtUtc,
                 timetableReady ? "Ready" : "Waiting",
@@ -756,6 +795,12 @@ public sealed class FinanceService(
         account.QrGeneratedAtUtc = generated.GeneratedAtUtc;
         account.QrExpiresAtUtc = generated.ExpiresAtUtc;
         return Task.CompletedTask;
+    }
+
+    private static void EnsureOpen(FinancialAccount account)
+    {
+        if (account.ClosedAtUtc.HasValue)
+            throw new ArgumentException("This semester payment is closed and read-only in Finance history.");
     }
 
     private static void ClearQr(FinancialAccount account)

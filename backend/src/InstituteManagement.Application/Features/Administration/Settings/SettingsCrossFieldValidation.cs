@@ -80,6 +80,10 @@ public static partial class SettingsCatalog
         var veryLate = Integer(values["veryLateThresholdMinutes"]);
         if (!(onTime < late && late < veryLate))
             errors.Add("Attendance thresholds must progress from On Time to Late to Very Late.");
+        if (Integer(values["retakeAbsentSections"]) >= Integer(values["failAbsentSections"]))
+            errors.Add("The absent Retake threshold must be lower than the absent Fail threshold.");
+        if (Integer(values["retakePermissionSections"]) >= Integer(values["failPermissionSections"]))
+            errors.Add("The permission Retake threshold must be lower than the permission Fail threshold.");
     }
 
     private static void ValidateGradeRules(IReadOnlyDictionary<string, string> values, ICollection<string> errors)

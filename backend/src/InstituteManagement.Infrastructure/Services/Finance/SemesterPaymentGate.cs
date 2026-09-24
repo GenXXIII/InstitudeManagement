@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Finance;
 
-public sealed record SemesterPaymentGateResult(IReadOnlySet<Guid> PaidStudentIds, int HeldStudents);
+public sealed record SemesterPaymentGateResult(IReadOnlySet<Guid> CompletedStudentIds, int HeldStudents);
 
 public sealed class SemesterPaymentGate(
     InstituteDbContext db,
@@ -36,14 +36,14 @@ public sealed class SemesterPaymentGate(
         }
 
         var settings = await settingsReader.GetAsync(cancellationToken);
-        var paid = accounts
-            .Where(account => !settings.RequirePaidForAdvancement || account.Status == "Paid")
+        var completed = accounts
+            .Where(account => !settings.RequirePaidForAdvancement || account.Status == "Paid" && account.ClosedAtUtc.HasValue)
             .Select(account => account.StudentId)
             .ToHashSet();
-        if (!settings.RequirePaidForAdvancement) paid.UnionWith(studentIds);
+        if (!settings.RequirePaidForAdvancement) completed.UnionWith(studentIds);
         var reminderTime = DateTime.UtcNow;
         var held = 0;
-        foreach (var account in accounts.Where(account => settings.RequirePaidForAdvancement && account.Status != "Paid"))
+        foreach (var account in accounts.Where(account => settings.RequirePaidForAdvancement && (account.Status != "Paid" || !account.ClosedAtUtc.HasValue)))
         {
             account.ReminderSentAtUtc = reminderTime;
             account.ReminderReadAtUtc = null;
@@ -51,6 +51,6 @@ public sealed class SemesterPaymentGate(
             held++;
         }
 
-        return new(paid, held);
+        return new(completed, held);
     }
 }

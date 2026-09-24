@@ -3,6 +3,7 @@ using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Finance;
+using InstituteManagement.Infrastructure.Services.Results;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Administration;
@@ -14,6 +15,7 @@ public sealed class AcademicCalendarRolloverService(
     StudentAcademicYearAdvancer studentAdvancer,
     AcademicPeriodEnrollmentAdvancer enrollmentAdvancer,
     SemesterPaymentGate paymentGate,
+    SemesterResultDeclarationGate resultGate,
     ActivePeriodLedgerCreator ledgerCreator)
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -51,16 +53,18 @@ public sealed class AcademicCalendarRolloverService(
             var graduated = 0;
             var yearsAdvanced = 0;
             var financeGate = new SemesterPaymentGateResult(new HashSet<Guid>(), 0);
-            var financeEvaluated = false;
+            var declarationGate = new SemesterResultDeclarationGateResult(new HashSet<Guid>(), 0);
+            var gatesEvaluated = false;
             if (today > yearRolloverEnd)
             {
                 financeGate = await paymentGate.EvaluateAsync(previousAcademicYear, previousTerm, cancellationToken);
-                financeEvaluated = true;
+                declarationGate = await resultGate.EvaluateAsync(previousAcademicYear, previousTerm, cancellationToken);
+                gatesEvaluated = true;
             }
             while (today > yearRolloverEnd)
             {
                 var oldYear = values.GetValueOrDefault("academic-year:currentYear", $"{academicStart.Year}\u2013{academicEnd.Year}");
-                var advance = await studentAdvancer.AdvanceAsync(oldYear, financeGate.PaidStudentIds, cancellationToken);
+                var advance = await studentAdvancer.AdvanceAsync(oldYear, EligibleStudents(financeGate, declarationGate), cancellationToken);
                 graduated += advance.Graduated;
                 promoted += advance.Promoted;
                 yearsAdvanced++;
@@ -112,19 +116,20 @@ public sealed class AcademicCalendarRolloverService(
 
             if (!changed) return false;
             var activeYear = $"{academicStart.Year}\u2013{academicEnd.Year}";
-            if (!financeEvaluated
+            if (!gatesEvaluated
                 && !string.IsNullOrWhiteSpace(previousAcademicYear)
                 && !string.IsNullOrWhiteSpace(previousTerm)
                 && (previousAcademicYear != activeYear || previousTerm != activeTerm))
             {
                 financeGate = await paymentGate.EvaluateAsync(previousAcademicYear, previousTerm, cancellationToken);
+                declarationGate = await resultGate.EvaluateAsync(previousAcademicYear, previousTerm, cancellationToken);
             }
             var enrollmentAdvance = await enrollmentAdvancer.AdvanceAsync(
                 previousAcademicYear,
                 previousTerm,
                 activeYear,
                 activeTerm,
-                financeGate.PaidStudentIds,
+                EligibleStudents(financeGate, declarationGate),
                 cancellationToken);
             var (attendanceCreated, gradesCreated) = await ledgerCreator.CreateAsync(activeYear, activeTerm, activeStart, cancellationToken);
             if (!string.IsNullOrWhiteSpace(previousAcademicYear)
@@ -137,8 +142,8 @@ public sealed class AcademicCalendarRolloverService(
             {
                 Title = yearsAdvanced > 0 ? "Academic year advanced" : $"{activeTerm} activated",
                 Message = yearsAdvanced > 0
-                    ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} paid students, graduated {graduated} paid Year 4 students, held {financeGate.HeldStudents} pending students, auto-enrolled {enrollmentAdvance.StudentsEnrolled} students, and created {attendanceCreated} attendance and {gradesCreated} grade rows."
-                    : $"{activeTerm} auto-enrolled {enrollmentAdvance.StudentsEnrolled} paid students, held and alerted {financeGate.HeldStudents} pending students, and created {attendanceCreated} attendance and {gradesCreated} grade rows; previous enrollment and timetable rows are preserved in History.",
+                    ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} eligible students, graduated {graduated} eligible Year 4 students, held {financeGate.HeldStudents} students awaiting payment closure and {declarationGate.HeldStudents} awaiting Semester Result declaration, auto-enrolled {enrollmentAdvance.StudentsEnrolled} students, and created {attendanceCreated} attendance and {gradesCreated} grade rows."
+                    : $"{activeTerm} auto-enrolled {enrollmentAdvance.StudentsEnrolled} eligible students, held and alerted {financeGate.HeldStudents} students awaiting payment closure and {declarationGate.HeldStudents} awaiting Semester Result declaration, and created {attendanceCreated} attendance and {gradesCreated} grade rows; previous enrollment and timetable rows are preserved in History.",
                 Severity = "Info"
             });
             await db.SaveChangesAsync(cancellationToken);
@@ -151,6 +156,9 @@ public sealed class AcademicCalendarRolloverService(
     private static bool TryDate(IReadOnlyDictionary<string, string> values, string key, out DateOnly date) => DateOnly.TryParse(values.GetValueOrDefault(key), out date);
 
     private static string TermStatus(DateOnly today, DateOnly endsOn, bool active) => active ? "Active" : today > endsOn ? "Completed" : "Upcoming";
+
+    private static IReadOnlySet<Guid> EligibleStudents(SemesterPaymentGateResult finance, SemesterResultDeclarationGateResult results) =>
+        finance.CompletedStudentIds.Intersect(results.DeclaredStudentIds).ToHashSet();
 
     private async Task<AuditLog> CreateSemesterArchiveAuditAsync(
         string academicYear,

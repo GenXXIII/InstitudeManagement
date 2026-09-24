@@ -31,12 +31,12 @@ public sealed class GradeServiceTests
         await new GradeService(db, new InstituteCache()).SubmitAsync(student.Id, course.Id, 18, 16, 40, CancellationToken.None);
 
         var grade = Assert.Single(db.GradeRecords);
-        Assert.Equal(5, grade.AttendanceScore);
+        Assert.Equal(8, grade.AttendanceScore);
         Assert.Equal(18, grade.AssignmentScore);
         Assert.Equal(16, grade.MidtermScore);
         Assert.Equal(40, grade.FinalExamScore);
-        Assert.Equal(79, grade.Score);
-        Assert.Equal("C", grade.LetterGrade);
+        Assert.Equal(82, grade.Score);
+        Assert.Equal("B", grade.LetterGrade);
         Assert.Equal("SubmissionRequested", grade.ReviewStatus);
     }
 
@@ -155,6 +155,36 @@ public sealed class GradeServiceTests
         await service.SubmitAuthorizedAsync(grade.Id, teacher.Id, CancellationToken.None);
 
         Assert.Equal("Submitted", grade.ReviewStatus);
+    }
+
+    [Fact]
+    public async Task Confirm_final_grades_requires_every_course_then_locks_the_student_result()
+    {
+        await using var db = CreateContext();
+        var department = new Department { DepartmentCode = "DEP-FINAL", Name = "Final Results" };
+        var student = new Student { StudentCode = "STU-FINAL", FullName = "Final Student", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
+        var teacher = new Teacher { TeacherCode = "TEA-FINAL", FullName = "Final Teacher", DepartmentId = department.Id, Department = department };
+        var enrollment = new StudentEnrollment { EnrollmentCode = "ENR-FINAL", StudentId = student.Id, Student = student, DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning", AcademicYear = "2026â€“2027", Semester = "Semester 1", Status = "Active" };
+        db.AddRange(department, student, teacher, enrollment);
+        AddSetting(db, "academic-year", "currentYear", "2026â€“2027");
+        AddSetting(db, "semester", "currentTerm", "Semester 1");
+        AddSetting(db, "grade-rules", "expectedCourseCount", "5");
+        for (var index = 1; index <= 5; index++)
+        {
+            var course = new Course { CourseCode = $"COU-FINAL-{index}", Name = $"Final Course {index}", DepartmentId = department.Id, Department = department };
+            var schedule = new ScheduleEntry { TimetableCode = $"TIM-FINAL-{index}", CourseId = course.Id, Course = course, TeacherId = teacher.Id, Teacher = teacher, YearLevel = 1, Shift = "Morning", DayOfWeek = DayOfWeek.Monday, StartsAt = new TimeOnly(7, 30), EndsAt = new TimeOnly(9, 0) };
+            var timetable = new TimetableEnrollment { EnrollmentCode = $"ENR-TIM-FINAL-{index}", ScheduleEntryId = schedule.Id, ScheduleEntry = schedule, CourseId = course.Id, Course = course, TeacherId = teacher.Id, Teacher = teacher, ClassroomId = Guid.NewGuid(), YearLevel = 1, AcademicYear = "2026â€“2027", Semester = "Semester 1", Status = "Active" };
+            db.AddRange(course, schedule, timetable);
+            db.GradeRecords.Add(new GradeRecord { GradeCode = $"GRD-FINAL-{index}", StudentId = student.Id, Student = student, CourseId = course.Id, Course = course, AcademicYear = "2026â€“2027", Term = "Semester 1", Score = 80, LetterGrade = "B", ReviewStatus = "Approved", SubmittedByTeacherId = teacher.Id, SubmittedByTeacher = teacher, SubmittedAtUtc = DateTime.UtcNow });
+        }
+        await db.SaveChangesAsync();
+        var service = new GradeService(db, new InstituteCache());
+
+        await service.ConfirmFinalGradesAsync(student.Id, "2026â€“2027", "Semester 1", CancellationToken.None);
+
+        Assert.All(db.GradeRecords, grade => Assert.NotNull(grade.FinalizedAtUtc));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReviewAsync(db.GradeRecords.First().Id, "Rejected", "Change", CancellationToken.None));
+        Assert.Contains("read-only", exception.Message);
     }
 
     private static ClassSessionRecord Session(Student student, Course course, DateOnly date, string status) => new()

@@ -31,4 +31,5 @@ public sealed record GradeValuesDto(
     string SubmissionVersion,
     string SubmittedAtUtc,
     string ReviewedAtUtc,
+    string FinalizedAtUtc,
     string CreateAt);

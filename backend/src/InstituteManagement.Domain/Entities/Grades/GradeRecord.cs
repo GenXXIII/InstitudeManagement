@@ -26,4 +26,5 @@ public sealed class GradeRecord : Entity
     public int SubmissionVersion { get; set; } = 1;
     public DateTime? SubmittedAtUtc { get; set; }
     public DateTime? ReviewedAtUtc { get; set; }
+    public DateTime? FinalizedAtUtc { get; set; }
 }

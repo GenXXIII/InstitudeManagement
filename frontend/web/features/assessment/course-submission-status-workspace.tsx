@@ -64,7 +64,6 @@ export function CourseSubmissionStatusWorkspace() {
     return rows.filter(item => (state === "All" || item.state === state) && (!text || [item.courseCode, item.course, item.teacher, item.department, item.year, item.shift, item.workflow].some(value => value.toLowerCase().includes(text))))
       .toSorted((left, right) => dateValue(right.submittedAtUtc) - dateValue(left.submittedAtUtc) || left.course.localeCompare(right.course, undefined, { numeric: true, sensitivity: "base" }));
   }, [query, rows, state]);
-
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
 
@@ -87,43 +86,33 @@ function CourseStatusCard({ item }: { item: CourseSubmissionStatus }) {
 
 function buildCourseStatuses(timetable: EnrollmentItem[], enrollments: EnrollmentItem[], gradeGroups: CourseAssessmentGroup[]): CourseSubmissionStatus[] {
   const currentStudents = enrollments.filter(item => item.values.periodState === "Current" && item.values.status === "Active");
-  const assignments = new Map<string, Map<string, EnrollmentItem>>();
+  const assignments = new Map<string, EnrollmentItem[]>();
   for (const item of timetable.filter(item => item.values.periodState === "Current" && item.values.status === "Active")) {
-    const key = courseKey(item.values.courseId, item.values.departmentId, item.values.academicYear, item.values.semester);
-    const courseAssignments = assignments.get(key) ?? new Map<string, EnrollmentItem>();
-    courseAssignments.set(assignmentKey(item.values.teacherId, item.values.courseId, item.values.departmentId, item.values.yearLevel, item.values.shift, item.values.academicYear, item.values.semester), item);
-    assignments.set(key, courseAssignments);
+    const key = assignmentKey(item.values.teacherId, item.values.courseId, item.values.departmentId, item.values.yearLevel, item.values.shift, item.values.academicYear, item.values.semester);
+    assignments.set(key, [...(assignments.get(key) ?? []), item]);
   }
-  const groupsByCourse = new Map<string, CourseAssessmentGroup[]>();
-  for (const group of gradeGroups) {
-    const key = courseKey(group.courseId, group.departmentId, group.academicYear, group.term);
-    groupsByCourse.set(key, [...(groupsByCourse.get(key) ?? []), group]);
-  }
+  const groupsByAssignment = new Map(gradeGroups.map(group => [group.key, group]));
   return [...assignments.entries()].map(([key, courseAssignments]) => {
-    const enrolledAssignments = [...courseAssignments.values()];
-    const assignment = enrolledAssignments[0];
+    const assignment = courseAssignments[0];
     const value = assignment.values;
-    const roster = currentStudents.filter(student => enrolledAssignments.some(item => student.values.departmentId === item.values.departmentId && student.values.year === item.values.yearLevel && student.values.shift === item.values.shift && student.values.academicYear === item.values.academicYear && student.values.semester === item.values.semester));
-    const groups = groupsByCourse.get(key) ?? [];
-    const group = groups.toSorted((left, right) => dateValue(right.submittedAtUtc || right.reviewedAtUtc) - dateValue(left.submittedAtUtc || left.reviewedAtUtc))[0];
-    const recordedStudents = new Set(groups.flatMap(item => item.grades.map(grade => grade.values.studentId)));
+    const roster = currentStudents.filter(student => student.values.departmentId === value.departmentId && student.values.year === value.yearLevel && student.values.shift === value.shift && student.values.academicYear === value.academicYear && student.values.semester === value.semester);
+    const group = groupsByAssignment.get(key);
+    const recordedStudents = new Set(group?.grades.map(grade => grade.values.studentId) ?? []);
     const rosterStudents = new Set(roster.map(student => student.id));
     const rosterCount = rosterStudents.size;
     const recordedCount = [...recordedStudents].filter(studentId => rosterStudents.has(studentId)).length;
     const complete = Boolean(group) && recordedCount === rosterCount && rosterCount > 0;
-    const version = Math.max(1, ...groups.map(item => item.version));
+    const version = Math.max(1, group?.version ?? 1);
     const state: SubmissionState = !complete ? "Pending" : version > 1 && ["Submitted", "Pending", "Approved"].includes(group!.status) ? "Resubmitted" : group!.status === "Approved" ? "Submitted" : "Pending";
-    const teachers = [...new Set(enrolledAssignments.map(item => item.values.teacher).filter(Boolean))];
-    const cohorts = [...new Set(enrolledAssignments.map(item => `${item.values.yearLevel ? `Year ${item.values.yearLevel}` : "Year not assigned"} / ${item.values.shift || "Shift not assigned"}`))];
     return {
       key,
       courseCode: value.courseCode,
       course: value.course,
-      teacher: teachers.join(", ") || "Teacher not assigned",
+      teacher: value.teacher || "Teacher not assigned",
       department: value.department,
       year: value.yearLevel,
       shift: value.shift,
-      cohort: cohorts.join(", "),
+      cohort: `${value.yearLevel ? `Year ${value.yearLevel}` : "Year not assigned"} / ${value.shift || "Shift not assigned"}`,
       academicYear: value.academicYear,
       term: value.semester,
       rosterCount,
@@ -138,6 +127,5 @@ function buildCourseStatuses(timetable: EnrollmentItem[], enrollments: Enrollmen
 }
 
 function assignmentKey(teacherId: string, courseId: string, departmentId: string, year: string, shift: string, academicYear: string, term: string) { return [teacherId, courseId, departmentId, year, shift, academicYear, term].join("|"); }
-function courseKey(courseId: string, departmentId: string, academicYear: string, term: string) { return [courseId, departmentId, academicYear, term].join("|"); }
 function formatDateTime(value: string) { if (!value) return "Not submitted"; const date = new Date(value); return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date); }
 function dateValue(value: string) { const parsed = new Date(value).valueOf(); return Number.isNaN(parsed) ? 0 : parsed; }

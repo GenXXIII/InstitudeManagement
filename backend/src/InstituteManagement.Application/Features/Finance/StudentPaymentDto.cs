@@ -39,6 +39,8 @@ public sealed record StudentPaymentDto(
     string Status,
     string ConfirmationMethod,
     DateTime? PaidAtUtc,
+    DateTime? ClosedAtUtc,
+    bool CanClosePayment,
     DateTime? ReminderSentAtUtc,
     DateTime? ReminderReadAtUtc,
     string TimetableStatus,

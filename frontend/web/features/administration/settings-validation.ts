@@ -72,6 +72,8 @@ function validateAttendance(values: Record<string, string>, errors: string[]) {
   if (thresholds.every(Number.isFinite) && !(thresholds[0] < thresholds[1] && thresholds[1] <= thresholds[2] && thresholds[2] <= thresholds[3])) {
     errors.push("Attendance thresholds must progress from On Time to Late, Very Late, and Absent.");
   }
+  if (Number(values.retakeAbsentSections) >= Number(values.failAbsentSections)) errors.push("The absent Retake threshold must be lower than the absent Fail threshold.");
+  if (Number(values.retakePermissionSections) >= Number(values.failPermissionSections)) errors.push("The permission Retake threshold must be lower than the permission Fail threshold.");
 }
 
 function validateGrades(values: Record<string, string>, errors: string[]) {
