@@ -55,11 +55,32 @@ public sealed class AcademicCalendarRolloverService(
             var financeGate = new SemesterPaymentGateResult(new HashSet<Guid>(), 0);
             var declarationGate = new SemesterResultDeclarationGateResult(new HashSet<Guid>(), 0);
             var gatesEvaluated = false;
-            if (today > yearRolloverEnd)
+            var currentPeriodEnd = previousTerm switch
+            {
+                "Semester 1" => semester1End,
+                "Semester 2" => semester2End,
+                "Summer Term" when hasSummer => summerEnd,
+                _ => yearRolloverEnd
+            };
+            if (today > currentPeriodEnd
+                && !string.IsNullOrWhiteSpace(previousAcademicYear)
+                && !string.IsNullOrWhiteSpace(previousTerm))
             {
                 financeGate = await paymentGate.EvaluateAsync(previousAcademicYear, previousTerm, cancellationToken);
                 declarationGate = await resultGate.EvaluateAsync(previousAcademicYear, previousTerm, cancellationToken);
                 gatesEvaluated = true;
+                if (financeGate.HeldStudents > 0 || declarationGate.HeldStudents > 0)
+                {
+                    db.Notifications.Add(new Notification
+                    {
+                        Title = "Semester archive waiting",
+                        Message = $"{previousAcademicYear} · {previousTerm} remains current after its end date: {financeGate.HeldStudents} students await payment closure and {declarationGate.HeldStudents} await Semester Result publication. Nothing moves to History until both are complete.",
+                        Severity = "Warning"
+                    });
+                    await db.SaveChangesAsync(cancellationToken);
+                    await cache.InvalidateDashboardAsync(cancellationToken);
+                    return false;
+                }
             }
             while (today > yearRolloverEnd)
             {
@@ -142,8 +163,8 @@ public sealed class AcademicCalendarRolloverService(
             {
                 Title = yearsAdvanced > 0 ? "Academic year advanced" : $"{activeTerm} activated",
                 Message = yearsAdvanced > 0
-                    ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} eligible students, graduated {graduated} eligible Year 4 students, held {financeGate.HeldStudents} students awaiting payment closure and {declarationGate.HeldStudents} awaiting Semester Result declaration, auto-enrolled {enrollmentAdvance.StudentsEnrolled} students, and created {attendanceCreated} attendance and {gradesCreated} grade rows."
-                    : $"{activeTerm} auto-enrolled {enrollmentAdvance.StudentsEnrolled} eligible students, held and alerted {financeGate.HeldStudents} students awaiting payment closure and {declarationGate.HeldStudents} awaiting Semester Result declaration, and created {attendanceCreated} attendance and {gradesCreated} grade rows; previous enrollment and timetable rows are preserved in History.",
+                    ? $"Advanced {yearsAdvanced} academic year(s), promoted {promoted} eligible students, graduated {graduated} eligible Year 4 students, held {financeGate.HeldStudents} students awaiting payment closure and {declarationGate.HeldStudents} awaiting Semester Result publication, auto-enrolled {enrollmentAdvance.StudentsEnrolled} students, and created {attendanceCreated} attendance and {gradesCreated} grade rows."
+                    : $"{activeTerm} auto-enrolled {enrollmentAdvance.StudentsEnrolled} eligible students, held and alerted {financeGate.HeldStudents} students awaiting payment closure and {declarationGate.HeldStudents} awaiting Semester Result publication, and created {attendanceCreated} attendance and {gradesCreated} grade rows; previous enrollment and timetable rows are preserved in History.",
                 Severity = "Info"
             });
             await db.SaveChangesAsync(cancellationToken);

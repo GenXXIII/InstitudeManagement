@@ -32,8 +32,8 @@ public sealed class SemesterResultDeclarationGate(InstituteDbContext db)
         {
             db.Notifications.Add(new Notification
             {
-                Title = "Semester result declaration required",
-                Message = $"{student.FullName} remains in {academicYear} Â· {term} until the Administrator declares the Semester Result.",
+                Title = "Semester result publication required",
+                Message = $"{student.FullName} remains in {academicYear} · {term} until the Administrator publishes all Semester Results.",
                 Severity = "Warning"
             });
         }

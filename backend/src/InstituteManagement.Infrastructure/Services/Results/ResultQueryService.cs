@@ -40,6 +40,12 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
             .ToListAsync(cancellationToken);
         var catalogCourses = await db.Courses.AsNoTracking().Where(item => item.IsActive).ToListAsync(cancellationToken);
         var publications = await db.SemesterResultPublications.AsNoTracking().Where(item => studentIds.Contains(item.StudentId)).ToListAsync(cancellationToken);
+        var closedPaymentPeriods = (await db.FinancialAccounts.AsNoTracking()
+                .Where(item => studentIds.Contains(item.StudentId) && item.ClosedAtUtc.HasValue)
+                .Select(item => new { item.StudentId, item.AcademicYear, item.Semester })
+                .ToListAsync(cancellationToken))
+            .Select(item => (item.StudentId, item.AcademicYear, item.Semester))
+            .ToHashSet();
         var sessionRows = await db.ClassSessionRecords.AsNoTracking()
             .Where(item => (!departmentId.HasValue || item.DepartmentId == departmentId) && (!year.HasValue || item.YearLevel == year))
             .Select(item => new { item.AcademicYear, item.Term, item.StudentAttendanceJson })
@@ -59,14 +65,23 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
 
         foreach (var student in students)
         {
-            var periods = history || publishedOnly
-                ? publications.Where(item => item.StudentId == student.Id).Select(item => new Period(item.AcademicYear, item.Term)).Distinct().ToList()
-                : finalizedGrades.Where(item => item.StudentId == student.Id)
+            bool IsArchived(Period period) =>
+                period.AcademicYear != currentAcademicYear || period.Semester != currentSemester
+                ? publications.Any(item => item.StudentId == student.Id && item.AcademicYear == period.AcademicYear && item.Term == period.Semester)
+                  && closedPaymentPeriods.Contains((student.Id, period.AcademicYear, period.Semester))
+                : false;
+            var publishedPeriods = publications.Where(item => item.StudentId == student.Id).Select(item => new Period(item.AcademicYear, item.Term)).Distinct().ToList();
+            var currentEnrollmentExists = enrollments.Any(item => item.StudentId == student.Id && item.AcademicYear == currentAcademicYear && item.Semester == currentSemester && item.Status == "Active");
+            var periods = history
+                ? publishedPeriods.Where(IsArchived).ToList()
+                : publishedOnly
+                    ? publishedPeriods
+                    : finalizedGrades.Where(item => item.StudentId == student.Id)
                     .GroupBy(item => new Period(item.AcademicYear, item.Term))
                     .Where(group => group.Select(item => item.CourseId).Distinct().Count() == expectedCourseCount
-                        && publications.All(item => item.StudentId != student.Id || item.AcademicYear != group.Key.AcademicYear || item.Term != group.Key.Semester))
+                        && !IsArchived(group.Key))
                     .Select(group => group.Key)
-                    .Append(new Period(currentAcademicYear, currentSemester))
+                    .Concat(currentEnrollmentExists ? [new Period(currentAcademicYear, currentSemester)] : [])
                     .Distinct()
                     .ToList();
             foreach (var period in periods.Where(item => (string.IsNullOrWhiteSpace(semester) || item.Semester.Equals(semester, StringComparison.OrdinalIgnoreCase)) && (string.IsNullOrWhiteSpace(academicYear) || item.AcademicYear.Equals(academicYear, StringComparison.OrdinalIgnoreCase))))
@@ -87,7 +102,9 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
                 var timetableAttendance = sessionAttendance.Where(item => item.StudentId == student.Id && item.AcademicYear == period.AcademicYear && item.Semester == period.Semester).ToList();
                 var submittedGrades = allGrades.Where(item => item.StudentId == student.Id && item.AcademicYear == period.AcademicYear && item.Term == period.Semester).ToList();
                 var finalizedPeriodGrades = finalizedGrades.Where(item => item.StudentId == student.Id && item.AcademicYear == period.AcademicYear && item.Term == period.Semester).ToList();
-                if (!history && !publishedOnly && finalizedPeriodGrades.Select(item => item.CourseId).Distinct().Count() != expectedCourseCount) continue;
+                var confirmedPeriodGrades = finalizedPeriodGrades.Select(item => item.CourseId).Distinct().Count() == expectedCourseCount
+                    ? finalizedPeriodGrades
+                    : [];
                 var cohortTimetableCourses = timetableAssignments.Where(item =>
                         item.AcademicYear == period.AcademicYear
                         && item.Semester == period.Semester
@@ -118,7 +135,7 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
                     .ToList();
                 var periodGrades = learningCourses.Select(course =>
                 {
-                    var finalized = finalizedPeriodGrades.FirstOrDefault(item => item.CourseId == course.Id);
+                    var finalized = confirmedPeriodGrades.FirstOrDefault(item => item.CourseId == course.Id);
                     return new CourseResultDto(course.Id, course.CourseCode, course.Name, finalized?.Score, finalized?.LetterGrade ?? "Draft", finalized is not null);
                 }).ToList();
                 var approvedResults = periodGrades.Where(item => item.IsApproved).ToList();
@@ -131,7 +148,7 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
                 var attendanceGrade = attendanceRules.Grade(attendanceScore, weights.Attendance);
                 var overallGrade = thresholds.Letter(average);
                 var totalGrade = SemesterResultRules.Outcome(approvedResults.Select(item => item.Grade).ToList(), average, thresholds, expectedCourseCount, attendanceRules.Outcome(absent, permission));
-                var publicationStatus = publication is not null ? "Declared" : approvedResults.Count == expectedCourseCount ? "Ready" : "Draft";
+                var publicationStatus = publication is not null ? "Published" : approvedResults.Count == expectedCourseCount ? "Ready" : "Draft";
                 results.Add(new SemesterResultDto(
                     student.Id, student.StudentCode,
                     !string.IsNullOrWhiteSpace(enrollment?.ResultCode)
@@ -148,30 +165,13 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
         return results.OrderBy(item => item.Year).ThenBy(item => ShiftOrder(item.Shift)).ThenBy(item => item.FullName).ThenByDescending(item => item.AcademicYear).ThenBy(item => item.Semester).ToList();
     }
 
-    public async Task PublishAsync(Guid studentId, string academicYear, string semester, CancellationToken cancellationToken)
+    public async Task<int> PublishAllAsync(CancellationToken cancellationToken)
     {
-        if (studentId == Guid.Empty) throw new ArgumentException("Student is required.", nameof(studentId));
-        if (string.IsNullOrWhiteSpace(academicYear) || string.IsNullOrWhiteSpace(semester)) throw new ArgumentException("Academic year and semester are required.");
-        if (await db.SemesterResultPublications.AnyAsync(item => item.StudentId == studentId && item.AcademicYear == academicYear && item.Term == semester, cancellationToken))
-            throw new InvalidOperationException("This Semester Result is already declared.");
-        var student = await db.Students.FindAsync([studentId], cancellationToken) ?? throw new KeyNotFoundException("Student not found.");
-        var approved = await db.GradeRecords.CountAsync(item => item.StudentId == studentId && item.AcademicYear == academicYear && item.Term == semester && item.FinalizedAtUtc.HasValue && (item.ReviewStatus == "Approved" || item.SubmittedByTeacherId == null), cancellationToken);
-        var expectedCourseCount = await ConfiguredExpectedCourseCountAsync(cancellationToken);
-        if (approved != expectedCourseCount)
-            throw new InvalidOperationException($"All {expectedCourseCount} course grades must be confirmed in Student Result before declaration.");
-        var publication = new SemesterResultPublication { StudentId = studentId, AcademicYear = academicYear.Trim(), Term = semester.Trim(), PublishedAtUtc = DateTime.UtcNow };
-        db.SemesterResultPublications.Add(publication);
-        db.AuditLogs.Add(new AuditLog { ResourceId = publication.Id, Type = "Academic result", Subject = student.FullName, Action = "Declared", Details = $"{publication.AcademicYear} · {publication.Term} · read-only · eligible for semester progression" });
-        await db.SaveChangesAsync(cancellationToken);
-        await ReleaseProgressionAsync(studentId, publication.AcademicYear, publication.Term, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task<int> PublishAllAsync(Guid? departmentId, int? year, CancellationToken cancellationToken)
-    {
-        var ready = (await GetAsync(departmentId, year, null, null, false, cancellationToken))
-            .Where(item => item.PublicationStatus == "Ready")
-            .ToList();
+        var current = await GetAsync(null, null, null, null, false, cancellationToken);
+        var unpublished = current.Where(item => item.PublicationStatus != "Published").ToList();
+        if (unpublished.Any(item => item.PublicationStatus != "Ready"))
+            throw new InvalidOperationException("Every current student must have all course grades confirmed before Semester Results can be published together.");
+        var ready = unpublished.Where(item => item.PublicationStatus == "Ready").ToList();
         if (ready.Count == 0) return 0;
 
         var studentIds = ready.Select(item => item.StudentId).ToList();
@@ -193,8 +193,8 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
                 ResourceId = publication.Id,
                 Type = "Academic result",
                 Subject = students.GetValueOrDefault(result.StudentId)?.FullName ?? result.FullName,
-                Action = "Declared",
-                Details = $"{result.ResultCode} · {result.AcademicYear} · {result.Semester} · read-only · eligible for semester progression"
+                Action = "Published",
+                Details = $"{result.ResultCode} · {result.AcademicYear} · {result.Semester} · published with all Student results · read-only · eligible for semester archive after payment closure and semester end"
             });
         }
         await db.SaveChangesAsync(cancellationToken);
@@ -225,15 +225,6 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
     {
         try { return JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? []; }
         catch (JsonException) { return []; }
-    }
-
-    private async Task<int> ConfiguredExpectedCourseCountAsync(CancellationToken cancellationToken)
-    {
-        var value = await db.SystemSettings.AsNoTracking()
-            .Where(item => item.Section == "grade-rules" && item.Key == "expectedCourseCount")
-            .Select(item => item.Value)
-            .FirstOrDefaultAsync(cancellationToken);
-        return int.TryParse(value, out var count) && count > 0 ? count : SemesterResultRules.ExpectedCourseCount;
     }
 
     private static int ExpectedCourseCount(IReadOnlyDictionary<string, string> settings) =>

@@ -11,11 +11,32 @@ public sealed class GradeHistorySnapshotProvider(InstituteDbContext db) : IHisto
 
     public async Task<IReadOnlyList<RecordDto>> GetAsync(CancellationToken cancellationToken)
     {
+        var period = await db.SystemSettings.AsNoTracking()
+            .Where(item => item.Section == "academic-year" && item.Key == "currentYear" || item.Section == "semester" && item.Key == "currentTerm")
+            .ToDictionaryAsync(item => $"{item.Section}:{item.Key}", item => item.Value, cancellationToken);
+        var currentAcademicYear = period.GetValueOrDefault("academic-year:currentYear", string.Empty);
+        var currentTerm = period.GetValueOrDefault("semester:currentTerm", string.Empty);
+        var publishedPeriods = (await db.SemesterResultPublications.AsNoTracking()
+                .Select(item => new { item.StudentId, item.AcademicYear, item.Term })
+                .ToListAsync(cancellationToken))
+            .Select(item => (item.StudentId, item.AcademicYear, item.Term))
+            .ToHashSet();
+        var closedPaymentPeriods = (await db.FinancialAccounts.AsNoTracking()
+                .Where(item => item.ClosedAtUtc.HasValue)
+                .Select(item => new { item.StudentId, item.AcademicYear, item.Semester })
+                .ToListAsync(cancellationToken))
+            .Select(item => (item.StudentId, item.AcademicYear, item.Semester))
+            .ToHashSet();
         var grades = await db.GradeRecords.AsNoTracking()
             .Include(item => item.Student).ThenInclude(student => student!.Department)
             .Include(item => item.Course)
             .Include(item => item.SubmittedByTeacher)
             .ToListAsync(cancellationToken);
+        grades = grades.Where(grade =>
+                (grade.AcademicYear != currentAcademicYear || grade.Term != currentTerm)
+                && publishedPeriods.Contains((grade.StudentId, grade.AcademicYear, grade.Term))
+                && closedPaymentPeriods.Contains((grade.StudentId, grade.AcademicYear, grade.Term)))
+            .ToList();
         var enrollments = await db.StudentEnrollments.AsNoTracking().ToListAsync(cancellationToken);
         var enrollmentByPeriod = enrollments
             .GroupBy(item => (item.StudentId, item.AcademicYear, item.Semester))

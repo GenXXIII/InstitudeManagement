@@ -37,7 +37,7 @@
 @media(max-width:900px){.finance-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.finance-heading-actions{width:100%}.finance-heading-actions .button{flex:1}.finance-account-summary,.finance-current-state,.finance-form-grid,.finance-adjustment-grid,.finance-extension-grid,.finance-plan-picker{grid-template-columns:1fr}.finance-account-summary>div,.finance-current-state>div{border-right:0;border-bottom:1px solid #e2e9f2}.finance-current-state>div:last-child{grid-column:auto}.finance-transaction-list>article{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.finance-close-payment{align-items:stretch;flex-direction:column}.finance-close-payment .button{width:100%;justify-content:center}}
-@media(max-width:560px){.finance-metrics{grid-template-columns:1fr}.finance-toolbar{align-items:stretch;flex-direction:column}.finance-status-filter{width:100%}}
+@media(max-width:560px){.finance-metrics{grid-template-columns:1fr}.finance-toolbar{align-items:stretch;flex-direction:column}.finance-status-filter{width:100%;min-width:0}}
 
 /* Readable typography across the Finance register, history, and account workspace. */
 .finance-payment-table{--data-cell-font:12px}

@@ -99,7 +99,7 @@ public sealed class AcademicCalendarRolloverServiceTests
     }
 
     [Fact]
-    public async Task Pending_payment_holds_student_sends_reminder_and_keeps_timetable_history()
+    public async Task Pending_payment_keeps_the_whole_semester_current_and_sends_a_reminder()
     {
         await using var db = CreateContext();
         AddCalendar(db, "Semester 1");
@@ -113,17 +113,18 @@ public sealed class AcademicCalendarRolloverServiceTests
 
         var changed = await Service(db).ApplyAsync(new DateOnly(2027, 2, 1), CancellationToken.None);
 
-        Assert.True(changed);
+        Assert.False(changed);
+        Assert.Equal("Semester 1", Value(db, "semester", "currentTerm"));
         Assert.Single(db.StudentEnrollments);
         Assert.Equal(1, student.YearLevel);
         Assert.NotNull(payment.ReminderSentAtUtc);
         Assert.Null(payment.ReminderReadAtUtc);
         Assert.Equal(timetable.Id, Assert.Single(db.TimetableEnrollments).Id);
-        Assert.Contains(db.Notifications, notification => notification.Message.Contains("held and alerted 1 students awaiting payment closure"));
+        Assert.Contains(db.Notifications, notification => notification.Title == "Semester archive waiting");
     }
 
     [Fact]
-    public async Task Undeclared_semester_result_holds_a_student_even_when_payment_is_closed()
+    public async Task Unpublished_semester_result_keeps_the_whole_semester_current_even_when_payment_is_closed()
     {
         await using var db = CreateContext();
         AddCalendar(db, "Semester 1");
@@ -135,10 +136,11 @@ public sealed class AcademicCalendarRolloverServiceTests
 
         var changed = await Service(db).ApplyAsync(new DateOnly(2027, 2, 1), CancellationToken.None);
 
-        Assert.True(changed);
+        Assert.False(changed);
+        Assert.Equal("Semester 1", Value(db, "semester", "currentTerm"));
         Assert.Single(db.StudentEnrollments);
         Assert.DoesNotContain(db.StudentEnrollments, item => item.StudentId == student.Id && item.Semester == "Semester 2");
-        Assert.Contains(db.Notifications, item => item.Title == "Semester result declaration required" && item.Message.Contains(student.FullName));
+        Assert.Contains(db.Notifications, item => item.Title == "Semester result publication required" && item.Message.Contains(student.FullName));
     }
 
     private static AcademicCalendarRolloverService Service(InstituteDbContext db)

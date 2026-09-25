@@ -22,7 +22,7 @@ const historyAreas = [
   { key: "departments", icon: "building", title: "Department", detail: "Department identity and semester relationships", path: "/records/departments" },
   { key: "finance", icon: "finance", title: "Finance", detail: "Fully paid accounts grouped by semester", path: "/records/finance" },
   { key: "notifications", icon: "bell", title: "Notification & Alert", detail: "Every recorded notification and alert lifecycle event", path: "/records/notifications" },
-  { key: "results", icon: "grade", title: "Result Semester", detail: "Published student outcomes across approved courses", path: "/records/result-semester" },
+  { key: "results", icon: "grade", title: "Academic Result Archive", detail: "Released student outcomes across approved courses", path: "/records/result-semester" },
 ] as const;
 
 type HistoryCounts = Record<(typeof historyAreas)[number]["key"], number> & { snapshots: number };

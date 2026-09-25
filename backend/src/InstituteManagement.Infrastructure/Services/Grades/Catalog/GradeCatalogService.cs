@@ -14,12 +14,28 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
     public override async Task<IReadOnlyList<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
         var period = await CurrentPeriodAsync(ct);
+        var publishedPeriods = (await Db.SemesterResultPublications.AsNoTracking()
+                .Select(item => new { item.StudentId, item.AcademicYear, item.Term })
+                .ToListAsync(ct))
+            .Select(item => (item.StudentId, item.AcademicYear, item.Term))
+            .ToHashSet();
+        var closedPaymentPeriods = (await Db.FinancialAccounts.AsNoTracking()
+                .Where(item => item.ClosedAtUtc.HasValue)
+                .Select(item => new { item.StudentId, item.AcademicYear, item.Semester })
+                .ToListAsync(ct))
+            .Select(item => (item.StudentId, item.AcademicYear, item.Semester))
+            .ToHashSet();
         var grades = await Db.GradeRecords.AsNoTracking().Include(grade => grade.Student).ThenInclude(student => student!.Department).Include(grade => grade.Course).Include(grade => grade.SubmittedByTeacher)
-            .Where(grade => (grade.AcademicYear == period.AcademicYear && grade.Term == period.Term || !grade.FinalizedAtUtc.HasValue && grade.SubmittedByTeacherId.HasValue)
+            .Where(grade => (grade.AcademicYear == period.AcademicYear && grade.Term == period.Term || grade.SubmittedByTeacherId.HasValue)
                 && grade.Student!.Status != "Inactive"
                 && grade.Course!.IsActive
                 && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId))
             .ToListAsync(ct);
+        grades = grades.Where(grade =>
+                grade.AcademicYear == period.AcademicYear && grade.Term == period.Term
+                || !publishedPeriods.Contains((grade.StudentId, grade.AcademicYear, grade.Term))
+                || !closedPaymentPeriods.Contains((grade.StudentId, grade.AcademicYear, grade.Term)))
+            .ToList();
         var sessions = await Db.ClassSessionRecords.AsNoTracking()
             .Where(session => session.AcademicYear == period.AcademicYear && session.Term == period.Term)
             .ToListAsync(ct);

@@ -95,6 +95,19 @@ export type BulkFinanceDeclarationResult = {
   expiresAtUtc: string;
 };
 
+export type FinanceClosureReadiness = {
+  totalAccounts: number;
+  paidAccounts: number;
+  openPaidAccounts: number;
+  canCloseAll: boolean;
+};
+
+export type BulkFinanceClosureResult = {
+  closedCount: number;
+  totalAccounts: number;
+  closedAtUtc: string;
+};
+
 export type PaymentDraft = {
   amount: string;
   method: string;

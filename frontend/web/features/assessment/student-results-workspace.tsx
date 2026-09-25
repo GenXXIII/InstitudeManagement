@@ -79,15 +79,15 @@ export function StudentResultsWorkspace() {
   const readyCount = studentResults.filter(student => resultStatus(student) === "Ready").length;
 
   async function confirmFinalGrades() {
-    if (!window.confirm(`Confirm ${readyCount} complete Student result${readyCount === 1 ? "" : "s"}? Every course grade will become read-only and move to Semester Result.`)) return;
+    if (!window.confirm(`Approve the complete final grades for ${readyCount} Student result${readyCount === 1 ? "" : "s"}? Every course grade will become read-only here and its score will appear in Semester Results.`)) return;
     setConfirming(true);
     setNotice(undefined);
     try {
       const result = await assessmentApi.confirmFinalGrades(departmentId);
-      setNotice({ message: result.confirmed > 0 ? `${result.confirmed} final Student result${result.confirmed === 1 ? "" : "s"} confirmed and moved to Semester Result.` : "No complete Student results are ready for confirmation.", error: false });
+      setNotice({ message: result.confirmed > 0 ? `${result.confirmed} final Student result${result.confirmed === 1 ? "" : "s"} approved. The course scores now appear in Semester Results, while this Student Result stays here read-only until payments are finalized, Semester Results are released, and the semester ends.` : "No complete Student results are ready for approval.", error: false });
       await load();
     } catch (reason) {
-      setNotice({ message: reason instanceof Error ? reason.message : "Could not confirm final Student results.", error: true });
+      setNotice({ message: reason instanceof Error ? reason.message : "Could not approve final Student results.", error: true });
     } finally {
       setConfirming(false);
     }
@@ -97,7 +97,7 @@ export function StudentResultsWorkspace() {
   if (!ready) return <LoadingPage/>;
 
   return <div className="viewport-data-page assessment-viewport-page">
-    <PageHeading eyebrow="Assessment · Grade records" title="Student Results" description="Latest Teacher-submitted course results. Complete results can be confirmed once, become read-only, and then move to Semester Result." actions={<button type="button" className="button primary" disabled={readyCount === 0 || confirming} onClick={() => void confirmFinalGrades()}>{confirming ? "Confirming…" : `Confirm final grades (${readyCount})`}</button>}/>
+    <PageHeading eyebrow="Assessment · Grade records" title="Student Results" description="Latest Teacher-submitted course results. Approved results stay visible and read-only until payments are finalized, Semester Results are released, and the semester ends; their course scores also appear in Semester Results." actions={<button type="button" className="button primary" disabled={readyCount === 0 || confirming} onClick={() => void confirmFinalGrades()}>{confirming ? "Approving…" : "Approve Final Grades"}</button>}/>
     {notice && <section className={`result-action-error${notice.error ? "" : " is-success"}`} role={notice.error ? "alert" : "status"}>{notice.message}</section>}
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search result code, Student, Teacher, or course..." searchAriaLabel="Search Student results" resultLabel={`${visible.length} Students`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field">
       <select value={status} onChange={event => setStatus(event.target.value)} aria-label="Final grade status"><option>All</option><option>Draft</option><option>Ready</option><option>Confirmed</option></select>

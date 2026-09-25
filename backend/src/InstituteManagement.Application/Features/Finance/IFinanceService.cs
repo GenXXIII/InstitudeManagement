@@ -20,6 +20,10 @@ public interface IFinanceService
 
     Task<BulkFinanceDeclarationResultDto> DeclareAllAsync(CancellationToken cancellationToken);
 
+    Task<FinanceClosureReadinessDto> GetClosureReadinessAsync(CancellationToken cancellationToken);
+
+    Task<BulkFinanceClosureResultDto> CloseAllPaymentsAsync(CancellationToken cancellationToken);
+
     Task<StudentPaymentDto> ExtendExpiryAsync(
         Guid financialAccountId,
         FinanceExpiryExtensionDto request,

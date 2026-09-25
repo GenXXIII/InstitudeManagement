@@ -31,6 +31,17 @@ public sealed record BulkFinanceDeclarationResultDto(
     DateOnly DueOn,
     DateTime ExpiresAtUtc);
 
+public sealed record FinanceClosureReadinessDto(
+    int TotalAccounts,
+    int PaidAccounts,
+    int OpenPaidAccounts,
+    bool CanCloseAll);
+
+public sealed record BulkFinanceClosureResultDto(
+    int ClosedCount,
+    int TotalAccounts,
+    DateTime ClosedAtUtc);
+
 public sealed record BankPaymentOptionDto(
     string Name,
     string AccountName,

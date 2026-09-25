@@ -14,6 +14,46 @@ namespace InstituteManagement.Infrastructure.Tests.Finance;
 public sealed class FinanceServiceTests
 {
     [Fact]
+    public async Task Close_all_payments_waits_for_every_student_then_closes_the_semester_together()
+    {
+        await using var db = CreateContext();
+        AddSettings(db, "2026–2027", "Semester 1");
+        var department = new Department { DepartmentCode = "FIN-ALL", Name = "Finance All" };
+        var students = new[]
+        {
+            new Student { StudentCode = "STU-CLOSE-1", FullName = "Close Student One", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" },
+            new Student { StudentCode = "STU-CLOSE-2", FullName = "Close Student Two", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" }
+        };
+        db.Add(department);
+        db.Students.AddRange(students);
+        db.StudentEnrollments.AddRange(students.Select((student, index) => new StudentEnrollment
+        {
+            EnrollmentCode = $"ENR-CLOSE-{index + 1}", StudentId = student.Id, Student = student, DepartmentId = department.Id, Department = department,
+            YearLevel = 1, Shift = "Morning", AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active"
+        }));
+        await db.SaveChangesAsync();
+        var service = Service(db);
+        await service.DeclareAllAsync(CancellationToken.None);
+        var accounts = await service.GetAsync(null, null, null, "All", CancellationToken.None);
+
+        await service.RecordPaymentAsync(accounts[0].Id, new RecordFinancePaymentDto(accounts[0].Balance, "ABA", "ALL-1", DateTime.UtcNow), CancellationToken.None);
+
+        Assert.False((await service.GetClosureReadinessAsync(CancellationToken.None)).CanCloseAll);
+        var incomplete = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CloseAllPaymentsAsync(CancellationToken.None));
+        Assert.Contains("All current student payments", incomplete.Message);
+
+        await service.RecordPaymentAsync(accounts[1].Id, new RecordFinancePaymentDto(accounts[1].Balance, "ABA", "ALL-2", DateTime.UtcNow), CancellationToken.None);
+        var ready = await service.GetClosureReadinessAsync(CancellationToken.None);
+
+        Assert.True(ready.CanCloseAll);
+        Assert.Equal(2, ready.OpenPaidAccounts);
+        var closed = await service.CloseAllPaymentsAsync(CancellationToken.None);
+        Assert.Equal(2, closed.ClosedCount);
+        Assert.All(db.FinancialAccounts, account => Assert.NotNull(account.ClosedAtUtc));
+        Assert.False((await service.GetClosureReadinessAsync(CancellationToken.None)).CanCloseAll);
+    }
+
+    [Fact]
     public async Task Bulk_declaration_announces_to_all_current_students_and_starts_expiry_countdown()
     {
         await using var db = CreateContext();

@@ -6,26 +6,28 @@ import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { financeApi } from "./finance-api";
 import { compareFinanceAccounts, FinanceTable } from "./finance-table";
-import type { DeclarationDraft, FinancialAccount, FinancialPayment, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
+import type { DeclarationDraft, FinanceClosureReadiness, FinancialAccount, FinancialPayment, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
 
 const statuses = ["All", "Pending", "Partial", "Paid", "Closed", "Cancelled", "Refunded"];
 
 export function FinanceWorkspace() {
   const [accounts, setAccounts] = useState<FinancialAccount[]>();
   const [options, setOptions] = useState<FinanceOptions>();
+  const [closure, setClosure] = useState<FinanceClosureReadiness>();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All");
   const [selectedId, setSelectedId] = useState("");
   const [error, setError] = useState(false);
   const [bulkDeclaring, setBulkDeclaring] = useState(false);
-  const [closingId, setClosingId] = useState("");
+  const [closingAll, setClosingAll] = useState(false);
   const [bulkNotice, setBulkNotice] = useState<{ message: string; error: boolean }>();
 
   const load = useCallback(async () => {
     try {
-      const [nextAccounts, nextOptions] = await Promise.all([financeApi.get(query, status), financeApi.getOptions()]);
+      const [nextAccounts, nextOptions, nextClosure] = await Promise.all([financeApi.get(query, status), financeApi.getOptions(), financeApi.getClosureReadiness()]);
       setAccounts(nextAccounts);
       setOptions(nextOptions);
+      setClosure(nextClosure);
       setError(false);
     } catch {
       setError(true);
@@ -46,13 +48,12 @@ export function FinanceWorkspace() {
       due: declared.reduce((total, account) => total + account.totalDue, 0),
       collected: declared.reduce((total, account) => total + account.totalPaid, 0),
       outstanding: declared.reduce((total, account) => total + account.balance, 0),
-      readyToClose: items.filter(account => account.canClosePayment).length,
       currency: items[0]?.currency ?? "USD",
     };
   }, [accounts]);
 
   async function declareAll() {
-    if (!window.confirm("Declare payment to all active students in the current academic period? Existing unpaid declarations will use the current configured price and receive a fresh expiry countdown.")) return;
+    if (!window.confirm("Issue payment notices to all active students in the current academic period? Existing unpaid notices will use the current configured price and receive a fresh expiry countdown.")) return;
     setBulkDeclaring(true);
     setBulkNotice(undefined);
     try {
@@ -60,49 +61,49 @@ export function FinanceWorkspace() {
       await load();
       setBulkNotice({
         message: result.declaredCount > 0
-          ? `Payment announced to ${result.declaredCount} ${result.declaredCount === 1 ? "student" : "students"}. The expiry countdown started now and ends ${formatDateTime(result.expiresAtUtc)}.`
-          : "Every active student in the current academic period already has a payment declaration.",
+          ? `Payment notices issued to ${result.declaredCount} ${result.declaredCount === 1 ? "student" : "students"}. The expiry countdown started now and ends ${formatDateTime(result.expiresAtUtc)}.`
+          : "Every active student in the current academic period already has a payment notice.",
         error: false,
       });
     } catch (reason) {
-      setBulkNotice({ message: reason instanceof Error ? reason.message : "Could not declare payments to all students.", error: true });
+      setBulkNotice({ message: reason instanceof Error ? reason.message : "Could not issue payment notices.", error: true });
     } finally {
       setBulkDeclaring(false);
     }
   }
 
-  async function closePayment(account: FinancialAccount) {
-    if (!window.confirm(`Close the fully paid account for ${account.studentName}? It becomes final and read-only.`)) return;
-    setClosingId(account.id);
+  async function closeAllPayments() {
+    if (!closure?.canCloseAll || !window.confirm(`Finalize all ${closure.totalAccounts} current student payments? Every account will become final and read-only together.`)) return;
+    setClosingAll(true);
     setBulkNotice(undefined);
     try {
-      const updated = await financeApi.closePayment(account.id);
-      setAccounts(current => updated.periodState === "Retained" ? current?.filter(item => item.id !== updated.id) : current?.map(item => item.id === updated.id ? updated : item));
-      setBulkNotice({ message: `${account.studentName}'s payment is closed and read-only.`, error: false });
+      const result = await financeApi.closeAllPayments();
+      await load();
+      setBulkNotice({ message: `${result.closedCount} student payment${result.closedCount === 1 ? "" : "s"} finalized together. They stay current until Semester Results are released and the semester ends.`, error: false });
     } catch (reason) {
-      setBulkNotice({ message: reason instanceof Error ? reason.message : "Could not close this payment.", error: true });
+      setBulkNotice({ message: reason instanceof Error ? reason.message : "Could not finalize semester payments.", error: true });
     } finally {
-      setClosingId("");
+      setClosingAll(false);
     }
   }
 
   if (error) return <ErrorPage retry={() => void load()}/>;
-  if (!accounts || !options) return <LoadingPage/>;
+  if (!accounts || !options || !closure) return <LoadingPage/>;
   const selected = accounts.find(account => account.id === selectedId);
 
   return <div className="viewport-data-page management-viewport-page finance-viewport-page">
-    <PageHeading eyebrow="Current financial state" title="Finance" description="Finance owns enrollment-linked fees, received payments, balances, adjustments, and financial eligibility. Audit events stay in History." actions={<button type="button" className="button primary" disabled={bulkDeclaring} onClick={() => void declareAll()}>{bulkDeclaring ? "Declaring payments…" : "Declare payment to all students"}</button>}/>
+    <PageHeading eyebrow="Current financial state" title="Finance" description="Finance owns enrollment-linked fees, received payments, balances, adjustments, and financial eligibility. Audit events stay in History." actions={<div className="management-actions finance-heading-actions"><button type="button" className="button secondary" disabled={bulkDeclaring || closingAll} onClick={() => void declareAll()}>{bulkDeclaring ? "Issuing…" : "Issue Payment Notices"}</button><button type="button" className="button primary" disabled={!closure.canCloseAll || closingAll || bulkDeclaring} onClick={() => void closeAllPayments()}>{closingAll ? "Finalizing…" : closure.openPaidAccounts === 0 && closure.totalAccounts > 0 && closure.paidAccounts === closure.totalAccounts ? "Semester Payments Finalized" : "Finalize Semester Payments"}</button></div>}/>
     {bulkNotice && <div className={`finance-bulk-notice${bulkNotice.error ? " is-error" : ""}`} role={bulkNotice.error ? "alert" : "status"}><Icon name="finance" size={17}/><span>{bulkNotice.message}</span><button type="button" onClick={() => setBulkNotice(undefined)} aria-label="Dismiss message">Dismiss</button></div>}
     <section className="finance-metrics" aria-label="Finance summary">
       <FinanceMetric label="Total due" value={money(view.due, view.currency)} tone="blue"/>
       <FinanceMetric label="Collected" value={money(view.collected, view.currency)} tone="green"/>
       <FinanceMetric label="Outstanding" value={money(view.outstanding, view.currency)} tone="amber"/>
-      <FinanceMetric label="Ready to close" value={view.readyToClose.toString()} tone="violet"/>
+      <FinanceMetric label="Students paid" value={`${closure.paidAccounts}/${closure.totalAccounts}`} tone="violet"/>
     </section>
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search account, payment, student, or enrollment..." searchAriaLabel="Search Finance" resultLabel={`${view.items.length} accounts`} className="record-toolbar panel finance-toolbar" searchClassName="record-search management-search module-search-field">
       <select className="finance-status-filter" aria-label="Filter finance accounts by status" value={status} onChange={event => setStatus(event.target.value)}>{statuses.map(item => <option key={item}>{item}</option>)}</select>
     </DataTableToolbar>
-    <PaginatedDataRegion items={view.items} resetKey={`${query}-${status}`} className="management-paginated-region" empty={<DataTableEmptyState icon={<Icon name="finance" size={24}/>} title="No active finance accounts" description="Only closed semester payments move to Finance history. Active accounts appear after Student Enrollment is saved."/>}>{pageItems => <FinanceTable accounts={pageItems} onSelect={account => setSelectedId(account.id)} onClosePayment={account => void closePayment(account)} closingId={closingId}/>}</PaginatedDataRegion>
+    <PaginatedDataRegion items={view.items} resetKey={`${query}-${status}`} className="management-paginated-region" empty={<DataTableEmptyState icon={<Icon name="finance" size={24}/>} title="No active finance accounts" description="Payments archive only after all payments are finalized, Semester Results are released, and the semester ends."/>}>{pageItems => <FinanceTable accounts={pageItems} onSelect={account => setSelectedId(account.id)}/>}</PaginatedDataRegion>
     {selected && <FinanceAccountModal
       account={selected}
       options={options}
@@ -208,9 +209,9 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
         <FinanceAmount label="Balance" value={account.balance} currency={account.currency} strong/>
       </section>
 
-      <section className="finance-current-state"><div><span>Payment status</span><strong className={`finance-state-${account.closedAtUtc ? "closed" : account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.closedAtUtc ? "Paid · Closed" : account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</strong></div><div><span>Enrollment eligibility</span><strong>{options.requirePaidForAdvancement ? account.closedAtUtc ? account.periodState === "Current" ? "Ready for semester end" : "Enrollment increased" : account.status === "Paid" ? "Close payment to finalize" : "Stay in current enrollment" : "Payment gate disabled"}</strong></div><div><span>Payment lifecycle</span><strong>{account.closedAtUtc ? `Read-only · closed ${formatDateTime(account.closedAtUtc)}` : account.status === "Paid" ? "Ready to close" : "Open"}</strong></div></section>
-      {account.canClosePayment && <section className="finance-close-payment is-ready"><div><Icon name="finance" size={18}/><span><strong>Close payment</strong><small>The full balance is paid. Close this payment to make it final and read-only. The student advances automatically when the semester ends, and this account then moves to Finance History.</small></span></div><button type="button" className="button primary" disabled={busy} onClick={() => { if (confirm("Close this fully paid account? It becomes read-only now, then the student advances and the account moves to Finance History when the semester ends.")) void apply(() => financeApi.closePayment(account.id)); }}>{busy ? "Closing..." : "Close payment"}</button></section>}
-      {account.closedAtUtc && <section className="finance-close-payment is-closed"><div><Icon name="finance" size={18}/><span><strong>Payment closed · read-only</strong><small>{account.periodState === "Current" ? "This account stays in Finance until the semester ends. It will then move automatically to Finance History." : "The semester has ended and this finalized account belongs in Finance History."}</small></span></div></section>}
+      <section className="finance-current-state"><div><span>Payment status</span><strong className={`finance-state-${account.closedAtUtc ? "closed" : account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.closedAtUtc ? "Paid · Closed" : account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</strong></div><div><span>Enrollment eligibility</span><strong>{options.requirePaidForAdvancement ? account.closedAtUtc ? account.periodState === "Current" ? "Waiting for result publication and semester end" : "Enrollment increased" : account.status === "Paid" ? "Waiting for every student to pay" : "Stay in current enrollment" : "Payment gate disabled"}</strong></div><div><span>Payment lifecycle</span><strong>{account.closedAtUtc ? `Read-only · closed ${formatDateTime(account.closedAtUtc)}` : account.status === "Paid" ? "Ready for bulk closure" : "Open"}</strong></div></section>
+      {account.canClosePayment && <section className="finance-close-payment is-ready"><div><Icon name="finance" size={18}/><span><strong>Paid and ready</strong><small>This account will be finalized together with every current student payment from the Finalize Semester Payments action at the top of this page.</small></span></div></section>}
+      {account.closedAtUtc && <section className="finance-close-payment is-closed"><div><Icon name="finance" size={18}/><span><strong>Payment finalized · read-only</strong><small>{account.periodState === "Current" ? "This account stays in Finance until all Semester Results are released and the semester ends." : "Payment finalization, Semester Result release, and semester end are complete; this account belongs in Finance History."}</small></span></div></section>}
 
       {account.isDeclared && !account.closedAtUtc && account.status !== "Cancelled" && account.balance > 0 && <form className="finance-operation-card" onSubmit={recordPayment}>
         <header><div><strong>Record payment</strong><span>Capture actual money received. The balance and status are calculated by Finance.</span></div></header>

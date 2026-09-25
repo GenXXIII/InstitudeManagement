@@ -12,8 +12,8 @@ import type { SemesterResult } from "./result-types";
 
 type ResultMode = "current" | "history";
 const copy: Record<ResultMode, { eyebrow: string; title: string; description: string }> = {
-  current: { eyebrow: "Assessment · Semester declaration", title: "Semester Result", description: "Review confirmed Student grades, attendance, and totals. Declaration is required before semester progression." },
-  history: { eyebrow: "Declared semester archive", title: "Result Semester", description: "Declared results move here as read-only history after their semester ends." },
+  current: { eyebrow: "Assessment · Academic result release", title: "Semester Results", description: "Course cards stay Draft until final grades are approved, then show the approved score and grade. All Student results are released together before semester progression." },
+  history: { eyebrow: "Released academic archive", title: "Academic Result Archive", description: "Released results move here as read-only history only after payments are finalized and the semester ends." },
 };
 
 export function ResultWorkspace({ mode }: { mode: ResultMode }) {
@@ -21,14 +21,17 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
   const [rows, setRows] = useState<SemesterResult[]>([]);
+  const [allCurrentRows, setAllCurrentRows] = useState<SemesterResult[]>([]);
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [outcome, setOutcome] = useState("all");
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
-  const [publishing, setPublishing] = useState("");
   const [publishingAll, setPublishingAll] = useState(false);
   const [actionError, setActionError] = useState("");
-  const load = useCallback(() => resultApi.get(departmentId, year, mode === "history").then(value => { setRows(value); setReady(true); setError(false); }).catch(() => setError(true)), [departmentId, mode, year]);
+  const load = useCallback(() => Promise.all([
+    resultApi.get(departmentId, year, mode === "history"),
+    mode === "current" && (departmentId || year) ? resultApi.get("", "", false) : Promise.resolve<SemesterResult[]>([]),
+  ]).then(([value, globalCurrent]) => { setRows(value); setAllCurrentRows(mode === "current" ? globalCurrent.length ? globalCurrent : value : []); setReady(true); setError(false); }).catch(() => setError(true)), [departmentId, mode, year]);
   useEffect(() => { void load(); }, [load]);
   const visible = useMemo(() => rows.filter(row => {
     const text = workflowSourceSearch(query).toLowerCase();
@@ -36,23 +39,16 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
     const matchesOutcome = outcome === "all" || normalizedOutcome === outcome;
     return matchesOutcome && (!text || [row.resultCode, row.fullName, row.studentCode, row.department, row.shift, row.semester, row.attendanceGrade, row.totalGrade, ...row.grades.flatMap(grade => [grade.courseCode, grade.name, grade.grade])].some(value => value.toLowerCase().includes(text)));
   }).toSorted((left, right) => left.year - right.year || semesterNumber(left.semester) - semesterNumber(right.semester) || shiftNumber(left.shift) - shiftNumber(right.shift) || left.fullName.localeCompare(right.fullName) || left.academicYear.localeCompare(right.academicYear, undefined, { numeric: true })), [outcome, query, rows]);
-  const readyCount = rows.filter(row => row.publicationStatus === "Ready").length;
+  const readyCount = allCurrentRows.filter(row => row.publicationStatus === "Ready").length;
+  const canPublishAll = readyCount > 0 && allCurrentRows.every(row => row.publicationStatus === "Ready" || row.publicationStatus === "Published");
   const details = copy[mode];
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
 
-  async function publish(row: SemesterResult) {
-    const key = resultKey(row);
-    setPublishing(key); setActionError("");
-    try { await resultApi.publish(row); await load(); }
-    catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not declare this Semester Result."); }
-    finally { setPublishing(""); }
-  }
-
   async function publishAll() {
     setPublishingAll(true); setActionError("");
-    try { await resultApi.publishAll(departmentId, year); await load(); }
-    catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not declare the ready Semester Results."); }
+    try { await resultApi.publishAll(); await load(); }
+    catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not release Semester Results."); }
     finally { setPublishingAll(false); }
   }
 
@@ -61,17 +57,17 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
       eyebrow={details.eyebrow}
       title={details.title}
       description={`${details.description}${year ? ` Showing Year ${year}.` : ""}`}
-      actions={mode === "current" ? <button type="button" className="button primary" disabled={readyCount === 0 || publishingAll || Boolean(publishing)} onClick={() => void publishAll()}>{publishingAll ? "Declaring…" : `Declare Semester Results (${readyCount})`}</button> : undefined}
+      actions={mode === "current" ? <button type="button" className="button primary" disabled={!canPublishAll || publishingAll} onClick={() => void publishAll()}>{publishingAll ? "Releasing…" : "Release Semester Results"}</button> : undefined}
     />
     {actionError && <section className="result-action-error" role="alert">{actionError}</section>}
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search result code, Student, course, shift, or department…" searchAriaLabel="Search results" resultLabel={`${visible.length} results`} className="record-toolbar panel result-toolbar" searchClassName="record-search management-search module-search-field">
       <select value={outcome} onChange={event => setOutcome(event.target.value)} aria-label="Result outcome"><option value="all">All outcomes</option><option value="pass">Pass</option><option value="retake">Retake</option><option value="fail">Fail</option><option value="pending">Pending</option></select>
     </DataTableToolbar>
-    <PaginatedDataRegion items={visible} resetKey={`${outcome}-${query}`} className="result-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No semester results found" description={mode === "history" ? "Declared results will archive here after the semester ends." : "Confirm complete grades in Student Results first."}/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table" headerClassName="horizontal-management-head semester-result-head" rowSelector=":scope > .semester-result-row" columns={resultColumns(mode)} ariaLabel="Semester Result">{pageItems.map(row => <ResultRow row={row} mode={mode} publishing={publishing === resultKey(row)} onPublish={() => void publish(row)} key={resultKey(row)}/>)}</DataTable>}</PaginatedDataRegion>
+    <PaginatedDataRegion items={visible} resetKey={`${outcome}-${query}`} className="result-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No semester results found" description={mode === "history" ? "Released results archive here only after payments are finalized and the semester ends." : "Active students and their course cards will appear here as Draft before final grade approval."}/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table" headerClassName="horizontal-management-head semester-result-head" rowSelector=":scope > .semester-result-row" columns={resultColumns(mode)} ariaLabel="Semester Results">{pageItems.map(row => <ResultRow row={row} mode={mode} key={resultKey(row)}/>)}</DataTable>}</PaginatedDataRegion>
   </div>;
 }
 
-function ResultRow({ row, mode, publishing, onPublish }: { row: SemesterResult; mode: ResultMode; publishing: boolean; onPublish: () => void }) {
+function ResultRow({ row, mode }: { row: SemesterResult; mode: ResultMode }) {
   return <article className="horizontal-management-row semester-result-row">
     <Cell label="Resultcode" className="horizontal-detail result-record-code"><strong className="management-code-value">{row.resultCode}</strong></Cell>
     <Cell label="Name"><strong>{row.fullName}</strong></Cell>
@@ -85,8 +81,8 @@ function ResultRow({ row, mode, publishing, onPublish }: { row: SemesterResult; 
     <Cell label="Courses" className="result-courses-cell"><CourseCards row={row}/></Cell>
     <Cell label="Total" className="result-total-cell"><div className={`semester-result-summary-card semester-result-total-card grade-${gradeTone(row.overallGrade)}`} data-preserve-table-font=""><strong>{formatScore(row.totalScore)}/{row.overallGrade}</strong></div></Cell>
     <Cell label="Result" className="result-outcome-cell"><span className={`table-status result-${row.totalGrade.toLowerCase().replaceAll(" ", "-")}`}>{resultOutcome(row.totalGrade)}</span></Cell>
-    <Cell label="Ready / Declared" className="result-status-cell"><span className={`table-status result-publication-state state-${row.publicationStatus.toLowerCase()}`}>{row.publicationStatus}</span></Cell>
-    <Cell label={mode === "history" ? "Declared at" : "Actions"} className="management-action-cell result-action-cell">{mode === "current" ? <div className="management-actions"><button type="button" disabled={row.publicationStatus !== "Ready" || publishing} onClick={onPublish}>{publishing ? "Declaring…" : row.publicationStatus === "Declared" ? "Declared" : "Declare"}</button></div> : <time>{row.publishedAtUtc ? new Date(row.publishedAtUtc).toLocaleDateString() : "—"}</time>}</Cell>
+    <Cell label="Ready / Published" className="result-status-cell"><span className={`table-status result-publication-state state-${row.publicationStatus.toLowerCase()}`}>{row.publicationStatus}</span></Cell>
+    {mode === "history" && <Cell label="Published at" className="management-action-cell result-action-cell"><time>{row.publishedAtUtc ? new Date(row.publishedAtUtc).toLocaleDateString() : "—"}</time></Cell>}
   </article>;
 }
 
@@ -103,11 +99,11 @@ const baseResultColumns: DataTableColumn[] = [
   { key: "courses", label: "Courses", minimumWidth: 390 },
   { key: "total", label: "Total", align: "center", minimumWidth: 105 },
   { key: "result", label: "Result", align: "center", minimumWidth: 90 },
-  { key: "status", label: "Ready / Declared", align: "center", minimumWidth: 100 },
+  { key: "status", label: "Ready / Published", align: "center", minimumWidth: 110 },
 ];
 
 function resultColumns(mode: ResultMode): DataTableColumn[] {
-  return [...baseResultColumns, { key: "actions", label: mode === "history" ? "Declared at" : "Actions", align: "center", minimumWidth: 95 }];
+  return mode === "history" ? [...baseResultColumns, { key: "published-at", label: "Published at", align: "center", minimumWidth: 105 }] : baseResultColumns;
 }
 
 function CourseCards({ row }: { row: SemesterResult }) {
