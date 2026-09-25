@@ -31,6 +31,10 @@ public interface IFinanceService
 
     Task<StudentPaymentDto> RegenerateQrAsync(Guid financialAccountId, CancellationToken cancellationToken);
 
+    Task<MockPaymentQrDto> GenerateMockPaymentQrAsync(
+        Guid financialAccountId,
+        CancellationToken cancellationToken);
+
     Task<StudentPaymentDto> GenerateStudentQrAsync(
         Guid studentId,
         Guid paymentId,
@@ -39,6 +43,12 @@ public interface IFinanceService
     Task<StudentPaymentDto> VerifyStudentPaymentAsync(
         Guid studentId,
         Guid paymentId,
+        CancellationToken cancellationToken);
+
+    Task<StudentPaymentDto> ScanMockPaymentQrAsync(
+        Guid studentId,
+        Guid paymentId,
+        MockPaymentScanDto request,
         CancellationToken cancellationToken);
 
     Task<StudentPaymentDto> MarkReminderReadAsync(

@@ -18,13 +18,14 @@ type PortalContextValue = PortalData & {
   markAnnouncementRead: (announcementId: string) => Promise<void>;
   generateFinanceQr: (studentId: string, paymentId: string) => Promise<StudentPayment>;
   verifyFinancePayment: (studentId: string, paymentId: string) => Promise<StudentPayment>;
+  scanMockFinanceQr: (studentId: string, paymentId: string, qrPayload: string) => Promise<StudentPayment>;
 };
 
 const PortalContext = createContext<PortalContextValue | null>(null);
 
 export function PortalProvider({ role, children }: PropsWithChildren<{ role: MobileRole }>) {
   const { session } = useAuth();
-  const [data, setData] = useState<PortalData>({ role, profile: null, schedule: [], students: [], attendance: [], grades: [], publishedResults: [], gradeWeights: { attendance: 10, assignment: 20, midterm: 20, finalExam: 50 }, announcements: [], payments: [], financeOptions: { paymentProviders: [], bakongEnabled: false, bakongConfigured: false, bakongEnvironment: 'SIT', dynamicQrBank: '', dynamicQrAccountName: '', dynamicQrAccountCode: '' }, startedScheduleIds: [], permissionRequests: [] });
+  const [data, setData] = useState<PortalData>({ role, profile: null, schedule: [], students: [], attendance: [], grades: [], publishedResults: [], gradeWeights: { attendance: 10, assignment: 20, midterm: 20, finalExam: 50 }, announcements: [], payments: [], financeOptions: { bakongEnabled: false, bakongConfigured: false, bakongEnvironment: 'SIT', dynamicQrBank: '', dynamicQrAccountName: '', dynamicQrAccountCode: '', mockPaymentEnabled: false }, startedScheduleIds: [], permissionRequests: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -93,6 +94,9 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
   const verifyFinancePayment = useCallback(async (studentId: string, paymentId: string) =>
     replacePayment(await portalMutations.verifyFinancePayment(studentId, paymentId)), [replacePayment]);
 
+  const scanMockFinanceQr = useCallback(async (studentId: string, paymentId: string, qrPayload: string) =>
+    replacePayment(await portalMutations.scanMockFinanceQr(studentId, paymentId, qrPayload)), [replacePayment]);
+
   const markAnnouncementRead = useCallback(async (announcementId: string) => {
     const announcement = data.announcements.find(item => item.id === announcementId);
     if (!announcement || announcement.isRead) return;
@@ -114,7 +118,7 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     }
   }, [data.announcements, data.profile]);
 
-  const value = useMemo(() => ({ ...data, error, loading, refresh, startClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment }), [data, error, loading, refresh, startClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment]);
+  const value = useMemo(() => ({ ...data, error, loading, refresh, startClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr }), [data, error, loading, refresh, startClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr]);
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 

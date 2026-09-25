@@ -44,3 +44,8 @@ public sealed record FinanceExpiryExtensionRequest(int Days, string? Reason)
 {
     public FinanceExpiryExtensionDto ToDto() => new(Days, Reason);
 }
+
+public sealed record MockPaymentScanRequest(string? QrPayload)
+{
+    public MockPaymentScanDto ToDto() => new(QrPayload);
+}

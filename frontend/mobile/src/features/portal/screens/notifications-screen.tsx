@@ -34,15 +34,15 @@ export function NotificationsScreen({ role }: { role: MobileRole }) {
     </View>
     <SectionHeading title={`${filter[0].toUpperCase()}${filter.slice(1)} notifications`} detail={`${visible.length} items`}/>
     {visible.length ? (
-      <Card style={styles.inboxList}>{visible.map((item, index) => <NotificationRow item={item} divided={index > 0} onPress={() => openNotification(item)} key={item.id}/>)}</Card>
+      <View style={styles.inboxList}>{visible.map(item => <NotificationRow item={item} onPress={() => openNotification(item)} key={item.id}/>)}</View>
     ) : (
-      <EmptyBlock icon="notifications-off-outline" title={filter === 'all' ? 'No notifications' : filter === 'unread' ? 'You are all caught up' : 'No read notifications'} detail={filter === 'all' ? 'New institute announcements will appear here.' : filter === 'unread' ? 'Opening a message moves it out of Unread.' : 'Messages you open will appear here.'}/>
+      <EmptyBlock icon="notifications-off-outline" title={filter === 'all' ? 'No notifications' : filter === 'unread' ? 'No unread notifications' : 'No read notifications'} detail={filter === 'all' ? 'New institute announcements will appear here.' : filter === 'unread' ? 'Opening a message moves it out of Unread.' : 'Messages you open will appear here.'}/>
     )}
   </PortalPage>;
 }
 
-function NotificationRow({ item, divided, onPress }: { item: Announcement; divided: boolean; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${item.isRead ? 'Read' : 'Unread'} notification: ${item.title}`} accessibilityHint="Shows the full notification message" onPress={onPress} style={({ pressed }) => [styles.messageRow, divided && styles.inboxDivider, item.isRead ? styles.readRow : styles.unreadRow, pressed && styles.pressed]}>
+function NotificationRow({ item, onPress }: { item: Announcement; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${item.isRead ? 'Read' : 'Unread'} notification: ${item.title}`} accessibilityHint="Shows the full notification message" onPress={onPress} style={({ pressed }) => [styles.messageRow, item.isRead ? styles.readRow : styles.unreadRow, pressed && styles.pressed]}>
       <View style={styles.notificationTop}>
         <View style={styles.notificationIcon}><Image source={require('../../../../assets/images/ink-logo.png')} style={styles.notificationLogo} resizeMode="contain"/></View>
         <View style={styles.notificationTitleBlock}><Text style={[styles.notificationSender, item.isRead && styles.readSender]}>Institute of New Khmer</Text><Text style={[styles.notificationTitle, item.isRead && styles.readTitle]} numberOfLines={1}>{item.title}</Text><Text style={[styles.notificationMessage, !item.isRead && styles.unreadMessage]} numberOfLines={1}>{item.message}</Text></View>
@@ -108,46 +108,45 @@ function formatDateTime(value: string) {
 }
 
 const styles = StyleSheet.create({
-  filters: { flexDirection: 'row', gap: 7 },
-  filter: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 15, borderRadius: radius.small, borderWidth: 1, borderColor: palette.line, backgroundColor: '#FFFFFF' },
-  filterText: { color: palette.muted, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
+  filters: { flexDirection: 'row', gap: 8, padding: 5, borderRadius: radius.large, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: palette.line },
+  filter: { minHeight: 43, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 11, borderRadius: radius.medium, borderWidth: 1, borderColor: 'transparent', backgroundColor: '#FFFFFF' },
+  filterText: { color: palette.muted, fontSize: 13, fontWeight: '800', textTransform: 'capitalize' },
   filterTextActive: { color: 'white' },
-  inboxList: { overflow: 'hidden', padding: 0, shadowOpacity: 0, elevation: 0 },
-  messageRow: { minHeight: 64, paddingHorizontal: 11, paddingVertical: 9 },
-  inboxDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.line },
-  unreadRow: { backgroundColor: '#F2F5FF' },
+  inboxList: { gap: 10 },
+  messageRow: { minHeight: 92, paddingHorizontal: 14, paddingVertical: 13, borderRadius: radius.medium, borderWidth: 1, borderColor: palette.line },
+  unreadRow: { backgroundColor: palette.bluePale, borderColor: '#C8DAFF' },
   readRow: { backgroundColor: palette.panel },
   dateGroup: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 7 },
-  notificationTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  notificationIcon: { width: 34, height: 38, alignItems: 'center', justifyContent: 'center' },
-  notificationLogo: { width: 34, height: 38 },
+  notificationTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  notificationIcon: { width: 43, height: 47, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#FFFFFF' },
+  notificationLogo: { width: 38, height: 42 },
   notificationTitleBlock: { flex: 1 },
   notificationAside: { alignItems: 'flex-end', gap: 6 },
-  notificationSender: { color: palette.ink, fontSize: 9, lineHeight: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.35 },
-  notificationTitle: { color: palette.ink, fontSize: 14, fontWeight: '800' },
-  notificationDate: { color: palette.muted, fontSize: 10, fontWeight: '600' },
+  notificationSender: { color: palette.blue, fontSize: 11, lineHeight: 14, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.45 },
+  notificationTitle: { color: palette.ink, fontSize: 16, fontWeight: '900', marginTop: 2 },
+  notificationDate: { color: palette.muted, fontSize: 11, fontWeight: '700' },
   readSender: { color: '#4B5568', fontWeight: '600' },
   readTitle: { color: '#4B5568', fontWeight: '600' },
   unreadDate: { color: palette.blue, fontWeight: '800' },
   unreadDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: palette.blue },
-  notificationMessage: { color: palette.muted, fontSize: 11, lineHeight: 15, marginTop: 3 },
+  notificationMessage: { color: palette.muted, fontSize: 13, lineHeight: 18, marginTop: 4 },
   unreadMessage: { color: '#46516A', fontWeight: '600' },
   typeBadge: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 11, paddingVertical: 6, borderRadius: radius.small, borderWidth: 1 },
   typeBadgeText: { fontSize: 13, fontWeight: '800' },
   typeBadgeCompact: { minHeight: 27, gap: 5, paddingHorizontal: 8, paddingVertical: 4 },
-  typeBadgeTextCompact: { fontSize: 11 },
-  backButton: { alignSelf: 'flex-start', minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 3, paddingRight: 12 },
-  backText: { color: palette.blue, fontSize: 12, fontWeight: '700' },
-  detailCard: { padding: 18 },
+  typeBadgeTextCompact: { fontSize: 12 },
+  backButton: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: palette.bluePale },
+  backText: { color: palette.blue, fontSize: 13, fontWeight: '900' },
+  detailCard: { padding: 20, borderTopWidth: 6, borderTopColor: palette.gold },
   detailSenderRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   detailIcon: { width: 42, height: 47, alignItems: 'center', justifyContent: 'center' },
   detailLogo: { width: 42, height: 47 },
   detailSenderCopy: { flex: 1 },
-  detailSender: { color: palette.ink, fontSize: 13, fontWeight: '700' },
+  detailSender: { color: palette.ink, fontSize: 15, fontWeight: '900' },
   detailContent: { gap: 10, marginTop: 24 },
-  detailSubject: { color: palette.ink, fontSize: 20, lineHeight: 27, fontWeight: '700' },
-  detailMessage: { color: palette.ink, fontSize: 14, lineHeight: 23 },
+  detailSubject: { color: palette.ink, fontSize: 23, lineHeight: 30, fontWeight: '900' },
+  detailMessage: { color: palette.ink, fontSize: 16, lineHeight: 25 },
   detailTimestamp: { alignSelf: 'flex-end', marginTop: 24 },
-  detailDate: { color: palette.muted, fontSize: 11, fontWeight: '400', textAlign: 'right' },
+  detailDate: { color: palette.muted, fontSize: 12, fontWeight: '600', textAlign: 'right' },
   pressed: { opacity: 0.68 },
 });

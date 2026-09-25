@@ -164,8 +164,9 @@ export const portalMutations = {
   markFinanceReminderRead: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/reminder/read`, { method: 'PUT' }),
   generateFinanceQr: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/qr`, { method: 'PUT' }),
   verifyFinancePayment: (studentId: string, paymentId: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/verify`, { method: 'POST' }),
+  scanMockFinanceQr: (studentId: string, paymentId: string, qrPayload: string) => request<StudentPayment>(`/api/finance/students/${studentId}/payments/${paymentId}/mock-scan`, { method: 'POST', body: JSON.stringify({ qrPayload }) }),
 };
 
 function emptyFinanceOptions(): StudentFinanceOptions {
-  return { paymentProviders: [], bakongEnabled: false, bakongConfigured: false, bakongEnvironment: 'SIT', dynamicQrBank: '', dynamicQrAccountName: '', dynamicQrAccountCode: '' };
+  return { bakongEnabled: false, bakongConfigured: false, bakongEnvironment: 'SIT', dynamicQrBank: '', dynamicQrAccountName: '', dynamicQrAccountCode: '', mockPaymentEnabled: false };
 }

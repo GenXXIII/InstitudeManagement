@@ -13,7 +13,8 @@ public sealed class FinanceService(
     FinancialAccountSynchronizer synchronizer,
     FinancialProgression progression,
     FinanceSettingsReader settingsReader,
-    BakongPaymentGateway bakong) : IFinanceService
+    BakongPaymentGateway bakong,
+    MockPaymentQrGateway mockPayments) : IFinanceService
 {
     public async Task<IReadOnlyList<StudentPaymentDto>> GetAsync(
         string? search,
@@ -88,12 +89,6 @@ public sealed class FinanceService(
     public async Task<FinanceOptionsDto> GetOptionsAsync(CancellationToken cancellationToken)
     {
         var settings = await settingsReader.GetAsync(cancellationToken);
-        var providers = settings.PaymentProviders
-            .Select(provider => new BankPaymentOptionDto(provider.Name, provider.AccountName, provider.AccountCode))
-            .ToList();
-        var receiverProvider = settings.PaymentProviders.FirstOrDefault(provider =>
-            settings.BakongAcquiringBank.Contains(provider.Name, StringComparison.OrdinalIgnoreCase))
-            ?? settings.PaymentProviders.FirstOrDefault();
         return new(
             settings.PaymentMethods,
             settings.AllowPartialPayments,
@@ -103,13 +98,13 @@ public sealed class FinanceService(
             settings.PaymentDueDays,
             settings.TuitionFee,
             settings.OtherFee,
-            providers,
             settings.BakongEnabled,
             bakong.IsConfigured(settings),
             settings.BakongEnvironment,
-            string.IsNullOrWhiteSpace(settings.BakongAcquiringBank) ? receiverProvider?.Name ?? "Bakong" : settings.BakongAcquiringBank,
-            string.IsNullOrWhiteSpace(settings.BakongMerchantName) ? receiverProvider?.AccountName ?? string.Empty : settings.BakongMerchantName,
-            string.IsNullOrWhiteSpace(settings.BakongAccountInformation) ? settings.BakongAccountId : settings.BakongAccountInformation);
+            string.IsNullOrWhiteSpace(settings.BakongAcquiringBank) ? "Bakong" : settings.BakongAcquiringBank,
+            settings.BakongMerchantName,
+            string.IsNullOrWhiteSpace(settings.BakongAccountInformation) ? settings.BakongAccountId : settings.BakongAccountInformation,
+            settings.MockPaymentEnabled);
     }
 
     public async Task<StudentPaymentDto> DeclareAsync(
@@ -595,6 +590,66 @@ public sealed class FinanceService(
         return AssertSingle(await MapAsync([account], cancellationToken));
     }
 
+    public async Task<MockPaymentQrDto> GenerateMockPaymentQrAsync(
+        Guid financialAccountId,
+        CancellationToken cancellationToken)
+    {
+        var account = await FindAccountAsync(financialAccountId, cancellationToken);
+        EnsureOpen(account);
+        ValidateDynamicQrAccount(account);
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        if (!settings.MockPaymentEnabled)
+            throw new InvalidOperationException("Enable Mock Scan QR Pay in Finance Settings before generating a test QR.");
+
+        var generated = mockPayments.Generate(account, account.StudentEnrollment!.PublicId, Balance(account));
+        AddFinanceAudit(account, "Mock payment QR generated", new
+        {
+            account.FinancialAccountCode,
+            account.StudentEnrollment.EnrollmentCode,
+            generated.PublicId,
+            amount = Balance(account),
+            account.Currency,
+            generated.GeneratedAtUtc,
+            generated.ExpiresAtUtc,
+            performedBy = "Administrator"
+        });
+        await SaveAsync(cancellationToken);
+        return new(generated.Payload, generated.PublicId, generated.GeneratedAtUtc, generated.ExpiresAtUtc);
+    }
+
+    public async Task<StudentPaymentDto> ScanMockPaymentQrAsync(
+        Guid studentId,
+        Guid paymentId,
+        MockPaymentScanDto request,
+        CancellationToken cancellationToken)
+    {
+        var account = await FindStudentAccountAsync(studentId, paymentId, cancellationToken);
+        EnsureOpen(account);
+        ValidateDynamicQrAccount(account);
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        if (!settings.MockPaymentEnabled)
+            throw new InvalidOperationException("Mock Scan QR Pay is disabled in Finance Settings.");
+
+        var claims = mockPayments.Validate(request.QrPayload);
+        var publicId = account.StudentEnrollment!.PublicId;
+        if (claims.FinancialAccountId != account.Id
+            || claims.StudentId != account.StudentId
+            || !claims.PublicId.Equals(publicId, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("This mock payment QR belongs to a different student payment.");
+        if (claims.Amount != decimal.Round(Balance(account), 2)
+            || !claims.Currency.Equals(account.Currency, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("This mock payment QR no longer matches the current payment balance.");
+
+        var reference = $"MOCK-{claims.TokenId}";
+        if (await db.FinancialPayments.AnyAsync(payment => payment.TransactionReference == reference, cancellationToken))
+            throw new ArgumentException("This mock payment QR has already been used.");
+        return await RecordPaymentInternalAsync(
+            account,
+            new RecordFinancePaymentDto(Balance(account), "Mock QR", reference, DateTime.UtcNow),
+            $"Student Mock QR scan · {publicId}",
+            cancellationToken);
+    }
+
     public async Task<StudentPaymentDto> ClosePaymentAsync(Guid financialAccountId, CancellationToken cancellationToken)
     {
         var account = await FindAccountAsync(financialAccountId, cancellationToken);
@@ -875,6 +930,8 @@ public sealed class FinanceService(
     {
         if (account.ClosedAtUtc.HasValue)
             throw new ArgumentException("This semester payment is closed and read-only in Finance history.");
+        if (account.Status == "Paid")
+            throw new ArgumentException("This student payment is Paid and read-only.");
     }
 
     private static void ClearQr(FinancialAccount account)

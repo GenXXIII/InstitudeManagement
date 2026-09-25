@@ -22,12 +22,7 @@ public sealed record FinanceSettings(
     string BakongAcquiringBank,
     string BakongMerchantName,
     string BakongMerchantCity,
-    IReadOnlyList<BankPaymentProvider> PaymentProviders);
-
-public sealed record BankPaymentProvider(
-    string Name,
-    string AccountName,
-    string AccountCode);
+    bool MockPaymentEnabled);
 
 public sealed class FinanceSettingsReader(InstituteDbContext db)
 {
@@ -43,15 +38,15 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
             : 14;
         var currency = values.GetValueOrDefault("currency", "USD");
         var bakongEnabled = Boolean(values, "bakongEnabled", false);
-        var methods = values.GetValueOrDefault("paymentMethods", "Cash,Bakong,ABA,ACLEDA,Wing,Bank Transfer,Other")
+        var methods = values.GetValueOrDefault("paymentMethods", "Cash,Bakong,Wing,Bank Transfer,Other")
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Where(method => !method.Equals("ABA", StringComparison.OrdinalIgnoreCase) && !method.Equals("ACLEDA", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (bakongEnabled && !methods.Contains("Bakong", StringComparer.OrdinalIgnoreCase)) methods.Add("Bakong");
+        var mockPaymentEnabled = Boolean(values, "mockPaymentEnabled", true);
+        if (mockPaymentEnabled && !methods.Contains("Mock QR", StringComparer.OrdinalIgnoreCase)) methods.Add("Mock QR");
         if (methods.Count == 0) methods.Add("Other");
-        var paymentProviders = new List<BankPaymentProvider>();
-        AddProvider(paymentProviders, values, "aba", "ABA");
-        AddProvider(paymentProviders, values, "acleda", "ACLEDA");
         return new(
             decimal.Max(0, tuitionFee),
             decimal.Max(0, otherFee),
@@ -70,20 +65,7 @@ public sealed class FinanceSettingsReader(InstituteDbContext db)
             values.GetValueOrDefault("bakongAcquiringBank", "").Trim(),
             values.GetValueOrDefault("bakongMerchantName", "Institude of New Khmer").Trim(),
             values.GetValueOrDefault("bakongMerchantCity", "Phnom Penh").Trim(),
-            paymentProviders);
-    }
-
-    private static void AddProvider(
-        ICollection<BankPaymentProvider> providers,
-        IReadOnlyDictionary<string, string> values,
-        string prefix,
-        string name)
-    {
-        if (!Boolean(values, $"{prefix}Enabled", false)) return;
-        providers.Add(new(
-            name,
-            values.GetValueOrDefault($"{prefix}AccountName", "").Trim(),
-            values.GetValueOrDefault($"{prefix}AccountCode", "").Trim()));
+            mockPaymentEnabled);
     }
 
     private static decimal Decimal(IReadOnlyDictionary<string, string> values, string key, decimal fallback) =>

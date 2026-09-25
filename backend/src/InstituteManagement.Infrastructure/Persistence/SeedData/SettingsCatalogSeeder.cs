@@ -35,6 +35,11 @@ public static class SettingsCatalogSeeder
         "aPlusMinimum", "bPlusMinimum", "cPlusMinimum",
         "aPlusGpa", "bPlusGpa", "cPlusGpa"
     ];
+    private static readonly string[] ObsoleteFinanceProviderKeys =
+    [
+        "abaEnabled", "abaAccountName", "abaAccountCode",
+        "acledaEnabled", "acledaAccountName", "acledaAccountCode"
+    ];
     private static readonly string[] AttendanceResultKeys =
     [
         "absentScoreDeduction", "permissionScoreDeduction", "retakeAbsentSections", "failAbsentSections",
@@ -46,6 +51,7 @@ public static class SettingsCatalogSeeder
         await MoveNotificationCodeSettingsAsync(db, cancellationToken);
         await RemoveObsoleteAlertCodeSettingsAsync(db, cancellationToken);
         await RemoveObsoleteGradeSettingsAsync(db, cancellationToken);
+        await NormalizeLegacyFinancePaymentMethodsAsync(db, cancellationToken);
         await NormalizeLegacyStudentPublicIdPrefixAsync(db, cancellationToken);
         await NormalizeLegacyEnrollmentPrefixesAsync(db, cancellationToken);
         await BackfillEnrollmentWorkflowCodesAsync(db, cancellationToken);
@@ -62,6 +68,9 @@ public static class SettingsCatalogSeeder
         var missing = new List<SystemSetting>();
         var obsoleteInstituteRegionalSettings = await db.SystemSettings
             .Where(setting => setting.Section == "institute" && (setting.Key == "timeZone" || setting.Key == "dateFormat"))
+            .ToListAsync(cancellationToken);
+        var obsoleteFinanceProviderSettings = await db.SystemSettings
+            .Where(setting => setting.Section == "finance" && ObsoleteFinanceProviderKeys.Contains(setting.Key))
             .ToListAsync(cancellationToken);
 
         foreach (var section in SettingsCatalog.Sections)
@@ -80,7 +89,8 @@ public static class SettingsCatalogSeeder
 
         if (missing.Count > 0) db.SystemSettings.AddRange(missing);
         if (obsoleteInstituteRegionalSettings.Count > 0) db.SystemSettings.RemoveRange(obsoleteInstituteRegionalSettings);
-        if (missing.Count > 0 || obsoleteInstituteRegionalSettings.Count > 0)
+        if (obsoleteFinanceProviderSettings.Count > 0) db.SystemSettings.RemoveRange(obsoleteFinanceProviderSettings);
+        if (missing.Count > 0 || obsoleteInstituteRegionalSettings.Count > 0 || obsoleteFinanceProviderSettings.Count > 0)
             await db.SaveChangesAsync(cancellationToken);
 
         var hasLegacyGrades = await db.GradeRecords.AsNoTracking()
@@ -149,6 +159,26 @@ public static class SettingsCatalogSeeder
             .ToListAsync(cancellationToken);
         if (obsolete.Count == 0) return;
         db.SystemSettings.RemoveRange(obsolete);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task NormalizeLegacyFinancePaymentMethodsAsync(InstituteDbContext db, CancellationToken cancellationToken)
+    {
+        var paymentMethods = await db.SystemSettings
+            .SingleOrDefaultAsync(setting => setting.Section == "finance" && setting.Key == "paymentMethods", cancellationToken);
+        if (paymentMethods is null) return;
+
+        var normalized = paymentMethods.Value
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Where(method => !method.Equals("ABA", StringComparison.OrdinalIgnoreCase) && !method.Equals("ACLEDA", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (!normalized.Contains("Bakong", StringComparer.OrdinalIgnoreCase)) normalized.Insert(Math.Min(1, normalized.Count), "Bakong");
+        var value = string.Join(',', normalized);
+        if (paymentMethods.Value == value) return;
+
+        paymentMethods.Value = value;
+        paymentMethods.UpdatedAtUtc = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
     }
 

@@ -25,6 +25,14 @@ public sealed record FinancePaymentStatusDto(string? Status);
 
 public sealed record FinanceExpiryExtensionDto(int Days, string? Reason);
 
+public sealed record MockPaymentScanDto(string? QrPayload);
+
+public sealed record MockPaymentQrDto(
+    string QrPayload,
+    string PublicId,
+    DateTime GeneratedAtUtc,
+    DateTime ExpiresAtUtc);
+
 public sealed record BulkFinanceDeclarationResultDto(
     int DeclaredCount,
     DateTime AnnouncedAtUtc,
@@ -42,11 +50,6 @@ public sealed record BulkFinanceClosureResultDto(
     int TotalAccounts,
     DateTime ClosedAtUtc);
 
-public sealed record BankPaymentOptionDto(
-    string Name,
-    string AccountName,
-    string AccountCode);
-
 public sealed record FinanceOptionsDto(
     IReadOnlyList<string> PaymentMethods,
     bool AllowPartialPayments,
@@ -56,10 +59,10 @@ public sealed record FinanceOptionsDto(
     int PaymentDueDays,
     decimal SemesterPrice,
     decimal OtherFee,
-    IReadOnlyList<BankPaymentOptionDto> PaymentProviders,
     bool BakongEnabled,
     bool BakongConfigured,
     string BakongEnvironment,
     string DynamicQrBank,
     string DynamicQrAccountName,
-    string DynamicQrAccountCode);
+    string DynamicQrAccountCode,
+    bool MockPaymentEnabled);

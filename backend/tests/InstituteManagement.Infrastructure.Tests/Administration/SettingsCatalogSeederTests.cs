@@ -39,6 +39,24 @@ public sealed class SettingsCatalogSeederTests
         Assert.Equal("ENR", db.SystemSettings.Single(item => item.Key == "timetableEnrollmentPrefix").Value);
     }
 
+    [Fact]
+    public async Task Legacy_finance_providers_are_removed_and_bakong_is_preserved()
+    {
+        await using var db = CreateContext();
+        db.SystemSettings.AddRange(
+            new SystemSetting { Section = "finance", Key = "paymentMethods", Value = "Cash,ABA,ACLEDA,Wing,Bank Transfer,Other" },
+            new SystemSetting { Section = "finance", Key = "abaEnabled", Value = "true" },
+            new SystemSetting { Section = "finance", Key = "acledaEnabled", Value = "true" });
+        await db.SaveChangesAsync();
+
+        await SettingsCatalogSeeder.SeedMissingAsync(db);
+
+        Assert.Equal("Cash,Bakong,Wing,Bank Transfer,Other", db.SystemSettings.Single(item => item.Key == "paymentMethods").Value);
+        Assert.DoesNotContain(db.SystemSettings, item => item.Key.StartsWith("aba", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(db.SystemSettings, item => item.Key.StartsWith("acleda", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("true", db.SystemSettings.Single(item => item.Section == "finance" && item.Key == "mockPaymentEnabled").Value);
+    }
+
     private static TimetableEnrollment TimetableEnrollment(ScheduleEntry schedule, string code, DateTime createdAt) =>
         new()
         {

@@ -1,20 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Card, EmptyBlock, PortalPage, portalStyles, ScheduleCard, SectionHeading } from '@/components/portal-ui';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { EmptyBlock, PortalPage, portalStyles, ScheduleCard, SectionHeading } from '@/components/portal-ui';
 import { palette, radius, shadow } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
-import type { Announcement, ScheduleItem } from '../portal-types';
+import type { ScheduleItem } from '../portal-types';
 import { usePortal } from '../portal-context';
 
 export function HomeScreen({ role }: { role: MobileRole }) {
-  const router = useRouter();
   const portal = usePortal();
   const values = portal.profile?.values;
   const today = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
   const todaySchedule = portal.schedule.filter(item => item.values.dayOfWeek === today).sort((a, b) => a.values.startsAt.localeCompare(b.values.startsAt));
   const courses = [...new Map(portal.schedule.filter(item => item.values.courseId).map(item => [item.values.courseId, item])).values()];
-  const notificationsRoute = role === 'teacher' ? '/(teacher)/notifications' : '/(student)/notifications';
 
   return <PortalPage title={values ? `Hello, ${values.name.split(' ')[0]}` : 'Home'} subtitle={role === 'teacher' ? `Your teaching day at a glance · ${today}` : `Your academic day at a glance · ${today}`}>
     <NextClassHero item={todaySchedule[0]} role={role}/>
@@ -25,8 +22,6 @@ export function HomeScreen({ role }: { role: MobileRole }) {
     <SectionHeading title="Today’s schedule" detail={`${todaySchedule.length} ${todaySchedule.length === 1 ? 'class' : 'classes'}`}/>
     <View style={portalStyles.stack}>{todaySchedule.length ? todaySchedule.map(item => <ScheduleCard item={item} key={item.id}/>) : <EmptyBlock icon="calendar-clear-outline" title="No class today" detail="Pull down to refresh after Administrator updates Timetable Enrollment."/>}</View>
 
-    <SectionHeading title="Latest notifications" detail={`${portal.announcements.length} total`} actionLabel="View all" onAction={() => router.push(notificationsRoute)}/>
-    {portal.announcements.length ? <Card style={styles.announcementPanel}>{portal.announcements.slice(0, 3).map((item, index) => <AnnouncementRow item={item} divided={index > 0} key={item.id}/>)}</Card> : <EmptyBlock icon="notifications-off-outline" title="No notifications" detail="Administrator notifications will appear here."/>}
   </PortalPage>;
 }
 
@@ -57,54 +52,31 @@ function CourseOverviewCard({ item, index, totalSessions }: { item: ScheduleItem
   </View>;
 }
 
-function AnnouncementRow({ item, divided }: { item: Announcement; divided: boolean }) {
-  return <View style={[styles.announcementRow, divided && styles.announcementDivided]}>
-    <View style={styles.announcementIcon}><Image source={require('../../../../assets/images/ink-logo.png')} style={styles.announcementLogo} resizeMode="contain"/></View>
-    <View style={styles.announcementCopy}><View style={styles.announcementHeading}><Text style={styles.announcementType}>{item.type}</Text><Text style={styles.announcementDate}>{formatDate(item.createAt)}</Text></View><Text style={styles.announcementTitle} numberOfLines={1}>{item.title}</Text><Text style={styles.announcementMessage} numberOfLines={2}>{item.message}</Text></View>
-  </View>;
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date);
-}
-
 const styles = StyleSheet.create({
-  hero: { minHeight: 220, overflow: 'hidden', padding: 22, borderRadius: radius.large, backgroundColor: palette.blueDark, ...shadow },
-  heroShapeLarge: { position: 'absolute', width: 240, height: 240, borderRadius: 120, right: -82, top: -90, backgroundColor: '#2F49B9' },
-  heroShapeSmall: { position: 'absolute', width: 150, height: 150, borderRadius: 75, right: 38, bottom: -104, backgroundColor: '#326FAE' },
-  heroGoldLine: { position: 'absolute', width: 120, height: 5, right: 20, top: 0, backgroundColor: '#D8B335' },
+  hero: { minHeight: 230, overflow: 'hidden', padding: 22, borderRadius: radius.large, borderWidth: 1, borderColor: '#CFE0FF', backgroundColor: '#EAF2FF', ...shadow },
+  heroShapeLarge: { position: 'absolute', width: 250, height: 250, borderRadius: 125, right: -88, top: -94, backgroundColor: '#BFD8FF' },
+  heroShapeSmall: { position: 'absolute', width: 158, height: 158, borderRadius: 79, right: 34, bottom: -108, backgroundColor: '#C9F0FF' },
+  heroGoldLine: { position: 'absolute', width: 130, height: 7, right: 20, top: 0, borderBottomLeftRadius: 7, borderBottomRightRadius: 7, backgroundColor: palette.gold },
   heroHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroLabel: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#E0BC3D' },
-  heroLabelText: { color: '#DDE3FF', fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
-  heroDay: { color: '#DDE3FF', fontSize: 11, fontWeight: '700' },
-  heroTitle: { maxWidth: '82%', color: '#FFFFFF', fontSize: 27, lineHeight: 32, fontWeight: '800', letterSpacing: -0.6, marginTop: 27 },
-  heroSubtitle: { maxWidth: '78%', color: '#C8D1F3', fontSize: 13, marginTop: 7 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.gold },
+  heroLabelText: { color: palette.blueDark, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
+  heroDay: { color: palette.blueDark, fontSize: 13, fontWeight: '800' },
+  heroTitle: { maxWidth: '82%', color: palette.ink, fontSize: 29, lineHeight: 34, fontWeight: '900', letterSpacing: -0.8, marginTop: 27 },
+  heroSubtitle: { maxWidth: '78%', color: palette.muted, fontSize: 14, lineHeight: 20, marginTop: 8 },
   heroFooter: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 26 },
-  heroTimeLabel: { color: '#AEB9E7', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
-  heroTime: { color: '#FFFFFF', fontSize: 19, fontWeight: '800', marginTop: 3 },
-  heroRoom: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.14)' },
-  heroRoomText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  heroTimeLabel: { color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 0.9 },
+  heroTime: { color: palette.ink, fontSize: 20, fontWeight: '900', marginTop: 3 },
+  heroRoom: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: palette.blue },
+  heroRoomText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   courseStrip: { gap: 12, paddingRight: 18, paddingBottom: 5 },
-  courseCard: { width: 220, minHeight: 196, overflow: 'hidden', padding: 17, borderRadius: radius.medium, backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, ...shadow },
+  courseCard: { width: 235, minHeight: 205, overflow: 'hidden', padding: 18, borderRadius: radius.large, backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, ...shadow },
   courseAccent: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 5 },
   courseIcon: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  courseCode: { color: palette.blue, fontSize: 10, fontWeight: '800', letterSpacing: 0.6, marginTop: 15 },
-  courseTitle: { minHeight: 48, color: palette.ink, fontSize: 19, lineHeight: 23, fontWeight: '800', letterSpacing: -0.3, marginTop: 4 },
-  courseTeacher: { color: palette.muted, fontSize: 12, marginTop: 4 },
+  courseCode: { color: palette.blue, fontSize: 12, fontWeight: '900', letterSpacing: 0.7, marginTop: 15 },
+  courseTitle: { minHeight: 50, color: palette.ink, fontSize: 20, lineHeight: 25, fontWeight: '900', letterSpacing: -0.4, marginTop: 5 },
+  courseTeacher: { color: palette.muted, fontSize: 14, marginTop: 5 },
   courseFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 17, paddingTop: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.line },
-  courseCount: { color: palette.muted, fontSize: 10, fontWeight: '600' },
-  courseYear: { color: palette.blueDark, fontSize: 10, fontWeight: '800' },
-  announcementPanel: { paddingVertical: 2, shadowOpacity: 0, elevation: 0 },
-  announcementRow: { minHeight: 96, flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 15 },
-  announcementDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.line },
-  announcementIcon: { width: 38, height: 42, alignItems: 'center', justifyContent: 'center' },
-  announcementLogo: { width: 38, height: 42 },
-  announcementCopy: { flex: 1 },
-  announcementHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  announcementType: { color: palette.blue, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-  announcementDate: { color: palette.muted, fontSize: 10, fontWeight: '600' },
-  announcementTitle: { color: palette.ink, fontSize: 14, fontWeight: '800', marginTop: 5 },
-  announcementMessage: { color: palette.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  courseCount: { color: palette.muted, fontSize: 12, fontWeight: '700' },
+  courseYear: { color: palette.blueDark, fontSize: 12, fontWeight: '900' },
 });

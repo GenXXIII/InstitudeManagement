@@ -69,4 +69,4 @@ static bool IsAllowedOrigin(string origin, IReadOnlySet<string> configuredOrigin
         || bytes[0] == 172 && bytes[1] is >= 16 and <= 31;
 }
 
-public partial class Program;
+    public partial class Program;

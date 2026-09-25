@@ -99,7 +99,7 @@ public sealed class BakongPaymentGatewayTests
         BakongAcquiringBank: "Dev Bank",
         BakongMerchantName: "Institute of New Khmer",
         BakongMerchantCity: "Phnom Penh",
-        PaymentProviders: []);
+        MockPaymentEnabled: false);
 
     private sealed class StubHandler : HttpMessageHandler
     {

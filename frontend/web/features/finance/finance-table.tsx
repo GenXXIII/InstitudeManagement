@@ -21,7 +21,7 @@ export function FinanceTable({ accounts, history = false, onSelect }: { accounts
       <Cell label="Balance"><strong>{money(account.balance, account.currency)}</strong></Cell>
       <Cell label="Status"><span className={`table-status finance-state-${account.closedAtUtc ? "closed" : account.isExpired ? "expired" : account.status.toLowerCase()}`}>{account.closedAtUtc ? "Paid · Closed" : account.isExpired ? "Expired" : account.isDeclared ? account.status : "Draft"}</span></Cell>
       <Cell label="Due"><time>{account.isDeclared ? formatDate(account.dueOn) : "—"}</time></Cell>
-      {history ? <Cell label="Closed at"><time>{account.closedAtUtc ? formatDate(account.closedAtUtc) : "—"}</time></Cell> : <Cell label="Actions" className="management-action-cell"><button type="button" className="button secondary finance-manage-button" onClick={() => onSelect?.(account)}>{account.closedAtUtc ? "View" : account.isDeclared ? "Modify" : "Declare"}</button></Cell>}
+      {history ? <Cell label="Closed at"><time>{account.closedAtUtc ? formatDate(account.closedAtUtc) : "—"}</time></Cell> : <Cell label="Actions" className="management-action-cell"><button type="button" className="button secondary finance-manage-button" onClick={() => onSelect?.(account)}>{account.closedAtUtc || account.status === "Paid" ? "View" : account.isDeclared ? "Modify" : "Declare"}</button></Cell>}
     </article>)}
   </DataTable>;
 }

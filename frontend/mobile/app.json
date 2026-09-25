@@ -28,12 +28,23 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FFFFFF",
+          "backgroundColor": "#F5F8FE",
           "image": "./assets/images/ink-logo.png",
-          "imageWidth": 112
+          "imageWidth": 168,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#102FA9",
+            "image": "./assets/images/ink-logo.png"
+          }
         }
       ],
       "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Institute of New Khmer to scan mock payment QR codes."
+        }
+      ],
       [
         "expo-build-properties",
         {

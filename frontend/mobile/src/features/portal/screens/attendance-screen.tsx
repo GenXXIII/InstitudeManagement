@@ -30,6 +30,8 @@ function TeacherAttendance() {
       (!activeSchedule.values.departmentId || activeSchedule.values.departmentId === student.values.departmentId)
       && activeSchedule.values.yearLevel === student.values.year
       && (!activeSchedule.values.shift || activeSchedule.values.shift === student.values.shift));
+  const pendingPermissions = portal.permissionRequests.filter(item => item.status === 'Pending').length;
+  const startedToday = todaySchedules.filter(item => portal.startedScheduleIds.includes(item.id)).length;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -50,12 +52,14 @@ function TeacherAttendance() {
   }
 
   if (!activeSchedule) return <>
+    <ClassControlSummary classes={todaySchedules.length} started={startedToday} permissions={pendingPermissions}/>
     <TeacherPermissionRequests/>
     <SectionHeading title="Today’s timetable" detail={todayName}/>
     <View style={portalStyles.stack}>{todaySchedules.length ? todaySchedules.map(item => <ClassStartCard item={item} now={now} started={portal.startedScheduleIds.includes(item.id)} starting={startingId === item.id} onStart={() => void start(item)} onView={() => setStartedScheduleId(item.id)} key={item.id}/>) : <EmptyBlock icon="calendar-clear-outline" title="No class to start today" detail="A Start class action appears when the Teacher has an active timetable enrollment for today."/>}</View>
   </>;
 
   return <>
+    <ClassControlSummary classes={todaySchedules.length} started={startedToday} permissions={pendingPermissions}/>
     <RunningClassBanner item={activeSchedule} now={now}/>
     <TeacherPermissionRequests/>
     <SectionHeading title="Student attendance" detail={`Read-only · ${roster.length} students`}/>
@@ -66,6 +70,15 @@ function TeacherAttendance() {
       return <Card key={student.id}><View style={styles.studentAttendanceRow}><View style={styles.studentAttendanceIdentity}><Text style={styles.studentAttendanceName}>{student.values.name}</Text><Text style={styles.studentAttendancePublicId}>Public ID {student.values.publicId || 'not assigned'}</Text></View><StatusPill value={teacherAttendanceStatus(record?.values.status)}/></View></Card>;
     }) : <EmptyBlock icon="people-outline" title="No students in this class" detail="Students appear after Administrator completes Student and Timetable Enrollment for this class’s department, year, and shift."/>}</View>
   </>;
+}
+
+function ClassControlSummary({ classes, started, permissions }: { classes: number; started: number; permissions: number }) {
+  const items = [
+    { label: 'Today classes', value: classes, icon: 'calendar-outline' as const, tone: palette.bluePale, color: palette.blue },
+    { label: 'Started', value: started, icon: 'play-outline' as const, tone: palette.greenPale, color: palette.green },
+    { label: 'To review', value: permissions, icon: 'document-text-outline' as const, tone: palette.goldPale, color: palette.gold },
+  ];
+  return <View style={styles.controlSummary}>{items.map(item => <View style={styles.controlMetric} key={item.label}><View style={[styles.controlMetricIcon, { backgroundColor: item.tone }]}><Ionicons name={item.icon} size={18} color={item.color}/></View><Text style={styles.controlMetricValue}>{item.value}</Text><Text style={styles.controlMetricLabel}>{item.label}</Text></View>)}</View>;
 }
 
 function TeacherPermissionRequests() {
@@ -143,37 +156,42 @@ function timetableActionLabel(item: ScheduleItem, now: Date) {
 }
 
 const styles = StyleSheet.create({
+  controlSummary: { flexDirection: 'row', gap: 9 },
+  controlMetric: { flex: 1, minHeight: 116, alignItems: 'flex-start', justifyContent: 'center', padding: 13, borderRadius: radius.medium, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: palette.line },
+  controlMetricIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  controlMetricValue: { color: palette.ink, fontSize: 25, fontWeight: '900', marginTop: 10 },
+  controlMetricLabel: { color: palette.muted, fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
   classStartHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  classStartIcon: { width: 42, height: 42, borderRadius: radius.small, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.bluePale },
+  classStartIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.bluePale },
   classStartCopy: { flex: 1 },
-  classStartCourse: { color: palette.ink, fontSize: 16, fontWeight: '800' },
-  classStartTime: { color: palette.blue, fontSize: 12, fontWeight: '700', marginTop: 4 },
-  classStartMeta: { color: palette.muted, fontSize: 11, marginTop: 12 },
-  startClassButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 15, borderRadius: radius.small, backgroundColor: palette.blue },
+  classStartCourse: { color: palette.ink, fontSize: 18, fontWeight: '900' },
+  classStartTime: { color: palette.blue, fontSize: 14, fontWeight: '800', marginTop: 5 },
+  classStartMeta: { color: palette.muted, fontSize: 13, marginTop: 13 },
+  startClassButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, borderRadius: radius.small, backgroundColor: palette.blue },
   startClassButtonDisabled: { backgroundColor: '#9AA4C7' },
-  startClassText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  runningBanner: { overflow: 'hidden', padding: 19, borderRadius: radius.large, backgroundColor: palette.blueDark },
+  startClassText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  runningBanner: { overflow: 'hidden', padding: 21, borderRadius: radius.large, backgroundColor: palette.blueDark, borderBottomWidth: 7, borderBottomColor: palette.gold },
   runningHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   runningState: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   runningDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#55D8A4' },
-  runningLabel: { color: '#DDE3FF', fontSize: 10, fontWeight: '800', letterSpacing: 0.9 },
-  runningClock: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  runningCourse: { color: '#FFFFFF', fontSize: 23, lineHeight: 29, fontWeight: '800', marginTop: 19 },
-  runningMeta: { color: '#C8D1F3', fontSize: 11, lineHeight: 18, marginTop: 7 },
+  runningLabel: { color: '#E8EEFF', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  runningClock: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  runningCourse: { color: '#FFFFFF', fontSize: 26, lineHeight: 32, fontWeight: '900', marginTop: 20 },
+  runningMeta: { color: '#D3DFFF', fontSize: 13, lineHeight: 20, marginTop: 8 },
   studentAttendanceRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
   studentAttendanceIdentity: { flex: 1, minWidth: 0 },
-  studentAttendanceName: { color: palette.ink, fontSize: 15, fontWeight: '800' },
-  studentAttendancePublicId: { color: palette.muted, fontSize: 11, marginTop: 5 },
+  studentAttendanceName: { color: palette.ink, fontSize: 17, fontWeight: '900' },
+  studentAttendancePublicId: { color: palette.muted, fontSize: 13, marginTop: 5 },
   permissionRequestTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  permissionReason: { color: palette.ink, fontSize: 12, lineHeight: 18, marginTop: 12 },
+  permissionReason: { color: palette.ink, fontSize: 14, lineHeight: 21, marginTop: 14, padding: 12, borderRadius: radius.small, backgroundColor: palette.canvas },
   permissionReviewActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 13 },
-  permissionReject: { minWidth: 90, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E7BCC3', borderRadius: radius.small, backgroundColor: '#FFF2F3' },
-  permissionRejectText: { color: '#B74450', fontWeight: '800' },
-  permissionApprove: { minWidth: 100, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.small, backgroundColor: palette.blue },
-  permissionApproveText: { color: '#FFFFFF', fontWeight: '800' },
+  permissionReject: { minWidth: 96, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F0C5C5', borderRadius: radius.small, backgroundColor: palette.redPale },
+  permissionRejectText: { color: palette.red, fontSize: 13, fontWeight: '900' },
+  permissionApprove: { minWidth: 128, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: radius.small, backgroundColor: palette.blue },
+  permissionApproveText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   pressed: { opacity: 0.65 },
   recordTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  recordDate: { color: palette.ink, fontWeight: '800', fontSize: 15 },
-  recordCode: { color: palette.blue, fontSize: 10, fontWeight: '700', marginTop: 4 },
-  recordMeta: { color: palette.muted, fontSize: 12, marginTop: 12 },
+  recordDate: { color: palette.ink, fontWeight: '900', fontSize: 17 },
+  recordCode: { color: palette.blue, fontSize: 12, fontWeight: '800', marginTop: 5 },
+  recordMeta: { color: palette.muted, fontSize: 14, marginTop: 13 },
 });

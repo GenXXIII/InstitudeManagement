@@ -6,6 +6,7 @@ using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Administration;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Finance;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -36,13 +37,13 @@ public sealed class FinanceServiceTests
         await service.DeclareAllAsync(CancellationToken.None);
         var accounts = await service.GetAsync(null, null, null, "All", CancellationToken.None);
 
-        await service.RecordPaymentAsync(accounts[0].Id, new RecordFinancePaymentDto(accounts[0].Balance, "ABA", "ALL-1", DateTime.UtcNow), CancellationToken.None);
+        await service.RecordPaymentAsync(accounts[0].Id, new RecordFinancePaymentDto(accounts[0].Balance, "Cash", "ALL-1", DateTime.UtcNow), CancellationToken.None);
 
         Assert.False((await service.GetClosureReadinessAsync(CancellationToken.None)).CanCloseAll);
         var incomplete = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CloseAllPaymentsAsync(CancellationToken.None));
         Assert.Contains("All current student payments", incomplete.Message);
 
-        await service.RecordPaymentAsync(accounts[1].Id, new RecordFinancePaymentDto(accounts[1].Balance, "ABA", "ALL-2", DateTime.UtcNow), CancellationToken.None);
+        await service.RecordPaymentAsync(accounts[1].Id, new RecordFinancePaymentDto(accounts[1].Balance, "Cash", "ALL-2", DateTime.UtcNow), CancellationToken.None);
         var ready = await service.GetClosureReadinessAsync(CancellationToken.None);
 
         Assert.True(ready.CanCloseAll);
@@ -288,7 +289,7 @@ public sealed class FinanceServiceTests
 
         var paid = await service.RecordPaymentAsync(
             payment.Id,
-            new RecordFinancePaymentDto(payment.Balance, "ABA", "LATE-PAYMENT", DateTime.UtcNow),
+            new RecordFinancePaymentDto(payment.Balance, "Cash", "LATE-PAYMENT", DateTime.UtcNow),
             CancellationToken.None);
 
         Assert.Equal("Paid", paid.Status);
@@ -323,7 +324,7 @@ public sealed class FinanceServiceTests
 
         var partial = await service.RecordPaymentAsync(
             account.Id,
-            new RecordFinancePaymentDto(100m, "ABA", "ABA-REF-1", DateTime.UtcNow),
+            new RecordFinancePaymentDto(100m, "Cash", "ABA-REF-1", DateTime.UtcNow),
             CancellationToken.None);
 
         Assert.Equal("Partial", partial.Status);
@@ -350,7 +351,7 @@ public sealed class FinanceServiceTests
         var partial = await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(100m, "Cash", "Receipt 1", DateTime.UtcNow), CancellationToken.None);
         var transaction = Assert.Single(partial.Payments);
 
-        var corrected = await service.UpdatePaymentAsync(account.Id, transaction.Id, new UpdateFinancePaymentDto(120m, "ABA", "ABA-REF-2", DateTime.UtcNow), CancellationToken.None);
+        var corrected = await service.UpdatePaymentAsync(account.Id, transaction.Id, new UpdateFinancePaymentDto(120m, "Cash", "ABA-REF-2", DateTime.UtcNow), CancellationToken.None);
         Assert.Equal(120m, corrected.TotalPaid);
         Assert.Equal(630m, corrected.Balance);
         var refunded = await service.SetPaymentStatusAsync(account.Id, transaction.Id, new FinancePaymentStatusDto("Refunded"), CancellationToken.None);
@@ -382,7 +383,7 @@ public sealed class FinanceServiceTests
         var declaration = await service.DeclareAsync(account.Id, Declaration("Semester"), CancellationToken.None);
         Assert.Equal("Semester", declaration.PaymentPlan);
         Assert.Single(await service.GetStudentAsync(student.Id, CancellationToken.None));
-        await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(750m, "ABA", "YEAR-1", DateTime.UtcNow), CancellationToken.None);
+        await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(750m, "Cash", "YEAR-1", DateTime.UtcNow), CancellationToken.None);
 
         var semesterTwo = new StudentEnrollment { EnrollmentCode = semesterOne.EnrollmentCode, StudentId = student.Id, DepartmentId = department.Id, YearLevel = 1, Shift = "Morning", AcademicYear = semesterOne.AcademicYear, Semester = "Semester 2", Status = "Active" };
         db.StudentEnrollments.Add(semesterTwo);
@@ -457,7 +458,7 @@ public sealed class FinanceServiceTests
 
         var paid = await service.RecordPaymentAsync(
             late.Id,
-            new RecordFinancePaymentDto(775m, "ABA", "LATE-10-DAYS", DateTime.UtcNow),
+            new RecordFinancePaymentDto(775m, "Cash", "LATE-10-DAYS", DateTime.UtcNow),
             CancellationToken.None);
         Assert.Equal("Paid", paid.Status);
         Assert.Equal(0m, paid.Balance);
@@ -482,7 +483,7 @@ public sealed class FinanceServiceTests
         Assert.Contains("full balance is paid", pendingReason.Message);
         Assert.Single(db.StudentEnrollments);
 
-        var paid = await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(account.Balance, "ABA", "OPEN-PAID", DateTime.UtcNow), CancellationToken.None);
+        var paid = await service.RecordPaymentAsync(account.Id, new RecordFinancePaymentDto(account.Balance, "Cash", "OPEN-PAID", DateTime.UtcNow), CancellationToken.None);
 
         Assert.Equal("Paid", paid.Status);
         Assert.Null(paid.ClosedAtUtc);
@@ -500,6 +501,40 @@ public sealed class FinanceServiceTests
         var reason = await Assert.ThrowsAsync<ArgumentException>(() => service.AdjustAsync(account.Id, new FinancialAdjustmentDto(-1m, "Closed account correction"), CancellationToken.None));
         Assert.Contains("closed and read-only", reason.Message);
         Assert.Single(db.StudentEnrollments);
+    }
+
+    [Fact]
+    public async Task Mock_scan_qr_is_bound_to_public_id_and_paid_account_becomes_read_only()
+    {
+        await using var db = CreateContext();
+        AddSettings(db, "2026\u20132027", "Semester 1", mockPayment: true);
+        var department = new Department { DepartmentCode = "IT", Name = "Information Technology" };
+        var student = new Student { StudentCode = "STU-MOCK", FullName = "Mock Payment Student", DepartmentId = department.Id, YearLevel = 1, Shift = "Morning" };
+        var enrollment = new StudentEnrollment
+        {
+            EnrollmentCode = "ENR-MOCK", PublicId = "STU-PUBLIC-MOCK", StudentId = student.Id, Student = student,
+            DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning",
+            AcademicYear = "2026\u20132027", Semester = "Semester 1", Status = "Active"
+        };
+        db.AddRange(department, student, enrollment);
+        await db.SaveChangesAsync();
+        var service = Service(db);
+        var account = await DeclareAsync(service, student.Id);
+        var qr = await service.GenerateMockPaymentQrAsync(account.Id, CancellationToken.None);
+
+        Assert.Equal(enrollment.PublicId, qr.PublicId);
+        Assert.StartsWith("INK-MOCK-PAY:", qr.QrPayload);
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ScanMockPaymentQrAsync(
+            student.Id, account.Id, new MockPaymentScanDto(qr.QrPayload + "tampered"), CancellationToken.None));
+
+        var paid = await service.ScanMockPaymentQrAsync(
+            student.Id, account.Id, new MockPaymentScanDto(qr.QrPayload), CancellationToken.None);
+
+        Assert.Equal("Paid", paid.Status);
+        Assert.Equal("Mock QR", Assert.Single(paid.Payments).Method);
+        var readOnly = await Assert.ThrowsAsync<ArgumentException>(() => service.AdjustAsync(
+            account.Id, new FinancialAdjustmentDto(-1m, "Must stay read-only"), CancellationToken.None));
+        Assert.Contains("Paid and read-only", readOnly.Message);
     }
 
     private static async Task<StudentPaymentDto> DeclareAsync(FinanceService service, Guid studentId)
@@ -528,7 +563,8 @@ public sealed class FinanceServiceTests
             settings,
             new BakongPaymentGateway(
                 new HttpClient(handler ?? new HttpClientHandler()),
-                new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bakong:Token"] = "test-server-token" }).Build()));
+                new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bakong:Token"] = "test-server-token" }).Build()),
+            new MockPaymentQrGateway(new EphemeralDataProtectionProvider()));
     }
 
     private static void AddSettings(
@@ -536,7 +572,8 @@ public sealed class FinanceServiceTests
         string academicYear,
         string semester,
         string latePenaltyPerDay = "0.00",
-        bool dynamicQr = false)
+        bool dynamicQr = false,
+        bool mockPayment = false)
     {
         db.SystemSettings.AddRange(
             Setting("academic-year", "currentYear", academicYear),
@@ -548,7 +585,7 @@ public sealed class FinanceServiceTests
             Setting("finance", "currency", "USD"),
             Setting("finance", "paymentDueDays", "14"),
             Setting("finance", "latePenaltyPerDay", latePenaltyPerDay),
-            Setting("finance", "paymentMethods", "Cash,ABA,ACLEDA,Wing,Bank Transfer,Other"),
+            Setting("finance", "paymentMethods", "Cash,Bakong,Wing,Bank Transfer,Other"),
             Setting("finance", "allowPartialPayments", "true"),
             Setting("finance", "allowOverpayment", "false"),
             Setting("finance", "maximumAdjustmentAmount", "1000000"),
@@ -559,7 +596,8 @@ public sealed class FinanceServiceTests
             Setting("finance", "bakongAccountInformation", dynamicQr ? "85512345678" : ""),
             Setting("finance", "bakongAcquiringBank", dynamicQr ? "Dev Bank" : ""),
             Setting("finance", "bakongMerchantName", "Institude of New Khmer"),
-            Setting("finance", "bakongMerchantCity", "Phnom Penh"));
+            Setting("finance", "bakongMerchantCity", "Phnom Penh"),
+            Setting("finance", "mockPaymentEnabled", mockPayment ? "true" : "false"));
     }
 
     private static SystemSetting Setting(string section, string key, string value) =>

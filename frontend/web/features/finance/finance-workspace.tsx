@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import QRCode from "qrcode";
 import { DataTableEmptyState, DataTableToolbar, PaginatedDataRegion } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
@@ -9,6 +11,7 @@ import { compareFinanceAccounts, FinanceTable } from "./finance-table";
 import type { DeclarationDraft, FinanceClosureReadiness, FinancialAccount, FinancialPayment, FinanceOptions, PaymentDraft, PaymentStatus } from "./finance-types";
 
 const statuses = ["All", "Pending", "Partial", "Paid", "Closed", "Cancelled", "Refunded"];
+type PaymentQrPreview = { kind: "Bakong" | "Mock"; payload: string; publicId: string; expiresAtUtc: string };
 
 export function FinanceWorkspace() {
   const [accounts, setAccounts] = useState<FinancialAccount[]>();
@@ -125,6 +128,7 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
   const [editDraft, setEditDraft] = useState<PaymentDraft>();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [qrPreview, setQrPreview] = useState<PaymentQrPreview>();
 
   async function apply(action: () => Promise<FinancialAccount>) {
     setBusy(true);
@@ -139,10 +143,11 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
       setAdjustmentReason(updated.adjustmentReason);
       setEditing(undefined);
       setEditDraft(undefined);
-      return true;
+      setQrPreview(undefined);
+      return updated;
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : "Could not apply the finance change.");
-      return false;
+      return undefined;
     } finally {
       setBusy(false);
     }
@@ -177,12 +182,32 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
     await apply(() => financeApi.setPaymentStatus(account.id, payment.id, status));
   }
 
+  async function generateBakongQr() {
+    const updated = await apply(() => financeApi.regenerateQr(account.id));
+    if (updated?.qrPayload) setQrPreview({ kind: "Bakong", payload: updated.qrPayload, publicId: updated.publicId, expiresAtUtc: updated.qrExpiresAtUtc ?? "" });
+  }
+
+  async function generateMockQr() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const generated = await financeApi.generateMockQr(account.id);
+      setQrPreview({ kind: "Mock", payload: generated.qrPayload, publicId: generated.publicId, expiresAtUtc: generated.expiresAtUtc });
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "Could not generate the mock payment QR.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const readOnly = account.status === "Paid" || Boolean(account.closedAtUtc);
+
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><section className="modal finance-account-modal" role="dialog" aria-modal="true" aria-label={`Finance account for ${account.studentName}`}>
-    <div className="modal-head"><div><span className="eyebrow">Financial account</span><h2>{account.studentName}</h2><p>{account.financialAccountCode} · {account.enrollmentCode} · {account.academicYear} · {account.semester}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close"/></button></div>
+    <div className="modal-head"><div><span className="eyebrow">{readOnly ? "Financial account · View only" : "Financial account"}</span><h2>{account.studentName}</h2><p>{account.financialAccountCode} · {account.enrollmentCode} · {account.academicYear} · {account.semester}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close"/></button></div>
     <div className="finance-account-scroll">
       {message && <div className="management-rule-error" role="alert"><Icon name="finance" size={16}/><div><strong>Could not apply change</strong><span>{message}</span></div><button type="button" onClick={() => setMessage("")}>Dismiss</button></div>}
-      {!account.closedAtUtc && <form className="finance-operation-card finance-declaration-card" onSubmit={saveDeclaration}>
-        <header><div><strong>{account.isDeclared ? "Modify payment declaration" : "Declare student payment"}</strong><span>Prices and the initial expiry countdown come from Finance Settings. Existing expiry dates never renew automatically.</span></div></header>
+      {!readOnly && <form className="finance-operation-card finance-declaration-card" onSubmit={saveDeclaration}>
+        <header><div><strong>{account.isDeclared ? "Student payment declaration" : "Declare student payment"}</strong><span>Prices and the initial expiry countdown come from Finance Settings. Existing expiry dates never renew automatically.</span></div></header>
         <div className="finance-semester-plan"><Icon name="calendar" size={18}/><div><strong>{account.semester} payment</strong><span>One declaration covers only this semester.</span></div></div>
         <div className="finance-form-grid">
           <label><span>Card title</span><input value={declarationDraft.title} minLength={3} maxLength={160} onChange={event => setDeclarationDraft({ ...declarationDraft, title: event.target.value })} placeholder="Semester tuition payment" required/></label>
@@ -213,7 +238,16 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
       {account.canClosePayment && <section className="finance-close-payment is-ready"><div><Icon name="finance" size={18}/><span><strong>Paid and ready</strong><small>This account will be finalized together with every current student payment from the Finalize Semester Payments action at the top of this page.</small></span></div></section>}
       {account.closedAtUtc && <section className="finance-close-payment is-closed"><div><Icon name="finance" size={18}/><span><strong>Payment finalized · read-only</strong><small>{account.periodState === "Current" ? "This account stays in Finance until all Semester Results are released and the semester ends." : "Payment finalization, Semester Result release, and semester end are complete; this account belongs in Finance History."}</small></span></div></section>}
 
-      {account.isDeclared && !account.closedAtUtc && account.status !== "Cancelled" && account.balance > 0 && <form className="finance-operation-card" onSubmit={recordPayment}>
+      {account.isDeclared && !readOnly && account.status !== "Cancelled" && account.balance > 0 && <section className="finance-operation-card finance-qr-card">
+        <header><div><strong>Student payment QR</strong><span>Generate a QR for this student only. Bakong QR requires real bank confirmation; Mock QR is accepted only by the student signed in with the matching Public ID.</span></div></header>
+        <div className="finance-qr-identity"><span>Student Public ID</span><strong>{account.publicId || "Not assigned"}</strong></div>
+        <div className="finance-qr-actions"><button type="button" className="button secondary" disabled={busy || !options.bakongEnabled || !options.bakongConfigured} onClick={() => void generateBakongQr()}>{busy ? "Generating…" : "Generate Bakong QR"}</button><button type="button" className="button primary" disabled={busy || !options.mockPaymentEnabled || !account.publicId} onClick={() => void generateMockQr()}>{busy ? "Generating…" : "Generate Mock QR"}</button></div>
+        {!options.bakongEnabled || !options.bakongConfigured ? <small>Bakong Pay requires the Bakong receiver and API token configuration.</small> : null}
+        {!options.mockPaymentEnabled ? <small>Enable Mock Scan QR Pay in Finance Settings to issue test QRs.</small> : null}
+        {qrPreview && <PaymentQrCode preview={qrPreview} amount={account.balance} currency={account.currency}/>}
+      </section>}
+
+      {account.isDeclared && !readOnly && account.status !== "Cancelled" && account.balance > 0 && <form className="finance-operation-card" onSubmit={recordPayment}>
         <header><div><strong>Record payment</strong><span>Capture actual money received. The balance and status are calculated by Finance.</span></div></header>
         <div className="finance-form-grid">
           <label><span>Amount</span><input type="number" min="0.01" step="0.01" value={paymentDraft.amount} onChange={event => setPaymentDraft({ ...paymentDraft, amount: event.target.value })} required/></label>
@@ -224,7 +258,7 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
         <footer><small>{options.allowPartialPayments ? "Partial payments are allowed." : "Payment must clear the full balance."} {options.allowOverpayment ? "Overpayment is allowed." : "Overpayment is blocked."}</small><button className="button primary" disabled={busy}>{busy ? "Saving..." : "Record payment"}</button></footer>
       </form>}
 
-      {account.isDeclared && !account.closedAtUtc && <form className="finance-operation-card" onSubmit={event => { event.preventDefault(); void apply(() => financeApi.adjust(account.id, Number(adjustmentAmount), adjustmentReason)); }}>
+      {account.isDeclared && !readOnly && <form className="finance-operation-card" onSubmit={event => { event.preventDefault(); void apply(() => financeApi.adjust(account.id, Number(adjustmentAmount), adjustmentReason)); }}>
         <header><div><strong>Discount / adjustment</strong><span>Use a negative amount for a discount or a positive amount for an extra charge.</span></div></header>
         <div className="finance-form-grid finance-adjustment-grid"><label><span>Adjustment amount</span><input type="number" step="0.01" value={adjustmentAmount} onChange={event => setAdjustmentAmount(event.target.value)} required/></label><label><span>Reason</span><input value={adjustmentReason} onChange={event => setAdjustmentReason(event.target.value)} placeholder="Required when amount is not zero"/></label></div>
         <footer><small>Maximum absolute adjustment: {money(options.maximumAdjustmentAmount, account.currency)}.</small><button className="button secondary" disabled={busy}>{busy ? "Saving..." : "Apply adjustment"}</button></footer>
@@ -233,12 +267,27 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
       <section className="finance-transactions">
         <header><div><strong>Payments</strong><span>Current payment transactions. Corrections and status changes are written to History.</span></div><b>{account.payments.length}</b></header>
         {editing && editDraft && <form className="finance-payment-edit" onSubmit={updatePayment}><strong>Edit {editing.paymentCode}</strong><div className="finance-form-grid"><label><span>Amount</span><input type="number" min="0.01" step="0.01" value={editDraft.amount} onChange={event => setEditDraft({ ...editDraft, amount: event.target.value })} required/></label><label><span>Payment method</span><select value={editDraft.method} onChange={event => setEditDraft({ ...editDraft, method: event.target.value })} required><option value="">Select payment method</option>{options.paymentMethods.map(method => <option key={method}>{method}</option>)}</select></label><label><span>Transaction reference</span><input value={editDraft.transactionReference} onChange={event => setEditDraft({ ...editDraft, transactionReference: event.target.value })}/></label><label><span>Paid at</span><input type="datetime-local" value={editDraft.paidAtUtc} onChange={event => setEditDraft({ ...editDraft, paidAtUtc: event.target.value })}/></label></div><footer><button type="button" className="button secondary" onClick={() => { setEditing(undefined); setEditDraft(undefined); }}>Cancel edit</button><button className="button primary" disabled={busy}>{busy ? "Saving..." : "Save correction"}</button></footer></form>}
-        <div className="finance-transaction-list">{account.payments.map(payment => <article key={payment.id}><div><span>Payment ID</span><strong>{payment.paymentCode}</strong></div><div><span>Amount</span><strong>{money(payment.amount, account.currency)}</strong></div><div><span>Method</span><strong>{payment.method}</strong></div><div><span>Status</span><strong className={`finance-payment-state-${payment.status.toLowerCase()}`}>{payment.status}</strong></div><div><span>Paid at</span><strong>{formatDateTime(payment.paidAtUtc)}</strong></div><div><span>Reference</span><strong>{payment.transactionReference || "—"}</strong></div><footer>{payment.status === "Completed" && !account.closedAtUtc ? <><button type="button" onClick={() => { setEditing(payment); setEditDraft(draftFromPayment(payment)); }}>Edit</button><button type="button" onClick={() => void changePaymentStatus(payment, "Cancelled")}>Cancel</button><button type="button" onClick={() => void changePaymentStatus(payment, "Refunded")}>Refund</button></> : <span>Read-only</span>}</footer></article>)}</div>
+        <div className="finance-transaction-list">{account.payments.map(payment => <article key={payment.id}><div><span>Payment ID</span><strong>{payment.paymentCode}</strong></div><div><span>Amount</span><strong>{money(payment.amount, account.currency)}</strong></div><div><span>Method</span><strong>{payment.method}</strong></div><div><span>Status</span><strong className={`finance-payment-state-${payment.status.toLowerCase()}`}>{payment.status}</strong></div><div><span>Paid at</span><strong>{formatDateTime(payment.paidAtUtc)}</strong></div><div><span>Reference</span><strong>{payment.transactionReference || "—"}</strong></div><footer>{payment.status === "Completed" && !readOnly ? <><button type="button" onClick={() => { setEditing(payment); setEditDraft(draftFromPayment(payment)); }}>Edit</button><button type="button" onClick={() => void changePaymentStatus(payment, "Cancelled")}>Cancel</button><button type="button" onClick={() => void changePaymentStatus(payment, "Refunded")}>Refund</button></> : <span>Read-only</span>}</footer></article>)}</div>
         {!account.payments.length && <div className="empty-state"><strong>No payments recorded</strong><span>This account remains {account.status.toLowerCase()} until Finance receives money or applies an adjustment.</span></div>}
       </section>
     </div>
     <div className="modal-actions finance-modal-actions">{!account.closedAtUtc && account.status !== "Cancelled" && account.status !== "Paid" && <button type="button" className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this financial account? Completed payments must be cancelled or refunded first, and History will keep the event.")) void apply(() => financeApi.cancel(account.id)); }}>Cancel account</button>}<button type="button" className="button secondary" onClick={onClose}>Done</button></div>
   </section></div>;
+}
+
+function PaymentQrCode({ preview, amount, currency }: { preview: PaymentQrPreview; amount: number; currency: string }) {
+  const [imageUrl, setImageUrl] = useState("");
+  useEffect(() => {
+    let active = true;
+    void QRCode.toDataURL(preview.payload, { width: 240, margin: 2, errorCorrectionLevel: "M" })
+      .then(value => { if (active) setImageUrl(value); });
+    return () => { active = false; };
+  }, [preview.payload]);
+
+  return <div className="finance-generated-qr">
+    <div>{imageUrl ? <Image src={imageUrl} width={220} height={220} unoptimized alt={`${preview.kind} payment QR for ${preview.publicId}`}/> : <span>Preparing QR…</span>}</div>
+    <section><span>{preview.kind === "Mock" ? "Mock Scan QR Pay" : "Bakong Pay"}</span><strong>{money(amount, currency)}</strong><small>Public ID: {preview.publicId}</small><small>Expires: {formatDateTime(preview.expiresAtUtc)}</small></section>
+  </div>;
 }
 
 function FinanceMetric({ label, value, tone }: { label: string; value: string; tone: string }) {

@@ -35,7 +35,7 @@ public static partial class SettingsCatalog
         Option("currency", "USD", "USD", "KHR"),
         Integer("paymentDueDays", "14", 0, 365),
         Decimal("latePenaltyPerDay", "0.00", 0, 1000000),
-        List("paymentMethods", "Cash,ABA,ACLEDA,Wing,Bank Transfer,Other"),
+        List("paymentMethods", "Cash,Bakong,Wing,Bank Transfer,Other"),
         Boolean("allowPartialPayments", true),
         Boolean("allowOverpayment", false),
         Decimal("maximumAdjustmentAmount", "1000000.00", 0, 1000000),
@@ -47,10 +47,5 @@ public static partial class SettingsCatalog
         OptionalText("bakongAcquiringBank", "", 32),
         OptionalText("bakongMerchantName", "Institude of New Khmer", 25),
         OptionalText("bakongMerchantCity", "Phnom Penh", 15),
-        Boolean("abaEnabled", false),
-        OptionalText("abaAccountName", "", 128),
-        OptionalText("abaAccountCode", "", 128),
-        Boolean("acledaEnabled", false),
-        OptionalText("acledaAccountName", "", 128),
-        OptionalText("acledaAccountCode", "", 128));
+        Boolean("mockPaymentEnabled", true));
 }

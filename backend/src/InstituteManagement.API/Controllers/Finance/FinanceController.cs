@@ -56,6 +56,10 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
     public async Task<IActionResult> RegenerateQr(Guid financialAccountId, CancellationToken cancellationToken) =>
         Ok(await finance.RegenerateQrAsync(financialAccountId, cancellationToken));
 
+    [HttpPut("accounts/{financialAccountId:guid}/mock-qr")]
+    public async Task<IActionResult> GenerateMockPaymentQr(Guid financialAccountId, CancellationToken cancellationToken) =>
+        Ok(await finance.GenerateMockPaymentQrAsync(financialAccountId, cancellationToken));
+
     [HttpPut("students/{studentId:guid}/payments/{paymentId:guid}/qr")]
     public async Task<IActionResult> GenerateStudentQr(
         Guid studentId,
@@ -69,6 +73,14 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
         Guid paymentId,
         CancellationToken cancellationToken) =>
         Ok(await finance.VerifyStudentPaymentAsync(studentId, paymentId, cancellationToken));
+
+    [HttpPost("students/{studentId:guid}/payments/{paymentId:guid}/mock-scan")]
+    public async Task<IActionResult> ScanMockPaymentQr(
+        Guid studentId,
+        Guid paymentId,
+        MockPaymentScanRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await finance.ScanMockPaymentQrAsync(studentId, paymentId, request.ToDto(), cancellationToken));
 
     [HttpPut("students/{studentId:guid}/payments/{paymentId:guid}/reminder/read")]
     public async Task<IActionResult> MarkReminderRead(

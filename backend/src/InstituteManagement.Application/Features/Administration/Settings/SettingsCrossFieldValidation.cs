@@ -34,25 +34,10 @@ public static partial class SettingsCatalog
 
     private static void ValidateFinance(IReadOnlyDictionary<string, string> values, ICollection<string> errors)
     {
-        ValidateBank("aba", "ABA", values, errors);
-        ValidateBank("acleda", "ACLEDA", values, errors);
         if (bool.TryParse(values.GetValueOrDefault("bakongEnabled"), out var dynamicQrEnabled) && dynamicQrEnabled)
             foreach (var key in new[] { "bakongAccountId", "bakongMerchantName" })
                 if (string.IsNullOrWhiteSpace(values.GetValueOrDefault(key)))
                     errors.Add($"{key} is required while personal Bakong QR is enabled.");
-    }
-
-    private static void ValidateBank(
-        string prefix,
-        string label,
-        IReadOnlyDictionary<string, string> values,
-        ICollection<string> errors)
-    {
-        if (!bool.TryParse(values.GetValueOrDefault($"{prefix}Enabled"), out var enabled) || !enabled) return;
-        foreach (var suffix in new[] { "AccountName", "AccountCode" })
-            if (string.IsNullOrWhiteSpace(values.GetValueOrDefault($"{prefix}{suffix}")))
-                errors.Add($"{label} {suffix} is required while {label} is enabled.");
-
     }
 
     private static void ValidateSemester(IReadOnlyDictionary<string, string> values, ICollection<string> errors)

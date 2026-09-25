@@ -73,19 +73,20 @@ export type FinanceOptions = {
   paymentDueDays: number;
   semesterPrice: number;
   otherFee: number;
-  paymentProviders: BankPaymentOption[];
   bakongEnabled: boolean;
   bakongConfigured: boolean;
   bakongEnvironment: "SIT" | "Production";
   dynamicQrBank: string;
   dynamicQrAccountName: string;
   dynamicQrAccountCode: string;
+  mockPaymentEnabled: boolean;
 };
 
-export type BankPaymentOption = {
-  name: "ABA" | "ACLEDA";
-  accountName: string;
-  accountCode: string;
+export type MockPaymentQr = {
+  qrPayload: string;
+  publicId: string;
+  generatedAtUtc: string;
+  expiresAtUtc: string;
 };
 
 export type BulkFinanceDeclarationResult = {

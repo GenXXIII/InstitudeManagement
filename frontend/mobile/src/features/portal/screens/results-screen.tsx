@@ -149,6 +149,7 @@ function TeacherAssessment() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseTabs}>{courses.map(course => <Pressable key={assignmentKey(course)} onPress={() => selectCourse(course)} style={[styles.courseTab, assignmentKey(selected) === assignmentKey(course) && styles.courseTabActive]}><Text style={[styles.courseTabCode, assignmentKey(selected) === assignmentKey(course) && styles.courseTabTextActive]}>{course.values.courseCode}</Text><Text numberOfLines={1} style={[styles.courseTabName, assignmentKey(selected) === assignmentKey(course) && styles.courseTabTextActive]}>{course.values.course}</Text><Text style={styles.courseTabCohort}>Year {course.values.yearLevel} · {course.values.shift}</Text></Pressable>)}</ScrollView>
       <Card style={styles.workflowCard}>
         <View style={styles.workflowHeader}><View style={styles.workflowIcon}><Ionicons name="people-outline" size={20} color={palette.blue}/></View><View style={styles.workflowCopy}><Text style={styles.workflowTitle}>Whole-course submission</Text><Text style={styles.workflowDetail}>{workflowMessage(workflowStatus, roster.length)}</Text></View><StatusPill value={workflowDisplay(workflowStatus)}/></View>
+        <AssessmentWorkflowSteps status={workflowStatus}/>
         <View style={styles.progressTrack}><View style={[styles.progressValue, { width: `${roster.length ? payloads.filter(item => item.complete).length / roster.length * 100 : 0}%` }]}/></View>
         <View style={styles.progressCopy}><Text>{payloads.filter(item => item.complete).length} of {roster.length} Student grades complete</Text><Text>{draftError || `${draftCount} local drafts`}</Text></View>
         {courseActionAvailable(workflowStatus) ? <Pressable onPress={() => void courseAction()} disabled={working || ((workflowStatus === 'Draft' || workflowStatus === 'Rejected' || workflowStatus === 'ResubmitAuthorized') && !allReady)} style={[styles.courseAction, (working || ((workflowStatus === 'Draft' || workflowStatus === 'Rejected' || workflowStatus === 'ResubmitAuthorized') && !allReady)) && styles.buttonDisabled]}><Ionicons name="checkmark-done-outline" size={18} color="white"/><Text style={styles.courseActionText}>{working ? 'Updating course workflow...' : courseActionLabel(workflowStatus)}</Text></Pressable> : null}
@@ -173,12 +174,21 @@ function PublishedStudentResults() {
   const ordered = [...portal.publishedResults].sort((a, b) => b.academicYear.localeCompare(a.academicYear) || b.semester.localeCompare(a.semester));
   return <PortalPage title="My results" subtitle="Only semester results published by Administrator are visible here.">
     <SectionHeading title="Published academic results" detail={`${ordered.length} semesters`}/>
-    <View style={portalStyles.stack}>{ordered.length ? ordered.map(result => <Card key={`${result.academicYear}-${result.semester}`}><View style={styles.publishedHeader}><View><Text style={styles.resultCourse}>{result.academicYear} · {result.semester}</Text><Text style={styles.resultCode}>Published {new Date(result.publishedAtUtc).toLocaleDateString()}</Text></View><StatusPill value={result.totalGrade}/></View><View style={styles.publishedSummary}><Text>Present {result.presentCount}</Text><Text>Permission {result.permissionCount}</Text><Text>Absent {result.absentCount}</Text><Text>Attendance {result.attendanceGrade}/{result.attendanceScore.toFixed(2)}</Text><Text>Total {result.totalScore.toFixed(1)}</Text><Text>Average {result.average.toFixed(2)}/{result.overallGrade}</Text></View><View style={styles.resultComponents}>{result.grades.map(grade => <View style={styles.publishedCourse} key={grade.courseId}><View><Text style={styles.resultCourse}>{grade.name}</Text><Text style={styles.resultCode}>{grade.courseCode}</Text></View><Text style={styles.resultScore}>{grade.score.toFixed(1)}/{grade.grade}</Text></View>)}</View></Card>) : <EmptyBlock icon="ribbon-outline" title="No published result yet" detail="Results appear after every course is confirmed and the Administrator publishes all Semester Results."/>}</View>
+    <View style={portalStyles.stack}>{ordered.length ? ordered.map(result => <Card key={`${result.academicYear}-${result.semester}`}><View style={styles.publishedHeader}><View><Text style={styles.resultCourse}>{result.academicYear} · {result.semester}</Text><Text style={styles.resultCode}>Published {new Date(result.publishedAtUtc).toLocaleDateString()}</Text></View><StatusPill value={result.totalGrade}/></View><View style={styles.publishedSummary}><Text style={styles.summaryPill}>Present {result.presentCount}</Text><Text style={styles.summaryPill}>Permission {result.permissionCount}</Text><Text style={styles.summaryPill}>Absent {result.absentCount}</Text><Text style={styles.summaryPill}>Attendance {result.attendanceGrade}/{result.attendanceScore.toFixed(2)}</Text><Text style={styles.summaryPill}>Total {result.totalScore.toFixed(1)}</Text><Text style={styles.summaryPill}>Average {result.average.toFixed(2)}/{result.overallGrade}</Text></View><View style={styles.resultComponents}>{result.grades.map(grade => <View style={styles.publishedCourse} key={grade.courseId}><View><Text style={styles.resultCourse}>{grade.name}</Text><Text style={styles.resultCode}>{grade.courseCode}</Text></View><Text style={styles.resultScore}>{grade.score.toFixed(1)}/{grade.grade}</Text></View>)}</View></Card>) : <EmptyBlock icon="ribbon-outline" title="No published result yet" detail="Results appear after every course is confirmed and the Administrator publishes all Semester Results."/>}</View>
   </PortalPage>;
 }
 
 function ComponentInput({ label, maximum, value, disabled, onChange }: { label: string; maximum: number; value: string; disabled: boolean; onChange: (value: string) => void }) {
   return <View style={styles.componentInput}><Text style={styles.componentLabel}>{label}</Text><View style={styles.componentInputRow}><TextInput editable={!disabled} value={value} onChangeText={onChange} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#94A2B5" style={[styles.scoreInput, disabled && styles.inputDisabled]}/><Text style={styles.maximum}>/ {maximum}</Text></View></View>;
+}
+
+function AssessmentWorkflowSteps({ status }: { status: string }) {
+  const current = status === 'Approved' ? 4
+    : status === 'Submitted' || status === 'Pending' ? 3
+      : status === 'SubmissionAuthorized' || status === 'ResubmitAuthorized' ? 2
+        : status === 'SubmissionRequested' || status === 'ResubmitRequested' ? 1
+          : 0;
+  return <View style={styles.workflowSteps}>{['Scores', 'Permission', 'Submit', 'Review', 'Accepted'].map((label, index) => <View style={styles.workflowStep} key={label}><View style={[styles.workflowStepDot, index <= current && styles.workflowStepDotActive]}>{index < current ? <Ionicons name="checkmark" size={12} color="#FFFFFF"/> : <Text style={styles.workflowStepNumber}>{index + 1}</Text>}</View><Text style={[styles.workflowStepLabel, index <= current && styles.workflowStepLabelActive]}>{label}</Text>{index < 4 ? <View style={[styles.workflowStepLine, index < current && styles.workflowStepLineActive]}/> : null}</View>)}</View>;
 }
 
 function uniqueCourseAssignments(schedule: ScheduleItem[]) {
@@ -219,39 +229,49 @@ function numericInput(value: string) { const cleaned = value.replace(/[^0-9.]/g,
 function complete(value: string, maximum: number) { const number = Number(value); return value.trim() !== '' && Number.isFinite(number) && number >= 0 && number <= maximum; }
 
 const styles = StyleSheet.create({
-  courseTabs: { gap: 9, paddingRight: 10 },
-  courseTab: { width: 175, padding: 14, borderRadius: radius.medium, borderWidth: 1, borderBottomWidth: 3, borderColor: palette.line, backgroundColor: 'white' },
-  courseTabActive: { borderColor: palette.blue, backgroundColor: palette.bluePale },
-  courseTabCode: { color: palette.blue, fontSize: 10, fontWeight: '800' },
-  courseTabName: { color: palette.ink, fontSize: 14, fontWeight: '800', marginTop: 5 },
-  courseTabCohort: { color: palette.muted, fontSize: 10, marginTop: 5 },
-  courseTabTextActive: { color: palette.blueDark },
-  workflowCard: { gap: 12, borderLeftWidth: 3, borderLeftColor: palette.blue },
+  courseTabs: { gap: 10, paddingRight: 12, paddingBottom: 3 },
+  courseTab: { width: 190, minHeight: 105, padding: 16, borderRadius: radius.large, borderWidth: 1, borderColor: palette.line, backgroundColor: 'white' },
+  courseTabActive: { borderColor: palette.blue, backgroundColor: palette.blue },
+  courseTabCode: { color: palette.blue, fontSize: 12, fontWeight: '900' },
+  courseTabName: { color: palette.ink, fontSize: 16, fontWeight: '900', marginTop: 6 },
+  courseTabCohort: { color: palette.muted, fontSize: 12, marginTop: 6 },
+  courseTabTextActive: { color: '#FFFFFF' },
+  workflowCard: { gap: 15, borderTopWidth: 6, borderTopColor: palette.gold },
   workflowHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  workflowIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: radius.small, backgroundColor: palette.bluePale },
+  workflowIcon: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: palette.bluePale },
   workflowCopy: { flex: 1 },
-  workflowTitle: { color: palette.ink, fontSize: 14, fontWeight: '800' },
-  workflowDetail: { color: palette.muted, fontSize: 11, lineHeight: 17, marginTop: 4 },
-  progressTrack: { height: 4, overflow: 'hidden', backgroundColor: '#E6E9EE' },
+  workflowTitle: { color: palette.ink, fontSize: 17, fontWeight: '900' },
+  workflowDetail: { color: palette.muted, fontSize: 13, lineHeight: 19, marginTop: 5 },
+  workflowSteps: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingVertical: 4 },
+  workflowStep: { flex: 1, alignItems: 'center', position: 'relative', gap: 6 },
+  workflowStepDot: { zIndex: 2, width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E6EBF3', borderWidth: 2, borderColor: '#FFFFFF' },
+  workflowStepDotActive: { backgroundColor: palette.blue },
+  workflowStepNumber: { color: palette.muted, fontSize: 11, fontWeight: '900' },
+  workflowStepLabel: { color: palette.muted, fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  workflowStepLabelActive: { color: palette.blueDark, fontWeight: '900' },
+  workflowStepLine: { position: 'absolute', zIndex: 1, top: 13, left: '63%', width: '74%', height: 3, backgroundColor: '#E6EBF3' },
+  workflowStepLineActive: { backgroundColor: palette.blue },
+  progressTrack: { height: 8, overflow: 'hidden', borderRadius: 4, backgroundColor: '#E6EBF3' },
   progressValue: { height: '100%', backgroundColor: palette.blue },
   progressCopy: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  courseAction: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: radius.small, backgroundColor: palette.blue },
-  courseActionText: { color: 'white', fontSize: 13, fontWeight: '800' },
+  courseAction: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: radius.small, backgroundColor: palette.blue },
+  courseActionText: { color: 'white', fontSize: 14, fontWeight: '900' },
   buttonDisabled: { opacity: 0.4 },
-  reviewNote: { color: '#9E3944', fontSize: 11, lineHeight: 17, padding: 10, borderRadius: radius.small, backgroundColor: '#FFF0F1' },
+  reviewNote: { color: palette.red, fontSize: 13, lineHeight: 19, padding: 13, borderRadius: radius.small, backgroundColor: palette.redPale },
   componentInputs: { gap: 9, marginTop: 11 },
   componentInput: { gap: 5 },
-  componentLabel: { color: palette.ink, fontSize: 12, fontWeight: '800' },
+  componentLabel: { color: palette.ink, fontSize: 14, fontWeight: '900' },
   componentInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  scoreInput: { flex: 1, height: 42, paddingHorizontal: 12, borderRadius: radius.small, borderWidth: 1, borderColor: '#CCD5E0', color: palette.ink, backgroundColor: '#FFFFFF', fontWeight: '700' },
+  scoreInput: { flex: 1, height: 48, paddingHorizontal: 14, borderRadius: radius.small, borderWidth: 1, borderColor: '#C8D4E5', color: palette.ink, backgroundColor: palette.canvas, fontSize: 16, fontWeight: '800' },
   inputDisabled: { backgroundColor: '#F2F4F7', color: palette.muted },
-  maximum: { width: 42, color: palette.muted, fontSize: 12, fontWeight: '700' },
+  maximum: { width: 48, color: palette.muted, fontSize: 14, fontWeight: '800' },
   studentState: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 11 },
   publishedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  resultCourse: { color: palette.ink, fontWeight: '800', fontSize: 15 },
-  resultCode: { color: palette.muted, fontSize: 10, marginTop: 4 },
-  resultScore: { color: palette.blueDark, fontSize: 20, fontWeight: '800' },
-  publishedSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 13 },
+  resultCourse: { color: palette.ink, fontWeight: '900', fontSize: 17 },
+  resultCode: { color: palette.muted, fontSize: 12, marginTop: 5 },
+  resultScore: { color: palette.blueDark, fontSize: 21, fontWeight: '900' },
+  publishedSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 15 },
+  summaryPill: { overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.pill, backgroundColor: palette.bluePale, color: palette.blueDark, fontSize: 12, fontWeight: '800' },
   resultComponents: { marginTop: 12, borderTopWidth: 1, borderTopColor: palette.line },
   publishedCourse: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.line },
 });

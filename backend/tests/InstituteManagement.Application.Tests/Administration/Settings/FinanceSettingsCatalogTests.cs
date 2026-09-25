@@ -17,28 +17,17 @@ public sealed class FinanceSettingsCatalogTests
     }
 
     [Fact]
-    public void Enabled_bank_requires_account_details()
+    public void Aba_and_acleda_settings_are_not_exposed()
     {
         var values = SettingsCatalog.Defaults("finance");
-        values["abaEnabled"] = "true";
 
-        var error = Assert.Throws<ArgumentException>(() => SettingsCatalog.NormalizeAndValidate("finance", values));
-
-        Assert.Contains("ABA AccountName", error.Message);
-        Assert.Contains("ABA AccountCode", error.Message);
-    }
-
-    [Fact]
-    public void Configured_enabled_bank_is_accepted()
-    {
-        var values = SettingsCatalog.Defaults("finance");
-        values["acledaEnabled"] = "true";
-        values["acledaAccountName"] = "Institude of New Khmer";
-        values["acledaAccountCode"] = "INK-001";
-
-        var normalized = SettingsCatalog.NormalizeAndValidate("finance", values);
-
-        Assert.Equal("true", normalized["acledaEnabled"]);
+        Assert.DoesNotContain("abaEnabled", values.Keys);
+        Assert.DoesNotContain("abaAccountName", values.Keys);
+        Assert.DoesNotContain("abaAccountCode", values.Keys);
+        Assert.DoesNotContain("acledaEnabled", values.Keys);
+        Assert.DoesNotContain("acledaAccountName", values.Keys);
+        Assert.DoesNotContain("acledaAccountCode", values.Keys);
+        Assert.Equal("true", values["mockPaymentEnabled"]);
     }
 
     [Fact]

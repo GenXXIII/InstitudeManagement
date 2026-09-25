@@ -29,7 +29,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   institute: ["name", "shortName", "code", "logoUrl", "email", "phone", "address"],
   "academic-year": ["currentYear", "code", "startsOn", "endsOn", "status"],
   semester: ["currentTerm"],
-  finance: ["semesterPrice", "otherFee", "paymentDueDays", "latePenaltyPerDay", "bakongEnabled", "bakongEnvironment", "bakongAccountId", "bakongAccountInformation", "bakongAcquiringBank", "bakongMerchantName", "bakongMerchantCity", "abaEnabled", "abaAccountName", "abaAccountCode", "acledaEnabled", "acledaAccountName", "acledaAccountCode", "allowPartialPayments", "allowOverpayment", "maximumAdjustmentAmount", "requirePaidForAdvancement"],
+  finance: ["semesterPrice", "otherFee", "paymentDueDays", "latePenaltyPerDay", "bakongEnabled", "bakongEnvironment", "bakongAccountId", "bakongAccountInformation", "bakongAcquiringBank", "bakongMerchantName", "bakongMerchantCity", "mockPaymentEnabled", "allowPartialPayments", "allowOverpayment", "maximumAdjustmentAmount", "requirePaidForAdvancement"],
   departments: ["defaultStatus", "requireDepartmentHead", "allowCrossDepartmentTeaching"],
   courses: ["defaultCapacity", "requireAssignedTeacher"],
   classrooms: ["defaultCapacity", "attendanceDeviceRequired"],
