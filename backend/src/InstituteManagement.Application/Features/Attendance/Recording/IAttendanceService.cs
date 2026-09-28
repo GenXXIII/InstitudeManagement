@@ -2,5 +2,9 @@ namespace InstituteManagement.Application.Features.Attendance;
 
 public interface IAttendanceService
 {
-    Task RecordAsync(Guid studentId, string status, CancellationToken cancellationToken);
+    Task RecordAsync(
+        Guid studentId,
+        string status,
+        CancellationToken cancellationToken,
+        string? method = null);
 }

@@ -42,7 +42,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Institute of New Khmer to scan mock payment QR codes."
+          "cameraPermission": "Allow Institute of New Khmer to scan attendance and payment QR codes."
         }
       ],
       [

@@ -11,7 +11,11 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
     private static readonly HashSet<string> AllowedStatuses =
         new(["Present", "Late", "Absent", "Excused"], StringComparer.OrdinalIgnoreCase);
 
-    public async Task RecordAsync(Guid studentId, string status, CancellationToken cancellationToken)
+    public async Task RecordAsync(
+        Guid studentId,
+        string status,
+        CancellationToken cancellationToken,
+        string? method = null)
     {
         if (studentId == Guid.Empty) throw new ArgumentException("StudentId is required.", nameof(studentId));
         if (!AllowedStatuses.Contains(status)) throw new ArgumentException("Attendance status is invalid.", nameof(status));
@@ -28,7 +32,9 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
         else if (record.AcademicYear != academicYear || record.Term != term) throw new InvalidOperationException("Today's attendance belongs to a completed academic period and is read-only.");
 
         var rules = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "attendance-rules" || x.Section == "notifications").ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, cancellationToken);
-        var method = rules.GetValueOrDefault("attendance-rules:method", "ID Card");
+        var attendanceMethod = string.IsNullOrWhiteSpace(method)
+            ? rules.GetValueOrDefault("attendance-rules:method", "ID Card")
+            : method.Trim();
         var checkedInAt = TimeOnly.FromDateTime(localNow);
         var appliedStatus = status.Trim();
         if (appliedStatus.Equals("Present", StringComparison.OrdinalIgnoreCase))
@@ -38,7 +44,7 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
             var shift = InstituteManagement.Domain.Timetables.AcademicTimetablePolicy.FindShift(student.Shift);
             if (shift is not null && checkedInAt > shift.StartsAt.AddMinutes(threshold)) appliedStatus = "Late";
         }
-        record.CheckedInAt = checkedInAt; record.Status = appliedStatus; record.Method = method; record.UpdatedAtUtc = DateTime.UtcNow;
+        record.CheckedInAt = checkedInAt; record.Status = appliedStatus; record.Method = attendanceMethod; record.UpdatedAtUtc = DateTime.UtcNow;
         db.AuditLogs.Add(new AuditLog { ResourceId = record.Id, Type = "Attendance", Subject = student.FullName, Action = record.Status, Details = $"Attendance recorded for {today:yyyy-MM-dd} - {academicYear} - {term}" });
         if (record.Status is "Late" or "Absent" && Enabled(rules, "notifications:attendanceAlerts", true))
         {

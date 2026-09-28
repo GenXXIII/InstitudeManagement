@@ -1,10 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Card, EmptyBlock, PortalPage, portalStyles, SectionHeading, StatusPill } from '@/components/portal-ui';
 import { palette, radius } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
-import { AttendanceContent } from './attendance-screen';
+import { AttendanceContent, ClassQrScanner } from './attendance-screen';
 import { ScheduleContent } from './schedule-screen';
 import { usePortal } from '../portal-context';
 import type { ScheduleItem } from '../portal-types';
@@ -33,21 +33,9 @@ export function ClassesScreen({ role }: { role: MobileRole }) {
     subtitle={role === 'teacher' ? 'Start today’s classes, review read-only attendance, and decide whole-day permission requests.' : 'See every class, check attendance, follow your schedule, and send guided permission requests.'}
   >
     <View style={styles.switcherFrame}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcher}>
-        {views.map(item => {
-          const active = view === item.id;
-          return <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            key={item.id}
-            onPress={() => setView(item.id)}
-            style={[styles.switcherItem, active && styles.switcherItemActive]}
-          >
-            <Ionicons name={item.icon} size={17} color={active ? accent : palette.muted}/>
-            <Text style={[styles.switcherLabel, active && styles.switcherLabelActive]}>{item.label}</Text>
-          </Pressable>;
-        })}
-      </ScrollView>
+      <View style={styles.switcher}>
+        {views.map(item => <ClassViewTab key={item.id} active={view === item.id} accent={accent} icon={item.icon} label={item.label} onPress={() => setView(item.id)}/>) }
+      </View>
     </View>
     {view === 'overview' ? <StudentClassOverview/> : null}
     {view === 'permission' ? <StudentPermissionCenter/> : null}
@@ -56,18 +44,43 @@ export function ClassesScreen({ role }: { role: MobileRole }) {
   </PortalPage>;
 }
 
+function ClassViewTab({ active, accent, icon, label, onPress }: { active: boolean; accent: string; icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  const [progress] = useState(() => new Animated.Value(active ? 1 : 0));
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: active ? 1 : 0,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [active, progress]);
+
+  const tabFlex = progress.interpolate({ inputRange: [0, 1], outputRange: [0.62, 3.2] });
+  const labelWidth = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 16 + label.length * 8] });
+  return <Animated.View style={[styles.switcherSlot, { flex: tabFlex }]}>
+    <Pressable accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: active }} onPress={onPress} style={({ pressed }) => [styles.switcherItem, active && styles.switcherItemActive, pressed && styles.switcherItemPressed]}>
+      <Ionicons name={icon} size={active ? 18 : 22} color={active ? accent : palette.muted}/>
+      <Animated.View pointerEvents="none" style={[styles.switcherLabelClip, { width: labelWidth, opacity: progress }]}><Text numberOfLines={1} style={[styles.switcherLabel, active && styles.switcherLabelActive]}>{label}</Text></Animated.View>
+    </Pressable>
+  </Animated.View>;
+}
+
 function StudentClassOverview() {
   const portal = usePortal();
+  const [scannerSchedule, setScannerSchedule] = useState<ScheduleItem | null>(null);
   const now = new Date();
   const items = portal.schedule.map(item => ({ item, sessionDate: sessionDateFor(item, now) })).sort((left, right) => left.sessionDate.localeCompare(right.sessionDate) || left.item.values.startsAt.localeCompare(right.item.values.startsAt)).slice(0, 5);
+  const attendedToday = portal.attendance.some(item => item.values.date === localDateKey(now) && ['present', 'late'].includes(item.values.status.trim().toLowerCase()));
 
   return <View style={portalStyles.stack}>
     <View style={styles.classWelcome}><View style={styles.classWelcomeIcon}><Ionicons name="sparkles" size={22} color={palette.gold}/></View><View style={styles.classWelcomeCopy}><Text style={styles.classWelcomeTitle}>Your learning week</Text><Text style={styles.classWelcomeText}>Open Attendance, Schedule, or Permission above whenever you need the complete class workflow.</Text></View></View>
     <SectionHeading title="Next classes" detail={`${items.length} upcoming`}/>
     {items.length ? items.map(({ item, sessionDate }) => {
       const running = sessionDate === localDateKey(now) && portal.startedScheduleIds.includes(item.id) && isWithin(item, now);
-      return <Card key={`${item.id}-${sessionDate}`}><View style={styles.studentClassHeader}><View style={styles.classCourseIcon}><Ionicons name="book-outline" size={20} color={palette.blue}/></View><View style={styles.studentClassCopy}><Text style={styles.studentClassCourse}>{item.values.course}</Text><Text style={styles.studentClassMeta}>{formatSessionDate(sessionDate)} · {item.values.startsAt}–{item.values.endsAt}</Text><Text style={styles.studentClassPlace}>{item.values.classroom} · {item.values.teacher}</Text></View>{running ? <View style={styles.studyNow}><View style={styles.studyDot}/><Text style={styles.studyNowText}>Study now</Text></View> : null}</View></Card>;
+      return <Card key={`${item.id}-${sessionDate}`}><View style={styles.studentClassHeader}><View style={styles.classCourseIcon}><Ionicons name="book-outline" size={20} color={palette.blue}/></View><View style={styles.studentClassCopy}><Text style={styles.studentClassCourse}>{item.values.course}</Text><Text style={styles.studentClassMeta}>{formatSessionDate(sessionDate)} · {item.values.startsAt}–{item.values.endsAt}</Text><Text style={styles.studentClassPlace}>{item.values.classroom} · {item.values.teacher}</Text></View>{running ? <View style={styles.studyNow}><View style={styles.studyDot}/><Text style={styles.studyNowText}>Started</Text></View> : null}</View>{running ? <Pressable disabled={attendedToday} onPress={() => setScannerSchedule(item)} style={({ pressed }) => [styles.studentJoinButton, attendedToday && styles.studentJoinButtonDone, pressed && styles.pressed]}><Ionicons name={attendedToday ? 'checkmark-circle-outline' : 'scan-outline'} size={18} color="#FFFFFF"/><Text style={styles.studentJoinText}>{attendedToday ? 'Attendance assigned' : 'Start class'}</Text></Pressable> : null}</Card>;
     }) : <EmptyBlock icon="calendar-clear-outline" title="No upcoming classes" detail="Your classes appear after Administrator completes the current timetable enrollment."/>}
+    {scannerSchedule ? <ClassQrScanner item={scannerSchedule} onClose={() => setScannerSchedule(null)}/> : null}
   </View>;
 }
 
@@ -170,10 +183,13 @@ function formatSessionDate(value: string) { const date = new Date(`${value}T00:0
 
 const styles = StyleSheet.create({
   switcherFrame: { overflow: 'hidden', borderWidth: 1, borderColor: palette.line, borderRadius: radius.large, backgroundColor: '#FFFFFF' },
-  switcher: { flexGrow: 1, gap: 8, padding: 5 },
-  switcherItem: { minWidth: 132, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14, borderRadius: radius.medium },
+  switcher: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 5, padding: 5 },
+  switcherSlot: { minWidth: 0, overflow: 'hidden' },
+  switcherItem: { minWidth: 0, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8, borderRadius: radius.medium },
   switcherItemActive: { backgroundColor: palette.bluePale, borderWidth: 1, borderColor: '#CEDDFF' },
-  switcherLabel: { color: palette.muted, fontSize: 13, fontWeight: '700' },
+  switcherItemPressed: { opacity: 0.72 },
+  switcherLabelClip: { overflow: 'hidden' },
+  switcherLabel: { flexShrink: 0, color: palette.muted, fontSize: 13, fontWeight: '700' },
   switcherLabelActive: { color: palette.blueDark, fontWeight: '900' },
   classWelcome: { overflow: 'hidden', flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, borderRadius: radius.large, backgroundColor: palette.blueDark },
   classWelcomeIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.14)' },
@@ -189,6 +205,9 @@ const styles = StyleSheet.create({
   studyNow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: palette.greenPale },
   studyDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: palette.green },
   studyNowText: { color: palette.green, fontSize: 12, fontWeight: '900' },
+  studentJoinButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 15, borderRadius: radius.small, backgroundColor: palette.blue },
+  studentJoinButtonDone: { backgroundColor: palette.green },
+  studentJoinText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   permissionHero: { flexDirection: 'row', gap: 14, padding: 19, borderRadius: radius.large, backgroundColor: palette.skyPale, borderWidth: 1, borderColor: '#C8E9F8' },
   permissionHeroIcon: { width: 50, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   permissionHeroCopy: { flex: 1 },
@@ -237,5 +256,6 @@ const styles = StyleSheet.create({
   reviewReady: { alignItems: 'center', gap: 12, paddingVertical: 7 },
   permissionReviewButton: { minHeight: 48, width: '100%', alignItems: 'center', justifyContent: 'center', borderRadius: radius.small, backgroundColor: palette.blue },
   permissionButtonDisabled: { opacity: 0.42 },
+  pressed: { opacity: 0.72 },
   historyRequestTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
 });

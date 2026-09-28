@@ -1,7 +1,7 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth, type MobileRole } from '@/features/auth/auth-context';
 import { loadPortalData, portalMutations } from './portal-api';
-import type { PortalData, StudentPayment } from './portal-types';
+import type { ClassAttendanceCheckIn, ClassAttendanceQr, PortalData, StudentPayment } from './portal-types';
 
 export type CourseGradeSubmission = { studentId: string; assignmentScore: number; midtermScore: number; finalExamScore: number };
 
@@ -9,7 +9,10 @@ type PortalContextValue = PortalData & {
   error: string;
   loading: boolean;
   refresh: () => Promise<void>;
+  refreshClassStarts: () => Promise<void>;
   startClass: (scheduleEntryId: string, teacherId: string) => Promise<void>;
+  getClassAttendanceQr: (scheduleEntryId: string) => Promise<ClassAttendanceQr>;
+  checkInClass: (scheduleEntryId: string, qrPayload: string) => Promise<ClassAttendanceCheckIn>;
   requestCourseSubmission: (courseId: string, submissions: CourseGradeSubmission[]) => Promise<void>;
   requestPermission: (sessionDate: string, reason: string) => Promise<void>;
   reviewPermission: (requestId: string, decision: 'Approved' | 'Rejected') => Promise<void>;
@@ -83,6 +86,30 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     }));
   }, []);
 
+  const refreshClassStarts = useCallback(async () => {
+    if (!data.profile) return;
+    const starts = await portalMutations.getTodayClassStarts(role, data.profile.id);
+    setData(current => ({ ...current, startedScheduleIds: starts.map(item => item.scheduleEntryId) }));
+  }, [data.profile, role]);
+
+  const getClassAttendanceQr = useCallback(async (scheduleEntryId: string) => {
+    if (!data.profile || role !== 'teacher') throw new Error('Teacher profile is unavailable.');
+    return portalMutations.getClassAttendanceQr(scheduleEntryId, data.profile.id);
+  }, [data.profile, role]);
+
+  const checkInClass = useCallback(async (scheduleEntryId: string, qrPayload: string) => {
+    if (!data.profile || role !== 'student') throw new Error('Student profile is unavailable.');
+    const result = await portalMutations.checkInClass(scheduleEntryId, data.profile.id, qrPayload);
+    await refresh();
+    return result;
+  }, [data.profile, refresh, role]);
+
+  useEffect(() => {
+    if (!data.profile) return;
+    const timer = setInterval(() => void refreshClassStarts().catch(() => undefined), 10000);
+    return () => clearInterval(timer);
+  }, [data.profile, refreshClassStarts]);
+
   const replacePayment = useCallback((payment: StudentPayment) => {
     setData(current => ({ ...current, payments: current.payments.map(item => item.id === payment.id ? payment : item) }));
     return payment;
@@ -118,7 +145,7 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     }
   }, [data.announcements, data.profile]);
 
-  const value = useMemo(() => ({ ...data, error, loading, refresh, startClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr }), [data, error, loading, refresh, startClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr]);
+  const value = useMemo(() => ({ ...data, error, loading, refresh, refreshClassStarts, startClass, getClassAttendanceQr, checkInClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr }), [data, error, loading, refresh, refreshClassStarts, startClass, getClassAttendanceQr, checkInClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr]);
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 

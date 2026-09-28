@@ -167,6 +167,8 @@ public static class DependencyInjection
         services.AddHostedService<AcademicCalendarHostedService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IClassSessionStartService, ClassSessionStartService>();
+        services.AddScoped<ClassAttendanceQrGateway>();
+        services.AddScoped<IClassAttendanceQrService, ClassAttendanceQrService>();
         services.AddScoped<IClassPermissionService, ClassPermissionService>();
         services.AddScoped<IGradeService, GradeService>();
         services.AddScoped<IStudentManagementService, StudentManagementService>();

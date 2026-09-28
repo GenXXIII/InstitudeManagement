@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import type { MobileSession } from '@/features/auth/auth-context';
-import type { Announcement, AttendanceItem, ClassPermissionRequestItem, ClassSessionStartItem, GradeItem, GradeWeights, PortalData, PublishedSemesterResult, ScheduleItem, StudentFinanceOptions, StudentItem, StudentPayment, TeacherItem } from './portal-types';
+import type { Announcement, AttendanceItem, ClassAttendanceCheckIn, ClassAttendanceQr, ClassPermissionRequestItem, ClassSessionStartItem, GradeItem, GradeWeights, PortalData, PublishedSemesterResult, ScheduleItem, StudentFinanceOptions, StudentItem, StudentPayment, TeacherItem } from './portal-types';
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 
@@ -155,6 +155,9 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
 
 export const portalMutations = {
   startClass: (scheduleEntryId: string, teacherId: string) => request<ClassSessionStartItem>(`/api/mobile/classes/${scheduleEntryId}/start`, { method: 'POST', body: JSON.stringify({ teacherId }) }),
+  getTodayClassStarts: (role: 'teacher' | 'student', profileId: string) => request<ClassSessionStartItem[]>(`/api/mobile/classes/${role}s/${profileId}/today`),
+  getClassAttendanceQr: (scheduleEntryId: string, teacherId: string) => request<ClassAttendanceQr>(`/api/mobile/classes/${scheduleEntryId}/attendance-qr?teacherId=${encodeURIComponent(teacherId)}`),
+  checkInClass: (scheduleEntryId: string, studentId: string, qrPayload: string) => request<ClassAttendanceCheckIn>(`/api/mobile/classes/${scheduleEntryId}/attendance/check-in`, { method: 'POST', body: JSON.stringify({ studentId, qrPayload }) }),
   requestCourseSubmission: (courseId: string, teacherId: string, students: { studentId: string; assignmentScore: number; midtermScore: number; finalExamScore: number }[]) => request<void>('/api/grades/course-submissions/request', { method: 'POST', body: JSON.stringify({ courseId, teacherId, students }) }),
   requestPermission: (studentId: string, sessionDate: string, reason: string) => request<ClassPermissionRequestItem>(`/api/mobile/classes/students/${studentId}/permission-requests`, { method: 'POST', body: JSON.stringify({ sessionDate, reason }) }),
   reviewPermission: (requestId: string, teacherId: string, decision: 'Approved' | 'Rejected') => request<ClassPermissionRequestItem>(`/api/mobile/classes/permission-requests/${requestId}/decision`, { method: 'PUT', body: JSON.stringify({ teacherId, decision }) }),
