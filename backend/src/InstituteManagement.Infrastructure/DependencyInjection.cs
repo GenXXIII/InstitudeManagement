@@ -11,6 +11,7 @@ using InstituteManagement.Application.Features.Enrollment.Classrooms;
 using InstituteManagement.Application.Features.Enrollment.Courses;
 using InstituteManagement.Application.Features.Enrollment.Departments;
 using InstituteManagement.Application.Features.Enrollment.Students;
+using InstituteManagement.Application.Features.Enrollment.Students.Progression;
 using InstituteManagement.Application.Features.Enrollment.Teachers;
 using InstituteManagement.Application.Features.Enrollment.Timetable;
 using InstituteManagement.Application.Features.Finance;
@@ -139,7 +140,7 @@ public static class DependencyInjection
         services.AddHttpClient<BakongPaymentGateway>(client => client.Timeout = TimeSpan.FromSeconds(20));
         services.AddScoped<MockPaymentQrGateway>();
         services.AddScoped<FinancialAccountSynchronizer>();
-        services.AddScoped<FinancialProgression>();
+        services.AddScoped<IStudentEnrollmentProgression, StudentEnrollmentProgression>();
         services.AddScoped<SemesterPaymentGate>();
         services.AddScoped<SemesterResultDeclarationGate>();
         services.AddScoped<IFinanceService, FinanceService>();

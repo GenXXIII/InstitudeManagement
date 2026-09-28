@@ -5,6 +5,7 @@ using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Administration;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Enrollment.Students;
 using InstituteManagement.Infrastructure.Services.Finance;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -609,7 +610,7 @@ public sealed class FinanceServiceTests
             db,
             new InstituteCache(),
             synchronizer,
-            new FinancialProgression(db, new ActivePeriodLedgerCreator(db)),
+            new StudentEnrollmentProgression(db, new ActivePeriodLedgerCreator(db)),
             settings,
             new BakongPaymentGateway(
                 new HttpClient(handler ?? new HttpClientHandler()),

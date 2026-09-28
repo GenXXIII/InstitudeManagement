@@ -1,16 +1,16 @@
 using System.Text.Json;
 using InstituteManagement.Application.Features.Results;
+using InstituteManagement.Application.Features.Enrollment.Students.Progression;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Policies;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Grades;
 using InstituteManagement.Infrastructure.Services.Common;
-using InstituteManagement.Infrastructure.Services.Finance;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Results;
 
-public sealed class ResultQueryService(InstituteDbContext db, FinancialProgression progression) : IResultQueryService
+public sealed class ResultQueryService(InstituteDbContext db, IStudentEnrollmentProgression progression) : IResultQueryService
 {
     public Task<IReadOnlyList<SemesterResultDto>> GetAsync(Guid? departmentId, int? year, string? semester, string? academicYear, bool history, CancellationToken cancellationToken) =>
         GetAsync(departmentId, year, semester, academicYear, history, null, false, cancellationToken);
@@ -216,7 +216,15 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
             .Include(item => item.Student)
             .FirstOrDefaultAsync(item => item.StudentId == studentId && item.AcademicYear == academicYear && item.Semester == term, cancellationToken);
         if (account is null || paymentRequired && !account.ClosedAtUtc.HasValue) return;
-        await progression.ReleaseAsync(account, cancellationToken);
+        await progression.ReleaseAsync(
+            new StudentEnrollmentProgressionRequest(
+                account.StudentId,
+                account.StudentEnrollmentId,
+                account.AcademicYear,
+                account.Semester,
+                account.FinancialAccountCode,
+                account.Status),
+            cancellationToken);
     }
 
     private sealed record Period(string AcademicYear, string Semester);

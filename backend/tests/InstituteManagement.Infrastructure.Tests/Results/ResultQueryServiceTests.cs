@@ -1,6 +1,7 @@
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Administration;
+using InstituteManagement.Infrastructure.Services.Enrollment.Students;
 using InstituteManagement.Infrastructure.Services.Finance;
 using InstituteManagement.Infrastructure.Services.Results;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +30,7 @@ public sealed class ResultQueryServiceTests
             db.AddRange(course, schedule, timetable);
         }
         await db.SaveChangesAsync();
-        var service = new ResultQueryService(db, new FinancialProgression(db, new ActivePeriodLedgerCreator(db)));
+        var service = new ResultQueryService(db, new StudentEnrollmentProgression(db, new ActivePeriodLedgerCreator(db)));
 
         var draft = Assert.Single(await service.GetAsync(null, null, null, null, false, CancellationToken.None));
 
@@ -84,7 +85,7 @@ public sealed class ResultQueryServiceTests
             db.GradeRecords.Add(new GradeRecord { GradeCode = $"GRA-R{index}", StudentId = student.Id, CourseId = course.Id, AcademicYear = "2026–2027", Term = "Semester 1", Score = 80, LetterGrade = "B", ReviewStatus = "Approved", SubmittedByTeacherId = teacher.Id, SubmittedAtUtc = DateTime.UtcNow, FinalizedAtUtc = DateTime.UtcNow });
         }
         await db.SaveChangesAsync();
-        var service = new ResultQueryService(db, new FinancialProgression(db, new ActivePeriodLedgerCreator(db)));
+        var service = new ResultQueryService(db, new StudentEnrollmentProgression(db, new ActivePeriodLedgerCreator(db)));
 
         var current = Assert.Single(await service.GetAsync(null, null, null, null, false, CancellationToken.None));
         Assert.Equal("Ready", current.PublicationStatus);

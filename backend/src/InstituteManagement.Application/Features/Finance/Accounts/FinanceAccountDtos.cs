@@ -7,31 +7,9 @@ public sealed record FinanceDeclarationDto(
     DateOnly DueOn,
     DateTime ExpiresAtUtc);
 
-public sealed record RecordFinancePaymentDto(
-    decimal Amount,
-    string? Method,
-    string? TransactionReference,
-    DateTime? PaidAtUtc);
-
-public sealed record UpdateFinancePaymentDto(
-    decimal Amount,
-    string? Method,
-    string? TransactionReference,
-    DateTime? PaidAtUtc);
-
 public sealed record FinancialAdjustmentDto(decimal Amount, string? Reason);
 
-public sealed record FinancePaymentStatusDto(string? Status);
-
 public sealed record FinanceExpiryExtensionDto(int Days, string? Reason);
-
-public sealed record MockPaymentScanDto(string? QrPayload);
-
-public sealed record MockPaymentQrDto(
-    string QrPayload,
-    string PublicId,
-    DateTime GeneratedAtUtc,
-    DateTime ExpiresAtUtc);
 
 public sealed record BulkFinanceDeclarationResultDto(
     int DeclaredCount,

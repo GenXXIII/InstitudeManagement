@@ -2,6 +2,7 @@
 
 import { DataTable } from "@/components/data-table";
 import { ManagementDataCell } from "@/components/management-data-cell";
+import { money } from "./finance-format";
 import type { FinancialAccount } from "./finance-types";
 
 const activeColumns = ["Account", "Student", "Department", "Year", "Semester", "Shift", "Amount", "Paid", "Balance", "Status", "Due", "Actions"];
@@ -38,5 +39,4 @@ function Cell({ label, children, className = "horizontal-detail" }: { label: str
 }
 function semesterNumber(value: string) { return Number(value.match(/\d+/)?.[0] ?? 99); }
 function shiftNumber(value: string) { return ["morning", "afternoon", "evening", "weekend"].indexOf(value.toLowerCase()) === -1 ? 99 : ["morning", "afternoon", "evening", "weekend"].indexOf(value.toLowerCase()); }
-function money(value: number, currency: string) { return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: currency === "KHR" ? 0 : 2 }).format(value); }
 function formatDate(value: string) { const date = new Date(value); return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date); }

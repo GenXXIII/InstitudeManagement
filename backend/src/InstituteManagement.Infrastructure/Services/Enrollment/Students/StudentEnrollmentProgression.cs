@@ -1,39 +1,42 @@
 using System.Text.Json;
+using InstituteManagement.Application.Features.Enrollment.Students.Progression;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Administration;
 using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 
-namespace InstituteManagement.Infrastructure.Services.Finance;
+namespace InstituteManagement.Infrastructure.Services.Enrollment.Students;
 
-public sealed class FinancialProgression(
+public sealed class StudentEnrollmentProgression(
     InstituteDbContext db,
-    ActivePeriodLedgerCreator ledgerCreator)
+    ActivePeriodLedgerCreator ledgerCreator) : IStudentEnrollmentProgression
 {
-    public async Task<string> ReleaseAsync(FinancialAccount account, CancellationToken cancellationToken)
+    public async Task<string> ReleaseAsync(
+        StudentEnrollmentProgressionRequest request,
+        CancellationToken cancellationToken)
     {
         var periodValues = await db.SystemSettings.AsNoTracking()
             .Where(setting =>
                 setting.Section == "academic-year" && setting.Key == "currentYear"
                 || setting.Section == "semester" && (setting.Key == "currentTerm" || setting.Key == "startsOn"))
             .ToDictionaryAsync(setting => $"{setting.Section}:{setting.Key}", setting => setting.Value, cancellationToken);
-        var currentYear = periodValues.GetValueOrDefault("academic-year:currentYear", account.AcademicYear);
-        var currentSemester = periodValues.GetValueOrDefault("semester:currentTerm", account.Semester);
-        if (account.AcademicYear == currentYear && account.Semester == currentSemester) return "Current period paid";
+        var currentYear = periodValues.GetValueOrDefault("academic-year:currentYear", request.AcademicYear);
+        var currentSemester = periodValues.GetValueOrDefault("semester:currentTerm", request.Semester);
+        if (request.AcademicYear == currentYear && request.Semester == currentSemester) return "Current period paid";
         if (!await db.SemesterResultPublications.AsNoTracking().AnyAsync(item =>
-                item.StudentId == account.StudentId
-                && item.AcademicYear == account.AcademicYear
-                && item.Term == account.Semester,
+                item.StudentId == request.StudentId
+                && item.AcademicYear == request.AcademicYear
+                && item.Term == request.Semester,
             cancellationToken))
             return "Waiting for Semester Result declaration";
-        if (!IsNextPeriod(account.AcademicYear, account.Semester, currentYear, currentSemester)) return "Payment recorded";
+        if (!IsNextPeriod(request.AcademicYear, request.Semester, currentYear, currentSemester)) return "Payment recorded";
 
         var previousEnrollment = await db.StudentEnrollments.AsNoTracking()
-            .SingleAsync(enrollment => enrollment.Id == account.StudentEnrollmentId, cancellationToken);
+            .SingleAsync(enrollment => enrollment.Id == request.StudentEnrollmentId, cancellationToken);
         var student = await db.Students
             .Include(item => item.Department)
-            .SingleAsync(item => item.Id == account.StudentId, cancellationToken);
+            .SingleAsync(item => item.Id == request.StudentId, cancellationToken);
         if (student.Status == "Inactive") return "Student inactive";
         if (await db.StudentEnrollments.AnyAsync(enrollment =>
                 enrollment.StudentId == student.Id
@@ -44,7 +47,7 @@ public sealed class FinancialProgression(
             return "Already advanced";
         }
 
-        var academicYearChanged = account.AcademicYear != currentYear;
+        var academicYearChanged = request.AcademicYear != currentYear;
         if (academicYearChanged && student.YearLevel >= 4)
         {
             student.Status = "Inactive";
@@ -58,9 +61,9 @@ public sealed class FinancialProgression(
                 Details = JsonSerializer.Serialize(new
                 {
                     student.StudentCode,
-                    graduationAcademicYear = account.AcademicYear,
-                    account.FinancialAccountCode,
-                    financeStatus = account.Status,
+                    graduationAcademicYear = request.AcademicYear,
+                    request.FinancialAccountCode,
+                    financeStatus = request.FinanceStatus,
                     archive = "Management, Enrollment, Finance, Operation, and Record rows remain available in History."
                 })
             });
@@ -108,9 +111,9 @@ public sealed class FinancialProgression(
             Action = "Payment hold released",
             Details = JsonSerializer.Serialize(new
             {
-                account.FinancialAccountCode,
-                account.StudentEnrollment!.EnrollmentCode,
-                financeStatus = account.Status,
+                request.FinancialAccountCode,
+                previousEnrollment.EnrollmentCode,
+                financeStatus = request.FinanceStatus,
                 enrollmentEffect = $"Advanced to {currentYear} / {currentSemester}"
             })
         });
