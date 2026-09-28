@@ -120,8 +120,11 @@ function TeacherAttendanceQr({ item, now }: { item: ScheduleItem; now: Date }) {
   const { getClassAttendanceQr } = usePortal();
   const [qr, setQr] = useState<ClassAttendanceQr | null>(null);
   const [message, setMessage] = useState('');
+  const [enabled, setEnabled] = useState(true);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     async function rotate() {
       try {
@@ -134,21 +137,27 @@ function TeacherAttendanceQr({ item, now }: { item: ScheduleItem; now: Date }) {
     void rotate();
     const timer = setInterval(() => void rotate(), 15000);
     return () => { active = false; clearInterval(timer); };
-  }, [getClassAttendanceQr, item.id]);
+  }, [enabled, getClassAttendanceQr, item.id]);
 
   const refreshSeconds = qr ? Math.max(0, Math.ceil((new Date(qr.expiresAtUtc).getTime() - now.getTime()) / 1000)) : 0;
+  if (!enabled) return <Card style={styles.qrCard}>
+    <View style={styles.qrCardHeader}><View style={styles.qrCardIcon}><Ionicons name="qr-code-outline" size={22} color={palette.blue}/></View><View style={styles.qrCardCopy}><Text style={styles.qrCardTitle}>Teacher class QR cancelled</Text><Text style={styles.qrCardDetail}>Open it again to create a fresh rotating code.</Text></View></View>
+    <Pressable onPress={() => { setMessage(''); setEnabled(true); }} style={styles.openQrButton}><Ionicons name="qr-code-outline" size={19} color="#FFFFFF"/><Text style={styles.startClassText}>Open QR</Text></Pressable>
+  </Card>;
   return <Card style={styles.qrCard}>
-    <View style={styles.qrCardHeader}><View style={styles.qrCardIcon}><Ionicons name="qr-code-outline" size={22} color={palette.blue}/></View><View style={styles.qrCardCopy}><Text style={styles.qrCardTitle}>Dynamic attendance QR</Text><Text style={styles.qrCardDetail}>Students tap Start class, then scan this rotating code.</Text></View></View>
+    <View style={styles.qrCardHeader}><View style={styles.qrCardIcon}><Ionicons name="qr-code-outline" size={22} color={palette.blue}/></View><View style={styles.qrCardCopy}><Text style={styles.qrCardTitle}>Dynamic attendance QR</Text><Text style={styles.qrCardDetail}>Students can scan this code, or you can scan a Student QR below.</Text></View></View>
     <View style={styles.qrFrame}>{qr ? <QRCode value={qr.payload} size={210} quietZone={8} backgroundColor="#FFFFFF" color="#0B1423"/> : <ActivityIndicator size="large" color={palette.blue}/>}</View>
     <View style={styles.qrRotation}><View style={styles.qrRotationDot}/><Text style={styles.qrRotationText}>{qr ? `Secure code rotates automatically · ${refreshSeconds}s valid` : 'Creating secure class code…'}</Text></View>
     {message ? <Text style={styles.qrError}>{message}</Text> : null}
+    <View style={styles.qrActions}><Pressable onPress={() => setScanning(true)} style={styles.scanQrButton}><Ionicons name="scan-outline" size={19} color="#FFFFFF"/><Text style={styles.startClassText}>Scan Attendance</Text></Pressable><Pressable onPress={() => { setEnabled(false); setQr(null); setMessage(''); }} style={styles.cancelQrButton}><Ionicons name="close-circle-outline" size={19} color={palette.red}/><Text style={styles.cancelQrText}>Cancel</Text></Pressable></View>
+    {scanning ? <ClassQrScanner item={item} onClose={() => setScanning(false)}/> : null}
   </Card>;
 }
 
 function StudentAttendance() {
   const portal = usePortal();
   const [now, setNow] = useState(() => new Date());
-  const [scannerSchedule, setScannerSchedule] = useState<ScheduleItem | null>(null);
+  const [qrScheduleId, setQrScheduleId] = useState('');
   const todayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(now);
   const activeSchedule = portal.schedule
     .filter(item => item.values.dayOfWeek === todayName && item.values.status !== 'Cancelled')
@@ -167,19 +176,53 @@ function StudentAttendance() {
   return <>
     {activeSchedule ? <>
       <RunningClassBanner item={activeSchedule} now={now}/>
-      <Card style={styles.studentStartCard}>
-        <View style={styles.studentStartTop}><View style={styles.studentStartIcon}><Ionicons name={attendanceAssigned ? 'checkmark-circle-outline' : 'scan-outline'} size={23} color={attendanceAssigned ? palette.green : palette.blue}/></View><View style={styles.studentStartCopy}><Text style={styles.studentStartTitle}>{attendanceAssigned ? 'Attendance assigned' : 'Start this class'}</Text><Text style={styles.studentStartDetail}>{attendanceAssigned && todayRecord ? `${todayRecord.values.status} · ${todayRecord.values.checkedInAt || 'checked in'} · ${todayRecord.values.method || 'Dynamic QR'}` : `Your Teacher has started ${activeSchedule.values.course}. Scan the rotating QR to assign your attendance.`}</Text></View></View>
-        <Pressable disabled={attendanceAssigned} onPress={() => setScannerSchedule(activeSchedule)} style={({ pressed }) => [styles.studentStartButton, attendanceAssigned && styles.studentStartButtonDone, pressed && styles.pressed]}><Ionicons name={attendanceAssigned ? 'checkmark' : 'play'} size={18} color="#FFFFFF"/><Text style={styles.startClassText}>{attendanceAssigned ? 'Attendance assigned' : 'Start class'}</Text></Pressable>
-      </Card>
+      {qrScheduleId === activeSchedule.id
+        ? <StudentAttendanceQr item={activeSchedule} now={now} attendanceAssigned={attendanceAssigned} recordDetail={attendanceAssigned && todayRecord ? `${todayRecord.values.status} · ${todayRecord.values.checkedInAt || 'checked in'} · ${todayRecord.values.method || 'Dynamic QR'}` : ''} onClose={() => setQrScheduleId('')}/>
+        : <Card style={styles.studentStartCard}>
+          <View style={styles.studentStartTop}><View style={styles.studentStartIcon}><Ionicons name={attendanceAssigned ? 'checkmark-circle-outline' : 'qr-code-outline'} size={23} color={attendanceAssigned ? palette.green : palette.blue}/></View><View style={styles.studentStartCopy}><Text style={styles.studentStartTitle}>{attendanceAssigned ? 'Attendance assigned' : 'Study now'}</Text><Text style={styles.studentStartDetail}>{attendanceAssigned && todayRecord ? `${todayRecord.values.status} · ${todayRecord.values.checkedInAt || 'checked in'} · ${todayRecord.values.method || 'Dynamic QR'}` : `Your Teacher has started ${activeSchedule.values.course}. Open your dynamic QR to continue.`}</Text></View></View>
+          <Pressable disabled={attendanceAssigned} onPress={() => setQrScheduleId(activeSchedule.id)} style={({ pressed }) => [styles.studentStartButton, attendanceAssigned && styles.studentStartButtonDone, pressed && styles.pressed]}><Ionicons name={attendanceAssigned ? 'checkmark' : 'qr-code-outline'} size={18} color="#FFFFFF"/><Text style={styles.startClassText}>{attendanceAssigned ? 'Attendance assigned' : 'Study Now'}</Text></Pressable>
+        </Card>}
     </> : <View style={styles.waitingForTeacher}><Ionicons name="hourglass-outline" size={20} color={palette.blue}/><View style={styles.waitingCopy}><Text style={styles.waitingTitle}>Waiting for Teacher</Text><Text style={styles.waitingDetail}>Start class becomes available here after your Teacher starts the current timetable period.</Text></View></View>}
     <SectionHeading title="Attendance history" detail={`${ordered.length} records`}/>
     <View style={portalStyles.stack}>{ordered.length ? ordered.map(item => <Card key={item.id}><View style={styles.recordTop}><View><Text style={styles.recordDate}>{formatDate(item.values.date)}</Text><Text style={styles.recordCode}>{item.values.attendanceCode} · {item.values.term}</Text></View><StatusPill value={item.values.status}/></View><Text style={styles.recordMeta}>Check in {item.values.checkedInAt || 'not recorded'} · {item.values.method || 'Institute record'}</Text></Card>) : <EmptyBlock icon="document-outline" title="No attendance yet" detail="Attendance recorded by your Teacher will appear here."/>}</View>
-    {scannerSchedule ? <ClassQrScanner item={scannerSchedule} onClose={() => setScannerSchedule(null)}/> : null}
   </>;
+}
+
+export function StudentAttendanceQr({ item, now, attendanceAssigned, recordDetail, onClose }: { item: ScheduleItem; now: Date; attendanceAssigned: boolean; recordDetail: string; onClose: () => void }) {
+  const { getStudentClassAttendanceQr } = usePortal();
+  const [qr, setQr] = useState<ClassAttendanceQr | null>(null);
+  const [message, setMessage] = useState('');
+  const [scanning, setScanning] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function rotate() {
+      try {
+        const next = await getStudentClassAttendanceQr(item.id);
+        if (active) { setQr(next); setMessage(''); }
+      } catch (reason) {
+        if (active) setMessage(reason instanceof Error ? reason.message : 'Could not create the Student class QR.');
+      }
+    }
+    void rotate();
+    const timer = setInterval(() => void rotate(), 15000);
+    return () => { active = false; clearInterval(timer); };
+  }, [getStudentClassAttendanceQr, item.id]);
+
+  const refreshSeconds = qr ? Math.max(0, Math.ceil((new Date(qr.expiresAtUtc).getTime() - now.getTime()) / 1000)) : 0;
+  return <Card style={styles.qrCard}>
+    <View style={styles.qrCardHeader}><View style={styles.qrCardIcon}><Ionicons name={attendanceAssigned ? 'checkmark-circle-outline' : 'qr-code-outline'} size={22} color={attendanceAssigned ? palette.green : palette.blue}/></View><View style={styles.qrCardCopy}><Text style={styles.qrCardTitle}>{attendanceAssigned ? 'Attendance assigned' : 'Your dynamic class QR'}</Text><Text style={styles.qrCardDetail}>{recordDetail || 'Your Teacher can scan this code, or you can scan the Teacher QR below.'}</Text></View></View>
+    <View style={styles.qrFrame}>{qr ? <QRCode value={qr.payload} size={210} quietZone={8} backgroundColor="#FFFFFF" color="#0B1423"/> : <ActivityIndicator size="large" color={palette.blue}/>}</View>
+    <View style={styles.qrRotation}><View style={styles.qrRotationDot}/><Text style={styles.qrRotationText}>{qr ? `Secure code rotates automatically · ${refreshSeconds}s valid` : 'Creating secure Student code…'}</Text></View>
+    {message ? <Text style={styles.qrError}>{message}</Text> : null}
+    <View style={styles.qrActions}><Pressable disabled={attendanceAssigned} onPress={() => setScanning(true)} style={[styles.scanQrButton, attendanceAssigned && styles.actionDisabled]}><Ionicons name="scan-outline" size={19} color="#FFFFFF"/><Text style={styles.startClassText}>{attendanceAssigned ? 'Attendance assigned' : 'Scan Attendance'}</Text></Pressable><Pressable onPress={onClose} style={styles.cancelQrButton}><Ionicons name="close-circle-outline" size={19} color={palette.red}/><Text style={styles.cancelQrText}>Cancel</Text></Pressable></View>
+    {scanning ? <ClassQrScanner item={item} onClose={() => setScanning(false)}/> : null}
+  </Card>;
 }
 
 export function ClassQrScanner({ item, onClose }: { item: ScheduleItem; onClose: () => void }) {
   const portal = usePortal();
+  const teacherScanning = portal.role === 'teacher';
   const [permission, requestPermission] = useCameraPermissions();
   const [locked, setLocked] = useState(false);
   const [message, setMessage] = useState('');
@@ -187,11 +230,13 @@ export function ClassQrScanner({ item, onClose }: { item: ScheduleItem; onClose:
   async function scanned(result: BarcodeScanningResult) {
     if (locked) return;
     setLocked(true);
-    setMessage('Assigning your attendance…');
+    setMessage(teacherScanning ? 'Assigning Student attendance…' : 'Assigning your attendance…');
     try {
-      const checkIn = await portal.checkInClass(item.id, result.data);
+      const checkIn = teacherScanning
+        ? await portal.teacherCheckInClass(item.id, result.data)
+        : await portal.checkInClass(item.id, result.data);
       onClose();
-      Alert.alert('Class started', `Attendance assigned as ${checkIn.status} at ${checkIn.checkedInAt ?? 'now'}.`);
+      Alert.alert(teacherScanning ? 'Student attendance assigned' : 'Class started', `Attendance assigned as ${checkIn.status} at ${checkIn.checkedInAt ?? 'now'}.`);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'This attendance QR could not be accepted.');
       setLocked(false);
@@ -200,9 +245,9 @@ export function ClassQrScanner({ item, onClose }: { item: ScheduleItem; onClose:
 
   return <Modal visible transparent animationType="fade" onRequestClose={onClose}>
     <View style={styles.modalBackdrop}><View style={styles.scannerCard}>
-      <View style={styles.scannerHeader}><View style={styles.scannerTitleCopy}><Text style={styles.scannerEyebrow}>START CLASS</Text><Text style={styles.scannerTitle}>{item.values.course}</Text><Text style={styles.scannerMeta}>{item.values.classroom} · ends {item.values.endsAt}</Text></View><Pressable accessibilityLabel="Close attendance scanner" onPress={onClose} style={styles.closeButton}><Ionicons name="close" size={21} color={palette.ink}/></Pressable></View>
-      {!permission ? <ActivityIndicator size="large" color={palette.blue}/> : !permission.granted ? <View style={styles.cameraPermission}><Ionicons name="camera-outline" size={34} color={palette.blue}/><Text style={styles.cameraPermissionText}>Camera access is required to scan your Teacher&apos;s attendance QR.</Text><Pressable onPress={() => void requestPermission()} style={styles.studentStartButton}><Text style={styles.startClassText}>Allow Camera</Text></Pressable></View> : <View style={styles.cameraFrame}><CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: ['qr'] }} onBarcodeScanned={locked ? undefined : event => void scanned(event)}/><View style={styles.scanGuide}/></View>}
-      <Text style={styles.scannerHelp}>Scan the current rotating QR on your Teacher&apos;s screen. Expired codes are rejected automatically.</Text>
+      <View style={styles.scannerHeader}><View style={styles.scannerTitleCopy}><Text style={styles.scannerEyebrow}>SCAN ATTENDANCE</Text><Text style={styles.scannerTitle}>{item.values.course}</Text><Text style={styles.scannerMeta}>{item.values.classroom} · ends {item.values.endsAt}</Text></View><Pressable accessibilityLabel="Close attendance scanner" onPress={onClose} style={styles.closeButton}><Ionicons name="close" size={21} color={palette.ink}/></Pressable></View>
+      {!permission ? <ActivityIndicator size="large" color={palette.blue}/> : !permission.granted ? <View style={styles.cameraPermission}><Ionicons name="camera-outline" size={34} color={palette.blue}/><Text style={styles.cameraPermissionText}>Camera access is required to scan the {teacherScanning ? 'Student' : 'Teacher'} attendance QR.</Text><Pressable onPress={() => void requestPermission()} style={styles.studentStartButton}><Text style={styles.startClassText}>Allow Camera</Text></Pressable></View> : <View style={styles.cameraFrame}><CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: ['qr'] }} onBarcodeScanned={locked ? undefined : event => void scanned(event)}/><View style={styles.scanGuide}/></View>}
+      <Text style={styles.scannerHelp}>Scan the current rotating QR on the {teacherScanning ? 'Student' : 'Teacher'} screen. Expired codes are rejected automatically.</Text>
       {message ? <Text style={styles.scannerMessage}>{message}</Text> : null}
     </View></View>
   </Modal>;
@@ -291,6 +336,12 @@ const styles = StyleSheet.create({
   qrRotationDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: palette.green },
   qrRotationText: { color: palette.green, fontSize: 11, fontWeight: '800' },
   qrError: { color: palette.red, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  qrActions: { width: '100%', flexDirection: 'row', gap: 9 },
+  scanQrButton: { minHeight: 50, flex: 1.25, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, borderRadius: radius.small, backgroundColor: palette.blue },
+  cancelQrButton: { minHeight: 50, flex: 0.85, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 10, borderRadius: radius.small, backgroundColor: palette.redPale, borderWidth: 1, borderColor: '#F0C5C5' },
+  cancelQrText: { color: palette.red, fontSize: 13, fontWeight: '900' },
+  openQrButton: { minHeight: 50, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14, borderRadius: radius.small, backgroundColor: palette.blue },
+  actionDisabled: { opacity: 0.5 },
   studentStartCard: { gap: 16, borderColor: '#C9D7FA' },
   studentStartTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   studentStartIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: palette.bluePale },

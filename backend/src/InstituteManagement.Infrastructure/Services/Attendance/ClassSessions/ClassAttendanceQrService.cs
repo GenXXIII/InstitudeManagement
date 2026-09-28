@@ -62,23 +62,99 @@ public sealed class ClassAttendanceQrService(
             ?? throw new InvalidOperationException("This class session is no longer available.");
         EnsureRunning(session.ScheduleEntry, localNow);
 
+        var schedule = session.ScheduleEntry!;
+        await EnsureStudentBelongsAsync(studentId, schedule, cancellationToken);
+        await EnsureTimetableIsActiveAsync(scheduleEntryId, cancellationToken);
+        return await RecordAsync(scheduleEntryId, studentId, sessionDate, cancellationToken);
+    }
+
+    public async Task<ClassAttendanceQrDto> GenerateStudentAsync(
+        Guid scheduleEntryId,
+        Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        if (scheduleEntryId == Guid.Empty) throw new ArgumentException("Schedule entry is required.", nameof(scheduleEntryId));
+        if (studentId == Guid.Empty) throw new ArgumentException("Student is required.", nameof(studentId));
+
+        var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
+        var sessionDate = DateOnly.FromDateTime(localNow);
+        var session = await db.ClassSessionStarts.AsNoTracking()
+            .Include(item => item.ScheduleEntry)!
+                .ThenInclude(item => item!.Course)
+            .SingleOrDefaultAsync(
+                item => item.ScheduleEntryId == scheduleEntryId && item.SessionDate == sessionDate,
+                cancellationToken)
+            ?? throw new InvalidOperationException("The Teacher must start this class before opening a Student QR.");
+        EnsureRunning(session.ScheduleEntry, localNow);
+        await EnsureStudentBelongsAsync(studentId, session.ScheduleEntry!, cancellationToken);
+        await EnsureTimetableIsActiveAsync(scheduleEntryId, cancellationToken);
+        return qrGateway.GenerateStudent(session, studentId);
+    }
+
+    public async Task<ClassAttendanceCheckInDto> TeacherCheckInAsync(
+        Guid scheduleEntryId,
+        Guid teacherId,
+        string qrPayload,
+        CancellationToken cancellationToken)
+    {
+        if (scheduleEntryId == Guid.Empty) throw new ArgumentException("Schedule entry is required.", nameof(scheduleEntryId));
+        if (teacherId == Guid.Empty) throw new ArgumentException("Teacher is required.", nameof(teacherId));
+
+        var claims = qrGateway.ValidateStudent(qrPayload);
+        if (claims.ScheduleEntryId != scheduleEntryId)
+            throw new ArgumentException("This Student QR belongs to a different class.");
+        if (claims.TeacherId != teacherId)
+            throw new InvalidOperationException("Only the assigned Teacher can scan this Student QR.");
+
+        var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
+        var sessionDate = DateOnly.FromDateTime(localNow);
+        var session = await db.ClassSessionStarts.AsNoTracking()
+            .Include(item => item.ScheduleEntry)!
+                .ThenInclude(item => item!.Course)
+            .SingleOrDefaultAsync(
+                item => item.Id == claims.ClassSessionStartId
+                    && item.ScheduleEntryId == scheduleEntryId
+                    && item.TeacherId == teacherId
+                    && item.SessionDate == sessionDate,
+                cancellationToken)
+            ?? throw new InvalidOperationException("This class session is no longer available.");
+        EnsureRunning(session.ScheduleEntry, localNow);
+        await EnsureStudentBelongsAsync(claims.StudentId, session.ScheduleEntry!, cancellationToken);
+        await EnsureTimetableIsActiveAsync(scheduleEntryId, cancellationToken);
+        return await RecordAsync(scheduleEntryId, claims.StudentId, sessionDate, cancellationToken);
+    }
+
+    private async Task EnsureStudentBelongsAsync(
+        Guid studentId,
+        ScheduleEntry schedule,
+        CancellationToken cancellationToken)
+    {
         var enrollment = await db.StudentEnrollments.AsNoTracking()
             .Where(item => item.StudentId == studentId && item.Status == "Active")
             .OrderByDescending(item => item.CreateAt)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new InvalidOperationException("The Student does not have an active enrollment.");
-        var schedule = session.ScheduleEntry!;
         var belongsToClass = schedule.Course?.DepartmentId == enrollment.DepartmentId
             && schedule.YearLevel == enrollment.YearLevel
             && schedule.Shift == enrollment.Shift;
         if (!belongsToClass)
             throw new InvalidOperationException("This attendance QR is for a different Student class.");
+    }
 
+    private async Task EnsureTimetableIsActiveAsync(Guid scheduleEntryId, CancellationToken cancellationToken)
+    {
         var timetableIsActive = await db.TimetableEnrollments.AsNoTracking()
             .AnyAsync(item => item.ScheduleEntryId == scheduleEntryId && item.Status == "Active", cancellationToken);
         if (!timetableIsActive)
             throw new InvalidOperationException("This timetable enrollment is not active.");
+    }
 
+    private async Task<ClassAttendanceCheckInDto> RecordAsync(
+        Guid scheduleEntryId,
+        Guid studentId,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken)
+    {
         await attendanceService.RecordAsync(studentId, "Present", cancellationToken, "Dynamic QR");
         var record = await db.AttendanceRecords.AsNoTracking()
             .SingleAsync(item => item.StudentId == studentId && item.Date == sessionDate, cancellationToken);

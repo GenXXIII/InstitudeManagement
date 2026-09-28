@@ -13,11 +13,21 @@ public sealed record ClassAttendanceQrClaims(
     string TokenId,
     DateTime ExpiresAtUtc);
 
+public sealed record StudentClassAttendanceQrClaims(
+    Guid ClassSessionStartId,
+    Guid ScheduleEntryId,
+    Guid TeacherId,
+    Guid StudentId,
+    string TokenId,
+    DateTime ExpiresAtUtc);
+
 public sealed class ClassAttendanceQrGateway(IDataProtectionProvider protectionProvider)
 {
     private const string Prefix = "INK-CLASS-ATTENDANCE:";
+    private const string StudentPrefix = "INK-STUDENT-ATTENDANCE:";
     private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(30);
     private readonly IDataProtector protector = protectionProvider.CreateProtector("InstituteManagement.Attendance.ClassQr.v1");
+    private readonly IDataProtector studentProtector = protectionProvider.CreateProtector("InstituteManagement.Attendance.StudentClassQr.v1");
 
     public ClassAttendanceQrDto Generate(ClassSessionStart session)
     {
@@ -56,4 +66,44 @@ public sealed class ClassAttendanceQrGateway(IDataProtectionProvider protectionP
             throw new ArgumentException("This class attendance QR is invalid.");
         }
     }
+
+    public ClassAttendanceQrDto GenerateStudent(ClassSessionStart session, Guid studentId)
+    {
+        var generatedAtUtc = DateTime.UtcNow;
+        var expiresAtUtc = generatedAtUtc.Add(Lifetime);
+        var claims = new StudentClassAttendanceQrClaims(
+            session.Id,
+            session.ScheduleEntryId,
+            session.TeacherId,
+            studentId,
+            Guid.NewGuid().ToString("N"),
+            expiresAtUtc);
+        var payload = StudentPrefix + studentProtector.Protect(JsonSerializer.Serialize(claims));
+        return new ClassAttendanceQrDto(payload, generatedAtUtc, expiresAtUtc);
+    }
+
+    public StudentClassAttendanceQrClaims ValidateStudent(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload) || !payload.StartsWith(StudentPrefix, StringComparison.Ordinal))
+            throw new ArgumentException("This is not a valid Student class QR.");
+
+        try
+        {
+            var json = studentProtector.Unprotect(payload[StudentPrefix.Length..]);
+            var claims = JsonSerializer.Deserialize<StudentClassAttendanceQrClaims>(json)
+                ?? throw new ArgumentException("This Student class QR is invalid.");
+            if (claims.ExpiresAtUtc <= DateTime.UtcNow)
+                throw new ArgumentException("This Student QR has expired. Scan the current QR on the Student's screen.");
+            return claims;
+        }
+        catch (CryptographicException)
+        {
+            throw new ArgumentException("This Student class QR is invalid or was not issued by this institute.");
+        }
+        catch (JsonException)
+        {
+            throw new ArgumentException("This Student class QR is invalid.");
+        }
+    }
+
 }

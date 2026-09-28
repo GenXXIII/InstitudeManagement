@@ -37,6 +37,13 @@ public sealed class ClassSessionStartsController(
         CancellationToken cancellationToken) =>
         Ok(await attendanceQr.GenerateAsync(scheduleEntryId, teacherId, cancellationToken));
 
+    [HttpGet("{scheduleEntryId:guid}/students/{studentId:guid}/attendance-qr")]
+    public async Task<ActionResult<ClassAttendanceQrDto>> GetStudentAttendanceQr(
+        Guid scheduleEntryId,
+        Guid studentId,
+        CancellationToken cancellationToken) =>
+        Ok(await attendanceQr.GenerateStudentAsync(scheduleEntryId, studentId, cancellationToken));
+
     [HttpPost("{scheduleEntryId:guid}/attendance/check-in")]
     public async Task<ActionResult<ClassAttendanceCheckInDto>> CheckIn(
         Guid scheduleEntryId,
@@ -47,4 +54,16 @@ public sealed class ClassSessionStartsController(
             request.StudentId,
             request.QrPayload,
             cancellationToken));
+
+    [HttpPost("{scheduleEntryId:guid}/attendance/teacher-check-in")]
+    public async Task<ActionResult<ClassAttendanceCheckInDto>> TeacherCheckIn(
+        Guid scheduleEntryId,
+        TeacherClassAttendanceCheckInRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await attendanceQr.TeacherCheckInAsync(
+            scheduleEntryId,
+            request.TeacherId,
+            request.QrPayload,
+            cancellationToken));
+
 }

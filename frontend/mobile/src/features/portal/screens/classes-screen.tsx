@@ -4,7 +4,7 @@ import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextI
 import { Card, EmptyBlock, PortalPage, portalStyles, SectionHeading, StatusPill } from '@/components/portal-ui';
 import { palette, radius } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
-import { AttendanceContent, ClassQrScanner } from './attendance-screen';
+import { AttendanceContent, StudentAttendanceQr } from './attendance-screen';
 import { ScheduleContent } from './schedule-screen';
 import { usePortal } from '../portal-context';
 import type { ScheduleItem } from '../portal-types';
@@ -68,19 +68,19 @@ function ClassViewTab({ active, accent, icon, label, onPress }: { active: boolea
 
 function StudentClassOverview() {
   const portal = usePortal();
-  const [scannerSchedule, setScannerSchedule] = useState<ScheduleItem | null>(null);
+  const [qrSchedule, setQrSchedule] = useState<ScheduleItem | null>(null);
   const now = new Date();
   const items = portal.schedule.map(item => ({ item, sessionDate: sessionDateFor(item, now) })).sort((left, right) => left.sessionDate.localeCompare(right.sessionDate) || left.item.values.startsAt.localeCompare(right.item.values.startsAt)).slice(0, 5);
-  const attendedToday = portal.attendance.some(item => item.values.date === localDateKey(now) && ['present', 'late'].includes(item.values.status.trim().toLowerCase()));
+  const todayRecord = [...portal.attendance].filter(item => item.values.date === localDateKey(now)).sort((a, b) => b.values.checkedInAt.localeCompare(a.values.checkedInAt))[0];
+  const attendedToday = Boolean(todayRecord && ['present', 'late'].includes(todayRecord.values.status.trim().toLowerCase()));
 
   return <View style={portalStyles.stack}>
     <View style={styles.classWelcome}><View style={styles.classWelcomeIcon}><Ionicons name="sparkles" size={22} color={palette.gold}/></View><View style={styles.classWelcomeCopy}><Text style={styles.classWelcomeTitle}>Your learning week</Text><Text style={styles.classWelcomeText}>Open Attendance, Schedule, or Permission above whenever you need the complete class workflow.</Text></View></View>
     <SectionHeading title="Next classes" detail={`${items.length} upcoming`}/>
     {items.length ? items.map(({ item, sessionDate }) => {
       const running = sessionDate === localDateKey(now) && portal.startedScheduleIds.includes(item.id) && isWithin(item, now);
-      return <Card key={`${item.id}-${sessionDate}`}><View style={styles.studentClassHeader}><View style={styles.classCourseIcon}><Ionicons name="book-outline" size={20} color={palette.blue}/></View><View style={styles.studentClassCopy}><Text style={styles.studentClassCourse}>{item.values.course}</Text><Text style={styles.studentClassMeta}>{formatSessionDate(sessionDate)} · {item.values.startsAt}–{item.values.endsAt}</Text><Text style={styles.studentClassPlace}>{item.values.classroom} · {item.values.teacher}</Text></View>{running ? <View style={styles.studyNow}><View style={styles.studyDot}/><Text style={styles.studyNowText}>Started</Text></View> : null}</View>{running ? <Pressable disabled={attendedToday} onPress={() => setScannerSchedule(item)} style={({ pressed }) => [styles.studentJoinButton, attendedToday && styles.studentJoinButtonDone, pressed && styles.pressed]}><Ionicons name={attendedToday ? 'checkmark-circle-outline' : 'scan-outline'} size={18} color="#FFFFFF"/><Text style={styles.studentJoinText}>{attendedToday ? 'Attendance assigned' : 'Start class'}</Text></Pressable> : null}</Card>;
+      return <View key={`${item.id}-${sessionDate}`} style={portalStyles.stack}><Card><View style={styles.studentClassHeader}><View style={styles.classCourseIcon}><Ionicons name="book-outline" size={20} color={palette.blue}/></View><View style={styles.studentClassCopy}><Text style={styles.studentClassCourse}>{item.values.course}</Text><Text style={styles.studentClassMeta}>{formatSessionDate(sessionDate)} · {item.values.startsAt}–{item.values.endsAt}</Text><Text style={styles.studentClassPlace}>{item.values.classroom} · {item.values.teacher}</Text></View>{running ? <View style={styles.studyNow}><View style={styles.studyDot}/><Text style={styles.studyNowText}>Started</Text></View> : null}</View>{running ? <Pressable disabled={attendedToday} onPress={() => setQrSchedule(item)} style={({ pressed }) => [styles.studentJoinButton, attendedToday && styles.studentJoinButtonDone, pressed && styles.pressed]}><Ionicons name={attendedToday ? 'checkmark-circle-outline' : 'qr-code-outline'} size={18} color="#FFFFFF"/><Text style={styles.studentJoinText}>{attendedToday ? 'Attendance assigned' : 'Study Now'}</Text></Pressable> : null}</Card>{qrSchedule?.id === item.id ? <StudentAttendanceQr item={item} now={now} attendanceAssigned={attendedToday} recordDetail={todayRecord ? `${todayRecord.values.status} · ${todayRecord.values.checkedInAt || 'checked in'} · ${todayRecord.values.method || 'Dynamic QR'}` : ''} onClose={() => setQrSchedule(null)}/> : null}</View>;
     }) : <EmptyBlock icon="calendar-clear-outline" title="No upcoming classes" detail="Your classes appear after Administrator completes the current timetable enrollment."/>}
-    {scannerSchedule ? <ClassQrScanner item={scannerSchedule} onClose={() => setScannerSchedule(null)}/> : null}
   </View>;
 }
 

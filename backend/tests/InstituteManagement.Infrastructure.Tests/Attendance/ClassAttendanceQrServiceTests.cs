@@ -88,6 +88,37 @@ public sealed class ClassAttendanceQrServiceTests
         Assert.Empty(await db.AttendanceRecords.ToListAsync());
     }
 
+    [Fact]
+    public async Task Assigned_teacher_can_scan_an_enrolled_students_rotating_qr()
+    {
+        await using var db = CreateContext();
+        var seeded = await SeedRunningClassAsync(db);
+        var qrGateway = new ClassAttendanceQrGateway(new EphemeralDataProtectionProvider());
+        var service = new ClassAttendanceQrService(
+            db,
+            qrGateway,
+            new AttendanceService(db, new InstituteCache()));
+
+        var firstQr = await service.GenerateStudentAsync(
+            seeded.Schedule.Id,
+            seeded.Student.Id,
+            CancellationToken.None);
+        var secondQr = await service.GenerateStudentAsync(
+            seeded.Schedule.Id,
+            seeded.Student.Id,
+            CancellationToken.None);
+        var result = await service.TeacherCheckInAsync(
+            seeded.Schedule.Id,
+            seeded.Teacher.Id,
+            secondQr.Payload,
+            CancellationToken.None);
+
+        Assert.NotEqual(firstQr.Payload, secondQr.Payload);
+        Assert.Equal(seeded.Student.Id, result.StudentId);
+        Assert.Equal("Dynamic QR", result.Method);
+        Assert.Single(await db.AttendanceRecords.ToListAsync());
+    }
+
     private static async Task<SeededClass> SeedRunningClassAsync(InstituteDbContext db)
     {
         var department = new Department { DepartmentCode = "DEP-QR", Name = "QR Department" };
