@@ -34,18 +34,26 @@ internal sealed class StudentEnrollmentEditor(
             cancellationToken);
         if (enrollment is null)
         {
-            var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, student.StudentCode, "student", id, cancellationToken);
+            var latestEnrollment = await db.StudentEnrollments.AsNoTracking()
+                .Where(item => item.StudentId == id)
+                .OrderByDescending(item => item.CreateAt)
+                .ThenByDescending(item => item.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+            var enrollmentCode = latestEnrollment is not null && latestEnrollment.Status != "Removed"
+                ? latestEnrollment.EnrollmentCode
+                : (await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, student.StudentCode, "student", id, cancellationToken)).Enrollment;
+            var periodCodes = await BusinessCodeFormatter.GenerateStudentPeriodWorkflowAsync(db, student.StudentCode, enrollmentCode, year, period.Semester, cancellationToken);
             var enrollmentId = Guid.NewGuid();
             enrollment = new StudentEnrollment
             {
                 Id = enrollmentId,
-                EnrollmentCode = codes.Enrollment,
+                EnrollmentCode = periodCodes.Enrollment,
                 PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken),
-                FinanceCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "financeCodePrefix", "FIN", cancellationToken),
-                ResultCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "resultCodePrefix", "RES", cancellationToken),
-                OperationCode = codes.Operation,
-                RecordCode = codes.Record,
-                HistoryCode = codes.History,
+                FinanceCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, periodCodes.Enrollment, year, period.Semester, "financeCodePrefix", "FIN", cancellationToken),
+                ResultCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, periodCodes.Enrollment, year, period.Semester, "resultCodePrefix", "RES", cancellationToken),
+                OperationCode = periodCodes.Operation,
+                RecordCode = periodCodes.Record,
+                HistoryCode = periodCodes.History,
                 StudentId = id,
                 AcademicYear = period.AcademicYear,
                 Semester = period.Semester

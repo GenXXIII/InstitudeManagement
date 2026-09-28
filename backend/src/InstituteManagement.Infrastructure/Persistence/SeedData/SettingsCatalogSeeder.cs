@@ -188,26 +188,51 @@ public static class SettingsCatalogSeeder
         var changed = false;
 
         var studentEnrollments = await db.StudentEnrollments.Include(item => item.Student).ToListAsync(cancellationToken);
-        var studentOccurrences = Occurrences(studentEnrollments, item => item.StudentId);
+        var studentOccurrences = StudentOccurrences(studentEnrollments);
         foreach (var enrollment in studentEnrollments)
         {
             if (enrollment.Student is null) continue;
             var occurrence = studentOccurrences[enrollment.Id];
-            var codes = Codes(format, enrollment.Student.StudentCode, enrollment.EnrollmentCode, "student", occurrence);
-            changed |= Assign(enrollment, codes);
+            var enrollmentCode = format.Linked(enrollment.Student.StudentCode, "student", "enrollment", occurrence);
+            var codes = format.StudentPeriodChain(
+                enrollment.Student.StudentCode,
+                enrollmentCode,
+                enrollment.YearLevel,
+                enrollment.Semester);
+            changed |= AssignStudentPeriod(enrollment, codes);
             if (!PublicAccessId.MatchesEnrollment(enrollment.PublicId, enrollment.Id))
             {
                 enrollment.PublicId = format.EnrollmentPublicId(enrollment.Id, "studentPublicIdPrefix", "STU");
                 changed = true;
             }
-            if (string.IsNullOrWhiteSpace(enrollment.FinanceCode))
+            var financeCode = format.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "financeCodePrefix", "FIN");
+            if (!enrollment.FinanceCode.Equals(financeCode, StringComparison.Ordinal))
             {
-                enrollment.FinanceCode = format.LinkedWithConfiguredPrefix(enrollment.Student.StudentCode, "student", occurrence, "financeCodePrefix", "FIN");
+                enrollment.FinanceCode = financeCode;
                 changed = true;
             }
-            if (string.IsNullOrWhiteSpace(enrollment.ResultCode))
+            var resultCode = format.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "resultCodePrefix", "RES");
+            if (!enrollment.ResultCode.Equals(resultCode, StringComparison.Ordinal))
             {
-                enrollment.ResultCode = format.LinkedWithConfiguredPrefix(enrollment.Student.StudentCode, "student", occurrence, "resultCodePrefix", "RES");
+                enrollment.ResultCode = resultCode;
+                changed = true;
+            }
+        }
+        var financialAccounts = await db.FinancialAccounts.Include(item => item.StudentEnrollment).Include(item => item.Payments).ToListAsync(cancellationToken);
+        foreach (var account in financialAccounts.Where(item => item.StudentEnrollment is not null))
+        {
+            var enrollment = account.StudentEnrollment!;
+            var financeCode = format.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "financeCodePrefix", "FIN");
+            if (!account.FinancialAccountCode.Equals(financeCode, StringComparison.Ordinal))
+            {
+                account.FinancialAccountCode = financeCode;
+                changed = true;
+            }
+            foreach (var payment in account.Payments.OrderBy(item => item.CreateAt).ThenBy(item => item.Id).Select((item, index) => new { Item = item, Occurrence = (long)index + 1 }))
+            {
+                var paymentCode = format.Payment(financeCode, payment.Occurrence);
+                if (payment.Item.PaymentCode.Equals(paymentCode, StringComparison.Ordinal)) continue;
+                payment.Item.PaymentCode = paymentCode;
                 changed = true;
             }
         }
@@ -252,6 +277,21 @@ public static class SettingsCatalogSeeder
             .Select((item, index) => new { item.Id, Occurrence = (long)index + 1 }))
             .ToDictionary(item => item.Id, item => item.Occurrence);
 
+    private static Dictionary<Guid, long> StudentOccurrences(IEnumerable<StudentEnrollment> rows)
+    {
+        var result = new Dictionary<Guid, long>();
+        foreach (var group in rows.GroupBy(item => item.StudentId))
+        {
+            long occurrence = 1;
+            foreach (var enrollment in group.OrderBy(item => item.CreateAt).ThenBy(item => item.Id))
+            {
+                result[enrollment.Id] = occurrence;
+                if (enrollment.Status is "Removed" or "Completed") occurrence++;
+            }
+        }
+        return result;
+    }
+
     private static BusinessCodeFormatter.WorkflowCodeChain Codes(
         BusinessCodeFormatter.BusinessCodeFormat format,
         string managementCode,
@@ -276,6 +316,16 @@ public static class SettingsCatalogSeeder
         () => item.RecordCode, value => item.RecordCode = value,
         () => item.HistoryCode, value => item.HistoryCode = value,
         codes);
+
+    private static bool AssignStudentPeriod(StudentEnrollment item, BusinessCodeFormatter.WorkflowCodeChain codes)
+    {
+        var changed = false;
+        if (!item.EnrollmentCode.Equals(codes.Enrollment, StringComparison.Ordinal)) { item.EnrollmentCode = codes.Enrollment; changed = true; }
+        if (!item.OperationCode.Equals(codes.Operation, StringComparison.Ordinal)) { item.OperationCode = codes.Operation; changed = true; }
+        if (!item.RecordCode.Equals(codes.Record, StringComparison.Ordinal)) { item.RecordCode = codes.Record; changed = true; }
+        if (!item.HistoryCode.Equals(codes.History, StringComparison.Ordinal)) { item.HistoryCode = codes.History; changed = true; }
+        return changed;
+    }
 
     private static bool Assign(TeacherAssignment item, BusinessCodeFormatter.WorkflowCodeChain codes) => AssignCodes(
         () => item.EnrollmentCode, value => item.EnrollmentCode = value,

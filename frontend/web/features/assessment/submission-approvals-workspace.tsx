@@ -24,6 +24,7 @@ const columns = [
 export function SubmissionApprovalsWorkspace() {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
+  const year = searchParams.get("year") ?? "";
   const [rows, setRows] = useState<Awaited<ReturnType<typeof assessmentApi.get>>>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [query, setQuery] = useState("");
@@ -35,14 +36,14 @@ export function SubmissionApprovalsWorkspace() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
   const load = useCallback(() => Promise.all([
-    assessmentApi.get(departmentId),
-    studentEnrollmentApi.get("", departmentId),
+    assessmentApi.get(departmentId, year),
+    studentEnrollmentApi.get("", departmentId, year),
   ]).then(([gradeRows, enrollmentRows]) => {
     setRows(gradeRows);
     setEnrollments(enrollmentRows);
     setReady(true);
     setError(false);
-  }).catch(() => setError(true)), [departmentId]);
+  }).catch(() => setError(true)), [departmentId, year]);
   useEffect(() => { void load(); }, [load]);
 
   const groups = useMemo(() => groupCourseAssessments(rows, enrollments), [enrollments, rows]);
@@ -86,7 +87,7 @@ export function SubmissionApprovalsWorkspace() {
       <select value={status} onChange={event => setStatus(event.target.value)} aria-label="Approval status"><option value="Action">Action required</option><option>All</option><option value="SubmissionRequested">Initial approval</option><option value="ResubmitRequested">Resubmission approval</option><option value="Submitted">Final review</option><option value="SubmissionAuthorized">Submission authorized</option><option value="ResubmitAuthorized">Resubmission authorized</option><option value="Approved">Accepted</option><option value="Rejected">Rejected</option></select>
     </DataTableToolbar>
     <div className={`submission-request-layout${selected ? " has-detail" : ""}`}>
-      <PaginatedDataRegion items={visible} resetKey={`${query}-${status}`} className="submission-request-region" empty={<DataTableEmptyState icon={<Icon name="check" size={28}/>} title="No course submissions" description="Course-level approval requests matching this filter will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table submission-request-table" headerClassName="horizontal-management-head submission-request-head" rowSelector=":scope > .submission-request-row" columns={columns} ariaLabel="Course submission approvals">{pageItems.map(group => <ApprovalRow group={group} active={selectedId === group.anchorId} working={working} onApprove={() => void review(group, "Approved", "")} onReject={() => { setSelectedId(group.anchorId); setNote(""); setActionError(""); }} onView={() => { setSelectedId(group.anchorId); setNote(""); setActionError(""); }} key={group.key}/>)}</DataTable>}</PaginatedDataRegion>
+      <PaginatedDataRegion items={visible} resetKey={`${departmentId}-${year}-${query}-${status}`} className="submission-request-region" empty={<DataTableEmptyState icon={<Icon name="check" size={28}/>} title="No course submissions" description="Course-level approval requests matching this filter will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table submission-request-table" headerClassName="horizontal-management-head submission-request-head" rowSelector=":scope > .submission-request-row" columns={columns} ariaLabel="Course submission approvals">{pageItems.map(group => <ApprovalRow group={group} active={selectedId === group.anchorId} working={working} onApprove={() => void review(group, "Approved", "")} onReject={() => { setSelectedId(group.anchorId); setNote(""); setActionError(""); }} onView={() => { setSelectedId(group.anchorId); setNote(""); setActionError(""); }} key={group.key}/>)}</DataTable>}</PaginatedDataRegion>
       {selected && <ApprovalDetail group={selected} note={note} working={working} onNote={setNote} onClose={() => { setSelectedId(""); setNote(""); setActionError(""); }} onReview={decision => review(selected, decision)}/>} 
     </div>
   </div>;

@@ -65,6 +65,6 @@ public sealed class GradesController(IGradeService gradeService) : ControllerBas
     }
 
     [HttpPost("final-results/confirm-all")]
-    public async Task<IActionResult> ConfirmReadyFinalGrades(Guid? departmentId, CancellationToken cancellationToken) =>
-        Ok(new { confirmed = await gradeService.ConfirmReadyFinalGradesAsync(departmentId, cancellationToken) });
+    public async Task<IActionResult> ConfirmReadyFinalGrades(Guid? departmentId, int? year, CancellationToken cancellationToken) =>
+        Ok(new { confirmed = await gradeService.ConfirmReadyFinalGradesAsync(departmentId, year, cancellationToken) });
 }

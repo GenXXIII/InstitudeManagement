@@ -10,15 +10,15 @@ internal static partial class BusinessCodeFormatter
     private static readonly string[] Stages = ["management", "enrollment", "operation", "record", "history"];
     private static readonly IReadOnlyDictionary<string, string[]> Prefixes = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
     {
-        ["student"] = ["STU", "ESTU", "OPE", "REC", "HIS"],
-        ["teacher"] = ["TEA", "ETEA", "OPE", "REC", "HIS"],
-        ["department"] = ["DEP", "EDEP", "OPE", "REC", "HIS"],
-        ["course"] = ["COU", "ECOU", "OPE", "REC", "HIS"],
-        ["classroom"] = ["CLA", "ECLA", "OPE", "REC", "HIS"],
-        ["timetable"] = ["TIM", "ETIM", "OPE", "REC", "HIS"],
-        ["attendance"] = ["ATT", "EATT", "OPE", "REC", "HIS"],
-        ["grade"] = ["GRD", "EGRD", "OPE", "REC", "HIS"],
-        ["session"] = ["SES", "ESES", "OPE", "REC", "HIS"]
+        ["student"] = ["STU", "ENR", "OPE", "REC", "HIS"],
+        ["teacher"] = ["TEA", "ENR", "OPE", "REC", "HIS"],
+        ["department"] = ["DEP", "ENR", "OPE", "REC", "HIS"],
+        ["course"] = ["COU", "ENR", "OPE", "REC", "HIS"],
+        ["classroom"] = ["CLA", "ENR", "OPE", "REC", "HIS"],
+        ["timetable"] = ["TIM", "ENR", "OPE", "REC", "HIS"],
+        ["attendance"] = ["ATT", "ENR", "OPE", "REC", "HIS"],
+        ["grade"] = ["GRD", "ENR", "OPE", "REC", "HIS"],
+        ["session"] = ["SES", "ENR", "OPE", "REC", "HIS"]
     };
 
     public static async Task<string> GenerateAsync(InstituteDbContext db, string resource, CancellationToken cancellationToken)
@@ -62,7 +62,11 @@ internal static partial class BusinessCodeFormatter
     {
         var persisted = resource.ToLowerInvariant() switch
         {
-            "student" => await db.StudentEnrollments.CountAsync(item => item.StudentId == resourceId, cancellationToken),
+            "student" => await db.StudentEnrollments
+                .Where(item => item.StudentId == resourceId)
+                .Select(item => item.EnrollmentCode)
+                .Distinct()
+                .CountAsync(cancellationToken),
             "teacher" => await db.TeacherAssignments.CountAsync(item => item.TeacherId == resourceId, cancellationToken),
             "course" => await db.CourseAssignments.CountAsync(item => item.CourseId == resourceId, cancellationToken),
             "classroom" => await db.ClassroomAssignments.CountAsync(item => item.ClassroomId == resourceId, cancellationToken),
@@ -71,7 +75,11 @@ internal static partial class BusinessCodeFormatter
         };
         var pending = resource.ToLowerInvariant() switch
         {
-            "student" => db.StudentEnrollments.Local.Count(item => item.StudentId == resourceId && db.Entry(item).State == EntityState.Added),
+            "student" => db.StudentEnrollments.Local
+                .Where(item => item.StudentId == resourceId && db.Entry(item).State == EntityState.Added)
+                .Select(item => item.EnrollmentCode)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count(),
             "teacher" => db.TeacherAssignments.Local.Count(item => item.TeacherId == resourceId && db.Entry(item).State == EntityState.Added),
             "course" => db.CourseAssignments.Local.Count(item => item.CourseId == resourceId && db.Entry(item).State == EntityState.Added),
             "classroom" => db.ClassroomAssignments.Local.Count(item => item.ClassroomId == resourceId && db.Entry(item).State == EntityState.Added),
@@ -100,6 +108,33 @@ internal static partial class BusinessCodeFormatter
             managementCode,
             resource,
             enrollmentCode,
+            prefixKey,
+            fallbackPrefix);
+
+    public static async Task<WorkflowCodeChain> GenerateStudentPeriodWorkflowAsync(
+        InstituteDbContext db,
+        string managementCode,
+        string enrollmentCode,
+        int yearLevel,
+        string semester,
+        CancellationToken cancellationToken)
+    {
+        var format = await LoadAsync(db, cancellationToken);
+        return format.StudentPeriodChain(managementCode, enrollmentCode, yearLevel, semester);
+    }
+
+    public static async Task<string> GenerateStudentPeriodScopedAsync(
+        InstituteDbContext db,
+        string enrollmentCode,
+        int yearLevel,
+        string semester,
+        string prefixKey,
+        string fallbackPrefix,
+        CancellationToken cancellationToken) =>
+        (await LoadAsync(db, cancellationToken)).PeriodLinkedWithConfiguredPrefix(
+            enrollmentCode,
+            yearLevel,
+            semester,
             prefixKey,
             fallbackPrefix);
 
@@ -268,6 +303,24 @@ internal static partial class BusinessCodeFormatter
                 string.IsNullOrWhiteSpace(historyCode) ? fallback.History : historyCode);
         }
 
+        public WorkflowCodeChain StudentPeriodChain(
+            string managementCode,
+            string enrollmentCode,
+            int yearLevel,
+            string semester)
+        {
+            var management = Derive(managementCode, "student", "management");
+            var enrollment = string.IsNullOrWhiteSpace(enrollmentCode)
+                ? Linked(management, "student", "enrollment", 1)
+                : NormalizeStudentEnrollment(enrollmentCode);
+            return new WorkflowCodeChain(
+                management,
+                enrollment,
+                PeriodLinked(enrollment, "student", "operation", yearLevel, semester),
+                PeriodLinked(enrollment, "student", "record", yearLevel, semester),
+                PeriodLinked(enrollment, "student", "history", yearLevel, semester));
+        }
+
         public string Linked(string managementCode, string resource, string stage, long occurrence)
         {
             if (occurrence < 1) throw new ArgumentOutOfRangeException(nameof(occurrence));
@@ -301,6 +354,38 @@ internal static partial class BusinessCodeFormatter
             var number = occurrence.ToString().PadLeft(padding, '0');
             var prefix = Value(values, prefixKey, fallbackPrefix).Trim().ToUpperInvariant();
             return Validate(string.Join(separator, prefix, number, management));
+        }
+
+        public string PeriodLinked(
+            string enrollmentCode,
+            string resource,
+            string stage,
+            int yearLevel,
+            string semester)
+        {
+            if (stage.Equals("management", StringComparison.OrdinalIgnoreCase)
+                || stage.Equals("enrollment", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("A semester-scoped code requires a downstream stage.", nameof(stage));
+            return PeriodLinked(enrollmentCode, Prefix(resource, stage), yearLevel, semester);
+        }
+
+        public string PeriodLinkedWithConfiguredPrefix(
+            string enrollmentCode,
+            int yearLevel,
+            string semester,
+            string prefixKey,
+            string fallbackPrefix)
+        {
+            var prefix = Value(values, prefixKey, fallbackPrefix).Trim().ToUpperInvariant();
+            return PeriodLinked(enrollmentCode, prefix, yearLevel, semester);
+        }
+
+        public string Payment(string financeCode, long paymentOccurrence)
+        {
+            if (paymentOccurrence < 1) throw new ArgumentOutOfRangeException(nameof(paymentOccurrence));
+            var prefix = Value(values, "paymentCodePrefix", "PAY").Trim().ToUpperInvariant();
+            var number = paymentOccurrence.ToString().PadLeft(padding, '0');
+            return Validate(string.Join(separator, prefix, number, Validate(financeCode.Trim())));
         }
 
         public string EnrollmentPublicId(Guid enrollmentId, string prefixKey, string fallbackPrefix)
@@ -341,6 +426,36 @@ internal static partial class BusinessCodeFormatter
             if (string.IsNullOrWhiteSpace(suffix)) throw new ArgumentException($"{label} must include a sequence after its prefix.");
             if (suffix.All(char.IsDigit)) suffix = suffix.PadLeft(padding, '0');
             return Validate(string.Join(separator, new[] { prefix }.Concat(includeYear ? [year, suffix] : [suffix])));
+        }
+
+        private string PeriodLinked(string enrollmentCode, string prefix, int yearLevel, string semester)
+        {
+            var enrollment = NormalizeStudentEnrollment(enrollmentCode);
+            if (string.IsNullOrWhiteSpace(enrollment)) throw new ArgumentException("Enrollment code is required.", nameof(enrollmentCode));
+            var number = AcademicSemesterNumber(yearLevel, semester).ToString().PadLeft(padding, '0');
+            return Validate(string.Join(separator, prefix, number, enrollment));
+        }
+
+        private string NormalizeStudentEnrollment(string enrollmentCode)
+        {
+            var enrollment = Validate(enrollmentCode.Trim());
+            var separatorPattern = Regex.Escape(separator);
+            var legacy = Regex.Match(
+                enrollment,
+                $"^(?<management>.+){separatorPattern}(?:ESTU|{Regex.Escape(Prefix("student", "enrollment"))}){separatorPattern}(?<occurrence>\\d+)$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            return legacy.Success
+                ? Linked(legacy.Groups["management"].Value, "student", "enrollment", long.Parse(legacy.Groups["occurrence"].Value))
+                : enrollment;
+        }
+
+        private static int AcademicSemesterNumber(int yearLevel, string semester)
+        {
+            yearLevel = Math.Clamp(yearLevel, 1, 4);
+            if (semester.Equals("Semester 1", StringComparison.OrdinalIgnoreCase)) return (yearLevel - 1) * 2 + 1;
+            if (semester.Equals("Semester 2", StringComparison.OrdinalIgnoreCase)) return yearLevel * 2;
+            if (semester.Equals("Summer Term", StringComparison.OrdinalIgnoreCase)) return 8 + yearLevel;
+            throw new ArgumentException("Semester must be Semester 1, Semester 2, or Summer Term.", nameof(semester));
         }
 
         private string ManagementSource(string sourceCode, string resource)

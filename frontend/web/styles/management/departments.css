@@ -51,7 +51,6 @@
 .department-head-horizontal>div{display:flex;flex-direction:column;gap:3px;min-width:0}
 .department-head-horizontal strong{font-size:8.5px}
 .department-head-horizontal small{font-size:7px;color:#93a0b1;overflow:hidden;text-overflow:ellipsis}
-.dashboard-department-card{grid-column:span 5}
 .dashboard-department-list>div{min-height:61px;display:grid;grid-template-columns:70px minmax(0,1fr) minmax(110px,.7fr);align-items:center;gap:12px;border-bottom:1px solid #e9eff5}
 .dashboard-department-list>div>span{color:#2d68bd;font-size:10px;font-weight:800}
 .dashboard-department-list>div>b{overflow:hidden;color:#657991;font-size:10px;text-align:right;text-overflow:ellipsis;white-space:nowrap}

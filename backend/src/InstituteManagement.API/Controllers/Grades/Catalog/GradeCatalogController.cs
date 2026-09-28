@@ -15,8 +15,8 @@ namespace InstituteManagement.API.Controllers.Grades;
 public sealed class GradeCatalogController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(string? search, Guid? departmentId, CancellationToken cancellationToken) =>
-        Ok(await sender.Send(new GetGradeRecordsQuery(search, departmentId), cancellationToken));
+    public async Task<IActionResult> Get(string? search, Guid? departmentId, int? year, CancellationToken cancellationToken) =>
+        Ok(await sender.Send(new GetGradeRecordsQuery(search, departmentId, year), cancellationToken));
 
     [HttpPost]
     public async Task<IActionResult> Create(GradeRecordValuesRequest values, CancellationToken cancellationToken)

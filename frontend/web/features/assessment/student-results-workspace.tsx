@@ -38,6 +38,7 @@ type AssessmentCourseResult = { courseId: string; courseCode: string; course: st
 export function StudentResultsWorkspace() {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
+  const year = searchParams.get("year") ?? "";
   const [rows, setRows] = useState<GradeAssessment[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [timetable, setTimetable] = useState<EnrollmentItem[]>([]);
@@ -49,9 +50,9 @@ export function StudentResultsWorkspace() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
   const load = useCallback(() => Promise.all([
-    assessmentApi.get(departmentId),
-    studentEnrollmentApi.get("", departmentId),
-    timetableEnrollmentApi.get("", departmentId),
+    assessmentApi.get(departmentId, year),
+    studentEnrollmentApi.get("", departmentId, year),
+    timetableEnrollmentApi.get("", departmentId, year),
     administrationApi.get("grade-rules"),
   ]).then(([gradeRows, enrollmentRows, timetableRows, settings]) => {
     setRows(gradeRows);
@@ -60,7 +61,7 @@ export function StudentResultsWorkspace() {
     setGradeRules({ ...defaultSettings["grade-rules"], ...settings.values });
     setReady(true);
     setError(false);
-  }).catch(() => setError(true)), [departmentId]);
+  }).catch(() => setError(true)), [departmentId, year]);
   useEffect(() => { void load(); }, [load]);
 
   const studentResults = useMemo(() => {
@@ -83,7 +84,7 @@ export function StudentResultsWorkspace() {
     setConfirming(true);
     setNotice(undefined);
     try {
-      const result = await assessmentApi.confirmFinalGrades(departmentId);
+      const result = await assessmentApi.confirmFinalGrades(departmentId, year);
       setNotice({ message: result.confirmed > 0 ? `${result.confirmed} final Student result${result.confirmed === 1 ? "" : "s"} approved. The course scores now appear in Semester Results, while this Student Result stays here read-only until payments are finalized, Semester Results are released, and the semester ends.` : "No complete Student results are ready for approval.", error: false });
       await load();
     } catch (reason) {
@@ -102,7 +103,7 @@ export function StudentResultsWorkspace() {
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search result code, Student, Teacher, or course..." searchAriaLabel="Search Student results" resultLabel={`${visible.length} Students`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field">
       <select value={status} onChange={event => setStatus(event.target.value)} aria-label="Final grade status"><option>All</option><option>Draft</option><option>Ready</option><option>Confirmed</option></select>
     </DataTableToolbar>
-    <PaginatedDataRegion items={visible} resetKey={`${query}-${status}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No Student results" description="Latest Teacher-submitted course grades matching these filters will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table student-latest-result-table" headerClassName="horizontal-management-head semester-result-head student-latest-result-head" rowSelector=":scope > .student-latest-result-row" columns={studentResultColumns} ariaLabel="Student assessment results">{pageItems.map(student => <StudentResultRow student={student} gradeRules={gradeRules} key={student.key}/>)}</DataTable>}</PaginatedDataRegion>
+    <PaginatedDataRegion items={visible} resetKey={`${departmentId}-${year}-${query}-${status}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No Student results" description="Latest Teacher-submitted course grades matching these filters will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table student-latest-result-table" headerClassName="horizontal-management-head semester-result-head student-latest-result-head" rowSelector=":scope > .student-latest-result-row" columns={studentResultColumns} ariaLabel="Student assessment results">{pageItems.map(student => <StudentResultRow student={student} gradeRules={gradeRules} key={student.key}/>)}</DataTable>}</PaginatedDataRegion>
   </div>;
 }
 

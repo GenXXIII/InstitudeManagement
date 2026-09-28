@@ -114,8 +114,14 @@ public sealed class FinancialAccountSynchronizer(
 
     private async Task<string> FinanceCodeAsync(StudentEnrollment enrollment, Student student, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(enrollment.FinanceCode)) return enrollment.FinanceCode;
-        var code = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", enrollment.EnrollmentCode, "financeCodePrefix", "FIN", cancellationToken);
+        var code = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(
+            db,
+            enrollment.EnrollmentCode,
+            enrollment.YearLevel,
+            enrollment.Semester,
+            "financeCodePrefix",
+            "FIN",
+            cancellationToken);
         if (db.Entry(enrollment).State != EntityState.Detached) enrollment.FinanceCode = code;
         return code;
     }

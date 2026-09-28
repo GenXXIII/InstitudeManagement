@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { DataTableEmptyState, DataTableToolbar, PaginatedDataRegion } from "@/components/data-table";
@@ -14,6 +15,9 @@ const statuses = ["All", "Pending", "Partial", "Paid", "Closed", "Cancelled", "R
 type PaymentQrPreview = { kind: "Bakong" | "Mock"; payload: string; publicId: string; expiresAtUtc: string };
 
 export function FinanceWorkspace() {
+  const searchParams = useSearchParams();
+  const departmentId = searchParams.get("departmentId") ?? "";
+  const year = searchParams.get("year") ?? "";
   const [accounts, setAccounts] = useState<FinancialAccount[]>();
   const [options, setOptions] = useState<FinanceOptions>();
   const [closure, setClosure] = useState<FinanceClosureReadiness>();
@@ -27,7 +31,7 @@ export function FinanceWorkspace() {
 
   const load = useCallback(async () => {
     try {
-      const [nextAccounts, nextOptions, nextClosure] = await Promise.all([financeApi.get(query, status), financeApi.getOptions(), financeApi.getClosureReadiness()]);
+      const [nextAccounts, nextOptions, nextClosure] = await Promise.all([financeApi.get(query, status, departmentId, year), financeApi.getOptions(), financeApi.getClosureReadiness(departmentId, year)]);
       setAccounts(nextAccounts);
       setOptions(nextOptions);
       setClosure(nextClosure);
@@ -35,7 +39,7 @@ export function FinanceWorkspace() {
     } catch {
       setError(true);
     }
-  }, [query, status]);
+  }, [departmentId, query, status, year]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 180);
@@ -56,16 +60,16 @@ export function FinanceWorkspace() {
   }, [accounts]);
 
   async function declareAll() {
-    if (!window.confirm("Issue payment notices to all active students in the current academic period? Existing unpaid notices will use the current configured price and receive a fresh expiry countdown.")) return;
+    if (!window.confirm(`Issue payment notices to all active students ${scopeDescription(departmentId, year)}? Existing unpaid notices will use the current configured price and receive a fresh expiry countdown.`)) return;
     setBulkDeclaring(true);
     setBulkNotice(undefined);
     try {
-      const result = await financeApi.declareAll();
+      const result = await financeApi.declareAll(departmentId, year);
       await load();
       setBulkNotice({
         message: result.declaredCount > 0
           ? `Payment notices issued to ${result.declaredCount} ${result.declaredCount === 1 ? "student" : "students"}. The expiry countdown started now and ends ${formatDateTime(result.expiresAtUtc)}.`
-          : "Every active student in the current academic period already has a payment notice.",
+          : `Every active student ${scopeDescription(departmentId, year)} already has a payment notice.`,
         error: false,
       });
     } catch (reason) {
@@ -76,13 +80,13 @@ export function FinanceWorkspace() {
   }
 
   async function closeAllPayments() {
-    if (!closure?.canCloseAll || !window.confirm(`Finalize all ${closure.totalAccounts} current student payments? Every account will become final and read-only together.`)) return;
+    if (!closure?.canCloseAll || !window.confirm(`Finalize all ${closure.totalAccounts} current student payments ${scopeDescription(departmentId, year)}? Every matching account will become final and read-only together.`)) return;
     setClosingAll(true);
     setBulkNotice(undefined);
     try {
-      const result = await financeApi.closeAllPayments();
+      const result = await financeApi.closeAllPayments(departmentId, year);
       await load();
-      setBulkNotice({ message: `${result.closedCount} student payment${result.closedCount === 1 ? "" : "s"} finalized together. They stay current until Semester Results are released and the semester ends.`, error: false });
+      setBulkNotice({ message: `${result.closedCount} ${departmentId || year ? "filtered " : ""}student payment${result.closedCount === 1 ? "" : "s"} finalized together. They stay current until Semester Results are released and the semester ends.`, error: false });
     } catch (reason) {
       setBulkNotice({ message: reason instanceof Error ? reason.message : "Could not finalize semester payments.", error: true });
     } finally {
@@ -93,9 +97,10 @@ export function FinanceWorkspace() {
   if (error) return <ErrorPage retry={() => void load()}/>;
   if (!accounts || !options || !closure) return <LoadingPage/>;
   const selected = accounts.find(account => account.id === selectedId);
+  const closeLabel = financeCloseLabel(closure, Boolean(departmentId || year), closingAll);
 
   return <div className="viewport-data-page management-viewport-page finance-viewport-page">
-    <PageHeading eyebrow="Current financial state" title="Finance" description="Finance owns enrollment-linked fees, received payments, balances, adjustments, and financial eligibility. Audit events stay in History." actions={<div className="management-actions finance-heading-actions"><button type="button" className="button secondary" disabled={bulkDeclaring || closingAll} onClick={() => void declareAll()}>{bulkDeclaring ? "Issuing…" : "Issue Payment Notices"}</button><button type="button" className="button primary" disabled={!closure.canCloseAll || closingAll || bulkDeclaring} onClick={() => void closeAllPayments()}>{closingAll ? "Finalizing…" : closure.openPaidAccounts === 0 && closure.totalAccounts > 0 && closure.paidAccounts === closure.totalAccounts ? "Semester Payments Finalized" : "Finalize Semester Payments"}</button></div>}/>
+    <PageHeading eyebrow="Current financial state" title="Finance" description="Finance owns enrollment-linked fees, received payments, balances, adjustments, and financial eligibility. Audit events stay in History." actions={<div className="management-actions finance-heading-actions"><button type="button" className="button secondary" disabled={bulkDeclaring || closingAll} onClick={() => void declareAll()}>{bulkDeclaring ? "Issuing…" : "Issue Payment Notices"}</button><button type="button" className="button primary" disabled={!closure.canCloseAll || closingAll || bulkDeclaring} onClick={() => void closeAllPayments()}>{closeLabel}</button></div>}/>
     {bulkNotice && <div className={`finance-bulk-notice${bulkNotice.error ? " is-error" : ""}`} role={bulkNotice.error ? "alert" : "status"}><Icon name="finance" size={17}/><span>{bulkNotice.message}</span><button type="button" onClick={() => setBulkNotice(undefined)} aria-label="Dismiss message">Dismiss</button></div>}
     <section className="finance-metrics" aria-label="Finance summary">
       <FinanceMetric label="Total due" value={money(view.due, view.currency)} tone="blue"/>
@@ -106,7 +111,7 @@ export function FinanceWorkspace() {
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search account, payment, student, or enrollment..." searchAriaLabel="Search Finance" resultLabel={`${view.items.length} accounts`} className="record-toolbar panel finance-toolbar" searchClassName="record-search management-search module-search-field">
       <select className="finance-status-filter" aria-label="Filter finance accounts by status" value={status} onChange={event => setStatus(event.target.value)}>{statuses.map(item => <option key={item}>{item}</option>)}</select>
     </DataTableToolbar>
-    <PaginatedDataRegion items={view.items} resetKey={`${query}-${status}`} className="management-paginated-region" empty={<DataTableEmptyState icon={<Icon name="finance" size={24}/>} title="No active finance accounts" description="Payments archive only after all payments are finalized, Semester Results are released, and the semester ends."/>}>{pageItems => <FinanceTable accounts={pageItems} onSelect={account => setSelectedId(account.id)}/>}</PaginatedDataRegion>
+    <PaginatedDataRegion items={view.items} resetKey={`${departmentId}-${year}-${query}-${status}`} className="management-paginated-region" empty={<DataTableEmptyState icon={<Icon name="finance" size={24}/>} title="No active finance accounts" description="Payments archive only after all payments are finalized, Semester Results are released, and the semester ends."/>}>{pageItems => <FinanceTable accounts={pageItems} onSelect={account => setSelectedId(account.id)}/>}</PaginatedDataRegion>
     {selected && <FinanceAccountModal
       account={selected}
       options={options}
@@ -114,6 +119,20 @@ export function FinanceWorkspace() {
       onUpdated={updated => { if (updated.closedAtUtc && updated.periodState === "Retained") { setAccounts(current => current?.filter(account => account.id !== updated.id)); setSelectedId(""); } else setAccounts(current => current?.map(account => account.id === updated.id ? updated : account)); }}
     />}
   </div>;
+}
+
+function scopeDescription(departmentId: string, year: string) {
+  if (departmentId && year) return "in the selected department and year";
+  if (departmentId) return "in the selected department";
+  if (year) return "in the selected year";
+  return "in the current academic period";
+}
+
+function financeCloseLabel(closure: FinanceClosureReadiness, scoped: boolean, closing: boolean) {
+  if (closing) return "Finalizing…";
+  const finalized = closure.openPaidAccounts === 0 && closure.totalAccounts > 0 && closure.paidAccounts === closure.totalAccounts;
+  if (finalized) return scoped ? "Filtered Payments Finalized" : "Semester Payments Finalized";
+  return scoped ? "Finalize Filtered Payments" : "Finalize Semester Payments";
 }
 
 function FinanceAccountModal({ account: initialAccount, options, onClose, onUpdated }: { account: FinancialAccount; options: FinanceOptions; onClose: () => void; onUpdated: (account: FinancialAccount) => void }) {
@@ -203,7 +222,7 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
   const readOnly = account.status === "Paid" || Boolean(account.closedAtUtc);
 
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><section className="modal finance-account-modal" role="dialog" aria-modal="true" aria-label={`Finance account for ${account.studentName}`}>
-    <div className="modal-head"><div><span className="eyebrow">{readOnly ? "Financial account · View only" : "Financial account"}</span><h2>{account.studentName}</h2><p>{account.financialAccountCode} · {account.enrollmentCode} · {account.academicYear} · {account.semester}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close"/></button></div>
+    <div className="modal-head"><div><span className="eyebrow">{readOnly ? "Financial account · View only" : "Financial account"}</span><h2>{account.studentName}</h2><p>{account.financialAccountCode} · {account.paymentCode} · {account.enrollmentCode} · {account.academicYear} · {account.semester}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close"/></button></div>
     <div className="finance-account-scroll">
       {message && <div className="management-rule-error" role="alert"><Icon name="finance" size={16}/><div><strong>Could not apply change</strong><span>{message}</span></div><button type="button" onClick={() => setMessage("")}>Dismiss</button></div>}
       {!readOnly && <form className="finance-operation-card finance-declaration-card" onSubmit={saveDeclaration}>
@@ -267,7 +286,7 @@ function FinanceAccountModal({ account: initialAccount, options, onClose, onUpda
       <section className="finance-transactions">
         <header><div><strong>Payments</strong><span>Current payment transactions. Corrections and status changes are written to History.</span></div><b>{account.payments.length}</b></header>
         {editing && editDraft && <form className="finance-payment-edit" onSubmit={updatePayment}><strong>Edit {editing.paymentCode}</strong><div className="finance-form-grid"><label><span>Amount</span><input type="number" min="0.01" step="0.01" value={editDraft.amount} onChange={event => setEditDraft({ ...editDraft, amount: event.target.value })} required/></label><label><span>Payment method</span><select value={editDraft.method} onChange={event => setEditDraft({ ...editDraft, method: event.target.value })} required><option value="">Select payment method</option>{options.paymentMethods.map(method => <option key={method}>{method}</option>)}</select></label><label><span>Transaction reference</span><input value={editDraft.transactionReference} onChange={event => setEditDraft({ ...editDraft, transactionReference: event.target.value })}/></label><label><span>Paid at</span><input type="datetime-local" value={editDraft.paidAtUtc} onChange={event => setEditDraft({ ...editDraft, paidAtUtc: event.target.value })}/></label></div><footer><button type="button" className="button secondary" onClick={() => { setEditing(undefined); setEditDraft(undefined); }}>Cancel edit</button><button className="button primary" disabled={busy}>{busy ? "Saving..." : "Save correction"}</button></footer></form>}
-        <div className="finance-transaction-list">{account.payments.map(payment => <article key={payment.id}><div><span>Payment ID</span><strong>{payment.paymentCode}</strong></div><div><span>Amount</span><strong>{money(payment.amount, account.currency)}</strong></div><div><span>Method</span><strong>{payment.method}</strong></div><div><span>Status</span><strong className={`finance-payment-state-${payment.status.toLowerCase()}`}>{payment.status}</strong></div><div><span>Paid at</span><strong>{formatDateTime(payment.paidAtUtc)}</strong></div><div><span>Reference</span><strong>{payment.transactionReference || "—"}</strong></div><footer>{payment.status === "Completed" && !readOnly ? <><button type="button" onClick={() => { setEditing(payment); setEditDraft(draftFromPayment(payment)); }}>Edit</button><button type="button" onClick={() => void changePaymentStatus(payment, "Cancelled")}>Cancel</button><button type="button" onClick={() => void changePaymentStatus(payment, "Refunded")}>Refund</button></> : <span>Read-only</span>}</footer></article>)}</div>
+        <div className="finance-transaction-list">{account.payments.map(payment => <article key={payment.id}><div><span>Paid payment code</span><strong>{payment.paymentCode}</strong></div><div><span>Amount</span><strong>{money(payment.amount, account.currency)}</strong></div><div><span>Method</span><strong>{payment.method}</strong></div><div><span>Status</span><strong className={`finance-payment-state-${payment.status.toLowerCase()}`}>{payment.status}</strong></div><div><span>Paid at</span><strong>{formatDateTime(payment.paidAtUtc)}</strong></div><div><span>Reference</span><strong>{payment.transactionReference || "—"}</strong></div><footer>{payment.status === "Completed" && !readOnly ? <><button type="button" onClick={() => { setEditing(payment); setEditDraft(draftFromPayment(payment)); }}>Edit</button><button type="button" onClick={() => void changePaymentStatus(payment, "Cancelled")}>Cancel</button><button type="button" onClick={() => void changePaymentStatus(payment, "Refunded")}>Refund</button></> : <span>Read-only</span>}</footer></article>)}</div>
         {!account.payments.length && <div className="empty-state"><strong>No payments recorded</strong><span>This account remains {account.status.toLowerCase()} until Finance receives money or applies an adjustment.</span></div>}
       </section>
     </div>

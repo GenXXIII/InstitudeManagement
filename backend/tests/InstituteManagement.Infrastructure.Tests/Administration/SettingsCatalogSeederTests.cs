@@ -22,16 +22,34 @@ public sealed class SettingsCatalogSeederTests
             Student = student,
             DepartmentId = Guid.NewGuid(),
             AcademicYear = "2026–2027",
-            Semester = "Semester 1"
+            Semester = "Semester 1",
+            YearLevel = 1,
+            Status = "Active",
+            CreateAt = new DateTime(2026, 8, 1)
+        };
+        var nextStudentEnrollment = new StudentEnrollment
+        {
+            EnrollmentCode = "ENR-2-STU-16",
+            StudentId = student.Id,
+            Student = student,
+            DepartmentId = studentEnrollment.DepartmentId,
+            AcademicYear = "2026â€“2027",
+            Semester = "Semester 2",
+            YearLevel = 1,
+            Status = "Active",
+            CreateAt = new DateTime(2027, 2, 1)
         };
         var firstTimetableEnrollment = TimetableEnrollment(schedule, "TIM-16-ETIM-16", new DateTime(2026, 8, 1));
         var secondTimetableEnrollment = TimetableEnrollment(schedule, "TIM-16-ETIM-17", new DateTime(2027, 2, 1));
-        db.AddRange(student, schedule, studentEnrollment, firstTimetableEnrollment, secondTimetableEnrollment);
+        db.AddRange(student, schedule, studentEnrollment, nextStudentEnrollment, firstTimetableEnrollment, secondTimetableEnrollment);
         await db.SaveChangesAsync();
 
         await SettingsCatalogSeeder.SeedMissingAsync(db);
 
         Assert.Equal("ENR-1-STU-16", studentEnrollment.EnrollmentCode);
+        Assert.Equal("ENR-1-STU-16", nextStudentEnrollment.EnrollmentCode);
+        Assert.Equal("OPE-1-ENR-1-STU-16", studentEnrollment.OperationCode);
+        Assert.Equal("OPE-2-ENR-1-STU-16", nextStudentEnrollment.OperationCode);
         Assert.Equal($"STU-{studentEnrollment.Id:N}".ToUpperInvariant(), studentEnrollment.PublicId);
         Assert.Equal("ENR-1-TIM-16", firstTimetableEnrollment.EnrollmentCode);
         Assert.Equal("ENR-2-TIM-16", secondTimetableEnrollment.EnrollmentCode);

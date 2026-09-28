@@ -40,6 +40,7 @@ export type AssessmentHistoryGroup = {
   courseCode: string;
   course: string;
   teacher: string;
+  departmentId: string;
   department: string;
   yearLevel: string;
   shift: string;
@@ -63,6 +64,7 @@ export function assessmentHistoryGroups(rows: RecordItem[]) {
       courseCode: value.courseCode,
       course: value.course,
       teacher: value.submittedByTeacher || "Institute record",
+      departmentId: value.departmentId,
       department: value.department,
       yearLevel: value.yearLevel,
       shift: value.shift,

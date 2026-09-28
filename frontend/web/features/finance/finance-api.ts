@@ -3,6 +3,13 @@ import type { BulkFinanceClosureResult, BulkFinanceDeclarationResult, Declaratio
 
 const accountsRoute = "/api/finance/accounts";
 
+function scopeQuery(departmentId = "", year = "") {
+  const params = new URLSearchParams();
+  if (departmentId) params.set("departmentId", departmentId);
+  if (year) params.set("year", year);
+  return params;
+}
+
 function paymentBody(draft: PaymentDraft) {
   return {
     amount: Number(draft.amount),
@@ -13,11 +20,16 @@ function paymentBody(draft: PaymentDraft) {
 }
 
 export const financeApi = {
-  get: (search = "", status = "All") => request<FinancialAccount[]>(`/api/finance?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`),
+  get: (search = "", status = "All", departmentId = "", year = "") => {
+    const params = scopeQuery(departmentId, year);
+    params.set("search", search);
+    params.set("status", status);
+    return request<FinancialAccount[]>(`/api/finance?${params}`);
+  },
   getOptions: () => request<FinanceOptions>("/api/finance/options"),
-  declareAll: () => request<BulkFinanceDeclarationResult>("/api/finance/declarations", { method: "PUT" }),
-  getClosureReadiness: () => request<FinanceClosureReadiness>("/api/finance/close-readiness"),
-  closeAllPayments: () => request<BulkFinanceClosureResult>("/api/finance/close-payments", { method: "PUT" }),
+  declareAll: (departmentId = "", year = "") => request<BulkFinanceDeclarationResult>(`/api/finance/declarations?${scopeQuery(departmentId, year)}`, { method: "PUT" }),
+  getClosureReadiness: (departmentId = "", year = "") => request<FinanceClosureReadiness>(`/api/finance/close-readiness?${scopeQuery(departmentId, year)}`),
+  closeAllPayments: (departmentId = "", year = "") => request<BulkFinanceClosureResult>(`/api/finance/close-payments?${scopeQuery(departmentId, year)}`, { method: "PUT" }),
   declare: (accountId: string, draft: DeclarationDraft) => request<FinancialAccount>(`${accountsRoute}/${accountId}/declaration`, { method: "PUT", body: JSON.stringify({ ...draft, amount: Number(draft.amount), expiresAtUtc: new Date(draft.expiresAtUtc).toISOString() }) }),
   extendExpiry: (accountId: string, days: number, reason: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/expiry-extension`, { method: "PUT", body: JSON.stringify({ days, reason }) }),
   regenerateQr: (accountId: string) => request<FinancialAccount>(`${accountsRoute}/${accountId}/qr`, { method: "PUT" }),

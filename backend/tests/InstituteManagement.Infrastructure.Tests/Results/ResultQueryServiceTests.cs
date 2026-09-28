@@ -94,7 +94,7 @@ public sealed class ResultQueryServiceTests
         Assert.Equal(10, current.AttendanceScore);
         Assert.Equal("A", current.AttendanceGrade);
         Assert.Equal("B", current.OverallGrade);
-        Assert.Equal("RES-1-STU-R", current.ResultCode);
+        Assert.Equal("RES-3-ENR-1-STU-R", current.ResultCode);
         Assert.All(current.Grades, grade => Assert.True(grade.IsApproved));
 
         Assert.Equal(1, await service.PublishAllAsync(CancellationToken.None));

@@ -19,6 +19,7 @@ public static partial class SettingsCatalog
             ..ResourceCodeFormat("grade", "GRD", "ENR"),
             ..ResourceCodeFormat("session", "SES", "ENR"),
             Code("financeCodePrefix", "FIN", 16),
+            Code("paymentCodePrefix", "PAY", 16),
             Code("resultCodePrefix", "RES", 16),
             Code("studentPublicIdPrefix", "STU", 16),
             Code("teacherPublicIdPrefix", "TEA", 16),

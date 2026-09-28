@@ -11,7 +11,10 @@ namespace InstituteManagement.Infrastructure.Services.Grades;
 public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache cache) : CatalogFeatureBase<GradeResponseDto>(db, cache), IGradeCatalogService
 {
     public override CatalogResource Resource => CatalogResource.Grades;
-    public override async Task<IReadOnlyList<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
+    public override Task<IReadOnlyList<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct) =>
+        GetAsync(search, departmentId, null, ct);
+
+    public async Task<IReadOnlyList<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, int? year, CancellationToken ct)
     {
         var period = await CurrentPeriodAsync(ct);
         var publishedPeriods = (await Db.SemesterResultPublications.AsNoTracking()
@@ -29,7 +32,12 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             .Where(grade => (grade.AcademicYear == period.AcademicYear && grade.Term == period.Term || grade.SubmittedByTeacherId.HasValue)
                 && grade.Student!.Status != "Inactive"
                 && grade.Course!.IsActive
-                && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId))
+                && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId)
+                && (!year.HasValue || Db.StudentEnrollments.Any(enrollment =>
+                    enrollment.StudentId == grade.StudentId
+                    && enrollment.AcademicYear == grade.AcademicYear
+                    && enrollment.Semester == grade.Term
+                    && enrollment.YearLevel == year.Value)))
             .ToListAsync(ct);
         grades = grades.Where(grade =>
                 grade.AcademicYear == period.AcademicYear && grade.Term == period.Term
@@ -40,9 +48,23 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             .Where(session => session.AcademicYear == period.AcademicYear && session.Term == period.Term)
             .ToListAsync(ct);
         var sessionsByCourse = sessions.ToLookup(session => session.CourseId);
-        return grades.Where(grade => Matches(search, grade.GradeCode, grade.Student!.FullName, grade.Course!.Name, grade.LetterGrade))
-            .Select(grade => Response(grade, sessionsByCourse[grade.CourseId]))
+        var studentIds = grades.Select(grade => grade.StudentId).Distinct().ToList();
+        var enrollments = (await Db.StudentEnrollments.AsNoTracking()
+                .Where(enrollment => studentIds.Contains(enrollment.StudentId))
+                .ToListAsync(ct))
+            .GroupBy(enrollment => (enrollment.StudentId, enrollment.AcademicYear, enrollment.Semester))
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(enrollment => enrollment.CreateAt).First());
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(Db, ct);
+        var responses = grades.Select(grade =>
+            {
+                enrollments.TryGetValue((grade.StudentId, grade.AcademicYear, grade.Term), out var enrollment);
+                var displayCode = enrollment is null
+                    ? grade.GradeCode
+                    : codeFormat.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "gradeManagementPrefix", "GRD");
+                return Response(grade, sessionsByCourse[grade.CourseId], displayCode);
+            })
             .ToList();
+        return responses.Where(item => Matches(search, item.Values.GradeCode, item.Values.Student, item.Values.Course, item.Values.Grade)).ToList();
     }
 
     public override Task<GradeResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct) =>
@@ -132,14 +154,14 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
         if (entity.LetterGrade is "E" or "F" && (!bool.TryParse(reminders, out var enabled) || enabled)) Db.Notifications.Add(new Notification { Title = "Grade support reminder", Message = $"{student?.FullName ?? "Student"} received {entity.LetterGrade} in {course?.Name ?? "a course"}.", Severity = entity.LetterGrade == "F" ? "Warning" : "Info" });
         return entity;
     }
-    private static GradeResponseDto Response(GradeRecord grade, IEnumerable<ClassSessionRecord> sessions)
+    private static GradeResponseDto Response(GradeRecord grade, IEnumerable<ClassSessionRecord> sessions, string displayCode)
     {
         var attendance = GradeCompositionCalculator.Attendance(
             sessions,
             grade.StudentId,
             grade.AttendanceMaximum);
         return new GradeResponseDto(grade.Id, new GradeValuesDto(
-            grade.GradeCode,
+            displayCode,
             grade.StudentId.ToString(),
             grade.Student?.FullName ?? "—",
             grade.CourseId.ToString(),

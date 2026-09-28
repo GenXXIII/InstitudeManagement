@@ -17,7 +17,7 @@ const resources = [
 export const codeFormatGroups: readonly ConfigurationGroup[] = [
   {
     title: "Shared linked-code format",
-    description: "Management codes use the assigned sequence. Enrollment-linked codes save the enrollment occurrence before the permanent Management code, such as REC-2-STU-1.",
+    description: "Management stays permanent and Enrollment keeps its own occurrence. Student Operation, Record, and History add the program semester before the complete Enrollment identity, such as REC-1-ENR-1-STU-1.",
     fields: [
       field("codeIncludeYear", "Include year", "Place the active academic year's first year inside the Management code.", "toggle"),
       field("codeStartingNumber", "Starting number", "Initial sequence shown in previews and used by records that the backend creates automatically.", "number", { required: true, min: 0, max: 999999999999 }),
@@ -35,12 +35,14 @@ export const codeFormatGroups: readonly ConfigurationGroup[] = [
   })),
   {
     title: "Enrollment-scoped access and outcome codes",
-    description: "Finance and Result codes use the saved enrollment occurrence and Management code. Public IDs use the Enrollment database GUID. New settings affect only values created afterward.",
+    description: "Finance, paid-payment, and Result codes use the program semester and the complete Student Enrollment identity. Public IDs use the Enrollment database GUID.",
     fields: [
-      field("financeCodePrefix", "Finance prefix", "Prefix for a Student finance account linked to one enrollment.", "text", { required: true }),
-      field("financeCodeExample", "Finance example", "Example: FIN-1-STU-1.", "derived", { derive: values => enrollmentScopedExample(values, "financeCodePrefix", "FIN", "studentManagementPrefix", "STU") }),
+      field("financeCodePrefix", "Finance prefix", "Prefix for a Student finance account linked to one program semester and Enrollment.", "text", { required: true }),
+      field("financeCodeExample", "Finance example", "Example: FIN-1-ENR-1-STU-1.", "derived", { derive: values => studentPeriodExample(values, "financeCodePrefix", "FIN") }),
+      field("paymentCodePrefix", "Paid payment prefix", "Prefix for the paid-payment identity linked to one program semester and Enrollment.", "text", { required: true }),
+      field("paymentCodeExample", "Paid payment example", "Example: PAY-1-ENR-1-STU-1.", "derived", { derive: values => studentPeriodExample(values, "paymentCodePrefix", "PAY") }),
       field("resultCodePrefix", "Academic Result prefix", "Prefix for one Student semester result.", "text", { required: true }),
-      field("resultCodeExample", "Academic Result example", "Example: RES-1-STU-1.", "derived", { derive: values => enrollmentScopedExample(values, "resultCodePrefix", "RES", "studentManagementPrefix", "STU") }),
+      field("resultCodeExample", "Academic Result example", "Example: RES-1-ENR-1-STU-1.", "derived", { derive: values => studentPeriodExample(values, "resultCodePrefix", "RES") }),
       field("studentPublicIdPrefix", "Student Public ID prefix", "Issued only when the Student is enrolled and joined to the Enrollment database GUID.", "text", { required: true }),
       field("studentPublicIdExample", "Student Public ID example", "Enrollment-scoped mobile sign-in identity, such as STU-{GUID}.", "derived", { derive: values => publicIdExample(values, "studentPublicIdPrefix", "STU") }),
       field("teacherPublicIdPrefix", "Teacher Public ID prefix", "Issued only when the Teacher is assigned in Enrollment; the default format is TEA-{GUID}.", "text", { required: true }),
@@ -73,17 +75,21 @@ function example(values: Record<string, string>, resource: string, stage: typeof
   const stageIndex = stages.indexOf(stage);
   const stagePrefix = values[`${resource}${capitalize(stage)}Prefix`]?.trim().toUpperCase() || fallbacks[stageIndex];
   const occurrence = "1".padStart(width, "0");
-  return `${stagePrefix}${separator}${occurrence}${separator}${managementCode}`;
+  const enrollmentPrefix = values[`${resource}EnrollmentPrefix`]?.trim().toUpperCase() || fallbacks[1];
+  const enrollment = `${enrollmentPrefix}${separator}${occurrence}${separator}${managementCode}`;
+  if (stage === "enrollment" || resource !== "student") return `${stagePrefix}${separator}${occurrence}${separator}${managementCode}`;
+  return `${stagePrefix}${separator}${occurrence}${separator}${enrollment}`;
 }
 
-function enrollmentScopedExample(values: Record<string, string>, prefixKey: string, fallbackPrefix: string, managementPrefixKey: string, fallbackManagementPrefix: string) {
+function studentPeriodExample(values: Record<string, string>, prefixKey: string, fallbackPrefix: string) {
   const separator = ["-", "/", ".", "_"].includes(values.codeSeparator) ? values.codeSeparator : "-";
   const width = Math.min(12, Math.max(1, Number(values.codePaddingWidth) || 1));
   const managementSequence = (/^\d+$/.test(values.codeStartingNumber || "") ? values.codeStartingNumber : "1").padStart(width, "0");
   const occurrence = "1".padStart(width, "0");
   const year = values.codeIncludeYear === "true" ? `${new Date().getFullYear()}${separator}` : "";
-  const management = `${values[managementPrefixKey]?.trim().toUpperCase() || fallbackManagementPrefix}${separator}${year}${managementSequence}`;
-  return `${values[prefixKey]?.trim().toUpperCase() || fallbackPrefix}${separator}${occurrence}${separator}${management}`;
+  const management = `${values.studentManagementPrefix?.trim().toUpperCase() || "STU"}${separator}${year}${managementSequence}`;
+  const enrollment = `${values.studentEnrollmentPrefix?.trim().toUpperCase() || "ENR"}${separator}${occurrence}${separator}${management}`;
+  return `${values[prefixKey]?.trim().toUpperCase() || fallbackPrefix}${separator}${occurrence}${separator}${enrollment}`;
 }
 
 function publicIdExample(values: Record<string, string>, prefixKey: string, fallbackPrefix: string) {

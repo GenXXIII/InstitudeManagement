@@ -10,7 +10,7 @@ const historyColumns = ["Account", "Student", "Department", "Year", "Semester", 
 export function FinanceTable({ accounts, history = false, onSelect }: { accounts: FinancialAccount[]; history?: boolean; onSelect?: (account: FinancialAccount) => void }) {
   return <DataTable as="section" className="panel horizontal-management-table finance-payment-table" headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={history ? historyColumns : activeColumns}>
     {accounts.map(account => <article className="horizontal-management-row" key={account.id}>
-      <Cell label="Account"><strong className="management-code-value">{account.financialAccountCode}</strong></Cell>
+      <Cell label="Account"><strong className="management-code-value">{account.financialAccountCode}</strong>{account.status === "Paid" && <small>{account.paymentCode}</small>}</Cell>
       <Cell label="Student"><strong>{account.studentName}</strong></Cell>
       <Cell label="Department"><strong>{account.department}</strong></Cell>
       <Cell label="Year"><strong>Year {account.yearLevel}</strong></Cell>

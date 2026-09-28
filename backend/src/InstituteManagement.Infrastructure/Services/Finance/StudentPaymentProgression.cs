@@ -73,18 +73,24 @@ public sealed class FinancialProgression(
             student.UpdatedAtUtc = DateTime.UtcNow;
         }
 
-        var codes = await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, student.StudentCode, "student", student.Id, cancellationToken);
+        var periodCodes = await BusinessCodeFormatter.GenerateStudentPeriodWorkflowAsync(
+            db,
+            student.StudentCode,
+            previousEnrollment.EnrollmentCode,
+            student.YearLevel,
+            currentSemester,
+            cancellationToken);
         var enrollmentId = Guid.NewGuid();
         var nextEnrollment = new StudentEnrollment
         {
             Id = enrollmentId,
-            EnrollmentCode = codes.Enrollment,
+            EnrollmentCode = periodCodes.Enrollment,
             PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken),
-            FinanceCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "financeCodePrefix", "FIN", cancellationToken),
-            ResultCode = await BusinessCodeFormatter.GenerateEnrollmentScopedAsync(db, student.StudentCode, "student", codes.Enrollment, "resultCodePrefix", "RES", cancellationToken),
-            OperationCode = codes.Operation,
-            RecordCode = codes.Record,
-            HistoryCode = codes.History,
+            FinanceCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, previousEnrollment.EnrollmentCode, student.YearLevel, currentSemester, "financeCodePrefix", "FIN", cancellationToken),
+            ResultCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, previousEnrollment.EnrollmentCode, student.YearLevel, currentSemester, "resultCodePrefix", "RES", cancellationToken),
+            OperationCode = periodCodes.Operation,
+            RecordCode = periodCodes.Record,
+            HistoryCode = periodCodes.History,
             StudentId = student.Id,
             DepartmentId = previousEnrollment.DepartmentId,
             YearLevel = student.YearLevel,

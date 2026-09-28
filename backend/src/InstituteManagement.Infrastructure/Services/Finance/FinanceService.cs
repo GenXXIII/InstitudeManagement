@@ -21,13 +21,17 @@ public sealed class FinanceService(
         string? academicYear,
         string? semester,
         string? status,
+        Guid? departmentId,
+        int? year,
         CancellationToken cancellationToken)
     {
         await EnsureLedgerAsync(cancellationToken);
         var accounts = await AccountQuery()
             .Where(account =>
                 (string.IsNullOrWhiteSpace(academicYear) || account.AcademicYear == academicYear)
-                && (string.IsNullOrWhiteSpace(semester) || account.Semester == semester))
+                && (string.IsNullOrWhiteSpace(semester) || account.Semester == semester)
+                && (!departmentId.HasValue || account.StudentEnrollment!.DepartmentId == departmentId)
+                && (!year.HasValue || account.StudentEnrollment!.YearLevel == year.Value))
             .OrderBy(account => account.StudentEnrollment!.YearLevel)
             .ThenBy(account => account.StudentEnrollment!.Shift == "Morning" ? 0 : account.StudentEnrollment.Shift == "Afternoon" ? 1 : account.StudentEnrollment.Shift == "Evening" ? 2 : account.StudentEnrollment.Shift == "Weekend" ? 3 : 4)
             .ThenBy(account => account.Student!.FullName)
@@ -170,7 +174,10 @@ public sealed class FinanceService(
         return AssertSingle(await MapAsync([account], cancellationToken));
     }
 
-    public async Task<BulkFinanceDeclarationResultDto> DeclareAllAsync(CancellationToken cancellationToken)
+    public async Task<BulkFinanceDeclarationResultDto> DeclareAllAsync(
+        Guid? departmentId,
+        int? year,
+        CancellationToken cancellationToken)
     {
         var period = await db.SystemSettings.AsNoTracking()
             .Where(setting =>
@@ -189,6 +196,8 @@ public sealed class FinanceService(
             .Where(account =>
                 account.AcademicYear == academicYear
                 && account.Semester == semester
+                && (!departmentId.HasValue || account.StudentEnrollment!.DepartmentId == departmentId)
+                && (!year.HasValue || account.StudentEnrollment!.YearLevel == year.Value)
                 && account.Status == "Pending"
                 && !account.Payments.Any(payment => payment.Status == "Completed")
                 && account.StudentEnrollment!.Status == "Active"
@@ -259,20 +268,26 @@ public sealed class FinanceService(
         return new(declaredCount, announcedAtUtc, dueOn, expiresAtUtc);
     }
 
-    public async Task<FinanceClosureReadinessDto> GetClosureReadinessAsync(CancellationToken cancellationToken)
+    public async Task<FinanceClosureReadinessDto> GetClosureReadinessAsync(
+        Guid? departmentId,
+        int? year,
+        CancellationToken cancellationToken)
     {
-        var accounts = await CurrentActiveAccountsAsync(cancellationToken);
+        var accounts = await CurrentActiveAccountsAsync(departmentId, year, cancellationToken);
         var paidAccounts = accounts.Count(account => account.Status == "Paid" && Balance(account) <= 0m);
         var openPaidAccounts = accounts.Count(account => account.Status == "Paid" && Balance(account) <= 0m && !account.ClosedAtUtc.HasValue);
         return new(accounts.Count, paidAccounts, openPaidAccounts, accounts.Count > 0 && paidAccounts == accounts.Count && openPaidAccounts > 0);
     }
 
-    public async Task<BulkFinanceClosureResultDto> CloseAllPaymentsAsync(CancellationToken cancellationToken)
+    public async Task<BulkFinanceClosureResultDto> CloseAllPaymentsAsync(
+        Guid? departmentId,
+        int? year,
+        CancellationToken cancellationToken)
     {
-        var accounts = await CurrentActiveAccountsAsync(cancellationToken);
+        var accounts = await CurrentActiveAccountsAsync(departmentId, year, cancellationToken);
         if (accounts.Count == 0) throw new InvalidOperationException("No current student payments are available to close.");
         if (accounts.Any(account => account.Status != "Paid" || Balance(account) > 0m))
-            throw new InvalidOperationException("All current student payments must be fully paid before payments can be closed together.");
+            throw new InvalidOperationException("All current student payments in the selected scope must be fully paid before payments can be closed together.");
 
         var closedAtUtc = DateTime.UtcNow;
         var openAccounts = accounts.Where(account => !account.ClosedAtUtc.HasValue).ToList();
@@ -289,7 +304,7 @@ public sealed class FinanceService(
                 account.Semester,
                 account.Status,
                 account.ClosedAtUtc,
-                closureScope = "All current students",
+                closureScope = departmentId.HasValue || year.HasValue ? "Current filtered students" : "All current students",
                 historyState = "Waiting for Semester Result publication and semester end",
                 performedBy = "Administrator"
             });
@@ -690,7 +705,7 @@ public sealed class FinanceService(
         var oldBalance = Balance(account);
         var payment = new FinancialPayment
         {
-            PaymentCode = await NextPaymentCodeAsync(cancellationToken),
+            PaymentCode = await NextPaymentCodeAsync(account, cancellationToken),
             FinancialAccountId = account.Id,
             Amount = decimal.Round(request.Amount, 2),
             Method = CanonicalMethod(request.Method!, settings),
@@ -747,7 +762,10 @@ public sealed class FinanceService(
         return account;
     }
 
-    private async Task<List<FinancialAccount>> CurrentActiveAccountsAsync(CancellationToken cancellationToken)
+    private async Task<List<FinancialAccount>> CurrentActiveAccountsAsync(
+        Guid? departmentId,
+        int? year,
+        CancellationToken cancellationToken)
     {
         var period = await db.SystemSettings.AsNoTracking()
             .Where(setting =>
@@ -765,6 +783,8 @@ public sealed class FinanceService(
             .Where(account =>
                 account.AcademicYear == academicYear
                 && account.Semester == semester
+                && (!departmentId.HasValue || account.StudentEnrollment!.DepartmentId == departmentId)
+                && (!year.HasValue || account.StudentEnrollment!.YearLevel == year.Value)
                 && account.StudentEnrollment!.Status == "Active"
                 && account.Student!.Status != "Inactive")
             .OrderBy(account => account.Student!.FullName)
@@ -785,6 +805,7 @@ public sealed class FinanceService(
         var currentSemester = periodValues.GetValueOrDefault("semester:currentTerm", "");
         var years = accounts.Select(account => account.AcademicYear).Distinct().ToList();
         var semesters = accounts.Select(account => account.Semester).Distinct().ToList();
+        var codeFormat = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
         var timetableRows = await db.TimetableEnrollments.AsNoTracking()
             .Include(enrollment => enrollment.Course)
             .Include(enrollment => enrollment.ScheduleEntry)
@@ -800,6 +821,18 @@ public sealed class FinanceService(
         return accounts.Select(account =>
         {
             var enrollment = account.StudentEnrollment!;
+            var financeCode = codeFormat.PeriodLinkedWithConfiguredPrefix(
+                enrollment.EnrollmentCode,
+                enrollment.YearLevel,
+                enrollment.Semester,
+                "financeCodePrefix",
+                "FIN");
+            var paidPaymentCode = codeFormat.PeriodLinkedWithConfiguredPrefix(
+                enrollment.EnrollmentCode,
+                enrollment.YearLevel,
+                enrollment.Semester,
+                "paymentCodePrefix",
+                "PAY");
             var timetableReady = timetableRows.Any(timetable =>
                 timetable.AcademicYear == account.AcademicYear
                 && timetable.Semester == account.Semester
@@ -812,13 +845,13 @@ public sealed class FinanceService(
             var payments = account.Payments
                 .OrderByDescending(payment => payment.PaidAtUtc)
                 .ThenByDescending(payment => payment.CreateAt)
-                .Select(payment => new FinancialPaymentDto(payment.Id, payment.PaymentCode, payment.Amount, payment.Method, payment.Status, payment.TransactionReference, payment.PaidAtUtc, payment.CreateAt))
+                .Select(payment => new FinancialPaymentDto(payment.Id, paidPaymentCode, payment.Amount, payment.Method, payment.Status, payment.TransactionReference, payment.PaidAtUtc, payment.CreateAt))
                 .ToList();
             var latest = account.Payments.Where(payment => payment.Status == "Completed").OrderByDescending(payment => payment.PaidAtUtc).FirstOrDefault();
             return new StudentPaymentDto(
                 account.Id,
-                account.FinancialAccountCode,
-                account.FinancialAccountCode,
+                financeCode,
+                paidPaymentCode,
                 account.StudentId,
                 account.Student!.StudentCode,
                 enrollment.PublicId,
@@ -966,11 +999,22 @@ public sealed class FinanceService(
     private static string CanonicalMethod(string method, FinanceSettings settings) =>
         settings.PaymentMethods.First(item => item.Equals(method.Trim(), StringComparison.OrdinalIgnoreCase));
 
-    private async Task<string> NextPaymentCodeAsync(CancellationToken cancellationToken)
+    private async Task<string> NextPaymentCodeAsync(FinancialAccount account, CancellationToken cancellationToken)
     {
-        var sequence = await db.FinancialPayments.CountAsync(cancellationToken) + db.FinancialPayments.Local.Count + 1;
+        var enrollment = account.StudentEnrollment
+            ?? throw new InvalidOperationException("The financial account must have a Student enrollment.");
+        var format = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
+        var financeCode = format.PeriodLinkedWithConfiguredPrefix(
+            enrollment.EnrollmentCode,
+            enrollment.YearLevel,
+            enrollment.Semester,
+            "financeCodePrefix",
+            "FIN");
+        var sequence = await db.FinancialPayments.CountAsync(payment => payment.FinancialAccountId == account.Id, cancellationToken)
+            + db.FinancialPayments.Local.Count(payment => payment.FinancialAccountId == account.Id)
+            + 1L;
         string code;
-        do { code = $"P-{sequence++:D5}"; }
+        do { code = format.Payment(financeCode, sequence++); }
         while (await db.FinancialPayments.AnyAsync(payment => payment.PaymentCode == code, cancellationToken)
             || db.FinancialPayments.Local.Any(payment => payment.PaymentCode == code));
         return code;

@@ -33,6 +33,8 @@ public sealed class HistoryQueryService(InstituteDbContext db, IEnumerable<IHist
     private static string HistoryCode(RecordDto item, BusinessCodeFormatter.BusinessCodeFormat format)
     {
         var resource = Resource(item.Type);
+        var explicitHistory = JsonCode(item.Details, "historyCode");
+        if (!string.IsNullOrWhiteSpace(explicitHistory)) return explicitHistory;
         var source = SourceCode(item.Details, resource);
         if (resource == "finance") return source ?? string.Empty;
         return source is null ? "" : format.Derive(source, resource, "history");
@@ -47,6 +49,20 @@ public sealed class HistoryQueryService(InstituteDbContext db, IEnumerable<IHist
             var expected = resource == "session" ? "classSessionRecordCode" : resource == "finance" ? "financialAccountCode" : $"{resource}Code";
             foreach (var property in document.RootElement.EnumerateObject())
                 if (property.Name.Equals(expected, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
+                    return property.Value.GetString();
+        }
+        catch (JsonException) { }
+        return null;
+    }
+
+    private static string? JsonCode(string details, string key)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(details);
+            if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
+            foreach (var property in document.RootElement.EnumerateObject())
+                if (property.Name.Equals(key, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
                     return property.Value.GetString();
         }
         catch (JsonException) { }

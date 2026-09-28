@@ -1,5 +1,6 @@
 using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
 using static InstituteManagement.Infrastructure.Services.History.HistorySnapshotFactory;
 
@@ -41,13 +42,21 @@ public sealed class GradeHistorySnapshotProvider(InstituteDbContext db) : IHisto
         var enrollmentByPeriod = enrollments
             .GroupBy(item => (item.StudentId, item.AcademicYear, item.Semester))
             .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.CreateAt).First());
+        var format = await BusinessCodeFormatter.LoadAsync(db, cancellationToken);
 
         return grades.Select(grade =>
         {
             enrollmentByPeriod.TryGetValue((grade.StudentId, grade.AcademicYear, grade.Term), out var enrollment);
+            var gradeCode = enrollment is null
+                ? grade.GradeCode
+                : format.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "gradeManagementPrefix", "GRD");
+            var historyCode = enrollment is null
+                ? format.Derive(grade.GradeCode, "grade", "history")
+                : format.PeriodLinked(enrollment.EnrollmentCode, "student", "history", enrollment.YearLevel, enrollment.Semester);
             return Create(grade.Id, grade.ReviewedAtUtc ?? grade.SubmittedAtUtc ?? grade.UpdatedAtUtc, Type, grade.Student?.FullName ?? grade.GradeCode, "Recorded", new
             {
-                grade.GradeCode,
+                gradeCode,
+                historyCode,
                 grade.StudentId,
                 student = grade.Student?.FullName,
                 studentCode = grade.Student?.StudentCode,

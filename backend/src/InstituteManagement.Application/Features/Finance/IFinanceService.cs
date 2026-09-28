@@ -7,6 +7,8 @@ public interface IFinanceService
         string? academicYear,
         string? semester,
         string? status,
+        Guid? departmentId,
+        int? year,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<StudentPaymentDto>> GetStudentAsync(Guid studentId, CancellationToken cancellationToken);
@@ -18,11 +20,20 @@ public interface IFinanceService
         FinanceDeclarationDto request,
         CancellationToken cancellationToken);
 
-    Task<BulkFinanceDeclarationResultDto> DeclareAllAsync(CancellationToken cancellationToken);
+    Task<BulkFinanceDeclarationResultDto> DeclareAllAsync(
+        Guid? departmentId,
+        int? year,
+        CancellationToken cancellationToken);
 
-    Task<FinanceClosureReadinessDto> GetClosureReadinessAsync(CancellationToken cancellationToken);
+    Task<FinanceClosureReadinessDto> GetClosureReadinessAsync(
+        Guid? departmentId,
+        int? year,
+        CancellationToken cancellationToken);
 
-    Task<BulkFinanceClosureResultDto> CloseAllPaymentsAsync(CancellationToken cancellationToken);
+    Task<BulkFinanceClosureResultDto> CloseAllPaymentsAsync(
+        Guid? departmentId,
+        int? year,
+        CancellationToken cancellationToken);
 
     Task<StudentPaymentDto> ExtendExpiryAsync(
         Guid financialAccountId,

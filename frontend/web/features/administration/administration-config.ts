@@ -33,7 +33,7 @@ const simpleSettingKeys: Record<SettingSection, readonly string[]> = {
   departments: ["defaultStatus", "requireDepartmentHead", "allowCrossDepartmentTeaching"],
   courses: ["defaultCapacity", "requireAssignedTeacher"],
   classrooms: ["defaultCapacity", "attendanceDeviceRequired"],
-  "code-formats": ["codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "studentManagementPrefix", "studentEnrollmentPrefix", "studentOperationPrefix", "studentRecordPrefix", "studentHistoryPrefix", "financeCodePrefix", "resultCodePrefix", "studentPublicIdPrefix", "teacherPublicIdPrefix", "alertCodePrefix", "alertCodeExample", "notificationCodePrefix", "notificationCodeExample", "historyCodePrefix", "historyCodeExample"],
+  "code-formats": ["codeIncludeYear", "codeStartingNumber", "codePaddingWidth", "codeSeparator", "studentManagementPrefix", "studentEnrollmentPrefix", "studentOperationPrefix", "studentRecordPrefix", "studentHistoryPrefix", "financeCodePrefix", "paymentCodePrefix", "resultCodePrefix", "studentPublicIdPrefix", "teacherPublicIdPrefix", "alertCodePrefix", "alertCodeExample", "notificationCodePrefix", "notificationCodeExample", "historyCodePrefix", "historyCodeExample"],
   "users-access": ["defaultUserStatus", "availableRoles"],
   "student-rules": ["maximumCoursesPerSemester", "statuses"],
   "teacher-rules": ["statuses", "maximumCourses", "maximumClasses"],

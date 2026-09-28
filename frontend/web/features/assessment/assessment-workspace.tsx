@@ -16,20 +16,24 @@ import type { GradeAssessment } from "./assessment-types";
 export function AssessmentWorkspace() {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
-  const suffix = departmentId ? `?departmentId=${encodeURIComponent(departmentId)}` : "";
+  const year = searchParams.get("year") ?? "";
+  const scopeParams = new URLSearchParams();
+  if (departmentId) scopeParams.set("departmentId", departmentId);
+  if (year) scopeParams.set("year", year);
+  const suffix = scopeParams.size ? `?${scopeParams}` : "";
   const [rows, setRows] = useState<GradeAssessment[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
   const load = useCallback(() => Promise.all([
-    assessmentApi.get(departmentId),
-    studentEnrollmentApi.get("", departmentId),
+    assessmentApi.get(departmentId, year),
+    studentEnrollmentApi.get("", departmentId, year),
   ]).then(([gradeRows, enrollmentRows]) => {
     setRows(gradeRows);
     setEnrollments(enrollmentRows);
     setReady(true);
     setError(false);
-  }).catch(() => setError(true)), [departmentId]);
+  }).catch(() => setError(true)), [departmentId, year]);
   useEffect(() => { void load(); }, [load]);
 
   const groups = useMemo(() => groupCourseAssessments(rows, enrollments)

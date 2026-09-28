@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrowserBackButton } from "@/components/browser-back-button";
 import { Icon } from "@/components/icon";
@@ -13,18 +14,21 @@ import { assessmentScore, gradeLetter, statusLabel, statusTone } from "./assessm
 import type { GradeAssessment } from "./assessment-types";
 
 export function StudentResultDetail({ studentId }: { studentId: string }) {
+  const searchParams = useSearchParams();
+  const departmentId = searchParams.get("departmentId") ?? "";
+  const year = searchParams.get("year") ?? "";
   const [rows, setRows] = useState<GradeAssessment[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [gradeRules, setGradeRules] = useState<Record<string, string>>(defaultSettings["grade-rules"]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
-  const load = useCallback(() => Promise.all([assessmentApi.get(), studentEnrollmentApi.get(), administrationApi.get("grade-rules")]).then(([gradeRows, enrollmentRows, settings]) => {
+  const load = useCallback(() => Promise.all([assessmentApi.get(departmentId, year), studentEnrollmentApi.get("", departmentId, year), administrationApi.get("grade-rules")]).then(([gradeRows, enrollmentRows, settings]) => {
     setRows(gradeRows.filter(item => item.values.studentId === studentId));
     setEnrollments(enrollmentRows);
     setGradeRules({ ...defaultSettings["grade-rules"], ...settings.values });
     setReady(true);
     setError(false);
-  }).catch(() => setError(true)), [studentId]);
+  }).catch(() => setError(true)), [departmentId, studentId, year]);
   useEffect(() => { void load(); }, [load]);
 
   const courses = useMemo(() => rows.toSorted((left, right) => left.values.course.localeCompare(right.values.course, undefined, { numeric: true, sensitivity: "base" })), [rows]);

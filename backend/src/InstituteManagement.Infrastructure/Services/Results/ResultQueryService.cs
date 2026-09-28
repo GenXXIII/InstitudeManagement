@@ -151,9 +151,9 @@ public sealed class ResultQueryService(InstituteDbContext db, FinancialProgressi
                 var publicationStatus = publication is not null ? "Published" : approvedResults.Count == expectedCourseCount ? "Ready" : "Draft";
                 results.Add(new SemesterResultDto(
                     student.Id, student.StudentCode,
-                    !string.IsNullOrWhiteSpace(enrollment?.ResultCode)
-                        ? enrollment.ResultCode
-                        : codeFormat.LinkedWithConfiguredPrefix(student.StudentCode, "student", enrollment?.EnrollmentCode ?? string.Empty, "resultCodePrefix", "RES"),
+                    enrollment is not null
+                        ? codeFormat.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "resultCodePrefix", "RES")
+                        : codeFormat.LinkedWithConfiguredPrefix(student.StudentCode, "student", string.Empty, "resultCodePrefix", "RES"),
                     student.FullName, resultDepartmentId, resultDepartment, resultYear, resultShift,
                     period.AcademicYear, period.Semester,
                     statuses.Count(item => item is "Present" or "Late"), absent,

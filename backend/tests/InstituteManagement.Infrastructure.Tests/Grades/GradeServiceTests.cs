@@ -187,6 +187,32 @@ public sealed class GradeServiceTests
         Assert.Contains("read-only", exception.Message);
     }
 
+    [Fact]
+    public async Task Grade_catalog_filters_current_results_by_enrollment_year()
+    {
+        await using var db = CreateContext();
+        var department = new Department { DepartmentCode = "DEP-YEAR", Name = "Year Filter" };
+        var firstYearStudent = new Student { StudentCode = "STU-YEAR-1", FullName = "First Year Student", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
+        var secondYearStudent = new Student { StudentCode = "STU-YEAR-2", FullName = "Second Year Student", DepartmentId = department.Id, Department = department, YearLevel = 2, Shift = "Morning" };
+        var course = new Course { CourseCode = "COU-YEAR", Name = "Year Course", DepartmentId = department.Id, Department = department };
+        db.AddRange(department, firstYearStudent, secondYearStudent, course);
+        db.StudentEnrollments.AddRange(
+            new StudentEnrollment { EnrollmentCode = "ENR-1-STU-YEAR-1", StudentId = firstYearStudent.Id, Student = firstYearStudent, DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning", AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" },
+            new StudentEnrollment { EnrollmentCode = "ENR-1-STU-YEAR-2", StudentId = secondYearStudent.Id, Student = secondYearStudent, DepartmentId = department.Id, Department = department, YearLevel = 2, Shift = "Morning", AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" });
+        db.GradeRecords.AddRange(
+            new GradeRecord { GradeCode = "GRD-YEAR-1", StudentId = firstYearStudent.Id, Student = firstYearStudent, CourseId = course.Id, Course = course, AcademicYear = "2026–2027", Term = "Semester 1", Score = 80, LetterGrade = "B", ReviewStatus = "Approved" },
+            new GradeRecord { GradeCode = "GRD-YEAR-2", StudentId = secondYearStudent.Id, Student = secondYearStudent, CourseId = course.Id, Course = course, AcademicYear = "2026–2027", Term = "Semester 1", Score = 80, LetterGrade = "B", ReviewStatus = "Approved" });
+        AddSetting(db, "academic-year", "currentYear", "2026–2027");
+        AddSetting(db, "semester", "currentTerm", "Semester 1");
+        await db.SaveChangesAsync();
+
+        var results = await new GradeCatalogService(db, new InstituteCache()).GetAsync(null, null, 1, CancellationToken.None);
+
+        var result = Assert.Single(results);
+        Assert.Equal(firstYearStudent.Id.ToString(), result.Values.StudentId);
+        Assert.Equal("GRD-1-ENR-1-STU-YEAR-1", result.Values.GradeCode);
+    }
+
     private static ClassSessionRecord Session(Student student, Course course, DateOnly date, string status) => new()
     {
         ScheduleEntryId = Guid.NewGuid(),

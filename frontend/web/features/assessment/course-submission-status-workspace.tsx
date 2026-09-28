@@ -46,7 +46,7 @@ export function CourseSubmissionStatusWorkspace() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
   const load = useCallback(() => Promise.all([
-    assessmentApi.get(departmentId),
+    assessmentApi.get(departmentId, year),
     studentEnrollmentApi.get("", departmentId, year),
     timetableEnrollmentApi.get("", departmentId, year),
   ]).then(([gradeRows, studentRows, timetableRows]) => {
@@ -72,7 +72,7 @@ export function CourseSubmissionStatusWorkspace() {
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search course, Teacher, department, or cohort..." searchAriaLabel="Search course submission status" resultLabel={`${visible.length} assigned courses`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field">
       <select value={state} onChange={event => setState(event.target.value)} aria-label="Course submission status"><option>All</option><option>Pending</option><option>Submitted</option><option>Resubmitted</option></select>
     </DataTableToolbar>
-    <PaginatedDataRegion items={visible} resetKey={`${query}-${state}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="book" size={28}/>} title="No assigned courses" description="Current Timetable Enrollment courses matching these filters will appear here."/>}>{pageItems => <section className="course-submission-grid" aria-label="Current course submission status">{pageItems.map(item => <CourseStatusCard item={item} key={item.key}/>)}</section>}</PaginatedDataRegion>
+    <PaginatedDataRegion items={visible} resetKey={`${departmentId}-${year}-${query}-${state}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="book" size={28}/>} title="No assigned courses" description="Current Timetable Enrollment courses matching these filters will appear here."/>}>{pageItems => <section className="course-submission-grid" aria-label="Current course submission status">{pageItems.map(item => <CourseStatusCard item={item} key={item.key}/>)}</section>}</PaginatedDataRegion>
   </div>;
 }
 

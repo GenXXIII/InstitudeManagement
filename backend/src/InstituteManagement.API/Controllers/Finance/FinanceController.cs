@@ -15,8 +15,10 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
         string? academicYear,
         string? semester,
         string? status,
+        Guid? departmentId,
+        int? year,
         CancellationToken cancellationToken) =>
-        Ok(await finance.GetAsync(search, academicYear, semester, status, cancellationToken));
+        Ok(await finance.GetAsync(search, academicYear, semester, status, departmentId, year, cancellationToken));
 
     [HttpGet("students/{studentId:guid}")]
     public async Task<IActionResult> GetStudent(Guid studentId, CancellationToken cancellationToken) =>
@@ -34,16 +36,16 @@ public sealed class FinanceController(IFinanceService finance) : ControllerBase
         Ok(await finance.DeclareAsync(financialAccountId, request.ToDto(), cancellationToken));
 
     [HttpPut("declarations")]
-    public async Task<IActionResult> DeclareAll(CancellationToken cancellationToken) =>
-        Ok(await finance.DeclareAllAsync(cancellationToken));
+    public async Task<IActionResult> DeclareAll(Guid? departmentId, int? year, CancellationToken cancellationToken) =>
+        Ok(await finance.DeclareAllAsync(departmentId, year, cancellationToken));
 
     [HttpGet("close-readiness")]
-    public async Task<IActionResult> GetCloseReadiness(CancellationToken cancellationToken) =>
-        Ok(await finance.GetClosureReadinessAsync(cancellationToken));
+    public async Task<IActionResult> GetCloseReadiness(Guid? departmentId, int? year, CancellationToken cancellationToken) =>
+        Ok(await finance.GetClosureReadinessAsync(departmentId, year, cancellationToken));
 
     [HttpPut("close-payments")]
-    public async Task<IActionResult> CloseAllPayments(CancellationToken cancellationToken) =>
-        Ok(await finance.CloseAllPaymentsAsync(cancellationToken));
+    public async Task<IActionResult> CloseAllPayments(Guid? departmentId, int? year, CancellationToken cancellationToken) =>
+        Ok(await finance.CloseAllPaymentsAsync(departmentId, year, cancellationToken));
 
     [HttpPut("accounts/{financialAccountId:guid}/expiry-extension")]
     public async Task<IActionResult> ExtendExpiry(

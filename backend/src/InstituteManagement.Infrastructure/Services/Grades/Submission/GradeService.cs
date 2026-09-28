@@ -280,12 +280,13 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         await cache.InvalidateDashboardAsync(cancellationToken);
     }
 
-    public async Task<int> ConfirmReadyFinalGradesAsync(Guid? departmentId, CancellationToken cancellationToken)
+    public async Task<int> ConfirmReadyFinalGradesAsync(Guid? departmentId, int? year, CancellationToken cancellationToken)
     {
         var expectedCourseCount = await ConfiguredExpectedCourseCountAsync(cancellationToken);
         var enrollments = await db.StudentEnrollments.AsNoTracking().Include(item => item.Student)
             .Where(item => item.Status == "Active"
                 && (!departmentId.HasValue || item.DepartmentId == departmentId)
+                && (!year.HasValue || item.YearLevel == year.Value)
                 && item.Student != null
                 && item.Student.Status != "Inactive")
             .ToListAsync(cancellationToken);

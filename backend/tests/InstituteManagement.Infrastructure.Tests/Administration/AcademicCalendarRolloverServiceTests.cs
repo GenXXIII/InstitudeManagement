@@ -46,13 +46,13 @@ public sealed class AcademicCalendarRolloverServiceTests
             && item.Shift == "Morning"
             && item.Status == "Active");
         Assert.Equal("STU-1-ESTU-1", enrollments.Single(item => item.Id == oldEnrollment.Id).EnrollmentCode);
-        Assert.Equal("JOIN-2-STU-1", newEnrollment.EnrollmentCode);
-        Assert.Equal("ACT-2-STU-1", newEnrollment.OperationCode);
-        Assert.Equal("DOC-2-STU-1", newEnrollment.RecordCode);
-        Assert.Equal("ARC-2-STU-1", newEnrollment.HistoryCode);
+        Assert.Equal("JOIN-1-STU-1", newEnrollment.EnrollmentCode);
+        Assert.Equal("ACT-2-JOIN-1-STU-1", newEnrollment.OperationCode);
+        Assert.Equal("DOC-2-JOIN-1-STU-1", newEnrollment.RecordCode);
+        Assert.Equal("ARC-2-JOIN-1-STU-1", newEnrollment.HistoryCode);
         Assert.Equal($"LOGIN-{newEnrollment.Id:N}".ToUpperInvariant(), newEnrollment.PublicId);
-        Assert.Equal("FEE-2-STU-1", newEnrollment.FinanceCode);
-        Assert.Equal("RESULT-2-STU-1", newEnrollment.ResultCode);
+        Assert.Equal("FEE-2-JOIN-1-STU-1", newEnrollment.FinanceCode);
+        Assert.Equal("RESULT-2-JOIN-1-STU-1", newEnrollment.ResultCode);
         Assert.Single(db.Students);
         Assert.Equal(oldTimetable.Id, Assert.Single(db.TimetableEnrollments).Id);
     }

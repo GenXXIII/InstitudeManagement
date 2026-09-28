@@ -97,6 +97,7 @@ export const defaultSettings: InstituteSettings = {
     gradeManagementPrefix: "GRD", gradeEnrollmentPrefix: "ENR", gradeOperationPrefix: "OPE", gradeRecordPrefix: "REC", gradeHistoryPrefix: "HIS",
     sessionManagementPrefix: "SES", sessionEnrollmentPrefix: "ENR", sessionOperationPrefix: "OPE", sessionRecordPrefix: "REC", sessionHistoryPrefix: "HIS",
     financeCodePrefix: "FIN",
+    paymentCodePrefix: "PAY",
     resultCodePrefix: "RES",
     studentPublicIdPrefix: "STU",
     teacherPublicIdPrefix: "TEA",

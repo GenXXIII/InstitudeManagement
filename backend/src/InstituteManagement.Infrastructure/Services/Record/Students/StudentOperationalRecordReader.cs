@@ -29,7 +29,7 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
             var studentEnrollments = enrollments.Where(x => x.StudentId == student.Id).ToList();
             var enrollmentEvents = studentEnrollments.Select(x =>
             {
-                var codes = codeFormat.Chain(student.StudentCode, x.EnrollmentCode, x.OperationCode, x.RecordCode, x.HistoryCode, "student");
+                var codes = codeFormat.StudentPeriodChain(student.StudentCode, x.EnrollmentCode, x.YearLevel, x.Semester);
                 return (At: x.UpdatedAtUtc, Activity: Create(
                     ("Activity", "Student enrollment"),
                     ("Management code", codes.Management),
@@ -58,8 +58,14 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
                 ("Teacher attendance", x.Session.TeacherAttendanceStatus), ("Session status", TeacherPresence.SessionStatus(x.Session.TeacherAttendanceStatus)),
                 ("Reason", TeacherPresence.Reason(x.Session.TeacherAttendanceStatus)), ("Attendance", x.Student.Status),
                 ("Check in", string.IsNullOrWhiteSpace(x.Student.CheckedInAt) ? "No check-in" : x.Student.CheckedInAt))));
-            var gradeEvents = studentGrades.Select(x => (At: x.UpdatedAtUtc, Activity: Create(
-                ("Activity", "Course grade"), ("CourseId", x.CourseId.ToString()), ("Grade code", x.GradeCode),
+            var gradeEvents = studentGrades.Select(x =>
+            {
+                var enrollment = studentEnrollments.FirstOrDefault(item => item.AcademicYear == x.AcademicYear && item.Semester == x.Term);
+                var gradeCode = enrollment is null
+                    ? x.GradeCode
+                    : codeFormat.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "gradeManagementPrefix", "GRD");
+                return (At: x.UpdatedAtUtc, Activity: Create(
+                ("Activity", "Course grade"), ("CourseId", x.CourseId.ToString()), ("Grade code", gradeCode),
                 ("Academic year", x.AcademicYear), ("Term", x.Term), ("Date", x.UpdatedAtUtc.ToString("yyyy-MM-dd")),
                 ("Time", x.UpdatedAtUtc.ToString("HH:mm")), ("Course code", x.Course?.CourseCode ?? "—"),
                 ("Course", x.Course?.Name ?? "Course"), ("Score", x.Score.ToString("0.##", CultureInfo.InvariantCulture)),
@@ -71,12 +77,13 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
                 ("Midterm maximum", x.MidtermMaximum.ToString("0.##", CultureInfo.InvariantCulture)),
                 ("Final exam score", x.FinalExamScore.ToString("0.##", CultureInfo.InvariantCulture)),
                 ("Final exam maximum", x.FinalExamMaximum.ToString("0.##", CultureInfo.InvariantCulture)),
-                ("Grade", x.LetterGrade))));
+                ("Grade", x.LetterGrade)));
+            });
             var events = enrollmentEvents.Concat(attendanceEvents).Concat(gradeEvents).OrderByDescending(x => x.At).ToList();
             var recordSource = studentEnrollments
                 .OrderByDescending(x => x.AcademicYear)
                 .ThenByDescending(x => x.Semester)
-                .Select(x => string.IsNullOrWhiteSpace(x.RecordCode) ? codeFormat.Chain(student.StudentCode, x.EnrollmentCode, "student").Record : x.RecordCode)
+                .Select(x => codeFormat.PeriodLinked(x.EnrollmentCode, "student", "record", x.YearLevel, x.Semester))
                 .FirstOrDefault() ?? student.StudentCode;
             return new OperationalRecordDto(
                 student.Id,

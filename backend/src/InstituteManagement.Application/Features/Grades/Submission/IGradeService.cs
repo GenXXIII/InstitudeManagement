@@ -10,7 +10,7 @@ public interface IGradeService
     Task RequestCourseResubmissionAsync(Guid gradeId, Guid teacherId, string note, CancellationToken cancellationToken);
     Task ReviewAsync(Guid gradeId, string decision, string note, CancellationToken cancellationToken);
     Task ConfirmFinalGradesAsync(Guid studentId, string academicYear, string term, CancellationToken cancellationToken);
-    Task<int> ConfirmReadyFinalGradesAsync(Guid? departmentId, CancellationToken cancellationToken);
+    Task<int> ConfirmReadyFinalGradesAsync(Guid? departmentId, int? year, CancellationToken cancellationToken);
 }
 
 public sealed record GradeStudentScore(Guid StudentId, decimal AssignmentScore, decimal MidtermScore, decimal FinalExamScore);

@@ -68,6 +68,12 @@ export function alertCodeExample() {
 }
 
 export function workflowCode(sourceCode: string | undefined, resource: WorkflowCodeResource, stage: WorkflowCodeStage = "management") {
+  const period = studentPeriodSource(sourceCode);
+  if (period) {
+    if (stage === "management") return managementSource(period.enrollment, "student");
+    if (stage === "enrollment") return period.enrollment;
+    return `${configuredPrefix(resource, stage)}${configuredSeparator()}${period.semester}${configuredSeparator()}${period.enrollment}`.toUpperCase();
+  }
   const management = managementSource(sourceCode, resource);
   if (!management) return `${configuredPrefix(resource, "management")}${configuredSeparator()}UNASSIGNED`;
   if (stage === "management") return management;
@@ -130,6 +136,8 @@ function managementSource(sourceCode: string | undefined, resource: WorkflowCode
   let normalized = (sourceCode ?? "").trim().toUpperCase().replace(/[._/-]+$/g, "");
   if (!normalized) return "";
   const separator = escapeRegExp(configuredSeparator());
+  const period = studentPeriodSource(normalized);
+  if (period) return managementSource(period.enrollment, "student");
   const current = normalized.match(new RegExp(`^[^${separator}]+${separator}\\d+${separator}(.+)$`, "i"));
   if (current) return current[1];
   for (const stage of workflowStages.filter(value => value !== "management")) {
@@ -137,6 +145,17 @@ function managementSource(sourceCode: string | undefined, resource: WorkflowCode
     normalized = normalized.replace(new RegExp(`${separator}${prefix}${separator}\\d+$`, "i"), "");
   }
   return normalized;
+}
+
+function studentPeriodSource(sourceCode: string | undefined) {
+  const normalized = (sourceCode ?? "").trim().toUpperCase().replace(/[._/-]+$/g, "");
+  if (!normalized) return undefined;
+  const rawSeparator = configuredSeparator();
+  const separator = escapeRegExp(rawSeparator);
+  const enrollmentPrefix = escapeRegExp(configuredPrefix("student", "enrollment"));
+  const match = normalized.match(new RegExp(`^[^${separator}]+${separator}(\\d+)${separator}(?<enrollment>${enrollmentPrefix}${separator}.+)$`, "i"));
+  if (!match?.groups?.enrollment) return undefined;
+  return { semester: match[1], enrollment: match.groups.enrollment };
 }
 
 function workflowOccurrence(sourceCode: string, resource: WorkflowCodeResource) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataTable, DataTableEmptyState, DataTableToolbar, PaginatedDataRegion } from "@/components/data-table";
 import { Icon } from "@/components/icon";
@@ -12,6 +12,13 @@ import type { RecordItem } from "./history-types";
 
 export function AssessmentHistoryWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const departmentId = searchParams.get("departmentId") ?? "";
+  const year = searchParams.get("year") ?? "";
+  const scopeParams = new URLSearchParams();
+  if (departmentId) scopeParams.set("departmentId", departmentId);
+  if (year) scopeParams.set("year", year);
+  const scopeSuffix = scopeParams.size ? `?${scopeParams}` : "";
   const [rows, setRows] = useState<RecordItem[]>();
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState("All");
@@ -22,15 +29,19 @@ export function AssessmentHistoryWorkspace() {
   const periods = useMemo(() => [...new Set(groups.map(group => `${group.academicYear} · ${group.term}`))].toSorted().reverse(), [groups]);
   const visible = useMemo(() => {
     const text = workflowSourceSearch(query).toLowerCase();
-    return groups.filter(group => (period === "All" || `${group.academicYear} · ${group.term}` === period) && (!text || [group.courseCode, group.course, group.teacher, group.department, group.yearLevel, group.shift, ...group.grades.flatMap(item => [item.student, item.studentCode, item.gradeCode])].some(value => value.toLowerCase().includes(text))));
-  }, [groups, period, query]);
+    return groups.filter(group =>
+      (!departmentId || group.departmentId === departmentId)
+      && (!year || group.yearLevel === year)
+      && (period === "All" || `${group.academicYear} · ${group.term}` === period)
+      && (!text || [group.courseCode, group.course, group.teacher, group.department, group.yearLevel, group.shift, ...group.grades.flatMap(item => [item.student, item.studentCode, item.gradeCode])].some(value => value.toLowerCase().includes(text))));
+  }, [departmentId, groups, period, query, year]);
 
   if (error) return <ErrorPage retry={load}/>;
   if (!rows) return <LoadingPage/>;
   return <div className="viewport-data-page history-viewport-page assessment-history-page">
     <PageHeading eyebrow="Permanent academic archive" title="Assessment History" description="Read-only course assessment records. Select a course summary to open every Student grade, assigned Teacher, submission date, and Administrator approval date."/>
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search course, Teacher, or Student..." searchAriaLabel="Search Assessment History" resultLabel={`${visible.length} course records`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field"><select value={period} onChange={event => setPeriod(event.target.value)} aria-label="Academic period"><option>All</option>{periods.map(value => <option value={value} key={value}>{value}</option>)}</select></DataTableToolbar>
-    <PaginatedDataRegion items={visible} resetKey={`${query}-${period}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="archive" size={28}/>} title="No Assessment History" description="Accepted and retained course assessment records will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table assessment-history-register" headerClassName="horizontal-management-head assessment-history-register-head" rowSelector=":scope > .assessment-history-register-row" columns={[{ key: "course", label: "Course", minimumWidth: 190 }, { key: "teacher", label: "Assigned Teacher", minimumWidth: 150 }, { key: "cohort", label: "Cohort", minimumWidth: 145 }, { key: "period", label: "Academic Period", minimumWidth: 125 }, { key: "students", label: "Students", minimumWidth: 80, align: "right" }, { key: "submitted", label: "Teacher Submitted", minimumWidth: 140, align: "center" }, { key: "approved", label: "Admin Approved", minimumWidth: 140, align: "center" }, { key: "action", label: "Action", minimumWidth: 80, align: "center" }]} ariaLabel="Assessment course history">{pageItems.map(group => <AssessmentHistoryRow group={group} onOpen={() => router.push(`/records/assessment/${encodeURIComponent(group.routeId)}`)} key={group.key}/>)}</DataTable>}</PaginatedDataRegion>
+    <PaginatedDataRegion items={visible} resetKey={`${departmentId}-${year}-${query}-${period}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="archive" size={28}/>} title="No Assessment History" description="Accepted and retained course assessment records will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table assessment-history-register" headerClassName="horizontal-management-head assessment-history-register-head" rowSelector=":scope > .assessment-history-register-row" columns={[{ key: "course", label: "Course", minimumWidth: 190 }, { key: "teacher", label: "Assigned Teacher", minimumWidth: 150 }, { key: "cohort", label: "Cohort", minimumWidth: 145 }, { key: "period", label: "Academic Period", minimumWidth: 125 }, { key: "students", label: "Students", minimumWidth: 80, align: "right" }, { key: "submitted", label: "Teacher Submitted", minimumWidth: 140, align: "center" }, { key: "approved", label: "Admin Approved", minimumWidth: 140, align: "center" }, { key: "action", label: "Action", minimumWidth: 80, align: "center" }]} ariaLabel="Assessment course history">{pageItems.map(group => <AssessmentHistoryRow group={group} onOpen={() => router.push(`/records/assessment/${encodeURIComponent(group.routeId)}${scopeSuffix}`)} key={group.key}/>)}</DataTable>}</PaginatedDataRegion>
   </div>;
 }
 
