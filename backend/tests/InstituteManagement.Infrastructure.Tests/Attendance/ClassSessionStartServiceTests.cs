@@ -1,4 +1,5 @@
 using InstituteManagement.Application.Common.LiveUpdates;
+using InstituteManagement.Domain.Common;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Attendance.ClassSessions;
@@ -10,7 +11,7 @@ namespace InstituteManagement.Infrastructure.Tests.Attendance;
 public sealed class ClassSessionStartServiceTests
 {
     [Fact]
-    public async Task Start_is_persisted_and_idempotent_for_the_assigned_teacher()
+    public async Task Teacher_must_scan_own_public_id_qr_before_class_is_started()
     {
         await using var db = CreateContext();
         var teacher = new Teacher { TeacherCode = "TEA-START", FullName = "Teacher Start", Status = "Active" };
@@ -38,6 +39,16 @@ public sealed class ClassSessionStartServiceTests
             classroom,
             course,
             schedule,
+            new TeacherAssignment
+            {
+                EnrollmentCode = "ENR-TEA-START",
+                PublicId = "TEA-START-PUBLIC-ID",
+                TeacherId = teacher.Id,
+                Teacher = teacher,
+                AcademicYear = "2026\u20132027",
+                Semester = "Semester 1",
+                Status = "Assigned"
+            },
             new TimetableEnrollment
             {
                 EnrollmentCode = "TIM-START-ETIM-1",
@@ -59,8 +70,16 @@ public sealed class ClassSessionStartServiceTests
 
         var publisher = new CapturingPublisher();
         var service = new ClassSessionStartService(db, new InstituteCache(), publisher);
-        var first = await service.StartAsync(schedule.Id, teacher.Id, CancellationToken.None);
-        var second = await service.StartAsync(schedule.Id, teacher.Id, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartWithAttendanceQrAsync(
+            schedule.Id,
+            teacher.Id,
+            AttendanceIdentityQr.CreateTeacher("TEA-OTHER-PUBLIC-ID"),
+            CancellationToken.None));
+        Assert.Empty(await db.ClassSessionStarts.ToListAsync());
+
+        var qrPayload = AttendanceIdentityQr.CreateTeacher("TEA-START-PUBLIC-ID");
+        var first = await service.StartWithAttendanceQrAsync(schedule.Id, teacher.Id, qrPayload, CancellationToken.None);
+        var second = await service.StartWithAttendanceQrAsync(schedule.Id, teacher.Id, qrPayload, CancellationToken.None);
 
         Assert.Equal(first.Id, second.Id);
         Assert.Equal(schedule.Id, first.ScheduleEntryId);

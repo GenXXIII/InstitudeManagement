@@ -1,5 +1,6 @@
 using InstituteManagement.Application.Features.Attendance;
 using InstituteManagement.Domain.Entities;
+using InstituteManagement.Domain.Policies;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,8 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
         Guid studentId,
         string status,
         CancellationToken cancellationToken,
-        string? method = null)
+        string? method = null,
+        bool applyLateRule = true)
     {
         if (studentId == Guid.Empty) throw new ArgumentException("StudentId is required.", nameof(studentId));
         if (!AllowedStatuses.Contains(status)) throw new ArgumentException("Attendance status is invalid.", nameof(status));
@@ -25,10 +27,17 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
         var period = await db.SystemSettings.AsNoTracking().Where(x => (x.Section == "academic-year" && x.Key == "currentYear") || (x.Section == "semester" && x.Key == "currentTerm")).ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, cancellationToken);
         var academicYear = period.GetValueOrDefault("academic-year:currentYear", "2026\u20132027");
         var term = period.GetValueOrDefault("semester:currentTerm", "Semester 1");
+        var enrollment = await db.StudentEnrollments.AsNoTracking().SingleOrDefaultAsync(item =>
+            item.StudentId == studentId
+            && item.AcademicYear == academicYear
+            && item.Semester == term
+            && item.Status == "Active",
+            cancellationToken)
+            ?? throw new InvalidOperationException("The Student does not have an active enrollment for the current semester.");
         var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var today = DateOnly.FromDateTime(localNow);
         var record = await db.AttendanceRecords.FirstOrDefaultAsync(x => x.StudentId == studentId && x.Date == today, cancellationToken);
-        if (record is null) { record = new AttendanceRecord { AttendanceCode = await BusinessCodeFormatter.GenerateAsync(db, "attendance", cancellationToken), StudentId = studentId, Date = today, AcademicYear = academicYear, Term = term }; db.AttendanceRecords.Add(record); }
+        if (record is null) { record = new AttendanceRecord { AttendanceCode = await BusinessCodeFormatter.GenerateAsync(db, "attendance", cancellationToken), StudentEnrollmentId = enrollment.Id, StudentId = studentId, Date = today, AcademicYear = academicYear, Term = term }; db.AttendanceRecords.Add(record); }
         else if (record.AcademicYear != academicYear || record.Term != term) throw new InvalidOperationException("Today's attendance belongs to a completed academic period and is read-only.");
 
         var rules = await db.SystemSettings.AsNoTracking().Where(x => x.Section == "attendance-rules" || x.Section == "notifications").ToDictionaryAsync(x => $"{x.Section}:{x.Key}", x => x.Value, cancellationToken);
@@ -37,7 +46,7 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
             : method.Trim();
         var checkedInAt = TimeOnly.FromDateTime(localNow);
         var appliedStatus = status.Trim();
-        if (appliedStatus.Equals("Present", StringComparison.OrdinalIgnoreCase))
+        if (applyLateRule && appliedStatus.Equals("Present", StringComparison.OrdinalIgnoreCase))
         {
             var thresholdText = rules.GetValueOrDefault("attendance-rules:lateThresholdMinutes", "15");
             var threshold = int.TryParse(thresholdText, out var configuredThreshold) ? configuredThreshold : 15;
@@ -53,7 +62,10 @@ public sealed class AttendanceService(InstituteDbContext db, InstituteCache cach
             if (Enabled(rules, "attendance-rules:notifyTeacher", true))
             {
                 var teacher = await db.ScheduleEntries.AsNoTracking()
-                    .Where(entry => entry.DayOfWeek == today.DayOfWeek && entry.YearLevel == student.YearLevel && entry.Course!.DepartmentId == student.DepartmentId && entry.Status != "Cancelled")
+                    .Where(entry => entry.DayOfWeek == today.DayOfWeek
+                        && entry.YearLevel == student.YearLevel
+                        && (student.YearLevel == StudentCurriculumPolicy.GeneralYearLevel || entry.Course!.DepartmentId == student.DepartmentId)
+                        && entry.Status != "Cancelled")
                     .Select(entry => entry.Teacher!.FullName)
                     .FirstOrDefaultAsync(cancellationToken);
                 db.Notifications.Add(new Notification { Title = "Teacher attendance alert", Message = $"{teacher ?? "Assigned teacher"}: {student.FullName} was marked {record.Status}.", Severity = record.Status == "Absent" ? "Warning" : "Info" });

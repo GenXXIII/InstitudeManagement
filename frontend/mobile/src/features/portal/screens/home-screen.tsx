@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmptyBlock, PortalPage, portalStyles, ScheduleCard, SectionHeading } from '@/components/portal-ui';
 import { palette, radius, shadow } from '@/constants/theme';
 import type { MobileRole } from '@/features/auth/auth-context';
-import type { ScheduleItem } from '../portal-types';
+import type { CourseItem, ScheduleItem } from '../portal-types';
 import { usePortal } from '../portal-context';
 
 export function HomeScreen({ role }: { role: MobileRole }) {
@@ -11,13 +11,15 @@ export function HomeScreen({ role }: { role: MobileRole }) {
   const values = portal.profile?.values;
   const today = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
   const todaySchedule = portal.schedule.filter(item => item.values.dayOfWeek === today).sort((a, b) => a.values.startsAt.localeCompare(b.values.startsAt));
-  const courses = [...new Map(portal.schedule.filter(item => item.values.courseId).map(item => [item.values.courseId, item])).values()];
+  const courses: CourseOverview[] = role === 'student'
+    ? portal.courses.map(course => courseOverviewFromEnrollment(course, portal.schedule))
+    : [...new Map(portal.schedule.filter(item => item.values.courseId).map(item => [item.values.courseId, courseOverviewFromSchedule(item, portal.schedule)])).values()];
 
   return <PortalPage title={values ? `Hello, ${values.name.split(' ')[0]}` : 'Home'} subtitle={role === 'teacher' ? `Your teaching day at a glance · ${today}` : `Your academic day at a glance · ${today}`}>
     <NextClassHero item={todaySchedule[0]} role={role}/>
 
     <SectionHeading title="Ongoing courses" detail={`${courses.length} assigned`}/>
-    {courses.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseStrip}>{courses.map((item, index) => <CourseOverviewCard item={item} index={index} totalSessions={portal.schedule.filter(schedule => schedule.values.courseId === item.values.courseId).length} key={item.values.courseId}/>)}</ScrollView> : <EmptyBlock icon="book-outline" title="No assigned courses" detail="Courses will appear after Administrator completes Timetable Enrollment."/>}
+    {courses.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseStrip}>{courses.map((item, index) => <CourseOverviewCard item={item} index={index} key={item.id}/>)}</ScrollView> : <EmptyBlock icon="book-outline" title="No assigned courses" detail={role === 'student' ? 'Courses will appear after Administrator enrolls them for this department and year.' : 'Courses will appear after Administrator completes Timetable Enrollment.'}/>}
 
     <SectionHeading title="Today’s schedule" detail={`${todaySchedule.length} ${todaySchedule.length === 1 ? 'class' : 'classes'}`}/>
     <View style={portalStyles.stack}>{todaySchedule.length ? todaySchedule.map(item => <ScheduleCard item={item} key={item.id}/>) : <EmptyBlock icon="calendar-clear-outline" title="No class today" detail="Pull down to refresh after Administrator updates Timetable Enrollment."/>}</View>
@@ -35,7 +37,31 @@ function NextClassHero({ item, role }: { item?: ScheduleItem; role: MobileRole }
   </View>;
 }
 
-function CourseOverviewCard({ item, index, totalSessions }: { item: ScheduleItem; index: number; totalSessions: number }) {
+type CourseOverview = { id: string; courseCode: string; course: string; teacher: string; yearLevel: string; totalSessions: number };
+
+function courseOverviewFromEnrollment(item: CourseItem, schedule: ScheduleItem[]): CourseOverview {
+  return {
+    id: item.id,
+    courseCode: item.values.courseCode,
+    course: item.values.name,
+    teacher: item.values.teacher,
+    yearLevel: item.values.year,
+    totalSessions: schedule.filter(row => row.values.courseId === item.id).length,
+  };
+}
+
+function courseOverviewFromSchedule(item: ScheduleItem, schedule: ScheduleItem[]): CourseOverview {
+  return {
+    id: item.values.courseId,
+    courseCode: item.values.courseCode,
+    course: item.values.course,
+    teacher: item.values.teacher,
+    yearLevel: item.values.yearLevel,
+    totalSessions: schedule.filter(row => row.values.courseId === item.values.courseId).length,
+  };
+}
+
+function CourseOverviewCard({ item, index }: { item: CourseOverview; index: number }) {
   const tones = [
     { icon: palette.blue, pale: palette.bluePale, accent: palette.blue },
     { icon: palette.sky, pale: palette.skyPale, accent: palette.sky },
@@ -45,10 +71,10 @@ function CourseOverviewCard({ item, index, totalSessions }: { item: ScheduleItem
   return <View style={styles.courseCard}>
     <View style={[styles.courseAccent, { backgroundColor: tone.accent }]}/>
     <View style={[styles.courseIcon, { backgroundColor: tone.pale }]}><Ionicons name="book-outline" size={20} color={tone.icon}/></View>
-    <Text style={styles.courseCode}>{item.values.courseCode}</Text>
-    <Text style={styles.courseTitle} numberOfLines={2}>{item.values.course}</Text>
-    <Text style={styles.courseTeacher} numberOfLines={1}>{item.values.teacher}</Text>
-    <View style={styles.courseFooter}><Text style={styles.courseCount}>{totalSessions} weekly {totalSessions === 1 ? 'class' : 'classes'}</Text><Text style={styles.courseYear}>Year {item.values.yearLevel}</Text></View>
+    <Text style={styles.courseCode}>{item.courseCode}</Text>
+    <Text style={styles.courseTitle} numberOfLines={2}>{item.course}</Text>
+    <Text style={styles.courseTeacher} numberOfLines={1}>{item.teacher}</Text>
+    <View style={styles.courseFooter}><Text style={styles.courseCount}>{item.totalSessions} weekly {item.totalSessions === 1 ? 'class' : 'classes'}</Text><Text style={styles.courseYear}>Year {item.yearLevel}</Text></View>
   </View>;
 }
 

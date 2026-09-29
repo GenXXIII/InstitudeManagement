@@ -1,4 +1,3 @@
-using System.Text.Json;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Policies;
 using InstituteManagement.Infrastructure.Persistence;
@@ -33,11 +32,20 @@ internal static class GradeCompositionCalculator
         AttendanceResultRules rules,
         CancellationToken cancellationToken)
     {
-        var sessions = await db.ClassSessionRecords.AsNoTracking()
-            .Where(session => session.CourseId == courseId && session.AcademicYear == academicYear && session.Term == term)
-            .ToListAsync(cancellationToken);
+        var sessions = await AttendanceSessionsAsync(db, courseId, academicYear, term, cancellationToken);
         return Attendance(sessions, studentId, maximum, rules);
     }
+
+    public static Task<List<ClassSessionRecord>> AttendanceSessionsAsync(
+        InstituteDbContext db,
+        Guid courseId,
+        string academicYear,
+        string term,
+        CancellationToken cancellationToken) =>
+        db.ClassSessionRecords.AsNoTracking()
+            .Include(session => session.StudentAttendance)
+            .Where(session => session.CourseId == courseId && session.AcademicYear == academicYear && session.Term == term)
+            .ToListAsync(cancellationToken);
 
     public static async Task RefreshGradesAsync(
         InstituteDbContext db,
@@ -52,6 +60,7 @@ internal static class GradeCompositionCalculator
         if (grades.Count == 0) return;
         var rules = await LoadRulesAsync(db, cancellationToken);
         var sessions = await db.ClassSessionRecords
+            .Include(session => session.StudentAttendance)
             .Where(session => session.CourseId == courseId && session.AcademicYear == academicYear && session.Term == term)
             .ToListAsync(cancellationToken);
         sessions.AddRange(db.ChangeTracker.Entries<ClassSessionRecord>()
@@ -76,7 +85,7 @@ internal static class GradeCompositionCalculator
         AttendanceResultRules rules)
     {
         var held = sessions.Where(session => TeacherPresence.SessionStatus(session.TeacherAttendanceStatus) == "Running").ToList();
-        var statuses = held.SelectMany(session => Students(session.StudentAttendanceJson)
+        var statuses = held.SelectMany(session => session.StudentAttendance
             .Where(student => student.StudentId == studentId)
             .Select(student => student.Status)).ToList();
         var attended = statuses.Count(status => status is "Present" or "Late");
@@ -116,9 +125,4 @@ internal static class GradeCompositionCalculator
             throw new ArgumentOutOfRangeException(label.Replace(" ", string.Empty), $"{label} score must be between 0 and {maximum:0.##}.");
     }
 
-    private static IReadOnlyList<SessionStudentSnapshot> Students(string json)
-    {
-        try { return JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? []; }
-        catch (JsonException) { return []; }
-    }
 }

@@ -99,6 +99,63 @@ public sealed class PersistenceConfigurationTests
         Assert.Contains("new { x.Type, x.Action, x.ResourceId }", audit, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Student_identity_journey_and_semester_are_separate_database_concepts()
+    {
+        var journey = ConfigurationSource("Enrollment/StudentEnrollments/StudentAcademicEnrollmentConfiguration.cs");
+        var semester = ConfigurationSource("Enrollment/StudentEnrollments/StudentEnrollmentConfiguration.cs");
+
+        Assert.Contains("""ToTable("StudentAcademicEnrollments", "Enrollment" """.TrimEnd(), journey, StringComparison.Ordinal);
+        Assert.Contains("HasIndex(x => x.EnrollmentCode).IsUnique()", journey, StringComparison.Ordinal);
+        Assert.Contains("""ToTable("EnrollmentSemesters", "Enrollment" """.TrimEnd(), semester, StringComparison.Ordinal);
+        Assert.Contains("x.StudentAcademicEnrollmentId, x.AcademicYear, x.Semester", semester, StringComparison.Ordinal);
+        Assert.Contains("HasForeignKey(x => x.StudentAcademicEnrollmentId)", semester, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Semester_owned_facts_have_constrained_semester_relationships()
+    {
+        foreach (var relativePath in new[]
+                 {
+                     "Attendance/AttendanceRecordConfiguration.cs",
+                     "Grades/GradeRecordConfiguration.cs",
+                     "Grades/SemesterResultPublicationConfiguration.cs",
+                     "Finance/FinancialAccounts/FinancialAccountConfiguration.cs",
+                     "Records/ClassSessionStudentAttendanceConfiguration.cs",
+                 })
+        {
+            var source = ConfigurationSource(relativePath);
+            Assert.Contains("StudentEnrollmentId", source, StringComparison.Ordinal);
+            Assert.Contains("HasPrincipalKey", source, StringComparison.Ordinal);
+            Assert.Contains("DeleteBehavior.Restrict", source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Large_mutable_ledgers_use_concurrency_tokens_and_relational_attendance()
+    {
+        foreach (var relativePath in new[]
+                 {
+                     "Enrollment/StudentEnrollments/StudentEnrollmentConfiguration.cs",
+                     "Attendance/AttendanceRecordConfiguration.cs",
+                     "Grades/GradeRecordConfiguration.cs",
+                     "Finance/FinancialAccounts/FinancialAccountConfiguration.cs",
+                     "Finance/Payments/FinancialPaymentConfiguration.cs",
+                     "Records/ClassSessionStudentAttendanceConfiguration.cs",
+                 })
+        {
+            Assert.Contains("IsRowVersion()", ConfigurationSource(relativePath), StringComparison.Ordinal);
+        }
+
+        var sessionEntity = File.ReadAllText(Path.Combine(
+            ArchitectureTestPaths.SourceDirectory("InstituteManagement.Domain"),
+            "Entities",
+            "Records",
+            "ClassSessionRecord.cs"));
+        Assert.DoesNotContain("StudentAttendanceJson", sessionEntity, StringComparison.Ordinal);
+        Assert.Contains("ICollection<ClassSessionStudentAttendance>", sessionEntity, StringComparison.Ordinal);
+    }
+
     private static bool HasDedicatedConfiguration(string configurationDirectory, string? entityName)
     {
         if (string.IsNullOrWhiteSpace(entityName))

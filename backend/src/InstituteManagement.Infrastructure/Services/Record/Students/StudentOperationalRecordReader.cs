@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
@@ -19,9 +18,16 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
         var students = await db.Students.AsNoTracking().Include(x => x.Department).Where(x => !departmentId.HasValue || x.DepartmentId == departmentId).OrderBy(x => x.FullName).ToListAsync(cancellationToken);
         var ids = students.Select(x => x.Id).ToList();
         var enrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Department).Where(x => ids.Contains(x.StudentId)).ToListAsync(cancellationToken);
-        var sessions = await db.ClassSessionRecords.AsNoTracking().Include(x => x.ScheduleEntry).Where(x => !departmentId.HasValue || x.DepartmentId == departmentId).ToListAsync(cancellationToken);
+        var sessions = await db.ClassSessionRecords.AsNoTracking()
+            .Include(x => x.ScheduleEntry)
+            .Include(x => x.StudentAttendance)
+            .Where(x => !departmentId.HasValue || x.DepartmentId == departmentId)
+            .ToListAsync(cancellationToken);
         var grades = await db.GradeRecords.AsNoTracking().Include(x => x.Course).Where(x => ids.Contains(x.StudentId)).ToListAsync(cancellationToken);
-        var studentSessions = sessions.SelectMany(session => Deserialize(session.StudentAttendanceJson).Select(student => (Session: session, Student: student))).Where(x => ids.Contains(x.Student.StudentId)).ToList();
+        var studentSessions = sessions
+            .SelectMany(session => session.StudentAttendance.Select(student => (Session: session, Student: student)))
+            .Where(x => ids.Contains(x.Student.StudentId))
+            .ToList();
         return students.Select(student =>
         {
             var completed = studentSessions.Where(x => x.Student.StudentId == student.Id).ToList();
@@ -99,12 +105,6 @@ public sealed class StudentOperationalRecordReader(InstituteDbContext db) : IOpe
                 Department: student.Department?.Name ?? "Unassigned",
                 ResourceId: student.Id);
         }).ToList();
-    }
-
-    private static IReadOnlyList<SessionStudentSnapshot> Deserialize(string json)
-    {
-        try { return JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? []; }
-        catch (JsonException) { return []; }
     }
 
     private static string SessionCode(ClassSessionRecord session)

@@ -1,8 +1,10 @@
 using InstituteManagement.Application.Features.Dashboard;
 using InstituteManagement.Application.Features.Operations;
+using InstituteManagement.Domain.Common;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
+using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Operations;
 
@@ -31,12 +33,20 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
             DateOnly.FromDateTime(now),
             current.Select(enrollment => enrollment.ScheduleEntryId),
             cancellationToken);
+        var teacherIds = current.Select(enrollment => enrollment.TeacherId).Distinct().ToList();
+        var publicIds = await db.TeacherAssignments.AsNoTracking()
+            .Where(assignment => teacherIds.Contains(assignment.TeacherId)
+                && assignment.AcademicYear == source.Period.AcademicYear
+                && assignment.Semester == source.Period.Semester
+                && assignment.Status == "Assigned")
+            .ToDictionaryAsync(assignment => assignment.TeacherId, assignment => assignment.PublicId, cancellationToken);
         var rows = current
             .GroupBy(enrollment => enrollment.TeacherId)
             .Select(group =>
             {
                 var enrollment = group.First();
                 var teacher = enrollment.Teacher!;
+                var publicId = publicIds.GetValueOrDefault(teacher.Id, string.Empty);
                 var departments = group.Select(item => item.Course!.Department?.Name ?? "—").Distinct().Order().ToList();
                 var courses = group.Select(item => item.Course!.Name).Distinct().Order().ToList();
                 return new TeacherOperationDto(
@@ -44,6 +54,8 @@ public sealed class TeacherOperationReader(InstituteDbContext db, OperationConte
                     teacher.FullName,
                     teacher.TeacherCode,
                     codeFormat.Derive(teacher.TeacherCode, "teacher", "operation"),
+                    publicId,
+                    AttendanceIdentityQr.CreateTeacher(publicId),
                     string.Join(", ", departments),
                     string.Join(", ", courses),
                     TeacherPresence.ClassAttendance(

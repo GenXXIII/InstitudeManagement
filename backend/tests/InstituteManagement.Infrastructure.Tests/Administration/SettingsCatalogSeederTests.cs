@@ -51,6 +51,7 @@ public sealed class SettingsCatalogSeederTests
         Assert.Equal("OPE-1-ENR-1-STU-16", studentEnrollment.OperationCode);
         Assert.Equal("OPE-2-ENR-1-STU-16", nextStudentEnrollment.OperationCode);
         Assert.Equal($"STU-{studentEnrollment.Id:N}".ToUpperInvariant(), studentEnrollment.PublicId);
+        Assert.Equal(studentEnrollment.PublicId, nextStudentEnrollment.PublicId);
         Assert.Equal("ENR-1-TIM-16", firstTimetableEnrollment.EnrollmentCode);
         Assert.Equal("ENR-2-TIM-16", secondTimetableEnrollment.EnrollmentCode);
         Assert.Equal("ENR", db.SystemSettings.Single(item => item.Key == "studentEnrollmentPrefix").Value);

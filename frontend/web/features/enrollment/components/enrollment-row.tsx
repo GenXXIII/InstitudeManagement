@@ -20,12 +20,20 @@ export function EnrollmentRow({ resource, item, onEdit, onRemove }: {
     {cells.map((cell, index) => {
       const column = enrollmentCopy[resource].columns[index];
       const relationship = column === "Assigned course" || column === "Assigned courses" || column === "Year levels";
+      const statusColumn = column === "Status" || column === "Period state" || column === "Payment" || column === "Next Period";
+      const statusClass = column === "Period state"
+        ? cell.toLowerCase()
+        : column === "Payment"
+          ? cell.toLowerCase()
+          : column === "Next Period"
+            ? item.values.nextPeriodState || "pending"
+            : classroomEnrollmentStatusClass(cell);
       const className = [primaryColumns.has(column) ? "horizontal-primary" : "horizontal-detail", relationship ? "enrollment-relationship-cell" : ""].filter(Boolean).join(" ");
       return <ManagementDataCell label={column} className={className} key={`${item.id}-${index}`}>
         {index === 0
           ? <strong className="management-code-value" title={cell}>{cell}</strong>
-          : column === "Status" || column === "Period state" || column === "Payment"
-            ? <span className={`table-status ${column === "Period state" ? cell.toLowerCase() : column === "Payment" ? cell.toLowerCase() : classroomEnrollmentStatusClass(cell)}`}>{cell}</span>
+          : statusColumn
+            ? <span className={`table-status ${statusClass}`} title={cell}>{cell}</span>
             : <strong className={relationship ? "enrollment-relationship-value" : undefined} title={cell || "Unassigned"}>{cell || "Unassigned"}</strong>}
       </ManagementDataCell>;
     })}

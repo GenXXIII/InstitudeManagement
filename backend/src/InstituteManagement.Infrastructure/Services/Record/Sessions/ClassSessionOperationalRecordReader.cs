@@ -1,4 +1,3 @@
-using System.Text.Json;
 using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
@@ -20,6 +19,7 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
             .Include(x => x.Course)
             .Include(x => x.Teacher)
             .Include(x => x.Classroom)
+            .Include(x => x.StudentAttendance)
             .Where(x => !departmentId.HasValue || x.DepartmentId == departmentId)
             .OrderByDescending(x => x.SessionDate).ThenByDescending(x => x.StartsAt)
             .ToListAsync(cancellationToken);
@@ -45,7 +45,7 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
             {
                 Create(("Activity", "Completed class"), ("Management code", codes.Management), ("Enrollment source", enrollmentCode), ("Operation code", codes.Operation), ("Record code", codes.Record), ("Class session code", sessionCode), ("Timetable enrollment code", enrollmentCode), ("Timetable code", session.ScheduleEntry?.TimetableCode ?? "Not recorded"), ("Date", session.SessionDate.ToString("yyyy-MM-dd")), ("Time", time), ("Course", session.CourseName), ("Course code", session.Course?.CourseCode ?? "Not recorded"), ("Year", $"Year {session.YearLevel}"), ("Teacher", session.TeacherName), ("Teacher code", session.Teacher?.TeacherCode ?? "Not recorded"), ("Classroom", session.ClassroomCode), ("Classroom code", session.Classroom?.ClassroomCode ?? session.ClassroomCode), ("Academic year", session.AcademicYear), ("Term", session.Term), ("Teacher attendance", session.TeacherAttendanceStatus), ("Session status", sessionStatus), ("Reason", statusDetail), ("Attendance", $"{session.PresentCount} present · {session.LateCount} late · {session.AbsentCount} absent · {session.ExcusedCount} permission"))
             };
-            activities.AddRange(Deserialize(session.StudentAttendanceJson).Select(student => Create(
+            activities.AddRange(session.StudentAttendance.Select(student => Create(
                 ("Activity", "Student attendance"),
                 ("StudentId", student.StudentId.ToString()),
                 ("Date", session.SessionDate.ToString("yyyy-MM-dd")),
@@ -82,15 +82,6 @@ public sealed class ClassSessionOperationalRecordReader(InstituteDbContext db) :
                 Term: session.Term,
                 ResourceId: session.Id);
         }).ToList();
-    }
-
-    private static IReadOnlyList<SessionStudentSnapshot> Deserialize(string json)
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? [];
-        }
-        catch (JsonException) { return []; }
     }
 
     private static string ReadableSessionCode(ClassSessionRecord session)

@@ -1,6 +1,7 @@
 using InstituteManagement.Application.Features.Grades;
 using InstituteManagement.Infrastructure.Services.Catalog;
 using InstituteManagement.Domain.Entities;
+using InstituteManagement.Domain.Policies;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Grades;
@@ -120,8 +121,10 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
         entity.CourseId = await RelatedIdAsync<Course>(values, "courseId", ct);
         var student = await Db.Students.FindAsync([entity.StudentId], ct);
         var course = await Db.Courses.FindAsync([entity.CourseId], ct);
-        if (student is null || course is null || student.DepartmentId != course.DepartmentId || student.Status == "Inactive" || !course.IsActive)
-            throw new InvalidOperationException("Student and course must be active and belong to the same department.");
+        if (student is null || course is null || !student.DepartmentId.HasValue
+            || !StudentCurriculumPolicy.IncludesDepartment(student.YearLevel, student.DepartmentId.Value, course.DepartmentId)
+            || student.Status == "Inactive" || !course.IsActive)
+            throw new InvalidOperationException("Student and course must be active and match the Year 1 general curriculum or the Student's major.");
         values["student"] = student.FullName;
         values["course"] = course.Name;
         values["departmentId"] = student.DepartmentId?.ToString() ?? "";

@@ -1,5 +1,6 @@
 using InstituteManagement.Application.Features.Dashboard;
 using InstituteManagement.Application.Features.Operations;
+using InstituteManagement.Domain.Common;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
@@ -80,6 +81,8 @@ public sealed class StudentOperationReader(InstituteDbContext db, OperationConte
                 x.Student!.FullName,
                 x.Student.StudentCode,
                 codeFormat.PeriodLinked(x.EnrollmentCode, "student", "operation", x.YearLevel, x.Semester),
+                x.PublicId,
+                AttendanceIdentityQr.CreateStudent(x.PublicId),
                 x.Department?.Name ?? "—",
                 coursesByCohort.GetValueOrDefault(OperationEnrollmentSourceService.StudentCohort(x), "—"),
                 x.YearLevel,

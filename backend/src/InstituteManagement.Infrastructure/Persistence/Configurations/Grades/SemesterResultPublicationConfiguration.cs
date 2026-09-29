@@ -10,9 +10,15 @@ public sealed class SemesterResultPublicationConfiguration : IEntityTypeConfigur
     {
         builder.ToTable("SemesterResultPublications", "Grades");
         builder.HasIndex(x => new { x.StudentId, x.AcademicYear, x.Term }).IsUnique();
+        builder.HasIndex(x => x.StudentEnrollmentId).IsUnique();
         builder.HasIndex(x => x.PublishedAtUtc);
         builder.Property(x => x.AcademicYear).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Term).HasMaxLength(64).IsRequired();
+        builder.HasOne(x => x.StudentEnrollment)
+            .WithMany()
+            .HasForeignKey(x => new { x.StudentEnrollmentId, x.StudentId })
+            .HasPrincipalKey(x => new { x.Id, x.StudentId })
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId);
     }
 }

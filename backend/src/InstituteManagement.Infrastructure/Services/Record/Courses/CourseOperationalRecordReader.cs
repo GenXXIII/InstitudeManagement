@@ -1,4 +1,3 @@
-using System.Text.Json;
 using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
@@ -27,7 +26,10 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
         var enrollments = await db.StudentEnrollments.AsNoTracking()
             .Where(x => departmentIds.Contains(x.DepartmentId) && x.Status == "Active")
             .ToListAsync(cancellationToken);
-        var sessions = await db.ClassSessionRecords.AsNoTracking().Where(x => ids.Contains(x.CourseId)).ToListAsync(cancellationToken);
+        var sessions = await db.ClassSessionRecords.AsNoTracking()
+            .Include(x => x.StudentAttendance)
+            .Where(x => ids.Contains(x.CourseId))
+            .ToListAsync(cancellationToken);
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var selection = AcademicTimetablePolicy.SelectCurrentOrNext(now);
         var runningIds = selection.IsRunning
@@ -61,7 +63,7 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
                 ("Present", (x.PresentCount + x.LateCount).ToString()), ("Permission", x.ExcusedCount.ToString()),
                 ("Absent", x.AbsentCount.ToString()),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"),
-                ("Students", StudentSummary(x.StudentAttendanceJson)))));
+                ("Students", StudentSummary(x.StudentAttendance)))));
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var status = !course.IsActive ? "Unavailable" : runningIds.Contains(course.Id) ? "In Study" : "Available";
             var recordSource = assignments.Where(x => x.CourseId == course.Id)
@@ -75,9 +77,6 @@ public sealed class CourseOperationalRecordReader(InstituteDbContext db) : IOper
         }).ToList();
     }
 
-    private static string StudentSummary(string json)
-    {
-        try { return string.Join("; ", (JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? []).Select(x => $"{x.StudentName}: {x.Status}")); }
-        catch (JsonException) { return "Attendance snapshot unavailable"; }
-    }
+    private static string StudentSummary(IEnumerable<ClassSessionStudentAttendance> attendance) =>
+        string.Join("; ", attendance.Select(x => $"{x.StudentName}: {x.Status}"));
 }

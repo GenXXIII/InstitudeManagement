@@ -23,6 +23,7 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<NotificationHistory> NotificationHistory => Set<NotificationHistory>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<StudentAcademicEnrollment> StudentAcademicEnrollments => Set<StudentAcademicEnrollment>();
     public DbSet<StudentEnrollment> StudentEnrollments => Set<StudentEnrollment>();
     public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
     public DbSet<CourseAssignment> CourseAssignments => Set<CourseAssignment>();
@@ -30,9 +31,11 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
     public DbSet<TimetableEnrollment> TimetableEnrollments => Set<TimetableEnrollment>();
     public DbSet<FinancialAccount> FinancialAccounts => Set<FinancialAccount>();
     public DbSet<FinancialPayment> FinancialPayments => Set<FinancialPayment>();
+    public DbSet<ClassSessionStudentAttendance> ClassSessionStudentAttendance => Set<ClassSessionStudentAttendance>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        ApplyAuditTimestamps();
         var format = RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
@@ -50,6 +53,7 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        ApplyAuditTimestamps();
         var format = RequiresNotificationCodeFormat() ? LoadNotificationCodeFormat() : null;
         AssignSourceBusinessCodes(format);
         CaptureNotificationHistory();
@@ -72,5 +76,22 @@ public sealed partial class InstituteDbContext(DbContextOptions<InstituteDbConte
             entityType.FindProperty(nameof(Entity.CreateAt))?.SetColumnName("CreatedAtUtc");
         foreach (var foreignKey in modelBuilder.Model.GetEntityTypes().SelectMany(entity => entity.GetForeignKeys()))
             foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+    }
+
+    private void ApplyAuditTimestamps()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var entry in ChangeTracker.Entries<Entity>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreateAt == default) entry.Entity.CreateAt = now;
+                if (entry.Entity.UpdatedAtUtc == default) entry.Entity.UpdatedAtUtc = entry.Entity.CreateAt;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAtUtc = now;
+            }
+        }
     }
 }

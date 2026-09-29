@@ -10,4 +10,5 @@ public sealed class FinancialPayment : Entity
     public string Status { get; set; } = "Completed";
     public string TransactionReference { get; set; } = string.Empty;
     public DateTime PaidAtUtc { get; set; } = DateTime.UtcNow;
+    public byte[] RowVersion { get; set; } = [];
 }

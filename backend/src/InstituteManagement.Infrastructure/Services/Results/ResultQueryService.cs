@@ -1,4 +1,3 @@
-using System.Text.Json;
 using InstituteManagement.Application.Features.Results;
 using InstituteManagement.Application.Features.Enrollment.Students.Progression;
 using InstituteManagement.Domain.Entities;
@@ -46,11 +45,17 @@ public sealed class ResultQueryService(InstituteDbContext db, IStudentEnrollment
                 .ToListAsync(cancellationToken))
             .Select(item => (item.StudentId, item.AcademicYear, item.Semester))
             .ToHashSet();
-        var sessionRows = await db.ClassSessionRecords.AsNoTracking()
-            .Where(item => (!departmentId.HasValue || item.DepartmentId == departmentId) && (!year.HasValue || item.YearLevel == year))
-            .Select(item => new { item.AcademicYear, item.Term, item.StudentAttendanceJson })
+        var sessionAttendance = await db.ClassSessionStudentAttendance.AsNoTracking()
+            .Where(item => studentIds.Contains(item.StudentId)
+                && item.ClassSessionRecord != null
+                && (!departmentId.HasValue || item.ClassSessionRecord.DepartmentId == departmentId)
+                && (!year.HasValue || item.ClassSessionRecord.YearLevel == year))
+            .Select(item => new SessionAttendance(
+                item.StudentId,
+                item.ClassSessionRecord!.AcademicYear,
+                item.ClassSessionRecord.Term,
+                item.Status))
             .ToListAsync(cancellationToken);
-        var sessionAttendance = sessionRows.SelectMany(item => Deserialize(item.StudentAttendanceJson).Select(student => new SessionAttendance(student.StudentId, item.AcademicYear, item.Term, student.Status))).Where(item => studentIds.Contains(item.StudentId)).ToList();
         var settings = await db.SystemSettings.AsNoTracking().Where(item => item.Section == "academic-year" || item.Section == "semester" || item.Section == "grade-rules" || item.Section == "attendance-rules").ToListAsync(cancellationToken);
         var currentAcademicYear = academicYear ?? settings.FirstOrDefault(item => item.Section == "academic-year" && item.Key == "currentYear")?.Value ?? "2026–2027";
         var currentSemester = semester ?? settings.FirstOrDefault(item => item.Section == "semester" && item.Key == "currentTerm")?.Value ?? "Semester 1";
@@ -110,7 +115,7 @@ public sealed class ResultQueryService(InstituteDbContext db, IStudentEnrollment
                         && item.Semester == period.Semester
                         && item.YearLevel == resultYear
                         && item.ScheduleEntry?.Shift == resultShift
-                        && item.Course?.DepartmentId == resultDepartmentId)
+                        && StudentCurriculumPolicy.IncludesDepartment(resultYear, resultDepartmentId, item.Course?.DepartmentId))
                     .Select(item => item.Course!)
                     .ToList();
                 var fallbackAssignedCourses = cohortTimetableCourses.Count > 0
@@ -118,12 +123,14 @@ public sealed class ResultQueryService(InstituteDbContext db, IStudentEnrollment
                     : courseAssignments.Where(item =>
                         item.AcademicYear == period.AcademicYear
                         && item.Semester == period.Semester
-                        && item.DepartmentId == resultDepartmentId
                         && item.YearLevel == resultYear
+                        && StudentCurriculumPolicy.IncludesDepartment(resultYear, resultDepartmentId, item.DepartmentId)
                         && item.Course is not null).Select(item => item.Course!).ToList();
                 var fallbackCatalogCourses = cohortTimetableCourses.Count > 0 || fallbackAssignedCourses.Count > 0
                     ? []
-                    : catalogCourses.Where(item => item.DepartmentId == resultDepartmentId && item.YearLevel == resultYear && item.Semester == period.Semester).ToList();
+                    : catalogCourses.Where(item => item.YearLevel == resultYear
+                        && item.Semester == period.Semester
+                        && StudentCurriculumPolicy.IncludesDepartment(resultYear, resultDepartmentId, item.DepartmentId)).ToList();
                 var learningCourses = submittedGrades.Where(item => item.Course is not null).Select(item => item.Course!)
                     .Concat(cohortTimetableCourses)
                     .Concat(fallbackAssignedCourses)
@@ -178,10 +185,17 @@ public sealed class ResultQueryService(InstituteDbContext db, IStudentEnrollment
         var students = await db.Students.AsNoTracking()
             .Where(item => studentIds.Contains(item.Id))
             .ToDictionaryAsync(item => item.Id, cancellationToken);
+        var publicationEnrollments = (await db.StudentEnrollments.AsNoTracking()
+                .Where(item => studentIds.Contains(item.StudentId))
+                .ToListAsync(cancellationToken))
+            .ToDictionary(item => (item.StudentId, item.AcademicYear, item.Semester));
         foreach (var result in ready)
         {
+            if (!publicationEnrollments.TryGetValue((result.StudentId, result.AcademicYear, result.Semester), out var enrollment))
+                throw new InvalidOperationException("A Semester Result cannot be published without its Enrollment Semester.");
             var publication = new SemesterResultPublication
             {
+                StudentEnrollmentId = enrollment.Id,
                 StudentId = result.StudentId,
                 AcademicYear = result.AcademicYear,
                 Term = result.Semester,
@@ -197,7 +211,6 @@ public sealed class ResultQueryService(InstituteDbContext db, IStudentEnrollment
                 Details = $"{result.ResultCode} · {result.AcademicYear} · {result.Semester} · published with all Student results · read-only · eligible for semester archive after payment closure and semester end"
             });
         }
-        await db.SaveChangesAsync(cancellationToken);
         foreach (var result in ready)
             await ReleaseProgressionAsync(result.StudentId, result.AcademicYear, result.Semester, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
@@ -229,11 +242,6 @@ public sealed class ResultQueryService(InstituteDbContext db, IStudentEnrollment
 
     private sealed record Period(string AcademicYear, string Semester);
     private sealed record SessionAttendance(Guid StudentId, string AcademicYear, string Semester, string Status);
-    private static IReadOnlyList<SessionStudentSnapshot> Deserialize(string json)
-    {
-        try { return JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? []; }
-        catch (JsonException) { return []; }
-    }
 
     private static int ExpectedCourseCount(IReadOnlyDictionary<string, string> settings) =>
         int.TryParse(settings.GetValueOrDefault("expectedCourseCount"), out var count) && count > 0

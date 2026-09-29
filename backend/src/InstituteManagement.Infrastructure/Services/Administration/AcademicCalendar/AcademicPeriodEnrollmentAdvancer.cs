@@ -1,6 +1,7 @@
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
+using InstituteManagement.Infrastructure.Services.Enrollment.Students;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Administration;
@@ -80,12 +81,21 @@ public sealed class AcademicPeriodEnrollmentAdvancer(InstituteDbContext db)
                 student.YearLevel,
                 nextSemester,
                 cancellationToken);
+            var academicEnrollment = await StudentAcademicEnrollmentResolver.GetOrCreateAsync(
+                db,
+                student.Id,
+                periodCodes.Enrollment,
+                cancellationToken);
             var enrollmentId = Guid.NewGuid();
             var nextEnrollment = new StudentEnrollment
             {
                 Id = enrollmentId,
+                StudentAcademicEnrollmentId = academicEnrollment.Id,
+                StudentAcademicEnrollment = academicEnrollment,
                 EnrollmentCode = periodCodes.Enrollment,
-                PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken),
+                PublicId = !string.IsNullOrWhiteSpace(previous.PublicId)
+                    ? previous.PublicId
+                    : await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, previous.Id, "studentPublicIdPrefix", "STU", cancellationToken),
                 FinanceCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, previous.EnrollmentCode, student.YearLevel, nextSemester, "financeCodePrefix", "FIN", cancellationToken),
                 ResultCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, previous.EnrollmentCode, student.YearLevel, nextSemester, "resultCodePrefix", "RES", cancellationToken),
                 OperationCode = periodCodes.Operation,

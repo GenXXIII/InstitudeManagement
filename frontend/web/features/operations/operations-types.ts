@@ -1,8 +1,8 @@
 import type { Activity, Metric } from "@/lib/types/presentation-types";
 
 export type OperationSummary = { module: string; summary: string; value: string; detail: string; status: string; route: string; tone: string };
-export type StudentOperation = { id: string; student: string; studentCode: string; operationCode: string; department: string; course: string; year: number; shift: string; attendanceStatus: string };
-export type TeacherOperation = { id: string; teacher: string; teacherCode: string; operationCode: string; department: string; course: string; status: string };
+export type StudentOperation = { id: string; student: string; studentCode: string; operationCode: string; publicId: string; attendanceQrPayload: string; department: string; course: string; year: number; shift: string; attendanceStatus: string };
+export type TeacherOperation = { id: string; teacher: string; teacherCode: string; operationCode: string; publicId: string; attendanceQrPayload: string; department: string; course: string; status: string };
 export type ClassroomOperation = { id: string; room: string; operationCode: string; roomType: string; floor: number; building: string; capacity: number; device: string; status: string; course: string; teacher: string; teacherAttendance: string; statusDetail: string };
 export type CourseOperation = { id: string; course: string; courseCode: string; operationCode: string; teacher: string; classroom: string; department: string; capacity: number; status: string; teacherAttendance: string; statusDetail: string };
 export type WeeklyTimetableSlot = { id: string; timetableCode: string; operationCode: string; day: string; session: string; startsAt: string; endsAt: string; course: string; teacher: string; yearLevel: number; room: string; roomType: string; status: string; teacherAttendance: string; statusDetail: string };

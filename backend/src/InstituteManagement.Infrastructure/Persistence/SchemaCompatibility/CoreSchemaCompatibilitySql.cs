@@ -35,6 +35,7 @@ internal static class CoreSchemaCompatibilitySql
                 [EndsAt] time NOT NULL,
                 [CourseName] nvarchar(256) NOT NULL,
                 [TeacherName] nvarchar(256) NOT NULL,
+                [TeacherAttendanceStatus] nvarchar(32) NOT NULL,
                 [ClassroomCode] nvarchar(64) NOT NULL,
                 [StudentCount] int NOT NULL,
                 [PresentCount] int NOT NULL,
@@ -54,6 +55,7 @@ internal static class CoreSchemaCompatibilitySql
             CREATE INDEX [IX_ClassSessionRecords_TeacherId] ON [ClassSessionRecords] ([TeacherId]);
             CREATE INDEX [IX_ClassSessionRecords_ClassroomId] ON [ClassSessionRecords] ([ClassroomId]);
         END;
+        IF COL_LENGTH('ClassSessionRecords', 'TeacherAttendanceStatus') IS NULL ALTER TABLE [ClassSessionRecords] ADD [TeacherAttendanceStatus] nvarchar(32) NOT NULL CONSTRAINT [DF_ClassSessionRecords_TeacherAttendanceStatus] DEFAULT 'Present';
         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_GradeRecords_StudentId_CourseId_AcademicYear_Term' AND object_id = OBJECT_ID('GradeRecords')) CREATE UNIQUE INDEX [IX_GradeRecords_StudentId_CourseId_AcademicYear_Term] ON [GradeRecords] ([StudentId], [CourseId], [AcademicYear], [Term]);
         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Departments_HeadTeacherId') CREATE INDEX [IX_Departments_HeadTeacherId] ON [Departments] ([HeadTeacherId]);
         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Classrooms_DepartmentId') CREATE INDEX [IX_Classrooms_DepartmentId] ON [Classrooms] ([DepartmentId]);

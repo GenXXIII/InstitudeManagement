@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using InstituteManagement.Application.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             RequestValidationException => StatusCodes.Status400BadRequest,
             ArgumentException => StatusCodes.Status400BadRequest,
             KeyNotFoundException => StatusCodes.Status404NotFound,
+            BusinessConflictException => StatusCodes.Status409Conflict,
             InvalidOperationException => StatusCodes.Status409Conflict,
             PersistenceConflictException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
@@ -38,11 +40,14 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             : new ProblemDetails
             {
                 Status = status,
-                Title = TitleFor(status),
+                Title = exception is BusinessConflictException conflict
+                    ? conflict.Title
+                    : TitleFor(status),
                 Detail = status == StatusCodes.Status500InternalServerError
                     ? "The request could not be completed."
                     : exception.Message
             };
+        problem.Extensions["traceId"] = Activity.Current?.Id ?? context.TraceIdentifier;
 
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {

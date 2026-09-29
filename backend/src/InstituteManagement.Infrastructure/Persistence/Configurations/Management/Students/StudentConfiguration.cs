@@ -11,6 +11,8 @@ public sealed class StudentConfiguration : IEntityTypeConfiguration<Student>
         builder.HasIndex(x => x.PublicId).IsUnique().HasFilter("[PublicId] <> ''");
         builder.HasIndex(x => x.StudentCode).IsUnique();
         builder.HasIndex(x => x.DepartmentId);
+        builder.HasIndex(x => new { x.DepartmentId, x.StudentCode })
+            .IncludeProperties(x => new { x.FullName, x.YearLevel, x.Status });
         builder.Property(x => x.PublicId).HasMaxLength(16).IsRequired();
         builder.Property(x => x.StudentCode).HasMaxLength(32).IsRequired();
         builder.Property(x => x.FullName).HasMaxLength(200).IsRequired();

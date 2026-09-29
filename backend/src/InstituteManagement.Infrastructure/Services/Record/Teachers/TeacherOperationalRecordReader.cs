@@ -1,4 +1,3 @@
-using System.Text.Json;
 using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
@@ -25,7 +24,10 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
         var courseAssignments = await db.CourseAssignments.AsNoTracking()
             .Where(x => x.TeacherId.HasValue && ids.Contains(x.TeacherId.Value) && (!departmentId.HasValue || x.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
-        var sessions = await db.ClassSessionRecords.AsNoTracking().Where(x => ids.Contains(x.TeacherId)).ToListAsync(cancellationToken);
+        var sessions = await db.ClassSessionRecords.AsNoTracking()
+            .Include(x => x.StudentAttendance)
+            .Where(x => ids.Contains(x.TeacherId))
+            .ToListAsync(cancellationToken);
 
         return teachers.Select(teacher =>
         {
@@ -53,7 +55,7 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
                 ("Teacher attendance", x.TeacherAttendanceStatus), ("Session status", TeacherPresence.SessionStatus(x.TeacherAttendanceStatus)), ("Reason", TeacherPresence.Reason(x.TeacherAttendanceStatus)), ("Present", (x.PresentCount + x.LateCount).ToString()),
                 ("Permission", x.ExcusedCount.ToString()), ("Absent", x.AbsentCount.ToString()),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"),
-                ("Students", StudentSummary(x.StudentAttendanceJson)))));
+                ("Students", StudentSummary(x.StudentAttendance)))));
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var attendanceStatus = TeacherPresence.Attendance(teacher.Status);
             var recordSource = assignments.Where(x => x.TeacherId == teacher.Id)
@@ -67,10 +69,7 @@ public sealed class TeacherOperationalRecordReader(InstituteDbContext db) : IOpe
         }).ToList();
     }
 
-    private static string StudentSummary(string json)
-    {
-        try { return string.Join("; ", (JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? []).Select(x => $"{x.StudentName}: {x.Status}")); }
-        catch (JsonException) { return "Attendance snapshot unavailable"; }
-    }
+    private static string StudentSummary(IEnumerable<ClassSessionStudentAttendance> attendance) =>
+        string.Join("; ", attendance.Select(x => $"{x.StudentName}: {x.Status}"));
 
 }

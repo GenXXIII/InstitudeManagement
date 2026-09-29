@@ -14,27 +14,31 @@ internal sealed class CourseAssignmentReader(InstituteDbContext db)
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
-        var courses = await db.Courses
-            .AsNoTracking()
-            .Where(course => course.IsActive)
-            .ToListAsync(cancellationToken);
-        var courseById = courses.ToDictionary(course => course.Id);
-        var courseIds = courses.Select(course => course.Id).ToList();
         var assignments = await db.CourseAssignments
             .AsNoTracking()
+            .Include(assignment => assignment.Course)
             .Include(assignment => assignment.Department)
             .Include(assignment => assignment.Teacher)
-            .Where(assignment => assignment.Status != "Removed" && courseIds.Contains(assignment.CourseId))
+            .Where(assignment =>
+                assignment.Status != "Removed"
+                && assignment.Course != null
+                && assignment.Course.IsActive
+                && (!departmentId.HasValue || assignment.DepartmentId == departmentId)
+                && (!year.HasValue || assignment.Course.YearLevel == year))
             .ToListAsync(cancellationToken);
 
         return assignments
             .Where(assignment =>
-                (!departmentId.HasValue || assignment.DepartmentId == departmentId)
-                && (!year.HasValue || courseById[assignment.CourseId].YearLevel == year)
-                && Matches(search, assignment.EnrollmentCode, courseById[assignment.CourseId].CourseCode, courseById[assignment.CourseId].Name, assignment.Department?.Name, assignment.Teacher?.FullName))
+                Matches(
+                    search,
+                    assignment.EnrollmentCode,
+                    assignment.Course!.CourseCode,
+                    assignment.Course.Name,
+                    assignment.Department?.Name,
+                    assignment.Teacher?.FullName))
             .Select(assignment =>
             {
-                var course = courseById[assignment.CourseId];
+                var course = assignment.Course!;
                 return Item(
                     course.Id,
                     ("enrollmentCode", assignment.EnrollmentCode),

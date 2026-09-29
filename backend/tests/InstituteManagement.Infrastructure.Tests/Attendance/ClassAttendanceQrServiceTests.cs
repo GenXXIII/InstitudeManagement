@@ -1,9 +1,9 @@
+using InstituteManagement.Domain.Common;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Attendance;
 using InstituteManagement.Infrastructure.Services.Attendance.ClassSessions;
 using InstituteManagement.Infrastructure.Services.Common;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Tests.Attendance;
@@ -11,34 +11,104 @@ namespace InstituteManagement.Infrastructure.Tests.Attendance;
 public sealed class ClassAttendanceQrServiceTests
 {
     [Fact]
-    public async Task Enrolled_student_can_scan_rotating_qr_for_running_class()
+    public async Task Enrolled_student_scans_own_public_id_qr_and_becomes_present()
     {
         await using var db = CreateContext();
         var seeded = await SeedRunningClassAsync(db);
-        var qrGateway = new ClassAttendanceQrGateway(new EphemeralDataProtectionProvider());
-        var service = new ClassAttendanceQrService(
-            db,
-            qrGateway,
-            new AttendanceService(db, new InstituteCache()));
+        var service = CreateService(db);
 
-        var firstQr = await service.GenerateAsync(seeded.Schedule.Id, seeded.Teacher.Id, CancellationToken.None);
-        var secondQr = await service.GenerateAsync(seeded.Schedule.Id, seeded.Teacher.Id, CancellationToken.None);
         var result = await service.CheckInAsync(
             seeded.Schedule.Id,
             seeded.Student.Id,
-            secondQr.Payload,
+            AttendanceIdentityQr.CreateStudent(seeded.Enrollment.PublicId),
             CancellationToken.None);
 
-        Assert.NotEqual(firstQr.Payload, secondQr.Payload);
-        Assert.Equal("Dynamic QR", result.Method);
+        Assert.Equal("Present", result.Status);
+        Assert.Equal("Public ID QR", result.Method);
         var attendance = Assert.Single(await db.AttendanceRecords.ToListAsync());
         Assert.Equal(seeded.Student.Id, attendance.StudentId);
-        Assert.Equal("Dynamic QR", attendance.Method);
-        Assert.Contains(attendance.Status, new[] { "Present", "Late" });
+        Assert.Equal("Present", attendance.Status);
+        Assert.Equal("Public ID QR", attendance.Method);
     }
 
     [Fact]
-    public async Task Student_outside_the_class_cannot_use_its_qr()
+    public async Task Student_cannot_scan_another_students_public_id_qr()
+    {
+        await using var db = CreateContext();
+        var seeded = await SeedRunningClassAsync(db);
+        var service = CreateService(db);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CheckInAsync(
+            seeded.Schedule.Id,
+            seeded.Student.Id,
+            AttendanceIdentityQr.CreateStudent("STU-OTHER-PUBLIC-ID"),
+            CancellationToken.None));
+
+        Assert.Contains("signed-in Student Public ID", error.Message);
+        Assert.Empty(await db.AttendanceRecords.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Student_cannot_use_a_teacher_attendance_qr()
+    {
+        await using var db = CreateContext();
+        var seeded = await SeedRunningClassAsync(db);
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CheckInAsync(
+            seeded.Schedule.Id,
+            seeded.Student.Id,
+            AttendanceIdentityQr.CreateTeacher("TEA-PUBLIC-ID"),
+            CancellationToken.None));
+
+        Assert.Empty(await db.AttendanceRecords.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Year_one_student_can_attend_a_general_course_from_another_department()
+    {
+        await using var db = CreateContext();
+        var seeded = await SeedRunningClassAsync(db);
+        var otherDepartment = new Department { DepartmentCode = "DEP-GENERAL", Name = "General Student Department" };
+        var generalStudent = new Student
+        {
+            StudentCode = "STU-GENERAL",
+            FullName = "General Year One Student",
+            DepartmentId = otherDepartment.Id,
+            Department = otherDepartment,
+            YearLevel = 1,
+            Shift = "Morning",
+            Status = "Active"
+        };
+        var enrollment = new StudentEnrollment
+        {
+            EnrollmentCode = "ENR-GENERAL",
+            PublicId = "STU-GENERAL-PUBLIC-ID",
+            StudentId = generalStudent.Id,
+            Student = generalStudent,
+            DepartmentId = otherDepartment.Id,
+            Department = otherDepartment,
+            YearLevel = 1,
+            Shift = "Morning",
+            AcademicYear = "2026\u20132027",
+            Semester = "Semester 1",
+            Status = "Active"
+        };
+        db.AddRange(otherDepartment, generalStudent, enrollment);
+        await db.SaveChangesAsync();
+
+        var result = await CreateService(db).CheckInAsync(
+            seeded.Schedule.Id,
+            generalStudent.Id,
+            AttendanceIdentityQr.CreateStudent(enrollment.PublicId),
+            CancellationToken.None);
+
+        Assert.Equal(generalStudent.Id, result.StudentId);
+        Assert.Equal("Present", result.Status);
+    }
+
+    [Fact]
+    public async Task Student_outside_the_class_year_cannot_attend()
     {
         await using var db = CreateContext();
         var seeded = await SeedRunningClassAsync(db);
@@ -49,75 +119,39 @@ public sealed class ClassAttendanceQrServiceTests
             FullName = "Other Student",
             DepartmentId = otherDepartment.Id,
             Department = otherDepartment,
-            YearLevel = 1,
+            YearLevel = 2,
             Shift = "Morning",
             Status = "Active"
         };
-        db.AddRange(
-            otherDepartment,
-            otherStudent,
-            new StudentEnrollment
-            {
-                EnrollmentCode = "ENR-OTHER",
-                StudentId = otherStudent.Id,
-                Student = otherStudent,
-                DepartmentId = otherDepartment.Id,
-                Department = otherDepartment,
-                YearLevel = 1,
-                Shift = "Morning",
-                AcademicYear = "2026–2027",
-                Semester = "Semester 1",
-                Status = "Active"
-            });
+        var enrollment = new StudentEnrollment
+        {
+            EnrollmentCode = "ENR-OTHER",
+            PublicId = "STU-OTHER-PUBLIC-ID",
+            StudentId = otherStudent.Id,
+            Student = otherStudent,
+            DepartmentId = otherDepartment.Id,
+            Department = otherDepartment,
+            YearLevel = 2,
+            Shift = "Morning",
+            AcademicYear = "2026\u20132027",
+            Semester = "Semester 1",
+            Status = "Active"
+        };
+        db.AddRange(otherDepartment, otherStudent, enrollment);
         await db.SaveChangesAsync();
 
-        var qrGateway = new ClassAttendanceQrGateway(new EphemeralDataProtectionProvider());
-        var service = new ClassAttendanceQrService(
-            db,
-            qrGateway,
-            new AttendanceService(db, new InstituteCache()));
-        var qr = await service.GenerateAsync(seeded.Schedule.Id, seeded.Teacher.Id, CancellationToken.None);
-
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CheckInAsync(
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(db).CheckInAsync(
             seeded.Schedule.Id,
             otherStudent.Id,
-            qr.Payload,
+            AttendanceIdentityQr.CreateStudent(enrollment.PublicId),
             CancellationToken.None));
 
         Assert.Contains("different Student class", error.Message);
         Assert.Empty(await db.AttendanceRecords.ToListAsync());
     }
 
-    [Fact]
-    public async Task Assigned_teacher_can_scan_an_enrolled_students_rotating_qr()
-    {
-        await using var db = CreateContext();
-        var seeded = await SeedRunningClassAsync(db);
-        var qrGateway = new ClassAttendanceQrGateway(new EphemeralDataProtectionProvider());
-        var service = new ClassAttendanceQrService(
-            db,
-            qrGateway,
-            new AttendanceService(db, new InstituteCache()));
-
-        var firstQr = await service.GenerateStudentAsync(
-            seeded.Schedule.Id,
-            seeded.Student.Id,
-            CancellationToken.None);
-        var secondQr = await service.GenerateStudentAsync(
-            seeded.Schedule.Id,
-            seeded.Student.Id,
-            CancellationToken.None);
-        var result = await service.TeacherCheckInAsync(
-            seeded.Schedule.Id,
-            seeded.Teacher.Id,
-            secondQr.Payload,
-            CancellationToken.None);
-
-        Assert.NotEqual(firstQr.Payload, secondQr.Payload);
-        Assert.Equal(seeded.Student.Id, result.StudentId);
-        Assert.Equal("Dynamic QR", result.Method);
-        Assert.Single(await db.AttendanceRecords.ToListAsync());
-    }
+    private static ClassAttendanceQrService CreateService(InstituteDbContext db) =>
+        new(db, new AttendanceService(db, new InstituteCache()));
 
     private static async Task<SeededClass> SeedRunningClassAsync(InstituteDbContext db)
     {
@@ -152,6 +186,20 @@ public sealed class ClassAttendanceQrServiceTests
             EndsAt = TimeOnly.MaxValue,
             Status = "Upcoming"
         };
+        var enrollment = new StudentEnrollment
+        {
+            EnrollmentCode = "ENR-QR",
+            PublicId = "STU-QR-PUBLIC-ID",
+            StudentId = student.Id,
+            Student = student,
+            DepartmentId = department.Id,
+            Department = department,
+            YearLevel = 1,
+            Shift = "Morning",
+            AcademicYear = "2026\u20132027",
+            Semester = "Semester 1",
+            Status = "Active"
+        };
         db.AddRange(
             department,
             teacher,
@@ -159,19 +207,7 @@ public sealed class ClassAttendanceQrServiceTests
             course,
             student,
             schedule,
-            new StudentEnrollment
-            {
-                EnrollmentCode = "ENR-QR",
-                StudentId = student.Id,
-                Student = student,
-                DepartmentId = department.Id,
-                Department = department,
-                YearLevel = 1,
-                Shift = "Morning",
-                AcademicYear = "2026–2027",
-                Semester = "Semester 1",
-                Status = "Active"
-            },
+            enrollment,
             new TimetableEnrollment
             {
                 EnrollmentCode = "TIM-QR-ETIM-1",
@@ -184,7 +220,7 @@ public sealed class ClassAttendanceQrServiceTests
                 CourseId = course.Id,
                 Course = course,
                 YearLevel = 1,
-                AcademicYear = "2026–2027",
+                AcademicYear = "2026\u20132027",
                 Semester = "Semester 1",
                 Status = "Active"
             },
@@ -198,10 +234,10 @@ public sealed class ClassAttendanceQrServiceTests
                 StartedAtUtc = now
             },
             new SystemSetting { Section = "system", Key = "timeZone", Value = "UTC" },
-            new SystemSetting { Section = "academic-year", Key = "currentYear", Value = "2026–2027" },
+            new SystemSetting { Section = "academic-year", Key = "currentYear", Value = "2026\u20132027" },
             new SystemSetting { Section = "semester", Key = "currentTerm", Value = "Semester 1" });
         await db.SaveChangesAsync();
-        return new SeededClass(schedule, teacher, student);
+        return new SeededClass(schedule, student, enrollment);
     }
 
     private static InstituteDbContext CreateContext() =>
@@ -209,5 +245,5 @@ public sealed class ClassAttendanceQrServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-    private sealed record SeededClass(ScheduleEntry Schedule, Teacher Teacher, Student Student);
+    private sealed record SeededClass(ScheduleEntry Schedule, Student Student, StudentEnrollment Enrollment);
 }

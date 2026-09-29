@@ -1,5 +1,5 @@
 using InstituteManagement.Application.Features.Results.GetResults;
-using InstituteManagement.Application.Features.Results;
+using InstituteManagement.Application.Features.Results.PublishResults;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +9,7 @@ namespace InstituteManagement.API.Controllers.Results;
 
 [ApiController]
 [Route(ApiRoutes.Results)]
-public sealed class ResultsController(ISender sender, IResultQueryService resultService) : ControllerBase
+public sealed class ResultsController(ISender sender) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(Guid? departmentId, int? year, string? semester, string? academicYear, bool history, Guid? studentId, bool publishedOnly, CancellationToken cancellationToken) =>
@@ -17,5 +17,5 @@ public sealed class ResultsController(ISender sender, IResultQueryService result
 
     [HttpPost("publish-all")]
     public async Task<IActionResult> PublishAll(CancellationToken cancellationToken) =>
-        Ok(new { published = await resultService.PublishAllAsync(cancellationToken) });
+        Ok(new { published = await sender.Send(new PublishReadySemesterResultsCommand(), cancellationToken) });
 }

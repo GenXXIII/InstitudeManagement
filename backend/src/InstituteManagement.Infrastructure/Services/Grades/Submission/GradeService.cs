@@ -1,5 +1,6 @@
 using InstituteManagement.Application.Features.Grades;
 using InstituteManagement.Domain.Entities;
+using InstituteManagement.Domain.Policies;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
@@ -52,9 +53,12 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
             throw new InvalidOperationException("Every submitted student must have an active enrollment in the current academic period.");
 
         var cohort = requestedEnrollments[0];
-        if (course.DepartmentId != cohort.DepartmentId || requestedEnrollments.Any(item =>
-            item.DepartmentId != cohort.DepartmentId || item.YearLevel != cohort.YearLevel || item.Shift != cohort.Shift))
-            throw new InvalidOperationException("A course submission must contain one complete department, year, and shift roster.");
+        if (!StudentCurriculumPolicy.IncludesDepartment(cohort.YearLevel, cohort.DepartmentId, course.DepartmentId)
+            || requestedEnrollments.Any(item =>
+                item.YearLevel != cohort.YearLevel
+                || item.Shift != cohort.Shift
+                || !StudentCurriculumPolicy.IsGeneralYear(cohort.YearLevel) && item.DepartmentId != cohort.DepartmentId))
+            throw new InvalidOperationException("A course submission must contain the complete Year 1 general roster or one complete major, year, and shift roster.");
 
         var assigned = await db.TimetableEnrollments.AsNoTracking()
             .Include(item => item.ScheduleEntry)
@@ -70,8 +74,8 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         if (!assigned) throw new InvalidOperationException("This Teacher is not assigned to this course roster.");
 
         var rosterIds = await db.StudentEnrollments.AsNoTracking()
-            .Where(item => item.DepartmentId == cohort.DepartmentId
-                && item.YearLevel == cohort.YearLevel
+            .Where(item => item.YearLevel == cohort.YearLevel
+                && (cohort.YearLevel == StudentCurriculumPolicy.GeneralYearLevel || item.DepartmentId == cohort.DepartmentId)
                 && item.Shift == cohort.Shift
                 && item.AcademicYear == period.AcademicYear
                 && item.Semester == period.Term
@@ -93,6 +97,19 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
             throw new InvalidOperationException(CourseStateMessage(grade.ReviewStatus));
 
         var rules = await GradeCompositionCalculator.LoadRulesAsync(db, cancellationToken);
+        var attendanceSessions = await GradeCompositionCalculator.AttendanceSessionsAsync(
+            db,
+            courseId,
+            period.AcademicYear,
+            period.Term,
+            cancellationToken);
+        var generatedCodes = await BusinessCodeFormatter.GenerateManyAsync(
+            db,
+            "grade",
+            students.Count(score => !existing.ContainsKey(score.StudentId)),
+            cancellationToken);
+        var generatedCodeIndex = 0;
+        var enrollmentByStudent = requestedEnrollments.ToDictionary(item => item.StudentId);
         var now = DateTime.UtcNow;
         GradeRecord? firstGrade = null;
         foreach (var score in students)
@@ -100,15 +117,21 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
             var imported = existing.GetValueOrDefault(score.StudentId);
             var grade = imported ?? new GradeRecord
             {
-                GradeCode = await BusinessCodeFormatter.GenerateAsync(db, "grade", cancellationToken),
+                GradeCode = generatedCodes[generatedCodeIndex++],
+                StudentEnrollmentId = enrollmentByStudent[score.StudentId].Id,
                 StudentId = score.StudentId,
                 CourseId = courseId,
                 AcademicYear = period.AcademicYear,
                 Term = period.Term,
                 SubmissionVersion = 1,
             };
+            grade.StudentEnrollmentId = enrollmentByStudent[score.StudentId].Id;
             if (imported is null) db.GradeRecords.Add(grade);
-            var attendance = await GradeCompositionCalculator.AttendanceAsync(db, score.StudentId, courseId, period.AcademicYear, period.Term, rules.Weights.Attendance, rules.Attendance, cancellationToken);
+            var attendance = GradeCompositionCalculator.Attendance(
+                attendanceSessions,
+                score.StudentId,
+                rules.Weights.Attendance,
+                rules.Attendance);
             GradeCompositionCalculator.Apply(grade, rules.Weights, rules.Thresholds, attendance, score.AssignmentScore, score.MidtermScore, score.FinalExamScore);
             grade.SubmittedByTeacherId = teacherId;
             grade.ReviewStatus = "SubmissionRequested";
@@ -158,10 +181,20 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
             if (scores.Count != grades.Count || grades.Any(item => !scores.ContainsKey(item.StudentId)))
                 throw new InvalidOperationException("Resubmit scores for the entire assigned course roster.");
             var rules = await GradeCompositionCalculator.LoadRulesAsync(db, cancellationToken);
+            var attendanceSessions = await GradeCompositionCalculator.AttendanceSessionsAsync(
+                db,
+                anchor.CourseId,
+                anchor.AcademicYear,
+                anchor.Term,
+                cancellationToken);
             foreach (var grade in grades)
             {
                 var score = scores[grade.StudentId];
-                var attendance = await GradeCompositionCalculator.AttendanceAsync(db, grade.StudentId, grade.CourseId, grade.AcademicYear, grade.Term, rules.Weights.Attendance, rules.Attendance, cancellationToken);
+                var attendance = GradeCompositionCalculator.Attendance(
+                    attendanceSessions,
+                    grade.StudentId,
+                    rules.Weights.Attendance,
+                    rules.Attendance);
                 GradeCompositionCalculator.Apply(grade, rules.Weights, rules.Thresholds, attendance, score.AssignmentScore, score.MidtermScore, score.FinalExamScore);
                 grade.SubmissionVersion++;
             }
@@ -329,23 +362,31 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         if (courseId == Guid.Empty) throw new ArgumentException("CourseId is required.", nameof(courseId));
         var student = await db.Students.FindAsync([studentId], cancellationToken) ?? throw new KeyNotFoundException("Student not found.");
         var course = await db.Courses.FindAsync([courseId], cancellationToken) ?? throw new KeyNotFoundException("Course not found.");
-        if (student.Status == "Inactive" || !course.IsActive || student.DepartmentId != course.DepartmentId)
-            throw new InvalidOperationException("Student and course must be active and belong to the same department.");
+        var period = await CurrentPeriodAsync(cancellationToken);
+        var currentEnrollment = await db.StudentEnrollments.AsNoTracking().SingleOrDefaultAsync(item =>
+            item.StudentId == studentId
+            && item.AcademicYear == period.AcademicYear
+            && item.Semester == period.Term
+            && item.Status == "Active",
+            cancellationToken)
+            ?? throw new InvalidOperationException("The student does not have an active enrollment.");
+        if (student.Status == "Inactive" || !course.IsActive
+            || !StudentCurriculumPolicy.IncludesDepartment(currentEnrollment.YearLevel, currentEnrollment.DepartmentId, course.DepartmentId))
+            throw new InvalidOperationException("Student and course must be active and match the Year 1 general curriculum or the Student's major.");
 
         Teacher? teacher = null;
         if (verifyTeacher)
         {
             if (teacherId == Guid.Empty) throw new ArgumentException("TeacherId is required.", nameof(teacherId));
             teacher = await db.Teachers.FindAsync([teacherId], cancellationToken) ?? throw new KeyNotFoundException("Teacher not found.");
-            var studentEnrollment = await db.StudentEnrollments.AsNoTracking().Where(item => item.StudentId == studentId && item.Status == "Active").OrderByDescending(item => item.CreateAt).FirstOrDefaultAsync(cancellationToken)
-                ?? throw new InvalidOperationException("The student does not have an active enrollment.");
             var assignments = await db.TimetableEnrollments.AsNoTracking().Include(item => item.Course).Include(item => item.ScheduleEntry)
                 .Where(item => item.TeacherId == teacherId && item.CourseId == courseId && item.Status == "Active").ToListAsync(cancellationToken);
-            var assigned = assignments.Any(item => item.YearLevel == studentEnrollment.YearLevel && item.Course?.DepartmentId == studentEnrollment.DepartmentId && (item.ScheduleEntry is null || item.ScheduleEntry.Shift == studentEnrollment.Shift));
+            var assigned = assignments.Any(item => item.YearLevel == currentEnrollment.YearLevel
+                && StudentCurriculumPolicy.IncludesDepartment(currentEnrollment.YearLevel, currentEnrollment.DepartmentId, item.Course?.DepartmentId)
+                && (item.ScheduleEntry is null || item.ScheduleEntry.Shift == currentEnrollment.Shift));
             if (!assigned) throw new InvalidOperationException("This Teacher is not assigned to this student's course, year, and shift.");
         }
 
-        var period = await CurrentPeriodAsync(cancellationToken);
         if (await db.GradeRecords.AnyAsync(item => item.StudentId == studentId
                 && item.AcademicYear == period.AcademicYear
                 && item.Term == period.Term
@@ -357,7 +398,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         var isResubmission = grade?.ReviewStatus == "ResubmitRequested";
         if (grade is null)
         {
-            grade = new GradeRecord { GradeCode = await BusinessCodeFormatter.GenerateAsync(db, "grade", cancellationToken), StudentId = studentId, CourseId = courseId, AcademicYear = period.AcademicYear, Term = period.Term, SubmissionVersion = 1 };
+            grade = new GradeRecord { GradeCode = await BusinessCodeFormatter.GenerateAsync(db, "grade", cancellationToken), StudentEnrollmentId = currentEnrollment.Id, StudentId = studentId, CourseId = courseId, AcademicYear = period.AcademicYear, Term = period.Term, SubmissionVersion = 1 };
             db.GradeRecords.Add(grade);
         }
         else if (!importedGrade)
@@ -366,6 +407,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
             if (isResubmission) grade.SubmissionVersion++;
         }
         else grade.SubmissionVersion = Math.Max(1, grade.SubmissionVersion);
+        grade.StudentEnrollmentId = currentEnrollment.Id;
 
         var rules = await GradeCompositionCalculator.LoadRulesAsync(db, cancellationToken);
         var attendance = await GradeCompositionCalculator.AttendanceAsync(db, studentId, courseId, period.AcademicYear, period.Term, rules.Weights.Attendance, rules.Attendance, cancellationToken);
@@ -394,7 +436,9 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
         if (enrollment is not null)
         {
             var studentIds = await db.StudentEnrollments.AsNoTracking().Where(item =>
-                item.DepartmentId == enrollment.DepartmentId && item.YearLevel == enrollment.YearLevel && item.Shift == enrollment.Shift
+                item.YearLevel == enrollment.YearLevel
+                && (enrollment.YearLevel == StudentCurriculumPolicy.GeneralYearLevel || item.DepartmentId == enrollment.DepartmentId)
+                && item.Shift == enrollment.Shift
                 && item.AcademicYear == enrollment.AcademicYear && item.Semester == enrollment.Semester && item.Status == "Active")
                 .Select(item => item.StudentId)
                 .ToListAsync(cancellationToken);
@@ -444,7 +488,7 @@ public sealed class GradeService(InstituteDbContext db, InstituteCache cache) : 
                 && item.Semester == enrollment.Semester
                 && item.YearLevel == enrollment.YearLevel
                 && item.ScheduleEntry?.Shift == enrollment.Shift
-                && item.Course?.DepartmentId == enrollment.DepartmentId)
+                && StudentCurriculumPolicy.IncludesDepartment(enrollment.YearLevel, enrollment.DepartmentId, item.Course?.DepartmentId))
             .Select(item => item.CourseId)
             .ToHashSet();
 

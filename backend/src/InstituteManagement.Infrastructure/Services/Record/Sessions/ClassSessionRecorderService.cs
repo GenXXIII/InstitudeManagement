@@ -1,5 +1,5 @@
-using System.Text.Json;
 using InstituteManagement.Domain.Entities;
+using InstituteManagement.Domain.Policies;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Grades;
@@ -79,21 +79,26 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                     var classHeld = TeacherPresence.IsPresent(teacherAttendance);
                     var studentEnrollments = await db.StudentEnrollments.AsNoTracking().Include(x => x.Student)
                         .Where(x => x.AcademicYear == academicYear && x.Semester == term && x.Status == "Active"
-                            && x.DepartmentId == courseAssignment.DepartmentId && x.YearLevel == schedule.YearLevel!.Value && x.Shift == schedule.Shift)
+                            && x.YearLevel == schedule.YearLevel!.Value
+                            && (x.YearLevel == StudentCurriculumPolicy.GeneralYearLevel || x.DepartmentId == courseAssignment.DepartmentId)
+                            && x.Shift == schedule.Shift)
                         .OrderBy(x => x.Student!.FullName)
                         .ToListAsync(cancellationToken);
-                    var students = studentEnrollments.Where(x => x.Student is not null && x.Student.Status != "Inactive").Select(x => x.Student!).ToList();
-                    var studentIds = students.Select(x => x.Id).ToList();
+                    var activeStudentEnrollments = studentEnrollments
+                        .Where(x => x.Student is not null && x.Student.Status != "Inactive")
+                        .ToList();
+                    var studentIds = activeStudentEnrollments.Select(x => x.StudentId).ToList();
                     var attendance = await db.AttendanceRecords.AsNoTracking().Where(x => studentIds.Contains(x.StudentId) && x.Date == date && x.AcademicYear == academicYear && x.Term == term).ToDictionaryAsync(x => x.StudentId, cancellationToken);
                     var approvedPermissions = (await db.ClassPermissionRequests.AsNoTracking().Where(x => studentIds.Contains(x.StudentId) && x.SessionDate == date && x.Status == "Approved").Select(x => x.StudentId).ToListAsync(cancellationToken)).ToHashSet();
-                    var snapshots = students.Select(student =>
+                    var snapshots = activeStudentEnrollments.Select(enrollment =>
                     {
+                        var student = enrollment.Student!;
                         if (!classHeld)
-                            return new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, "Class not held", "");
+                            return Snapshot(enrollment.Id, student, "Class not held", "");
                         var entry = attendance.GetValueOrDefault(student.Id);
                         if (entry?.Status is not ("Present" or "Late") && approvedPermissions.Contains(student.Id))
-                            return new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, "Permission", "");
-                        return new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, entry?.Status ?? (autoAbsent ? "Absent" : "Not recorded"), entry?.CheckedInAt?.ToString("HH:mm") ?? "");
+                            return Snapshot(enrollment.Id, student, "Permission", "");
+                        return Snapshot(enrollment.Id, student, entry?.Status ?? (autoAbsent ? "Absent" : "Not recorded"), entry?.CheckedInAt?.ToString("HH:mm") ?? "");
                     }).ToList();
                     var endedAtUtc = TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(schedule.EndsAt), timeZone);
                     var entity = new ClassSessionRecord
@@ -119,7 +124,7 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
                         LateCount = snapshots.Count(x => x.Status == "Late"),
                         AbsentCount = snapshots.Count(x => x.Status == "Absent"),
                         ExcusedCount = snapshots.Count(x => x.Status is "Excused" or "Permission"),
-                        StudentAttendanceJson = JsonSerializer.Serialize(snapshots),
+                        StudentAttendance = snapshots,
                         CreateAt = endedAtUtc,
                         UpdatedAtUtc = endedAtUtc
                     };
@@ -157,5 +162,19 @@ public sealed class ClassSessionRecorderService(InstituteDbContext db, Institute
 
     private static bool Enabled(IReadOnlyDictionary<string, string> values, string key, bool fallback) =>
         bool.TryParse(values.GetValueOrDefault(key), out var enabled) ? enabled : fallback;
+
+    private static ClassSessionStudentAttendance Snapshot(
+        Guid studentEnrollmentId,
+        Student student,
+        string status,
+        string checkedInAt) => new()
+        {
+            StudentEnrollmentId = studentEnrollmentId,
+            StudentId = student.Id,
+            StudentCode = student.StudentCode,
+            StudentName = student.FullName,
+            Status = status,
+            CheckedInAt = checkedInAt
+        };
 
 }

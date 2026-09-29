@@ -14,35 +14,49 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
-        var rooms = await db.Classrooms
+        var assignmentQuery = db.ClassroomAssignments
             .AsNoTracking()
-            .Where(room => room.Status != "Inactive")
-            .ToListAsync(cancellationToken);
-        var roomById = rooms.ToDictionary(room => room.Id);
-        var roomIds = rooms.Select(room => room.Id).ToList();
-        var assignments = await db.ClassroomAssignments
-            .AsNoTracking()
+            .Include(assignment => assignment.Classroom)
             .Include(assignment => assignment.Department)
-            .Where(assignment => assignment.Status != "Removed" && roomIds.Contains(assignment.ClassroomId))
+            .Where(assignment =>
+                assignment.Status != "Removed"
+                && assignment.Classroom != null
+                && assignment.Classroom.Status != "Inactive"
+                && (!departmentId.HasValue
+                    || assignment.DepartmentId == departmentId
+                    || assignment.DepartmentId == null));
+        if (year.HasValue)
+        {
+            assignmentQuery = assignmentQuery.Where(assignment => db.ScheduleEntries.Any(entry =>
+                entry.Status != "Cancelled"
+                && entry.ClassroomId == assignment.ClassroomId
+                && entry.YearLevel == year));
+        }
+
+        var assignments = await assignmentQuery
             .ToListAsync(cancellationToken);
+        if (assignments.Count == 0) return [];
+
+        var roomIds = assignments.Select(assignment => assignment.ClassroomId).Distinct().ToList();
         var schedules = await db.ScheduleEntries
             .AsNoTracking()
             .Include(entry => entry.Course)
             .Include(entry => entry.Teacher)
-            .Where(entry => entry.Status != "Cancelled")
+            .Where(entry => entry.Status != "Cancelled" && entry.ClassroomId.HasValue && roomIds.Contains(entry.ClassroomId.Value))
             .ToListAsync(cancellationToken);
 
         return assignments
             .Where(assignment =>
-                (!departmentId.HasValue
-                    || assignment.DepartmentId == departmentId
-                    || assignment.DepartmentId == null)
-                && (!year.HasValue || schedules.Any(entry =>
-                    entry.ClassroomId == assignment.ClassroomId && entry.YearLevel == year))
-                && Matches(search, assignment.EnrollmentCode, roomById[assignment.ClassroomId].ClassroomCode, roomById[assignment.ClassroomId].Building, assignment.Department?.Name, roomById[assignment.ClassroomId].Status))
+                Matches(
+                    search,
+                    assignment.EnrollmentCode,
+                    assignment.Classroom!.ClassroomCode,
+                    assignment.Classroom.Building,
+                    assignment.Department?.Name,
+                    assignment.Classroom.Status))
             .Select(assignment =>
             {
-                var room = roomById[assignment.ClassroomId];
+                var room = assignment.Classroom!;
                 var roomSchedule = schedules
                     .Where(entry =>
                         entry.ClassroomId == room.Id

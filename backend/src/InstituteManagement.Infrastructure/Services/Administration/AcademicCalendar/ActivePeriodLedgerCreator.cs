@@ -53,6 +53,7 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
             {
                 db.AttendanceRecords.Add(CreateAttendance(
                     student,
+                    enrollment.StudentEnrollmentId,
                     enrollment.Shift,
                     attendanceCodes.Dequeue(),
                     academicYear,
@@ -68,6 +69,7 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
             db.GradeRecords.Add(new GradeRecord
             {
                 GradeCode = gradeCodes.Dequeue(),
+                StudentEnrollmentId = enrollment.StudentEnrollmentId,
                 StudentId = student.Id,
                 CourseId = courseId.Value,
                 Score = 0,
@@ -118,6 +120,7 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
                 && student.Status != "Inactive")
             .Select(enrollment => new ActiveStudentEnrollment(
                 students[enrollment.StudentId],
+                enrollment.Id,
                 enrollment.DepartmentId,
                 enrollment.YearLevel,
                 enrollment.Shift,
@@ -128,6 +131,7 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
 
     private static AttendanceRecord CreateAttendance(
         Student student,
+        Guid studentEnrollmentId,
         string shift,
         string attendanceCode,
         string academicYear,
@@ -136,6 +140,7 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
         string method) => new()
         {
             AttendanceCode = attendanceCode,
+            StudentEnrollmentId = studentEnrollmentId,
             StudentId = student.Id,
             Date = startsOn,
             CheckedInAt = RequiredShift(shift).StartsAt,
@@ -175,6 +180,7 @@ public sealed class ActivePeriodLedgerCreator(InstituteDbContext db)
 
     private sealed record ActiveStudentEnrollment(
         Student Student,
+        Guid StudentEnrollmentId,
         Guid DepartmentId,
         int YearLevel,
         string Shift,

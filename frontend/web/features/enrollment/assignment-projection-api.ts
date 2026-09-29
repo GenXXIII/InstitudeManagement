@@ -39,25 +39,12 @@ export function deriveAssignmentProjection(
   const timetableCohorts = new Set(timetable.map(item => cohortKey(item, "yearLevel")!));
   const matchedStudents = students.filter(item => timetableCohorts.has(cohortKey(item, "year")!));
   const matchedTimetable = timetable.filter(item => studentCohorts.has(cohortKey(item, "yearLevel")!));
-  const timetableByCohort = groupBy(matchedTimetable, item => cohortKey(item, "yearLevel")!);
   const teacherAssignmentByPeriod = new Map(teacherAssignmentRows.map(assignment => [
     periodGroupKey(assignment, assignment.id),
     assignment,
   ]));
 
-  const studentAssignments = matchedStudents.map(student => {
-    const schedules = timetableByCohort.get(cohortKey(student, "year")!) ?? [];
-    return {
-      ...student,
-      values: {
-        ...student.values,
-        courses: uniqueValues(schedules, "course").join(", "),
-        teachers: uniqueValues(schedules, "teacher").join(", "),
-        classrooms: uniqueValues(schedules, "classroom").join(", "),
-        timetableCount: schedules.length.toString(),
-      },
-    };
-  });
+  const studentAssignments = students.filter(item => item.values.periodState === "Current");
 
   const teacherAssignments = [...groupBy(matchedTimetable.filter(item => Boolean(item.values.teacherId)), item => periodGroupKey(item, item.values.teacherId)).values()]
     .map(schedules => {

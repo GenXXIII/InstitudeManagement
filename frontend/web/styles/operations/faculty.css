@@ -16,8 +16,8 @@
 .operation-standard-page .student-presence-row strong,.operation-standard-page .teacher-operation-row strong{font-size:13px}
 .operation-standard-page .student-presence-row small,.operation-standard-page .teacher-operation-row small{font-size:10px}
 .operation-standard-page .student-presence-row>b,.operation-standard-page .teacher-operation-row>b{font-size:11px}
-.teacher-operation-head,.teacher-operation-row,.operation-standard-page .teacher-operation-head,.operation-standard-page .teacher-operation-row{grid-template-columns:repeat(5,minmax(130px,1fr))}
+.teacher-operation-head,.teacher-operation-row,.operation-standard-page .teacher-operation-head,.operation-standard-page .teacher-operation-row{grid-template-columns:repeat(6,minmax(130px,1fr))}
 .operation-standard-page .student-presence-board,.operation-standard-page .teacher-operation-board,.operation-standard-page .live-course-list{max-height:none}
-.teacher-operation-head,.teacher-operation-row{grid-template-columns:145px 54px minmax(220px,1fr) minmax(180px,.85fr) 165px!important}
+.teacher-operation-head,.teacher-operation-row{grid-template-columns:145px 54px minmax(220px,1fr) minmax(180px,.85fr) 165px 165px!important}
 .operation-page-rows>.student-presence-board,.operation-page-rows>.teacher-operation-board,.operation-page-rows>.live-course-list,.operation-page-rows>.live-scan-list,.operation-page-rows>.live-department-list,.operation-page-rows>.live-grade-list{height:100%;max-height:none;align-content:start;overflow:auto}
 .operation-page-rows .student-presence-head,.operation-page-rows .teacher-operation-head,.operation-page-rows .live-course-head{top:0}

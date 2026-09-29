@@ -22,10 +22,12 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
             .Include(enrollment => enrollment.Teacher)
             .Include(enrollment => enrollment.Classroom)
             .Where(enrollment =>
-                enrollment.Status == "Active")
+                enrollment.Status == "Active"
+                && enrollment.ScheduleEntry != null
+                && (!departmentId.HasValue || enrollment.Course == null || enrollment.Course.DepartmentId == departmentId)
+                && (!year.HasValue || enrollment.YearLevel == year))
             .ToListAsync(cancellationToken);
         return enrollments
-            .Where(enrollment => enrollment.ScheduleEntry is not null)
             .Select(enrollment =>
             {
                 var resolvedDepartmentId = enrollment.Course?.DepartmentId;
@@ -33,9 +35,7 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                 return new { Enrollment = enrollment, DepartmentId = resolvedDepartmentId, DepartmentName = resolvedDepartmentName };
             })
             .Where(row =>
-                (!departmentId.HasValue || !row.DepartmentId.HasValue || row.DepartmentId == departmentId)
-                && (!year.HasValue || row.Enrollment.YearLevel == year)
-                && Matches(
+                Matches(
                     search,
                     row.Enrollment.EnrollmentCode,
                     row.Enrollment.ScheduleEntry!.TimetableCode,

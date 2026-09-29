@@ -2,6 +2,8 @@ namespace InstituteManagement.Domain.Entities;
 
 public sealed class StudentEnrollment : Entity
 {
+    public Guid StudentAcademicEnrollmentId { get; set; }
+    public StudentAcademicEnrollment? StudentAcademicEnrollment { get; set; }
     public string EnrollmentCode { get; set; } = string.Empty;
     public string PublicId { get; set; } = string.Empty;
     public string FinanceCode { get; set; } = string.Empty;
@@ -18,4 +20,5 @@ public sealed class StudentEnrollment : Entity
     public string AcademicYear { get; set; } = string.Empty;
     public string Semester { get; set; } = string.Empty;
     public string Status { get; set; } = "Active";
+    public byte[] RowVersion { get; set; } = [];
 }

@@ -3,14 +3,14 @@ import type { EnrollmentDisplayItem } from "../common/enrollment-types";
 
 export const studentEnrollmentCopy: EnrollmentCopy = {
   title: "Student Enrollment",
-  description: "Select a Management student, then choose any department and Year 1-4. The linked EnrollmentCode is generated automatically from StudentCode.",
-  columns: ["EnrollmentCode", "Name", "Department", "Year", "Academic year", "Semester", "Shift", "Payment", "Create At", "Actions"],
+  description: "Select a Management student, then choose any department and Year 1-4. Next Period shows what is still required before the student can move automatically at period end.",
+  columns: ["EnrollmentCode", "Name", "Department", "Year", "Academic year", "Semester", "Shift", "Payment", "Next Period", "Create At", "Actions"],
 };
 
 export const studentAssignmentCopy: EnrollmentCopy = {
   title: "Student Assign",
-  description: "Read-only students whose Student Enrollment cohort has a matching Timetable Enrollment. Public ID is the student's mobile login ID.",
-  columns: ["EnrollmentCode", "Public ID", "Student", "Department", "Year", "Academic year", "Semester", "Shift", "Assigned courses", "Period state", "Create At"],
+  description: "One read-only assignment per student. The Public ID opens all general Year 1 courses, then every current course in the student's chosen major from Year 2 onward.",
+  columns: ["EnrollmentCode", "Public ID", "Student", "Department", "Year", "Semester", "Shift", "Create At"],
 };
 
 export function studentEnrollmentCells(item: EnrollmentDisplayItem) {
@@ -24,6 +24,7 @@ export function studentEnrollmentCells(item: EnrollmentDisplayItem) {
     value.semester,
     value.shift || "Unassigned",
     value.paymentStatus || "Pending",
+    value.nextPeriodStatus || "Checking requirements",
     value.createAt,
   ];
 }
@@ -36,11 +37,8 @@ export function studentAssignmentCells(item: EnrollmentDisplayItem) {
     value.name,
     value.department,
     value.year ? `Year ${value.year}` : "Unassigned",
-    value.academicYear,
     value.semester,
     value.shift || "Unassigned",
-    value.courses || "Not scheduled",
-    value.periodState || "Current",
     value.createAt,
   ];
 }

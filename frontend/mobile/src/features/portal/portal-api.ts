@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import type { MobileSession } from '@/features/auth/auth-context';
-import type { Announcement, AttendanceItem, ClassAttendanceCheckIn, ClassAttendanceQr, ClassPermissionRequestItem, ClassSessionStartItem, GradeItem, GradeWeights, PortalData, PublishedSemesterResult, ScheduleItem, StudentFinanceOptions, StudentItem, StudentPayment, TeacherItem } from './portal-types';
+import type { Announcement, AttendanceItem, ClassAttendanceCheckIn, ClassPermissionRequestItem, ClassSessionStartItem, CourseItem, GradeItem, GradeWeights, PortalData, PublishedSemesterResult, ScheduleItem, StudentFinanceOptions, StudentItem, StudentPayment, TeacherItem } from './portal-types';
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 
@@ -72,9 +72,10 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
     finalExam: Number(gradeSettings.values.finalExamWeight || 50),
   };
   const announcements: Announcement[] = announcementRows.map(item => ({ ...item, source: 'announcement', sourceId: item.id }));
-  if (!baseProfile) return { role: session.role, profile: null, schedule: [], students: [], attendance: [], grades: [], publishedResults: [], gradeWeights, announcements, payments: [], financeOptions: emptyFinanceOptions(), startedScheduleIds: [], permissionRequests: [] };
+  if (!baseProfile) return { role: session.role, profile: null, courses: [], schedule: [], students: [], attendance: [], grades: [], publishedResults: [], gradeWeights, announcements, payments: [], financeOptions: emptyFinanceOptions(), startedScheduleIds: [], permissionRequests: [] };
 
-  const [scheduleRows, roleEnrollments] = await Promise.all([
+  const [courseRows, scheduleRows, roleEnrollments] = await Promise.all([
+    request<CourseItem[]>('/api/enrollment/courses'),
     request<ScheduleItem[]>('/api/enrollment/timetable'),
     request<(TeacherItem | StudentItem)[]>(`/api/enrollment/${roleResource}`),
   ]);
@@ -83,6 +84,16 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
   const profile = { ...baseProfile, values: { ...baseProfile.values, ...enrollment?.values } } as TeacherItem | StudentItem;
   if (session.role === 'student') {
     const student = profile as StudentItem;
+    const isGeneralYear = enrollment?.values.year === '1';
+    const studentCourses = enrollment ? courseRows.filter(item =>
+      item.values.periodState === 'Current'
+      && item.values.status === 'Active'
+      && item.values.year === enrollment.values.year
+      && (isGeneralYear || item.values.departmentId === enrollment.values.departmentId)) : [];
+    const studentSchedule = enrollment ? schedule.filter(item =>
+      item.values.yearLevel === enrollment.values.year
+      && (isGeneralYear || item.values.departmentId === enrollment.values.departmentId)
+      && item.values.shift === enrollment.values.shift) : [];
     const [attendance, payments, financeOptions, classStarts, permissionRequests, publishedResults] = await Promise.all([
       request<AttendanceItem[]>('/api/catalog/attendance'),
       request<StudentPayment[]>(`/api/finance/students/${student.id}`),
@@ -107,7 +118,8 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
     return {
       role: session.role,
       profile,
-      schedule: enrollment ? schedule.filter(item => (!item.values.departmentId || item.values.departmentId === student.values.departmentId) && item.values.yearLevel === student.values.year && (!item.values.shift || item.values.shift === student.values.shift)) : [],
+      courses: studentCourses,
+      schedule: studentSchedule,
       students: [],
       attendance: attendance.filter(item => item.values.studentId === student.id),
       grades: [],
@@ -131,14 +143,15 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
     request<ClassPermissionRequestItem[]>(`/api/mobile/classes/teachers/${teacher.id}/permission-requests`),
   ]);
   const assignedStudents = students.filter(student => student.values.periodState === 'Current' && ownSchedule.some(item =>
-    (!item.values.departmentId || item.values.departmentId === student.values.departmentId)
-    && item.values.yearLevel === student.values.year
-    && (!item.values.shift || item.values.shift === student.values.shift)));
+    item.values.yearLevel === student.values.year
+    && (student.values.year === '1' || item.values.departmentId === student.values.departmentId)
+    && item.values.shift === student.values.shift));
   const studentIds = new Set(assignedStudents.map(student => student.id));
   const courseIds = new Set(ownSchedule.map(item => item.values.courseId));
   return {
     role: session.role,
     profile,
+    courses: [],
     schedule: ownSchedule,
     students: assignedStudents,
     attendance: attendance.filter(item => studentIds.has(item.values.studentId)),
@@ -154,12 +167,9 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
 }
 
 export const portalMutations = {
-  startClass: (scheduleEntryId: string, teacherId: string) => request<ClassSessionStartItem>(`/api/mobile/classes/${scheduleEntryId}/start`, { method: 'POST', body: JSON.stringify({ teacherId }) }),
+  startClass: (scheduleEntryId: string, teacherId: string, qrPayload: string) => request<ClassSessionStartItem>(`/api/mobile/classes/${scheduleEntryId}/start`, { method: 'POST', body: JSON.stringify({ teacherId, qrPayload }) }),
   getTodayClassStarts: (role: 'teacher' | 'student', profileId: string) => request<ClassSessionStartItem[]>(`/api/mobile/classes/${role}s/${profileId}/today`),
-  getClassAttendanceQr: (scheduleEntryId: string, teacherId: string) => request<ClassAttendanceQr>(`/api/mobile/classes/${scheduleEntryId}/attendance-qr?teacherId=${encodeURIComponent(teacherId)}`),
-  getStudentClassAttendanceQr: (scheduleEntryId: string, studentId: string) => request<ClassAttendanceQr>(`/api/mobile/classes/${scheduleEntryId}/students/${studentId}/attendance-qr`),
   checkInClass: (scheduleEntryId: string, studentId: string, qrPayload: string) => request<ClassAttendanceCheckIn>(`/api/mobile/classes/${scheduleEntryId}/attendance/check-in`, { method: 'POST', body: JSON.stringify({ studentId, qrPayload }) }),
-  teacherCheckInClass: (scheduleEntryId: string, teacherId: string, qrPayload: string) => request<ClassAttendanceCheckIn>(`/api/mobile/classes/${scheduleEntryId}/attendance/teacher-check-in`, { method: 'POST', body: JSON.stringify({ teacherId, qrPayload }) }),
   requestCourseSubmission: (courseId: string, teacherId: string, students: { studentId: string; assignmentScore: number; midtermScore: number; finalExamScore: number }[]) => request<void>('/api/grades/course-submissions/request', { method: 'POST', body: JSON.stringify({ courseId, teacherId, students }) }),
   requestPermission: (studentId: string, sessionDate: string, reason: string) => request<ClassPermissionRequestItem>(`/api/mobile/classes/students/${studentId}/permission-requests`, { method: 'POST', body: JSON.stringify({ sessionDate, reason }) }),
   reviewPermission: (requestId: string, teacherId: string, decision: 'Approved' | 'Rejected') => request<ClassPermissionRequestItem>(`/api/mobile/classes/permission-requests/${requestId}/decision`, { method: 'PUT', body: JSON.stringify({ teacherId, decision }) }),

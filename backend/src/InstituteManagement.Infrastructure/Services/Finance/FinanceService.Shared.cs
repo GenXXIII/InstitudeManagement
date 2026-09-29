@@ -1,5 +1,6 @@
 using System.Text.Json;
 using InstituteManagement.Application.Features.Finance;
+using InstituteManagement.Domain.Policies;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
@@ -108,7 +109,7 @@ public sealed partial class FinanceService
                 timetable.AcademicYear == account.AcademicYear
                 && timetable.Semester == account.Semester
                 && timetable.YearLevel == enrollment.YearLevel
-                && timetable.Course!.DepartmentId == enrollment.DepartmentId
+                && StudentCurriculumPolicy.IncludesDepartment(enrollment.YearLevel, enrollment.DepartmentId, timetable.Course!.DepartmentId)
                 && timetable.ScheduleEntry!.Shift == enrollment.Shift);
             var totalDue = TotalDue(account);
             var totalPaid = TotalPaid(account);

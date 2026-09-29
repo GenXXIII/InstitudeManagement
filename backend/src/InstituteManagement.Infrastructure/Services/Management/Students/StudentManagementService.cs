@@ -12,9 +12,39 @@ public sealed class StudentManagementService(InstituteDbContext db, InstituteCac
     public override CatalogResource Resource => CatalogResource.Students;
     public override async Task<IReadOnlyList<StudentResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
-        var students = await Db.Students.AsNoTracking().Where(student => student.Status != "Inactive" && (!departmentId.HasValue || student.DepartmentId == departmentId)).ToListAsync(ct);
-        return students.Where(student => Matches(search, student.FullName, student.StudentCode, student.Email))
-            .Select(student => new StudentResponseDto(student.Id, new StudentValuesDto(student.PhotoDataUrl, student.StudentCode, "", student.FullName, student.Email, "", "", "", "", student.Status, student.CreateAt.ToString("yyyy-MM-dd")))).ToList();
+        var query = Db.Students.AsNoTracking()
+            .Where(student => student.Status != "Inactive" && (!departmentId.HasValue || student.DepartmentId == departmentId));
+
+        var students = await query
+            .Select(student => new
+            {
+                student.Id,
+                student.PhotoDataUrl,
+                student.StudentCode,
+                student.FullName,
+                student.Email,
+                student.Status,
+                student.CreateAt
+            })
+            .ToListAsync(ct);
+
+        return students
+            .Where(student => Matches(search, student.FullName, student.StudentCode, student.Email))
+            .Select(student => new StudentResponseDto(
+            student.Id,
+            new StudentValuesDto(
+                student.PhotoDataUrl,
+                student.StudentCode,
+                "",
+                student.FullName,
+                student.Email,
+                "",
+                "",
+                "",
+                "",
+                student.Status,
+                student.CreateAt.ToString("yyyy-MM-dd"))))
+            .ToList();
     }
     public override async Task<StudentResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {

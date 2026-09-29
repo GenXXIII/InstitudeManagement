@@ -43,12 +43,23 @@ internal sealed class StudentEnrollmentEditor(
                 ? latestEnrollment.EnrollmentCode
                 : (await BusinessCodeFormatter.GenerateEnrollmentWorkflowAsync(db, student.StudentCode, "student", id, cancellationToken)).Enrollment;
             var periodCodes = await BusinessCodeFormatter.GenerateStudentPeriodWorkflowAsync(db, student.StudentCode, enrollmentCode, year, period.Semester, cancellationToken);
+            var academicEnrollment = await StudentAcademicEnrollmentResolver.GetOrCreateAsync(
+                db,
+                student.Id,
+                periodCodes.Enrollment,
+                cancellationToken);
             var enrollmentId = Guid.NewGuid();
+            var publicId = latestEnrollment?.EnrollmentCode == periodCodes.Enrollment
+                && !string.IsNullOrWhiteSpace(latestEnrollment.PublicId)
+                ? latestEnrollment.PublicId
+                : await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken);
             enrollment = new StudentEnrollment
             {
                 Id = enrollmentId,
+                StudentAcademicEnrollmentId = academicEnrollment.Id,
+                StudentAcademicEnrollment = academicEnrollment,
                 EnrollmentCode = periodCodes.Enrollment,
-                PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken),
+                PublicId = publicId,
                 FinanceCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, periodCodes.Enrollment, year, period.Semester, "financeCodePrefix", "FIN", cancellationToken),
                 ResultCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, periodCodes.Enrollment, year, period.Semester, "resultCodePrefix", "RES", cancellationToken),
                 OperationCode = periodCodes.Operation,
@@ -136,6 +147,13 @@ internal sealed class StudentEnrollmentEditor(
 
         enrollment.Status = "Removed";
         enrollment.UpdatedAtUtc = DateTime.UtcNow;
+        var academicEnrollment = await StudentAcademicEnrollmentResolver.GetOrCreateAsync(
+            db,
+            student.Id,
+            enrollment.EnrollmentCode,
+            cancellationToken);
+        academicEnrollment.Status = "Cancelled";
+        academicEnrollment.CompletedAtUtc = DateTime.UtcNow;
         student.DepartmentId = null;
         student.YearLevel = 0;
         student.Shift = "";

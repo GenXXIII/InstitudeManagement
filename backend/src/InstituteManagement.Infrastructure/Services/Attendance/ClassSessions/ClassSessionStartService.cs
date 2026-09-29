@@ -1,5 +1,6 @@
 using InstituteManagement.Application.Common.LiveUpdates;
 using InstituteManagement.Application.Features.Attendance.ClassSessions;
+using InstituteManagement.Domain.Common;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Policies;
 using InstituteManagement.Infrastructure.Persistence;
@@ -13,6 +14,35 @@ public sealed class ClassSessionStartService(
     InstituteCache cache,
     ILiveUpdatePublisher publisher) : IClassSessionStartService
 {
+    public async Task<ClassSessionStartDto> StartWithAttendanceQrAsync(
+        Guid scheduleEntryId,
+        Guid teacherId,
+        string qrPayload,
+        CancellationToken cancellationToken)
+    {
+        if (scheduleEntryId == Guid.Empty) throw new ArgumentException("Schedule entry is required.", nameof(scheduleEntryId));
+        if (teacherId == Guid.Empty) throw new ArgumentException("Teacher is required.", nameof(teacherId));
+
+        var scannedPublicId = AttendanceIdentityQr.ReadTeacher(qrPayload);
+        var timetable = await db.TimetableEnrollments.AsNoTracking()
+            .Where(item => item.ScheduleEntryId == scheduleEntryId
+                && item.TeacherId == teacherId
+                && item.Status == "Active")
+            .OrderByDescending(item => item.CreateAt)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException("The Teacher is not assigned to an active enrollment for this timetable.");
+        var assignment = await db.TeacherAssignments.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.TeacherId == teacherId
+                && item.AcademicYear == timetable.AcademicYear
+                && item.Semester == timetable.Semester
+                && item.Status == "Assigned", cancellationToken)
+            ?? throw new InvalidOperationException("The Teacher does not have a current assignment.");
+        if (!assignment.PublicId.Equals(scannedPublicId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Scan the attendance QR assigned to your signed-in Teacher Public ID.");
+
+        return await StartAsync(scheduleEntryId, teacherId, cancellationToken);
+    }
+
     public async Task<ClassSessionStartDto> StartAsync(
         Guid scheduleEntryId,
         Guid teacherId,
@@ -108,7 +138,10 @@ public sealed class ClassSessionStartService(
         var enrollment = await db.StudentEnrollments.AsNoTracking().Where(item => item.StudentId == studentId && item.Status == "Active").OrderByDescending(item => item.CreateAt).FirstOrDefaultAsync(cancellationToken)
             ?? throw new InvalidOperationException("The student does not have an active enrollment.");
         var scheduleIds = await db.TimetableEnrollments.AsNoTracking().Include(item => item.Course).Include(item => item.ScheduleEntry)
-            .Where(item => item.Status == "Active" && item.YearLevel == enrollment.YearLevel && item.Course!.DepartmentId == enrollment.DepartmentId && item.ScheduleEntry!.Shift == enrollment.Shift)
+            .Where(item => item.Status == "Active"
+                && item.YearLevel == enrollment.YearLevel
+                && (enrollment.YearLevel == StudentCurriculumPolicy.GeneralYearLevel || item.Course!.DepartmentId == enrollment.DepartmentId)
+                && item.ScheduleEntry!.Shift == enrollment.Shift)
             .Select(item => item.ScheduleEntryId).ToListAsync(cancellationToken);
         var localNow = await InstituteLocalTime.NowAsync(db, cancellationToken);
         var sessionDate = DateOnly.FromDateTime(localNow);

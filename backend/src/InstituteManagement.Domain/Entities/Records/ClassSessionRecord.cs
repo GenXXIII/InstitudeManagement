@@ -27,7 +27,7 @@ public sealed class ClassSessionRecord : Entity
     public int LateCount { get; set; }
     public int AbsentCount { get; set; }
     public int ExcusedCount { get; set; }
-    public string StudentAttendanceJson { get; set; } = "[]";
+    public ICollection<ClassSessionStudentAttendance> StudentAttendance { get; set; } = [];
 }
 
 public sealed record SessionStudentSnapshot(Guid StudentId, string StudentCode, string StudentName, string Status, string CheckedInAt);

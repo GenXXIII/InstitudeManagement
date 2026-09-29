@@ -1,7 +1,7 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth, type MobileRole } from '@/features/auth/auth-context';
 import { loadPortalData, portalMutations } from './portal-api';
-import type { ClassAttendanceCheckIn, ClassAttendanceQr, PortalData, StudentPayment } from './portal-types';
+import type { ClassAttendanceCheckIn, PortalData, StudentPayment } from './portal-types';
 
 export type CourseGradeSubmission = { studentId: string; assignmentScore: number; midtermScore: number; finalExamScore: number };
 
@@ -10,11 +10,8 @@ type PortalContextValue = PortalData & {
   loading: boolean;
   refresh: () => Promise<void>;
   refreshClassStarts: () => Promise<void>;
-  startClass: (scheduleEntryId: string, teacherId: string) => Promise<void>;
-  getClassAttendanceQr: (scheduleEntryId: string) => Promise<ClassAttendanceQr>;
-  getStudentClassAttendanceQr: (scheduleEntryId: string) => Promise<ClassAttendanceQr>;
+  startClass: (scheduleEntryId: string, qrPayload: string) => Promise<void>;
   checkInClass: (scheduleEntryId: string, qrPayload: string) => Promise<ClassAttendanceCheckIn>;
-  teacherCheckInClass: (scheduleEntryId: string, qrPayload: string) => Promise<ClassAttendanceCheckIn>;
   requestCourseSubmission: (courseId: string, submissions: CourseGradeSubmission[]) => Promise<void>;
   requestPermission: (sessionDate: string, reason: string) => Promise<void>;
   reviewPermission: (requestId: string, decision: 'Approved' | 'Rejected') => Promise<void>;
@@ -30,7 +27,7 @@ const PortalContext = createContext<PortalContextValue | null>(null);
 
 export function PortalProvider({ role, children }: PropsWithChildren<{ role: MobileRole }>) {
   const { session } = useAuth();
-  const [data, setData] = useState<PortalData>({ role, profile: null, schedule: [], students: [], attendance: [], grades: [], publishedResults: [], gradeWeights: { attendance: 10, assignment: 20, midterm: 20, finalExam: 50 }, announcements: [], payments: [], financeOptions: { bakongEnabled: false, bakongConfigured: false, bakongEnvironment: 'SIT', dynamicQrBank: '', dynamicQrAccountName: '', dynamicQrAccountCode: '', mockPaymentEnabled: false }, startedScheduleIds: [], permissionRequests: [] });
+  const [data, setData] = useState<PortalData>({ role, profile: null, courses: [], schedule: [], students: [], attendance: [], grades: [], publishedResults: [], gradeWeights: { attendance: 10, assignment: 20, midterm: 20, finalExam: 50 }, announcements: [], payments: [], financeOptions: { bakongEnabled: false, bakongConfigured: false, bakongEnvironment: 'SIT', dynamicQrBank: '', dynamicQrAccountName: '', dynamicQrAccountCode: '', mockPaymentEnabled: false }, startedScheduleIds: [], permissionRequests: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -78,15 +75,16 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     await refresh();
   }, [data.profile, refresh]);
 
-  const startClass = useCallback(async (scheduleEntryId: string, teacherId: string) => {
-    const started = await portalMutations.startClass(scheduleEntryId, teacherId);
+  const startClass = useCallback(async (scheduleEntryId: string, qrPayload: string) => {
+    if (!data.profile || role !== 'teacher') throw new Error('Teacher profile is unavailable.');
+    const started = await portalMutations.startClass(scheduleEntryId, data.profile.id, qrPayload);
     setData(current => ({
       ...current,
       startedScheduleIds: current.startedScheduleIds.includes(started.scheduleEntryId)
         ? current.startedScheduleIds
         : [...current.startedScheduleIds, started.scheduleEntryId],
     }));
-  }, []);
+  }, [data.profile, role]);
 
   const refreshClassStarts = useCallback(async () => {
     if (!data.profile) return;
@@ -94,26 +92,9 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     setData(current => ({ ...current, startedScheduleIds: starts.map(item => item.scheduleEntryId) }));
   }, [data.profile, role]);
 
-  const getClassAttendanceQr = useCallback(async (scheduleEntryId: string) => {
-    if (!data.profile || role !== 'teacher') throw new Error('Teacher profile is unavailable.');
-    return portalMutations.getClassAttendanceQr(scheduleEntryId, data.profile.id);
-  }, [data.profile, role]);
-
-  const getStudentClassAttendanceQr = useCallback(async (scheduleEntryId: string) => {
-    if (!data.profile || role !== 'student') throw new Error('Student profile is unavailable.');
-    return portalMutations.getStudentClassAttendanceQr(scheduleEntryId, data.profile.id);
-  }, [data.profile, role]);
-
   const checkInClass = useCallback(async (scheduleEntryId: string, qrPayload: string) => {
     if (!data.profile || role !== 'student') throw new Error('Student profile is unavailable.');
     const result = await portalMutations.checkInClass(scheduleEntryId, data.profile.id, qrPayload);
-    await refresh();
-    return result;
-  }, [data.profile, refresh, role]);
-
-  const teacherCheckInClass = useCallback(async (scheduleEntryId: string, qrPayload: string) => {
-    if (!data.profile || role !== 'teacher') throw new Error('Teacher profile is unavailable.');
-    const result = await portalMutations.teacherCheckInClass(scheduleEntryId, data.profile.id, qrPayload);
     await refresh();
     return result;
   }, [data.profile, refresh, role]);
@@ -159,7 +140,7 @@ export function PortalProvider({ role, children }: PropsWithChildren<{ role: Mob
     }
   }, [data.announcements, data.profile]);
 
-  const value = useMemo(() => ({ ...data, error, loading, refresh, refreshClassStarts, startClass, getClassAttendanceQr, getStudentClassAttendanceQr, checkInClass, teacherCheckInClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr }), [data, error, loading, refresh, refreshClassStarts, startClass, getClassAttendanceQr, getStudentClassAttendanceQr, checkInClass, teacherCheckInClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr]);
+  const value = useMemo(() => ({ ...data, error, loading, refresh, refreshClassStarts, startClass, checkInClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr }), [data, error, loading, refresh, refreshClassStarts, startClass, checkInClass, requestCourseSubmission, requestPermission, reviewPermission, submitAuthorizedCourse, requestCourseResubmission, markAnnouncementRead, generateFinanceQr, verifyFinancePayment, scanMockFinanceQr]);
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 

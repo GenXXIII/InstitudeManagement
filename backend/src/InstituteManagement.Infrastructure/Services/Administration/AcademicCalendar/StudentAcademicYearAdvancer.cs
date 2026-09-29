@@ -1,6 +1,7 @@
 using System.Text.Json;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
+using InstituteManagement.Infrastructure.Services.Enrollment.Students;
 using Microsoft.EntityFrameworkCore;
 
 namespace InstituteManagement.Infrastructure.Services.Administration;
@@ -28,11 +29,17 @@ public sealed class StudentAcademicYearAdvancer(InstituteDbContext db)
             .Include(enrollment => enrollment.Department)
             .Where(enrollment => graduateIds.Contains(enrollment.StudentId) && enrollment.AcademicYear == oldYear)
             .ToListAsync(cancellationToken);
+        var academicEnrollments = await db.StudentAcademicEnrollments
+            .Where(enrollment => graduateIds.Contains(enrollment.StudentId) && enrollment.Status == "Active")
+            .ToListAsync(cancellationToken);
+        var completedAtUtc = DateTime.UtcNow;
 
         foreach (var student in graduates)
         {
+            foreach (var academicEnrollment in academicEnrollments.Where(item => item.StudentId == student.Id))
+                StudentAcademicEnrollmentResolver.Complete(academicEnrollment, completedAtUtc);
             student.Status = "Inactive";
-            student.UpdatedAtUtc = DateTime.UtcNow;
+            student.UpdatedAtUtc = completedAtUtc;
             db.AuditLogs.Add(new AuditLog
             {
                 ResourceId = student.Id,

@@ -30,5 +30,6 @@ public sealed class FinancialAccount : Entity
     public DateTime? ClosedAtUtc { get; set; }
     public DateTime? ReminderSentAtUtc { get; set; }
     public DateTime? ReminderReadAtUtc { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public ICollection<FinancialPayment> Payments { get; set; } = [];
 }

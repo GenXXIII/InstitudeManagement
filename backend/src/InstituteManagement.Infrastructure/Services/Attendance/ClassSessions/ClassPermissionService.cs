@@ -1,5 +1,6 @@
 using InstituteManagement.Application.Features.Attendance.ClassSessions;
 using InstituteManagement.Domain.Entities;
+using InstituteManagement.Domain.Policies;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using Microsoft.EntityFrameworkCore;
@@ -27,7 +28,8 @@ public sealed class ClassPermissionService(InstituteDbContext db, InstituteCache
             .Include(item => item.Course)
             .Include(item => item.ScheduleEntry)
             .AnyAsync(item => item.Status == "Active" && item.AcademicYear == period.AcademicYear && item.Semester == period.Semester
-                && item.YearLevel == enrollment.YearLevel && item.Course != null && item.Course.DepartmentId == enrollment.DepartmentId
+                && item.YearLevel == enrollment.YearLevel && item.Course != null
+                && (enrollment.YearLevel == StudentCurriculumPolicy.GeneralYearLevel || item.Course.DepartmentId == enrollment.DepartmentId)
                 && item.ScheduleEntry != null && item.ScheduleEntry.Status != "Cancelled" && item.ScheduleEntry.Shift == enrollment.Shift, cancellationToken);
         if (!hasAssignedClass) throw new InvalidOperationException("No current class is assigned to the Student's department, year, and shift.");
 
@@ -89,7 +91,14 @@ public sealed class ClassPermissionService(InstituteDbContext db, InstituteCache
             if (attendance is null)
             {
                 var period = await CurrentPeriodAsync(cancellationToken);
-                attendance = new AttendanceRecord { AttendanceCode = await BusinessCodeFormatter.GenerateAsync(db, "attendance", cancellationToken), StudentId = entity.StudentId, Date = entity.SessionDate, Status = "Permission", Method = "Student whole-day permission", AcademicYear = period.AcademicYear, Term = period.Semester };
+                var enrollment = await db.StudentEnrollments.AsNoTracking().SingleOrDefaultAsync(item =>
+                    item.StudentId == entity.StudentId
+                    && item.AcademicYear == period.AcademicYear
+                    && item.Semester == period.Semester
+                    && item.Status == "Active",
+                    cancellationToken)
+                    ?? throw new InvalidOperationException("The Student does not have an active enrollment for the current semester.");
+                attendance = new AttendanceRecord { AttendanceCode = await BusinessCodeFormatter.GenerateAsync(db, "attendance", cancellationToken), StudentEnrollmentId = enrollment.Id, StudentId = entity.StudentId, Date = entity.SessionDate, Status = "Permission", Method = "Student whole-day permission", AcademicYear = period.AcademicYear, Term = period.Semester };
                 db.AttendanceRecords.Add(attendance);
             }
             else if (attendance.Status is not ("Present" or "Late"))
@@ -123,7 +132,10 @@ public sealed class ClassPermissionService(InstituteDbContext db, InstituteCache
             .Where(item => item.Status == "Active" && item.AcademicYear == period.AcademicYear && item.Semester == period.Semester)
             .Select(item => new { item.StudentId, item.DepartmentId, item.YearLevel, item.Shift })
             .ToListAsync(cancellationToken);
-        return enrollments.Where(enrollment => cohorts.Any(cohort => cohort.DepartmentId == enrollment.DepartmentId && cohort.YearLevel == enrollment.YearLevel && cohort.Shift == enrollment.Shift))
+        return enrollments.Where(enrollment => cohorts.Any(cohort =>
+                cohort.YearLevel == enrollment.YearLevel
+                && cohort.Shift == enrollment.Shift
+                && StudentCurriculumPolicy.IncludesDepartment(enrollment.YearLevel, enrollment.DepartmentId, cohort.DepartmentId)))
             .Select(item => item.StudentId).Distinct().ToList();
     }
 

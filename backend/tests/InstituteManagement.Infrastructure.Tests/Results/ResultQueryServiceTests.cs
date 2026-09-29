@@ -15,16 +15,18 @@ public sealed class ResultQueryServiceTests
     {
         await using var db = new InstituteDbContext(new DbContextOptionsBuilder<InstituteDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
         var department = new Department { DepartmentCode = "DEP-DRAFT", Name = "Draft Results" };
+        var otherDepartment = new Department { DepartmentCode = "DEP-GENERAL", Name = "Other General Courses" };
         var teacher = new Teacher { TeacherCode = "TEA-DRAFT", FullName = "Draft Teacher", DepartmentId = department.Id, Department = department };
         var student = new Student { StudentCode = "STU-DRAFT", FullName = "Draft Student", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
         var enrollment = new StudentEnrollment { EnrollmentCode = "ENR-DRAFT", StudentId = student.Id, Student = student, DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning", AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" };
-        db.AddRange(department, teacher, student, enrollment,
+        db.AddRange(department, otherDepartment, teacher, student, enrollment,
             new SystemSetting { Section = "academic-year", Key = "currentYear", Value = "2026–2027" },
             new SystemSetting { Section = "semester", Key = "currentTerm", Value = "Semester 1" },
             new SystemSetting { Section = "grade-rules", Key = "expectedCourseCount", Value = "5" });
         for (var index = 1; index <= 5; index++)
         {
-            var course = new Course { CourseCode = $"COU-DRAFT-{index}", Name = $"Draft Course {index}", YearLevel = 1, Semester = "Semester 1", DepartmentId = department.Id, Department = department };
+            var courseDepartment = index % 2 == 0 ? otherDepartment : department;
+            var course = new Course { CourseCode = $"COU-DRAFT-{index}", Name = $"Draft Course {index}", YearLevel = 1, Semester = "Semester 1", DepartmentId = courseDepartment.Id, Department = courseDepartment };
             var schedule = new ScheduleEntry { TimetableCode = $"TIM-DRAFT-{index}", CourseId = course.Id, Course = course, TeacherId = teacher.Id, Teacher = teacher, YearLevel = 1, Shift = "Morning", DayOfWeek = DayOfWeek.Monday, StartsAt = new TimeOnly(7, 30), EndsAt = new TimeOnly(9, 0) };
             var timetable = new TimetableEnrollment { EnrollmentCode = $"ENR-TIM-DRAFT-{index}", ScheduleEntryId = schedule.Id, ScheduleEntry = schedule, CourseId = course.Id, Course = course, TeacherId = teacher.Id, Teacher = teacher, ClassroomId = Guid.NewGuid(), YearLevel = 1, AcademicYear = "2026–2027", Semester = "Semester 1", Status = "Active" };
             db.AddRange(course, schedule, timetable);
@@ -36,6 +38,7 @@ public sealed class ResultQueryServiceTests
 
         Assert.Equal("Draft", draft.PublicationStatus);
         Assert.Equal(5, draft.Grades.Count);
+        Assert.Contains(draft.Grades, course => course.CourseCode == "COU-DRAFT-2");
         Assert.All(draft.Grades, course =>
         {
             Assert.Equal("Draft", course.Grade);

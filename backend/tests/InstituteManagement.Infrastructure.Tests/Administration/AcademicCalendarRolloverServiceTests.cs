@@ -26,6 +26,7 @@ public sealed class AcademicCalendarRolloverServiceTests
         var department = Department();
         var student = Student(department, 1, "Morning", "STU-1");
         var oldEnrollment = Enrollment(student, department, 1, "Morning", "2026\u20132027", "Semester 1");
+        oldEnrollment.PublicId = PublicAccessId.ForEnrollment("LOGIN", oldEnrollment.Id);
         var oldTimetable = Timetable(department, "2026\u20132027", "Semester 1");
         db.AddRange(department, student, oldEnrollment, oldTimetable, Payment(oldEnrollment, student), Declaration(student, "2026–2027", "Semester 1"));
         await db.SaveChangesAsync();
@@ -50,7 +51,8 @@ public sealed class AcademicCalendarRolloverServiceTests
         Assert.Equal("ACT-2-JOIN-1-STU-1", newEnrollment.OperationCode);
         Assert.Equal("DOC-2-JOIN-1-STU-1", newEnrollment.RecordCode);
         Assert.Equal("ARC-2-JOIN-1-STU-1", newEnrollment.HistoryCode);
-        Assert.Equal($"LOGIN-{newEnrollment.Id:N}".ToUpperInvariant(), newEnrollment.PublicId);
+        Assert.Equal(oldEnrollment.PublicId, newEnrollment.PublicId);
+        Assert.Equal($"LOGIN-{oldEnrollment.Id:N}".ToUpperInvariant(), newEnrollment.PublicId);
         Assert.Equal("FEE-2-JOIN-1-STU-1", newEnrollment.FinanceCode);
         Assert.Equal("RESULT-2-JOIN-1-STU-1", newEnrollment.ResultCode);
         Assert.Single(db.Students);
@@ -196,10 +198,14 @@ public sealed class AcademicCalendarRolloverServiceTests
         int year,
         string shift,
         string academicYear,
-        string semester) =>
-        new()
+        string semester)
+    {
+        var id = Guid.NewGuid();
+        return new()
         {
+            Id = id,
             EnrollmentCode = $"{student.StudentCode}-ESTU-1",
+            PublicId = PublicAccessId.ForStudentEnrollment(id),
             StudentId = student.Id,
             Student = student,
             DepartmentId = department.Id,
@@ -210,6 +216,7 @@ public sealed class AcademicCalendarRolloverServiceTests
             Semester = semester,
             Status = "Active"
         };
+    }
 
     private static TimetableEnrollment Timetable(Department department, string academicYear, string semester)
     {

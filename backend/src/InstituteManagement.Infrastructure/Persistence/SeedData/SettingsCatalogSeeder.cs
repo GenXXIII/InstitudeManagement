@@ -200,11 +200,6 @@ public static class SettingsCatalogSeeder
                 enrollment.YearLevel,
                 enrollment.Semester);
             changed |= AssignStudentPeriod(enrollment, codes);
-            if (!PublicAccessId.MatchesEnrollment(enrollment.PublicId, enrollment.Id))
-            {
-                enrollment.PublicId = format.EnrollmentPublicId(enrollment.Id, "studentPublicIdPrefix", "STU");
-                changed = true;
-            }
             var financeCode = format.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "financeCodePrefix", "FIN");
             if (!enrollment.FinanceCode.Equals(financeCode, StringComparison.Ordinal))
             {
@@ -215,6 +210,19 @@ public static class SettingsCatalogSeeder
             if (!enrollment.ResultCode.Equals(resultCode, StringComparison.Ordinal))
             {
                 enrollment.ResultCode = resultCode;
+                changed = true;
+            }
+        }
+        foreach (var journey in studentEnrollments.GroupBy(item => new { item.StudentId, item.EnrollmentCode }))
+        {
+            var first = journey.OrderBy(item => item.CreateAt).ThenBy(item => item.Id).First();
+            var publicId = string.IsNullOrWhiteSpace(first.PublicId)
+                ? format.EnrollmentPublicId(first.Id, "studentPublicIdPrefix", "STU")
+                : first.PublicId;
+            foreach (var enrollment in journey)
+            {
+                if (enrollment.PublicId.Equals(publicId, StringComparison.Ordinal)) continue;
+                enrollment.PublicId = publicId;
                 changed = true;
             }
         }

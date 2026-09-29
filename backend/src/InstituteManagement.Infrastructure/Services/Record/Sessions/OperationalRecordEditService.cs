@@ -15,7 +15,9 @@ public sealed class OperationalRecordEditService(InstituteDbContext db, Institut
 
     public async Task UpdateClassSessionAsync(Guid id, UpdateClassSessionRecordDto update, CancellationToken cancellationToken)
     {
-        var session = await db.ClassSessionRecords.SingleOrDefaultAsync(record => record.Id == id, cancellationToken)
+        var session = await db.ClassSessionRecords
+            .Include(record => record.StudentAttendance)
+            .SingleOrDefaultAsync(record => record.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException("Class session record not found.");
         var period = await db.SystemSettings.AsNoTracking()
             .Where(setting => (setting.Section == "academic-year" && setting.Key == "currentYear") || (setting.Section == "semester" && setting.Key == "currentTerm"))
@@ -25,15 +27,16 @@ public sealed class OperationalRecordEditService(InstituteDbContext db, Institut
         if (session.AcademicYear != academicYear || session.Term != term)
             throw new InvalidOperationException("Closed-semester evidence is read-only. Student semesters remain in Student Record until graduation; other closed records are available in History.");
 
-        var existing = Deserialize(session.StudentAttendanceJson);
+        var existing = session.StudentAttendance.ToList();
         if (update.Students is null || update.Students.Count != existing.Count || update.Students.Select(student => student.StudentId).Distinct().Count() != update.Students.Count)
             throw new InvalidOperationException("Submit exactly one attendance update for every student in this class session.");
         var updates = update.Students.ToDictionary(student => student.StudentId);
         if (existing.Any(student => !updates.ContainsKey(student.StudentId)))
             throw new InvalidOperationException("The submitted students do not match this class session.");
 
-        var corrected = existing.Select(student => Correct(student, updates[student.StudentId])).ToList();
-        session.StudentAttendanceJson = JsonSerializer.Serialize(corrected);
+        foreach (var student in existing)
+            Correct(student, updates[student.StudentId]);
+        var corrected = existing;
         session.StudentCount = corrected.Count;
         session.PresentCount = corrected.Count(student => student.Status == "Present");
         session.LateCount = corrected.Count(student => student.Status == "Late");
@@ -46,14 +49,21 @@ public sealed class OperationalRecordEditService(InstituteDbContext db, Institut
             Type = "Class session",
             Subject = $"{session.CourseName} - Year {session.YearLevel}",
             Action = "Attendance corrected",
-            Details = JsonSerializer.Serialize(new { session.ClassSessionRecordCode, session.AcademicYear, session.Term, session.SessionDate, Students = corrected })
+            Details = JsonSerializer.Serialize(new
+            {
+                session.ClassSessionRecordCode,
+                session.AcademicYear,
+                session.Term,
+                session.SessionDate,
+                Students = corrected.Select(StudentSnapshot)
+            })
         });
         await GradeCompositionCalculator.RefreshGradesAsync(db, session.CourseId, session.AcademicYear, session.Term, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await cache.InvalidateDashboardAsync(cancellationToken);
     }
 
-    private static SessionStudentSnapshot Correct(SessionStudentSnapshot existing, ClassSessionAttendanceUpdateDto update)
+    private static void Correct(ClassSessionStudentAttendance existing, ClassSessionAttendanceUpdateDto update)
     {
         var status = update.Status.Trim();
         if (!AttendanceStatuses.Contains(status))
@@ -67,12 +77,10 @@ public sealed class OperationalRecordEditService(InstituteDbContext db, Institut
             checkedInAt = parsed.ToString("HH:mm");
         }
         else checkedInAt = string.Empty;
-        return existing with { Status = status, CheckedInAt = checkedInAt };
+        existing.Status = status;
+        existing.CheckedInAt = checkedInAt;
     }
 
-    private static IReadOnlyList<SessionStudentSnapshot> Deserialize(string json)
-    {
-        try { return JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? []; }
-        catch (JsonException) { throw new InvalidOperationException("This class session contains invalid attendance data and cannot be edited."); }
-    }
+    private static SessionStudentSnapshot StudentSnapshot(ClassSessionStudentAttendance item) =>
+        new(item.StudentId, item.StudentCode, item.StudentName, item.Status, item.CheckedInAt);
 }

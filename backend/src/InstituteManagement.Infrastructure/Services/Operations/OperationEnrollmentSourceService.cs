@@ -39,14 +39,14 @@ public sealed class OperationEnrollmentSourceService(
                 && enrollment.ScheduleEntry.Status != "Cancelled"
                 && enrollment.Course != null
                 && enrollment.Teacher != null
-                && enrollment.Classroom != null)
+                && enrollment.Classroom != null
+                && (!departmentId.HasValue || enrollment.Course.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
 
         timetables = timetables.Where(enrollment =>
         {
             var cohort = TimetableCohort(enrollment);
             return cohort.HasValue
-                && (!departmentId.HasValue || cohort.Value.DepartmentId == departmentId)
                 && studentCohorts.Contains(cohort.Value);
         }).ToList();
 

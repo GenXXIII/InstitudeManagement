@@ -1,6 +1,7 @@
 using InstituteManagement.Application.Features.Attendance;
 using InstituteManagement.Infrastructure.Services.Catalog;
 using InstituteManagement.Domain.Entities;
+using InstituteManagement.Domain.Policies;
 using InstituteManagement.Domain.Timetables;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
@@ -122,7 +123,10 @@ public sealed class AttendanceCatalogService(InstituteDbContext db, InstituteCac
             if (await SettingEnabledAsync("attendance-rules", "notifyTeacher", true, ct))
             {
                 var teacher = await Db.ScheduleEntries.AsNoTracking()
-                    .Where(entry => entry.DayOfWeek == entity.Date.DayOfWeek && entry.YearLevel == student!.YearLevel && entry.Course!.DepartmentId == student.DepartmentId && entry.Status != "Cancelled")
+                    .Where(entry => entry.DayOfWeek == entity.Date.DayOfWeek
+                        && entry.YearLevel == student!.YearLevel
+                        && (student.YearLevel == StudentCurriculumPolicy.GeneralYearLevel || entry.Course!.DepartmentId == student.DepartmentId)
+                        && entry.Status != "Cancelled")
                     .Select(entry => entry.Teacher!.FullName)
                     .FirstOrDefaultAsync(ct);
                 Db.Notifications.Add(new Notification { Title = "Teacher attendance alert", Message = $"{teacher ?? "Assigned teacher"}: {studentName} was marked {entity.Status}.", Severity = entity.Status == "Absent" ? "Warning" : "Info" });

@@ -6,5 +6,6 @@ public interface IAttendanceService
         Guid studentId,
         string status,
         CancellationToken cancellationToken,
-        string? method = null);
+        string? method = null,
+        bool applyLateRule = true);
 }

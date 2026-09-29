@@ -11,6 +11,7 @@ public sealed class ClassPermissionRequestConfiguration : IEntityTypeConfigurati
         builder.ToTable("ClassPermissionRequests", "Attendance");
         builder.HasIndex(x => new { x.StudentId, x.SessionDate }).IsUnique();
         builder.HasIndex(x => new { x.SessionDate, x.Status });
+        builder.HasIndex(x => x.TeacherId);
         builder.Property(x => x.Reason).HasMaxLength(500).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
         builder.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);

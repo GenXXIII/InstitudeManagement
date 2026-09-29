@@ -1,4 +1,3 @@
-using System.Text.Json;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
@@ -17,6 +16,7 @@ public sealed class GradeServiceTests
         var student = new Student { StudentCode = "STU-1", FullName = "Student One", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
         var course = new Course { CourseCode = "COU-1", Name = "Programming", DepartmentId = department.Id, Department = department };
         db.AddRange(department, student, course);
+        db.StudentEnrollments.Add(ActiveEnrollment(student, department, "2026–2027"));
         AddSetting(db, "academic-year", "currentYear", "2026–2027");
         AddSetting(db, "semester", "currentTerm", "Semester 1");
         AddSetting(db, "grade-rules", "attendanceWeight", "10");
@@ -49,6 +49,7 @@ public sealed class GradeServiceTests
         var course = new Course { CourseCode = "COU-2", Name = "Accounting", DepartmentId = department.Id, Department = department };
         var teacher = new Teacher { TeacherCode = "TEA-2", FullName = "Teacher Two", DepartmentId = department.Id, Department = department };
         db.AddRange(department, student, course, teacher);
+        db.StudentEnrollments.Add(ActiveEnrollment(student, department, "2026–2027"));
         AddSetting(db, "academic-year", "currentYear", "2026–2027");
         AddSetting(db, "semester", "currentTerm", "Semester 1");
         await db.SaveChangesAsync();
@@ -82,6 +83,7 @@ public sealed class GradeServiceTests
         var student = new Student { StudentCode = "STU-5", FullName = "Student Five", DepartmentId = department.Id, Department = department, YearLevel = 1, Shift = "Morning" };
         var course = new Course { CourseCode = "COU-5", Name = "Engineering Drawing", DepartmentId = department.Id, Department = department };
         db.AddRange(department, student, course);
+        db.StudentEnrollments.Add(ActiveEnrollment(student, department, "2026–2027"));
         AddSetting(db, "academic-year", "currentYear", "2026–2027");
         AddSetting(db, "semester", "currentTerm", "Semester 1");
         await db.SaveChangesAsync();
@@ -138,6 +140,7 @@ public sealed class GradeServiceTests
         var course = new Course { CourseCode = "COU-4", Name = "Drawing", DepartmentId = department.Id, Department = department };
         var teacher = new Teacher { TeacherCode = "TEA-4", FullName = "Teacher Four", DepartmentId = department.Id, Department = department };
         db.AddRange(department, student, course, teacher);
+        db.StudentEnrollments.Add(ActiveEnrollment(student, department, "2026–2027"));
         AddSetting(db, "academic-year", "currentYear", "2026–2027");
         AddSetting(db, "semester", "currentTerm", "Semester 1");
         await db.SaveChangesAsync();
@@ -231,11 +234,35 @@ public sealed class GradeServiceTests
         TeacherAttendanceStatus = "Present",
         ClassroomCode = "ROOM-1",
         StudentCount = 1,
-        StudentAttendanceJson = JsonSerializer.Serialize(new[] { new SessionStudentSnapshot(student.Id, student.StudentCode, student.FullName, status, status == "Present" ? "07:30" : "") })
+        StudentAttendance =
+        [
+            new ClassSessionStudentAttendance
+            {
+                StudentId = student.Id,
+                StudentCode = student.StudentCode,
+                StudentName = student.FullName,
+                Status = status,
+                CheckedInAt = status == "Present" ? "07:30" : ""
+            }
+        ]
     };
 
     private static void AddSetting(InstituteDbContext db, string section, string key, string value) =>
         db.SystemSettings.Add(new SystemSetting { Section = section, Key = key, Value = value });
+
+    private static StudentEnrollment ActiveEnrollment(Student student, Department department, string academicYear) => new()
+    {
+        EnrollmentCode = $"ENR-1-{student.StudentCode}",
+        StudentId = student.Id,
+        Student = student,
+        DepartmentId = department.Id,
+        Department = department,
+        YearLevel = student.YearLevel,
+        Shift = student.Shift,
+        AcademicYear = academicYear,
+        Semester = "Semester 1",
+        Status = "Active"
+    };
 
     private static InstituteDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<InstituteDbContext>()

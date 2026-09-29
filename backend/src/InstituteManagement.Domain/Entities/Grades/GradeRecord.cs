@@ -3,6 +3,8 @@ namespace InstituteManagement.Domain.Entities;
 public sealed class GradeRecord : Entity
 {
     public string GradeCode { get; set; } = string.Empty;
+    public Guid StudentEnrollmentId { get; set; }
+    public StudentEnrollment? StudentEnrollment { get; set; }
     public Guid StudentId { get; set; }
     public Student? Student { get; set; }
     public Guid CourseId { get; set; }
@@ -27,4 +29,5 @@ public sealed class GradeRecord : Entity
     public DateTime? SubmittedAtUtc { get; set; }
     public DateTime? ReviewedAtUtc { get; set; }
     public DateTime? FinalizedAtUtc { get; set; }
+    public byte[] RowVersion { get; set; } = [];
 }

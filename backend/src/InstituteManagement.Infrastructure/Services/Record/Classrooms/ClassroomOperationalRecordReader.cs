@@ -1,4 +1,3 @@
-using System.Text.Json;
 using InstituteManagement.Application.Features.Record;
 using InstituteManagement.Domain.Entities;
 using InstituteManagement.Domain.Timetables;
@@ -26,6 +25,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
             .Where(x => x.ScheduleEntry != null && x.ScheduleEntry.ClassroomId.HasValue && ids.Contains(x.ScheduleEntry.ClassroomId.Value) && (!departmentId.HasValue || x.ScheduleEntry.Course!.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
         var sessions = await db.ClassSessionRecords.AsNoTracking()
+            .Include(x => x.StudentAttendance)
             .Where(x => ids.Contains(x.ClassroomId) && (!departmentId.HasValue || x.DepartmentId == departmentId))
             .ToListAsync(cancellationToken);
         var now = await InstituteLocalTime.NowAsync(db, cancellationToken);
@@ -64,7 +64,7 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
                 ("Classroom", room.ClassroomCode), ("Present", (x.PresentCount + x.LateCount).ToString()),
                 ("Permission", x.ExcusedCount.ToString()), ("Absent", x.AbsentCount.ToString()),
                 ("Attendance", $"{x.PresentCount + x.LateCount} present · {x.AbsentCount} absent · {x.ExcusedCount} permission"),
-                ("Students", StudentSummary(x.StudentAttendanceJson)))));
+                ("Students", StudentSummary(x.StudentAttendance)))));
             var events = assignmentEvents.Concat(sessionEvents).OrderByDescending(x => x.Item1).ToList();
             var status = room.Status switch
             {
@@ -84,9 +84,6 @@ public sealed class ClassroomOperationalRecordReader(InstituteDbContext db) : IO
         }).ToList();
     }
 
-    private static string StudentSummary(string json)
-    {
-        try { return string.Join("; ", (JsonSerializer.Deserialize<List<SessionStudentSnapshot>>(json) ?? []).Select(x => $"{x.StudentName}: {x.Status}")); }
-        catch (JsonException) { return "Attendance snapshot unavailable"; }
-    }
+    private static string StudentSummary(IEnumerable<ClassSessionStudentAttendance> attendance) =>
+        string.Join("; ", attendance.Select(x => $"{x.StudentName}: {x.Status}"));
 }

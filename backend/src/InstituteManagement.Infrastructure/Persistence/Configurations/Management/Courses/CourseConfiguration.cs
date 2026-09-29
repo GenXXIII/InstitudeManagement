@@ -12,6 +12,8 @@ public sealed class CourseConfiguration : IEntityTypeConfiguration<Course>
         builder.HasIndex(x => x.DepartmentId);
         builder.HasIndex(x => x.TeacherId);
         builder.HasIndex(x => new { x.YearLevel, x.Semester });
+        builder.HasIndex(x => new { x.DepartmentId, x.YearLevel, x.Semester, x.CourseCode })
+            .IncludeProperties(x => new { x.Name, x.IsActive, x.TeacherId });
         builder.Property(x => x.CourseCode).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
         builder.Property(x => x.YearLevel).HasDefaultValue(1).IsRequired();

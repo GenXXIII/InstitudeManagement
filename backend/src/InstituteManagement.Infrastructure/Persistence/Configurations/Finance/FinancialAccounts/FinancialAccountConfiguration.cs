@@ -8,7 +8,12 @@ public sealed class FinancialAccountConfiguration : IEntityTypeConfiguration<Fin
 {
     public void Configure(EntityTypeBuilder<FinancialAccount> builder)
     {
-        builder.ToTable("FinancialAccounts", "Finance");
+        builder.ToTable("FinancialAccounts", "Finance", table =>
+        {
+            table.HasCheckConstraint("CK_FinancialAccounts_Status", "[Status] IN (N'Pending', N'Partial', N'Paid', N'Refunded', N'Cancelled')");
+            table.HasCheckConstraint("CK_FinancialAccounts_Amounts", "[TuitionFee] >= 0 AND [OtherFee] >= 0 AND [LatePenaltyDays] >= 0 AND [LatePenaltyAmount] >= 0 AND ([DeclaredAmount] IS NULL OR [DeclaredAmount] >= 0)");
+            table.HasCheckConstraint("CK_FinancialAccounts_Closure", "[ClosedAtUtc] IS NULL OR [Status] = N'Paid'");
+        });
         builder.HasIndex(x => x.StudentEnrollmentId).IsUnique();
         builder.HasIndex(x => new { x.StudentId, x.AcademicYear, x.Semester }).IsUnique();
         builder.HasIndex(x => new { x.AcademicYear, x.Semester, x.Status, x.ClosedAtUtc, x.DueOn });
@@ -28,7 +33,12 @@ public sealed class FinancialAccountConfiguration : IEntityTypeConfiguration<Fin
         builder.Property(x => x.LatePenaltyAmount).HasPrecision(18, 2);
         builder.Property(x => x.Currency).HasMaxLength(8).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
-        builder.HasOne(x => x.StudentEnrollment).WithOne().HasForeignKey<FinancialAccount>(x => x.StudentEnrollmentId);
+        builder.Property(x => x.RowVersion).IsRowVersion();
+        builder.HasOne(x => x.StudentEnrollment)
+            .WithOne()
+            .HasForeignKey<FinancialAccount>(x => new { x.StudentEnrollmentId, x.StudentId })
+            .HasPrincipalKey<StudentEnrollment>(x => new { x.Id, x.StudentId })
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId);
     }
 }

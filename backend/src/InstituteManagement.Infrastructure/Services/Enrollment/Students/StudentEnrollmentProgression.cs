@@ -24,7 +24,12 @@ public sealed class StudentEnrollmentProgression(
         var currentYear = periodValues.GetValueOrDefault("academic-year:currentYear", request.AcademicYear);
         var currentSemester = periodValues.GetValueOrDefault("semester:currentTerm", request.Semester);
         if (request.AcademicYear == currentYear && request.Semester == currentSemester) return "Current period paid";
-        if (!await db.SemesterResultPublications.AsNoTracking().AnyAsync(item =>
+        var publicationIsPending = db.SemesterResultPublications.Local.Any(item =>
+            item.StudentId == request.StudentId
+            && item.AcademicYear == request.AcademicYear
+            && item.Term == request.Semester
+            && db.Entry(item).State != EntityState.Deleted);
+        if (!publicationIsPending && !await db.SemesterResultPublications.AsNoTracking().AnyAsync(item =>
                 item.StudentId == request.StudentId
                 && item.AcademicYear == request.AcademicYear
                 && item.Term == request.Semester,
@@ -50,8 +55,15 @@ public sealed class StudentEnrollmentProgression(
         var academicYearChanged = request.AcademicYear != currentYear;
         if (academicYearChanged && student.YearLevel >= 4)
         {
+            var completedAtUtc = DateTime.UtcNow;
+            var completedAcademicEnrollment = await StudentAcademicEnrollmentResolver.GetOrCreateAsync(
+                db,
+                student.Id,
+                previousEnrollment.EnrollmentCode,
+                cancellationToken);
+            StudentAcademicEnrollmentResolver.Complete(completedAcademicEnrollment, completedAtUtc);
             student.Status = "Inactive";
-            student.UpdatedAtUtc = DateTime.UtcNow;
+            student.UpdatedAtUtc = completedAtUtc;
             db.AuditLogs.Add(new AuditLog
             {
                 ResourceId = student.Id,
@@ -83,12 +95,21 @@ public sealed class StudentEnrollmentProgression(
             student.YearLevel,
             currentSemester,
             cancellationToken);
+        var academicEnrollment = await StudentAcademicEnrollmentResolver.GetOrCreateAsync(
+            db,
+            student.Id,
+            periodCodes.Enrollment,
+            cancellationToken);
         var enrollmentId = Guid.NewGuid();
         var nextEnrollment = new StudentEnrollment
         {
             Id = enrollmentId,
+            StudentAcademicEnrollmentId = academicEnrollment.Id,
+            StudentAcademicEnrollment = academicEnrollment,
             EnrollmentCode = periodCodes.Enrollment,
-            PublicId = await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, enrollmentId, "studentPublicIdPrefix", "STU", cancellationToken),
+            PublicId = !string.IsNullOrWhiteSpace(previousEnrollment.PublicId)
+                ? previousEnrollment.PublicId
+                : await BusinessCodeFormatter.GenerateEnrollmentPublicIdAsync(db, previousEnrollment.Id, "studentPublicIdPrefix", "STU", cancellationToken),
             FinanceCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, previousEnrollment.EnrollmentCode, student.YearLevel, currentSemester, "financeCodePrefix", "FIN", cancellationToken),
             ResultCode = await BusinessCodeFormatter.GenerateStudentPeriodScopedAsync(db, previousEnrollment.EnrollmentCode, student.YearLevel, currentSemester, "resultCodePrefix", "RES", cancellationToken),
             OperationCode = periodCodes.Operation,
