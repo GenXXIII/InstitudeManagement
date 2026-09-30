@@ -50,6 +50,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body.trim() ? JSON.parse(body) as T : undefined as T;
 }
 
+type PagedResult<T> = { items: T[]; page: number; pageSize: number; totalCount: number; totalPages: number };
+
+async function requestItems<T>(path: string) {
+  const separator = path.includes('?') ? '&' : '?';
+  return (await request<PagedResult<T>>(`${path}${separator}page=1&pageSize=100`)).items;
+}
+
+async function requestAllItems<T>(path: string) {
+  const items: T[] = [];
+  let page = 1;
+  let totalPages = 1;
+  const separator = path.includes('?') ? '&' : '?';
+  do {
+    const result = await request<PagedResult<T>>(`${path}${separator}page=${page}&pageSize=100`);
+    items.push(...result.items);
+    totalPages = result.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+  return items;
+}
+
 export function signInMobile(publicId: string, password: string) {
   return request<MobileSession>('/api/mobile/auth/sign-in', {
     method: 'POST',
@@ -59,10 +80,10 @@ export function signInMobile(publicId: string, password: string) {
 
 export async function loadPortalData(session: MobileSession): Promise<PortalData> {
   const roleResource = session.role === 'teacher' ? 'teachers' : 'students';
-  const profiles = await request<(TeacherItem | StudentItem)[]>(`/api/catalog/${roleResource}`);
+  const profiles = await requestItems<TeacherItem | StudentItem>(`/api/catalog/${roleResource}?profileId=${encodeURIComponent(session.profileId)}`);
   const baseProfile = profiles.find(item => item.id === session.profileId) ?? null;
   const [announcementRows, gradeSettings] = await Promise.all([
-    request<Omit<Announcement, 'source' | 'sourceId'>[]>('/api/notification-center/alerts'),
+    requestItems<Omit<Announcement, 'source' | 'sourceId'>>('/api/notification-center/alerts'),
     request<{ values: Record<string, string> }>('/api/settings/grade-rules'),
   ]);
   const gradeWeights: GradeWeights = {
@@ -74,13 +95,26 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
   const announcements: Announcement[] = announcementRows.map(item => ({ ...item, source: 'announcement', sourceId: item.id }));
   if (!baseProfile) return { role: session.role, profile: null, courses: [], schedule: [], students: [], attendance: [], grades: [], publishedResults: [], gradeWeights, announcements, payments: [], financeOptions: emptyFinanceOptions(), startedScheduleIds: [], permissionRequests: [] };
 
-  const [courseRows, scheduleRows, roleEnrollments] = await Promise.all([
-    request<CourseItem[]>('/api/enrollment/courses'),
-    request<ScheduleItem[]>('/api/enrollment/timetable'),
-    request<(TeacherItem | StudentItem)[]>(`/api/enrollment/${roleResource}`),
+  const roleEnrollments = await requestItems<TeacherItem | StudentItem>(`/api/enrollment/${roleResource}?search=${encodeURIComponent(session.publicId)}`);
+  const enrollment = roleEnrollments.find(item => item.id === baseProfile.id && item.values.periodState === 'Current');
+  const courseParams = new URLSearchParams();
+  const scheduleParams = new URLSearchParams();
+  if (session.role === 'teacher') {
+    scheduleParams.set('search', baseProfile.values.name);
+  } else if (enrollment) {
+    courseParams.set('year', enrollment.values.year);
+    scheduleParams.set('year', enrollment.values.year);
+    scheduleParams.set('search', enrollment.values.shift);
+    if (enrollment.values.year !== '1' && enrollment.values.departmentId) {
+      courseParams.set('departmentId', enrollment.values.departmentId);
+      scheduleParams.set('departmentId', enrollment.values.departmentId);
+    }
+  }
+  const [courseRows, scheduleRows] = await Promise.all([
+    session.role === 'teacher' ? Promise.resolve([] as CourseItem[]) : requestAllItems<CourseItem>(`/api/enrollment/courses?${courseParams}`),
+    requestAllItems<ScheduleItem>(`/api/enrollment/timetable?${scheduleParams}`),
   ]);
   const schedule = scheduleRows.filter(item => item.values.periodState === 'Current');
-  const enrollment = roleEnrollments.find(item => item.id === baseProfile.id && item.values.periodState === 'Current');
   const profile = { ...baseProfile, values: { ...baseProfile.values, ...enrollment?.values } } as TeacherItem | StudentItem;
   if (session.role === 'student') {
     const student = profile as StudentItem;
@@ -95,12 +129,12 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
       && (isGeneralYear || item.values.departmentId === enrollment.values.departmentId)
       && item.values.shift === enrollment.values.shift) : [];
     const [attendance, payments, financeOptions, classStarts, permissionRequests, publishedResults] = await Promise.all([
-      request<AttendanceItem[]>('/api/catalog/attendance'),
+      requestAllItems<AttendanceItem>(`/api/catalog/attendance?search=${encodeURIComponent(student.values.studentCode)}`),
       request<StudentPayment[]>(`/api/finance/students/${student.id}`),
       request<StudentFinanceOptions>('/api/finance/options'),
       request<ClassSessionStartItem[]>(`/api/mobile/classes/students/${student.id}/today`),
       request<ClassPermissionRequestItem[]>(`/api/mobile/classes/students/${student.id}/permission-requests`),
-      request<PublishedSemesterResult[]>(`/api/results?studentId=${student.id}&publishedOnly=true&history=false`),
+      requestAllItems<PublishedSemesterResult>(`/api/results?studentId=${student.id}&publishedOnly=true&history=false`),
     ]);
     const financeAlerts = payments.filter(payment => payment.reminderSentAtUtc && payment.status !== 'Cancelled').map(payment => ({
       id: `finance-${payment.id}`,
@@ -135,17 +169,38 @@ export async function loadPortalData(session: MobileSession): Promise<PortalData
 
   const teacher = profile as TeacherItem;
   const ownSchedule = schedule.filter(item => item.values.teacherId === teacher.id);
-  const [students, attendance, grades, classStarts, permissionRequests] = await Promise.all([
-    request<StudentItem[]>('/api/enrollment/students'),
-    request<AttendanceItem[]>('/api/catalog/attendance'),
-    request<GradeItem[]>('/api/catalog/grades'),
+  const cohortParams = [...new Map(ownSchedule.map(item => {
+    const params = new URLSearchParams({ year: item.values.yearLevel, search: item.values.shift });
+    if (item.values.yearLevel !== '1' && item.values.departmentId) params.set('departmentId', item.values.departmentId);
+    return [params.toString(), params] as const;
+  })).values()];
+  const [studentGroups, grades, classStarts, permissionRequests] = await Promise.all([
+    Promise.all(cohortParams.map(params => requestAllItems<StudentItem>(`/api/enrollment/students?${params}`))),
+    requestAllItems<GradeItem>(`/api/catalog/grades?teacherId=${teacher.id}`),
     request<ClassSessionStartItem[]>(`/api/mobile/classes/teachers/${teacher.id}/today`),
     request<ClassPermissionRequestItem[]>(`/api/mobile/classes/teachers/${teacher.id}/permission-requests`),
   ]);
+  const studentsById = new Map<string, StudentItem>();
+  for (const student of studentGroups.flat()) {
+    const existing = studentsById.get(student.id);
+    if (!existing || student.values.periodState === 'Current') studentsById.set(student.id, student);
+  }
+  const students = [...studentsById.values()];
   const assignedStudents = students.filter(student => student.values.periodState === 'Current' && ownSchedule.some(item =>
     item.values.yearLevel === student.values.year
     && (student.values.year === '1' || item.values.departmentId === student.values.departmentId)
     && item.values.shift === student.values.shift));
+  const attendanceGroups = await Promise.all(cohortParams.map(params => {
+    const attendanceParams = new URLSearchParams();
+    const year = params.get('year');
+    const shift = params.get('search');
+    const departmentId = params.get('departmentId');
+    if (year) attendanceParams.set('year', year);
+    if (shift) attendanceParams.set('shift', shift);
+    if (departmentId) attendanceParams.set('departmentId', departmentId);
+    return requestAllItems<AttendanceItem>(`/api/catalog/attendance?${attendanceParams}`);
+  }));
+  const attendance = [...new Map(attendanceGroups.flat().map(item => [item.id, item])).values()];
   const studentIds = new Set(assignedStudents.map(student => student.id));
   const courseIds = new Set(ownSchedule.map(item => item.values.courseId));
   return {

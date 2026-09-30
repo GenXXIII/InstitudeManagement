@@ -2,15 +2,15 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DataTable, DataTableEmptyState, DataTableToolbar, PaginatedDataRegion } from "@/components/data-table";
+import { DataTable, DataTableEmptyState, DataTableToolbar, ServerPaginatedDataRegion, useServerPage } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
-import type { EnrollmentItem } from "@/features/enrollment/common/enrollment-types";
-import { studentEnrollmentApi } from "@/features/enrollment/students/student-enrollment-api";
 import { workflowSourceSearch } from "@/lib/workflow-code";
 import { assessmentApi } from "./assessment-api";
 import { groupCourseAssessments, type CourseAssessmentGroup } from "./assessment-groups";
 import { statusLabel, statusTone } from "./assessment-calculation";
+import { emptyPage, type PagedResult } from "@/lib/pagination";
+import type { GradeAssessment } from "./assessment-types";
 
 const columns = [
   { key: "code", label: "Code", minimumWidth: 125, align: "center" as const },
@@ -25,37 +25,31 @@ export function SubmissionApprovalsWorkspace() {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
-  const [rows, setRows] = useState<Awaited<ReturnType<typeof assessmentApi.get>>>([]);
-  const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("Action");
+  const [result, setResult] = useState<PagedResult<GradeAssessment>>(() => emptyPage());
+  const [page, setPage] = useServerPage(`${departmentId}-${year}-${query}-${status}`);
   const [selectedId, setSelectedId] = useState("");
   const [note, setNote] = useState("");
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState("");
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
-  const load = useCallback(() => Promise.all([
-    assessmentApi.get(departmentId, year),
-    studentEnrollmentApi.get("", departmentId, year),
-  ]).then(([gradeRows, enrollmentRows]) => {
-    setRows(gradeRows);
-    setEnrollments(enrollmentRows);
+  const load = useCallback(() => assessmentApi.getPage(departmentId, year, workflowSourceSearch(query), "course", status, { page }).then(gradeRows => {
+    setResult(gradeRows);
     setReady(true);
     setError(false);
-  }).catch(() => setError(true)), [departmentId, year]);
+  }).catch(() => setError(true)), [departmentId, page, query, status, year]);
   useEffect(() => { void load(); }, [load]);
 
-  const groups = useMemo(() => groupCourseAssessments(rows, enrollments), [enrollments, rows]);
+  const groups = useMemo(() => groupCourseAssessments(result.items, []), [result.items]);
   const visible = useMemo(() => {
-    const text = workflowSourceSearch(query).toLowerCase();
     return groups.filter(group => {
       const actionStatus = ["SubmissionRequested", "ResubmitRequested", "Submitted", "Pending"].includes(group.status);
       const matchesStatus = status === "All" || status === "Action" && actionStatus || group.status === status;
-      const searchable = [group.teacher, group.course, group.department, group.year, group.shift, group.academicYear, group.term, statusLabel(group.status), ...group.grades.map(item => item.values.student)];
-      return matchesStatus && (!text || searchable.some(value => value.toLowerCase().includes(text)));
+      return matchesStatus;
     }).toSorted((left, right) => dateValue(right.submittedAtUtc) - dateValue(left.submittedAtUtc) || left.course.localeCompare(right.course));
-  }, [groups, query, status]);
+  }, [groups, status]);
   const selected = groups.find(group => group.anchorId === selectedId);
 
   if (error) return <ErrorPage retry={load}/>;
@@ -83,11 +77,11 @@ export function SubmissionApprovalsWorkspace() {
   return <div className="viewport-data-page assessment-viewport-page submission-requests-page">
     <PageHeading eyebrow="Assessment · Institutional review" title="Submission Approvals" description="Review one complete Teacher-assigned course roster at a time. Approval and rejection apply to every Student in that course submission."/>
     {actionError && <section className="result-action-error" role="alert">{actionError}</section>}
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search Teacher, course, cohort, or Student..." searchAriaLabel="Search course submission approvals" resultLabel={`${visible.length} course submissions`} className="record-toolbar panel submission-request-toolbar" searchClassName="record-search management-search module-search-field">
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search Teacher, course, cohort, or Student..." searchAriaLabel="Search course submission approvals" resultLabel={`${result.totalCount} course submissions`} className="record-toolbar panel submission-request-toolbar" searchClassName="record-search management-search module-search-field">
       <select value={status} onChange={event => setStatus(event.target.value)} aria-label="Approval status"><option value="Action">Action required</option><option>All</option><option value="SubmissionRequested">Initial approval</option><option value="ResubmitRequested">Resubmission approval</option><option value="Submitted">Final review</option><option value="SubmissionAuthorized">Submission authorized</option><option value="ResubmitAuthorized">Resubmission authorized</option><option value="Approved">Accepted</option><option value="Rejected">Rejected</option></select>
     </DataTableToolbar>
     <div className={`submission-request-layout${selected ? " has-detail" : ""}`}>
-      <PaginatedDataRegion items={visible} resetKey={`${departmentId}-${year}-${query}-${status}`} className="submission-request-region" empty={<DataTableEmptyState icon={<Icon name="check" size={28}/>} title="No course submissions" description="Course-level approval requests matching this filter will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table submission-request-table" headerClassName="horizontal-management-head submission-request-head" rowSelector=":scope > .submission-request-row" columns={columns} ariaLabel="Course submission approvals">{pageItems.map(group => <ApprovalRow group={group} active={selectedId === group.anchorId} working={working} onApprove={() => void review(group, "Approved", "")} onReject={() => { setSelectedId(group.anchorId); setNote(""); setActionError(""); }} onView={() => { setSelectedId(group.anchorId); setNote(""); setActionError(""); }} key={group.key}/>)}</DataTable>}</PaginatedDataRegion>
+      <ServerPaginatedDataRegion result={{ ...result, items: visible }} onPage={setPage} className="submission-request-region" empty={<DataTableEmptyState icon={<Icon name="check" size={28}/>} title="No course submissions" description="Course-level approval requests matching this filter will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table submission-request-table" headerClassName="horizontal-management-head submission-request-head" rowSelector=":scope > .submission-request-row" columns={columns} ariaLabel="Course submission approvals">{pageItems.map(group => <ApprovalRow group={group} active={selectedId === group.anchorId} working={working} onApprove={() => void review(group, "Approved", "")} onReject={() => { setSelectedId(group.anchorId); setNote(""); setActionError(""); }} onView={() => { setSelectedId(group.anchorId); setNote(""); setActionError(""); }} key={group.key}/>)}</DataTable>}</ServerPaginatedDataRegion>
       {selected && <ApprovalDetail group={selected} note={note} working={working} onNote={setNote} onClose={() => { setSelectedId(""); setNote(""); setActionError(""); }} onReview={decision => review(selected, decision)}/>} 
     </div>
   </div>;

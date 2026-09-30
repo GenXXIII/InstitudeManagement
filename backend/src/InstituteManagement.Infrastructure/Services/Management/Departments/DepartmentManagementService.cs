@@ -10,7 +10,7 @@ namespace InstituteManagement.Infrastructure.Services.Management.Departments;
 public sealed class DepartmentManagementService(InstituteDbContext db, InstituteCache cache) : CatalogFeatureBase<DepartmentResponseDto>(db, cache), IDepartmentManagementService
 {
     public override CatalogResource Resource => CatalogResource.Departments;
-    public override async Task<IReadOnlyList<DepartmentResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
+    public async Task<IReadOnlyList<DepartmentResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
         var departments = await Db.Departments.AsNoTracking().Include(department => department.HeadTeacher)
             .Where(department => department.IsActive && (!departmentId.HasValue || department.Id == departmentId))

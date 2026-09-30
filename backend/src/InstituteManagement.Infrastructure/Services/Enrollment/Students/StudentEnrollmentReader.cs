@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -7,10 +8,11 @@ namespace InstituteManagement.Infrastructure.Services.Enrollment.Students;
 
 internal sealed class StudentEnrollmentReader(InstituteDbContext db)
 {
-    public async Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(
+    public async Task<PagedResult<EnrollmentItemDto>> GetAsync(
         string? search,
         Guid? departmentId,
         int? year,
+        PageRequest page,
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
@@ -22,7 +24,25 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
                 && (!departmentId.HasValue || enrollment.DepartmentId == departmentId)
                 && (!year.HasValue || enrollment.YearLevel == year));
 
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            query = query.Where(enrollment =>
+                enrollment.EnrollmentCode.Contains(term)
+                || enrollment.Student!.StudentCode.Contains(term)
+                || enrollment.PublicId.Contains(term)
+                || enrollment.Student.FullName.Contains(term)
+                || enrollment.Department!.Name.Contains(term)
+                || enrollment.Shift.Contains(term));
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
         var projectedEnrollments = await query
+            .OrderBy(enrollment => enrollment.YearLevel)
+            .ThenBy(enrollment => enrollment.Shift == "Morning" ? 0 : enrollment.Shift == "Afternoon" ? 1 : enrollment.Shift == "Evening" ? 2 : enrollment.Shift == "Weekend" ? 3 : 4)
+            .ThenBy(enrollment => enrollment.Student!.StudentCode)
+            .ThenBy(enrollment => enrollment.Id)
+            .Skip(page.Skip)
+            .Take(page.NormalizedPageSize)
             .Select(enrollment => new StudentEnrollmentRow(
                 enrollment.Id,
                 enrollment.StudentId,
@@ -41,16 +61,8 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
                 enrollment.Semester,
                 enrollment.CreateAt))
             .ToListAsync(cancellationToken);
-        var enrollments = projectedEnrollments
-            .Where(enrollment => Matches(
-                search,
-                enrollment.EnrollmentCode,
-                enrollment.StudentCode,
-                enrollment.PublicId,
-                enrollment.FullName,
-                enrollment.DepartmentName))
-            .ToList();
-        if (enrollments.Count == 0) return [];
+        var enrollments = projectedEnrollments;
+        if (enrollments.Count == 0) return PagedResult<EnrollmentItemDto>.Create([], page, totalCount);
 
         var studentIds = enrollments.Select(enrollment => enrollment.StudentId).Distinct().ToList();
         var enrollmentIds = enrollments.Select(enrollment => enrollment.Id).ToList();
@@ -87,7 +99,7 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
             .ToListAsync(cancellationToken);
         var annualCoverage = annualPaid.Select(account => (account.StudentId, account.AcademicYear)).ToHashSet();
 
-        return enrollments
+        var items = enrollments
             .Select(enrollment =>
             {
                 var isCurrent = IsCurrent(enrollment.AcademicYear, enrollment.Semester, period);
@@ -125,6 +137,7 @@ internal sealed class StudentEnrollmentReader(InstituteDbContext db)
                     ("createAt", enrollment.CreateAt.ToString("yyyy-MM-dd")));
             })
             .ToList();
+        return PagedResult<EnrollmentItemDto>.Create(items, page, totalCount);
     }
 
     private static (string Status, string State) NextPeriodStatus(

@@ -12,8 +12,7 @@ export type AssignmentProjectionResource = "student-assignments" | "teachers" | 
 export type AssignmentProjection = Record<AssignmentProjectionResource, EnrollmentItem[]>;
 
 export function assignmentProjectionClient(resource: AssignmentProjectionResource): EnrollmentResourceClient {
-  return {
-    get: async (search = "", departmentId = "", year = "") => {
+  const get = async (search = "", departmentId = "", year = "") => {
       const [students, timetable, departments, teacherAssignments] = await Promise.all([
         studentEnrollmentApi.get("", departmentId, year),
         timetableEnrollmentApi.get("", departmentId, year),
@@ -21,6 +20,20 @@ export function assignmentProjectionClient(resource: AssignmentProjectionResourc
         resource === "teachers" ? teacherAssignmentApi.get() : Promise.resolve([]),
       ]);
       return filterProjection(deriveAssignmentProjection(students, timetable, departments, teacherAssignments)[resource], search);
+    };
+  return {
+    get,
+    getPage: async (search = "", departmentId = "", year = "", options = {}) => {
+      const rows = await get(search, departmentId, year);
+      const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 40));
+      const page = Math.max(1, options.page ?? 1);
+      return {
+        items: rows.slice((page - 1) * pageSize, page * pageSize),
+        page,
+        pageSize,
+        totalCount: rows.length,
+        totalPages: Math.ceil(rows.length / pageSize),
+      };
     },
     update: async () => { throw new Error("Assignment views are generated from Student Enrollment and Timetable Enrollment."); },
     remove: async () => { throw new Error("Assignment views are generated from Student Enrollment and Timetable Enrollment."); },

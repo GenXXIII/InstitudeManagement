@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using MediatR;
 
 namespace InstituteManagement.Application.Features.Finance.UseCases;
@@ -8,12 +9,13 @@ public sealed record GetFinanceAccountsQuery(
     string? Semester,
     string? Status,
     Guid? DepartmentId,
-    int? Year) : IRequest<IReadOnlyList<StudentPaymentDto>>;
+    int? Year,
+    PageRequest Page) : IRequest<PagedResult<StudentPaymentDto>>;
 
 public sealed class GetFinanceAccountsHandler(IFinanceService finance)
-    : IRequestHandler<GetFinanceAccountsQuery, IReadOnlyList<StudentPaymentDto>>
+    : IRequestHandler<GetFinanceAccountsQuery, PagedResult<StudentPaymentDto>>
 {
-    public Task<IReadOnlyList<StudentPaymentDto>> Handle(GetFinanceAccountsQuery request, CancellationToken cancellationToken) =>
+    public Task<PagedResult<StudentPaymentDto>> Handle(GetFinanceAccountsQuery request, CancellationToken cancellationToken) =>
         finance.GetAsync(
             request.Search,
             request.AcademicYear,
@@ -21,6 +23,7 @@ public sealed class GetFinanceAccountsHandler(IFinanceService finance)
             request.Status,
             request.DepartmentId,
             request.Year,
+            request.Page,
             cancellationToken);
 }
 

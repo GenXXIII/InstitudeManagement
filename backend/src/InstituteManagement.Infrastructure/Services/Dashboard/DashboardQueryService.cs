@@ -9,12 +9,14 @@ namespace InstituteManagement.Infrastructure.Services.Dashboard;
 
 public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache cache) : IDashboardQueryService
 {
-    public async Task<DashboardDto> GetAsync(string range, CancellationToken ct)
+    public Task<DashboardDto> GetAsync(string range, CancellationToken ct)
     {
         var reportingRange = DashboardReportingRange.Normalize(range);
-        var cached = await cache.ReadDashboardAsync<DashboardDto>(reportingRange, ct);
-        if (cached is not null) return cached;
+        return cache.GetOrCreateDashboardAsync(reportingRange, token => BuildAsync(reportingRange, token), ct);
+    }
 
+    private async Task<DashboardDto> BuildAsync(string reportingRange, CancellationToken ct)
+    {
         var localNow = await InstituteLocalTime.NowAsync(db, ct);
         var context = DashboardRangeContext.Create(reportingRange, localNow);
         var today = DateOnly.FromDateTime(localNow);
@@ -91,7 +93,6 @@ public sealed class DashboardQueryService(InstituteDbContext db, InstituteCache 
             ],
             finance);
 
-        await cache.WriteDashboardAsync(reportingRange, result, ct);
         return result;
     }
 

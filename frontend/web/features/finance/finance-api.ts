@@ -1,4 +1,5 @@
 import { request } from "@/lib/http";
+import { appendPage, requestAllPages, type PageOptions, type PagedResult } from "@/lib/pagination";
 import type { BulkFinanceClosureResult, BulkFinanceDeclarationResult, DeclarationDraft, FinanceClosureReadiness, FinancialAccount, FinanceOptions, MockPaymentQr, PaymentDraft, PaymentStatus } from "./finance-types";
 
 const accountsRoute = "/api/finance/accounts";
@@ -24,7 +25,14 @@ export const financeApi = {
     const params = scopeQuery(departmentId, year);
     params.set("search", search);
     params.set("status", status);
-    return request<FinancialAccount[]>(`/api/finance?${params}`);
+    return requestAllPages<FinancialAccount>("/api/finance", params);
+  },
+  getPage: (search = "", status = "All", departmentId = "", year = "", options: PageOptions = {}) => {
+    const params = scopeQuery(departmentId, year);
+    params.set("search", search);
+    params.set("status", status);
+    appendPage(params, options);
+    return request<PagedResult<FinancialAccount>>(`/api/finance?${params}`);
   },
   getOptions: () => request<FinanceOptions>("/api/finance/options"),
   declareAll: (departmentId = "", year = "") => request<BulkFinanceDeclarationResult>(`/api/finance/declarations?${scopeQuery(departmentId, year)}`, { method: "PUT" }),

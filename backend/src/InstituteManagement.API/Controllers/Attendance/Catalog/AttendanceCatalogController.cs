@@ -1,4 +1,5 @@
 using InstituteManagement.API.Contracts.Attendance;
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Attendance.CreateAttendanceRecord;
 using InstituteManagement.Application.Features.Attendance.DeleteAttendanceRecord;
 using InstituteManagement.Application.Features.Attendance.GetAttendanceRecords;
@@ -15,8 +16,8 @@ namespace InstituteManagement.API.Controllers.Attendance;
 public sealed class AttendanceCatalogController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(string? search, Guid? departmentId, CancellationToken cancellationToken) =>
-        Ok(await sender.Send(new GetAttendanceRecordsQuery(search, departmentId), cancellationToken));
+    public async Task<IActionResult> Get(string? search, Guid? departmentId, int? year, string? shift, int page = 1, int pageSize = 40, CancellationToken cancellationToken = default) =>
+        Ok(await sender.Send(new GetAttendanceRecordsQuery(search, departmentId, year, shift, new PageRequest(page, pageSize)), cancellationToken));
 
     [HttpPost]
     public async Task<IActionResult> Create(AttendanceRecordValuesRequest values, CancellationToken cancellationToken)

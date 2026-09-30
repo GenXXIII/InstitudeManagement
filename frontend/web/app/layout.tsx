@@ -7,6 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Institude of New Khmer",
   description: "Live operations, academic performance, records, and configuration for Institude of New Khmer.",
+  icons: { icon: "/_next/image?url=%2Fbranding%2Fink-logo.png&w=64&q=75" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -29,7 +29,6 @@ export function AppTopbar({ academicYear, avatar, departmentOptions, departmentS
   const navigateWorkspace = useWorkspaceNavigation();
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const currentTime = useInstituteClock(system.language ?? "", system.timeZone ?? "", system.dateFormat ?? "");
 
   return <header className="topbar">
     <button className="icon-button menu-button" onClick={onOpenMenu} aria-label="Open menu"><Icon name="menu"/></button>
@@ -39,7 +38,7 @@ export function AppTopbar({ academicYear, avatar, departmentOptions, departmentS
       {showYearScope && <label><select aria-label="Filter by student year" value={yearScope} onChange={(event) => onScopeChange("year", event.target.value)}><option value="">All years</option><option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option><option value="4">Year 4</option></select></label>}
     </div>}
     <div className="top-actions">
-      <button className="term-chip topbar-term-button" onClick={() => navigateWorkspace("/settings/academic-year")}><span>{semester.currentTerm || "Current term"} · {currentTime}</span><strong>{academicYear.currentYear || "2026–2027"}</strong></button>
+      <button className="term-chip topbar-term-button" onClick={() => navigateWorkspace("/settings/academic-year")}><span>{semester.currentTerm || "Current term"} · <InstituteClock language={system.language ?? ""} timeZone={system.timeZone ?? ""} dateFormat={system.dateFormat ?? ""}/></span><strong>{academicYear.currentYear || "2026–2027"}</strong></button>
       <NotificationCenter open={notificationOpen} events={events} onToggle={() => { setNotificationOpen((value) => !value); setProfileOpen(false); }} onClose={() => setNotificationOpen(false)}/>
       <div className="topbar-popover-anchor">
         <button className="avatar avatar-button" aria-label="Open profile menu" aria-expanded={profileOpen} onClick={() => { setProfileOpen((value) => !value); setNotificationOpen(false); }}>{avatar}</button>
@@ -52,4 +51,8 @@ export function AppTopbar({ academicYear, avatar, departmentOptions, departmentS
       </div>
     </div>
   </header>;
+}
+
+function InstituteClock({ language, timeZone, dateFormat }: { language: string; timeZone: string; dateFormat: string }) {
+  return useInstituteClock(language, timeZone, dateFormat);
 }

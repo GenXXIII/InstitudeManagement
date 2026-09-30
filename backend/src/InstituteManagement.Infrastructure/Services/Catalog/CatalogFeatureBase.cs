@@ -10,7 +10,6 @@ public abstract class CatalogFeatureBase<TResponse>(InstituteDbContext db, Insti
     protected InstituteDbContext Db { get; } = db;
     protected InstituteCache Cache { get; } = cache;
     public abstract CatalogResource Resource { get; }
-    public abstract Task<IReadOnlyList<TResponse>> GetAsync(string? search, Guid? departmentId, CancellationToken ct);
     public abstract Task<TResponse> CreateAsync(Dictionary<string, string> values, CancellationToken ct);
     public abstract Task<TResponse> UpdateAsync(Guid id, Dictionary<string, string> values, CancellationToken ct);
     protected abstract Task<Entity?> FindAsync(Guid id, CancellationToken ct);

@@ -1,16 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DataTableEmptyState, DataTableToolbar, PaginatedDataRegion } from "@/components/data-table";
+import { DataTableEmptyState, DataTableToolbar, ServerPaginatedDataRegion, useServerPage } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { financeApi } from "./finance-api";
 import { compareFinanceAccounts, FinanceTable } from "./finance-table";
 import type { FinanceClosureReadiness, FinancialAccount, FinanceOptions } from "./finance-types";
 
-import { FinanceAccountModal } from "./accounts/finance-account-modal";
 import { formatDateTime, money } from "./finance-format";
+import { emptyPage, type PagedResult } from "@/lib/pagination";
+
+const FinanceAccountModal = dynamic(() => import("./accounts/finance-account-modal").then(module => module.FinanceAccountModal), { ssr: false });
 
 const statuses = ["All", "Pending", "Partial", "Paid", "Closed", "Cancelled", "Refunded"];
 
@@ -18,46 +21,63 @@ export function FinanceWorkspace() {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
-  const [accounts, setAccounts] = useState<FinancialAccount[]>();
   const [options, setOptions] = useState<FinanceOptions>();
   const [closure, setClosure] = useState<FinanceClosureReadiness>();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All");
+  const [result, setResult] = useState<PagedResult<FinancialAccount>>(() => emptyPage());
+  const [page, setPage] = useServerPage(`${departmentId}-${year}-${query}-${status}`);
   const [selectedId, setSelectedId] = useState("");
-  const [error, setError] = useState(false);
+  const [accountsError, setAccountsError] = useState(false);
+  const [contextError, setContextError] = useState(false);
   const [bulkDeclaring, setBulkDeclaring] = useState(false);
   const [closingAll, setClosingAll] = useState(false);
   const [bulkNotice, setBulkNotice] = useState<{ message: string; error: boolean }>();
 
-  const load = useCallback(async () => {
+  const loadAccounts = useCallback(async () => {
     try {
-      const [nextAccounts, nextOptions, nextClosure] = await Promise.all([financeApi.get(query, status, departmentId, year), financeApi.getOptions(), financeApi.getClosureReadiness(departmentId, year)]);
-      setAccounts(nextAccounts);
+      const nextAccounts = await financeApi.getPage(query, status, departmentId, year, { page });
+      setResult(nextAccounts);
+      setAccountsError(false);
+    } catch (reason) {
+      setAccountsError(true);
+      throw reason;
+    }
+  }, [departmentId, page, query, status, year]);
+
+  const loadContext = useCallback(async () => {
+    try {
+      const [nextOptions, nextClosure] = await Promise.all([financeApi.getOptions(), financeApi.getClosureReadiness(departmentId, year)]);
       setOptions(nextOptions);
       setClosure(nextClosure);
-      setError(false);
-    } catch {
-      setError(true);
+      setContextError(false);
+    } catch (reason) {
+      setContextError(true);
+      throw reason;
     }
-  }, [departmentId, query, status, year]);
+  }, [departmentId, year]);
+
+  const load = useCallback(() => Promise.all([loadAccounts(), loadContext()]), [loadAccounts, loadContext]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 180);
+    const timer = window.setTimeout(() => void loadAccounts().catch(() => undefined), 180);
     return () => window.clearTimeout(timer);
-  }, [load]);
+  }, [loadAccounts]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadContext().catch(() => undefined), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadContext]);
 
   const view = useMemo(() => {
-    const items = accounts ?? [];
-    const declared = items.filter(account => account.isDeclared);
+    const items = result.items;
     return {
       items: items.toSorted(compareFinanceAccounts),
-      declared: declared.length,
-      due: declared.reduce((total, account) => total + account.totalDue, 0),
-      collected: declared.reduce((total, account) => total + account.totalPaid, 0),
-      outstanding: declared.reduce((total, account) => total + account.balance, 0),
-      currency: items[0]?.currency ?? "USD",
+      due: closure?.totalDue ?? 0,
+      collected: closure?.totalCollected ?? 0,
+      outstanding: closure?.totalOutstanding ?? 0,
+      currency: closure?.currency ?? items[0]?.currency ?? "USD",
     };
-  }, [accounts]);
+  }, [closure, result.items]);
 
   async function declareAll() {
     if (!window.confirm(`Issue payment notices to all active students ${scopeDescription(departmentId, year)}? Existing unpaid notices will use the current configured price and receive a fresh expiry countdown.`)) return;
@@ -94,9 +114,9 @@ export function FinanceWorkspace() {
     }
   }
 
-  if (error) return <ErrorPage retry={() => void load()}/>;
-  if (!accounts || !options || !closure) return <LoadingPage/>;
-  const selected = accounts.find(account => account.id === selectedId);
+  if (accountsError || contextError) return <ErrorPage retry={() => void load().catch(() => undefined)}/>;
+  if (!options || !closure) return <LoadingPage/>;
+  const selected = result.items.find(account => account.id === selectedId);
   const closeLabel = financeCloseLabel(closure, Boolean(departmentId || year), closingAll);
 
   return <div className="viewport-data-page management-viewport-page finance-viewport-page">
@@ -108,15 +128,15 @@ export function FinanceWorkspace() {
       <FinanceMetric label="Outstanding" value={money(view.outstanding, view.currency)} tone="amber"/>
       <FinanceMetric label="Students paid" value={`${closure.paidAccounts}/${closure.totalAccounts}`} tone="violet"/>
     </section>
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search account, payment, student, or enrollment..." searchAriaLabel="Search Finance" resultLabel={`${view.items.length} accounts`} className="record-toolbar panel finance-toolbar" searchClassName="record-search management-search module-search-field">
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search account, payment, student, or enrollment..." searchAriaLabel="Search Finance" resultLabel={`${result.totalCount} accounts`} className="record-toolbar panel finance-toolbar" searchClassName="record-search management-search module-search-field">
       <select className="finance-status-filter" aria-label="Filter finance accounts by status" value={status} onChange={event => setStatus(event.target.value)}>{statuses.map(item => <option key={item}>{item}</option>)}</select>
     </DataTableToolbar>
-    <PaginatedDataRegion items={view.items} resetKey={`${departmentId}-${year}-${query}-${status}`} className="management-paginated-region" empty={<DataTableEmptyState icon={<Icon name="finance" size={24}/>} title="No active finance accounts" description="Payments archive only after all payments are finalized, Semester Results are released, and the semester ends."/>}>{pageItems => <FinanceTable accounts={pageItems} onSelect={account => setSelectedId(account.id)}/>}</PaginatedDataRegion>
+    <ServerPaginatedDataRegion result={{ ...result, items: view.items }} onPage={setPage} className="management-paginated-region" empty={<DataTableEmptyState icon={<Icon name="finance" size={24}/>} title="No active finance accounts" description="Payments archive only after all payments are finalized, Semester Results are released, and the semester ends."/>}>{pageItems => <FinanceTable accounts={pageItems} onSelect={account => setSelectedId(account.id)}/>}</ServerPaginatedDataRegion>
     {selected && <FinanceAccountModal
       account={selected}
       options={options}
       onClose={() => setSelectedId("")}
-      onUpdated={updated => { if (updated.closedAtUtc && updated.periodState === "Retained") { setAccounts(current => current?.filter(account => account.id !== updated.id)); setSelectedId(""); } else setAccounts(current => current?.map(account => account.id === updated.id ? updated : account)); }}
+      onUpdated={updated => { if (updated.closedAtUtc && updated.periodState === "Retained") { setResult(current => ({ ...current, items: current.items.filter(account => account.id !== updated.id), totalCount: Math.max(0, current.totalCount - 1) })); setSelectedId(""); } else setResult(current => ({ ...current, items: current.items.map(account => account.id === updated.id ? updated : account) })); }}
     />}
   </div>;
 }

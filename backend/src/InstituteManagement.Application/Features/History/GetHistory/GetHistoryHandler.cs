@@ -1,11 +1,10 @@
 using InstituteManagement.Application.Features.History;
-using InstituteManagement.Application.Features.Record;
 using MediatR;
 
 namespace InstituteManagement.Application.Features.History.GetHistory;
 
-public sealed class GetHistoryHandler(IHistoryQueryService service) : IRequestHandler<GetHistoryQuery, IReadOnlyList<RecordDto>>
+public sealed class GetHistoryHandler(IHistoryQueryService service) : IRequestHandler<GetHistoryQuery, HistoryPageDto>
 {
-    public Task<IReadOnlyList<RecordDto>> Handle(GetHistoryQuery request, CancellationToken cancellationToken) =>
-        service.GetAsync(request.Search, request.Type, cancellationToken);
+    public Task<HistoryPageDto> Handle(GetHistoryQuery request, CancellationToken cancellationToken) =>
+        service.GetAsync(request.Search, request.Type, request.Page, cancellationToken);
 }

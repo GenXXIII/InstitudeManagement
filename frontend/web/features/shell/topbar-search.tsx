@@ -72,10 +72,11 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setSearching(true);
       const results = await Promise.allSettled(searchResources.map(async resource => {
-        const items = await managementApis[resource.id].get(text, departmentId);
+        const items = await managementApis[resource.id].get(text, departmentId, controller.signal);
         const suggestions = (items as ManagementItem[])
           .filter(item => matchesYear(item, year))
           .map(item => itemSuggestion(item, resource.id));
@@ -90,7 +91,7 @@ export function TopbarSearch({ departmentId, year }: { departmentId: string; yea
       setGroups(results.flatMap(result => result.status === "fulfilled" ? [result.value] : []));
       setSearching(false);
     }, 220);
-    return () => { cancelled = true; window.clearTimeout(timer); };
+    return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
   }, [departmentId, query, year]);
 
   function resetSearch() {

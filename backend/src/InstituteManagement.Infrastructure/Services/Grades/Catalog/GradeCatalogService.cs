@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Grades;
 using InstituteManagement.Infrastructure.Services.Catalog;
 using InstituteManagement.Domain.Entities;
@@ -12,41 +13,160 @@ namespace InstituteManagement.Infrastructure.Services.Grades;
 public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache cache) : CatalogFeatureBase<GradeResponseDto>(db, cache), IGradeCatalogService
 {
     public override CatalogResource Resource => CatalogResource.Grades;
-    public override Task<IReadOnlyList<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct) =>
-        GetAsync(search, departmentId, null, ct);
+    public async Task<IReadOnlyList<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, int? year, CancellationToken ct) =>
+        (await GetAsync(search, departmentId, year, null, null, null, new PageRequest(1, 100), ct)).Items;
 
-    public async Task<IReadOnlyList<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, int? year, CancellationToken ct)
+    public async Task<PagedResult<GradeResponseDto>> GetAsync(string? search, Guid? departmentId, int? year, Guid? teacherId, string? groupBy, string? status, PageRequest page, CancellationToken ct)
     {
         var period = await CurrentPeriodAsync(ct);
-        var publishedPeriods = (await Db.SemesterResultPublications.AsNoTracking()
-                .Select(item => new { item.StudentId, item.AcademicYear, item.Term })
-                .ToListAsync(ct))
-            .Select(item => (item.StudentId, item.AcademicYear, item.Term))
-            .ToHashSet();
-        var closedPaymentPeriods = (await Db.FinancialAccounts.AsNoTracking()
-                .Where(item => item.ClosedAtUtc.HasValue)
-                .Select(item => new { item.StudentId, item.AcademicYear, item.Semester })
-                .ToListAsync(ct))
-            .Select(item => (item.StudentId, item.AcademicYear, item.Semester))
-            .ToHashSet();
-        var grades = await Db.GradeRecords.AsNoTracking().Include(grade => grade.Student).ThenInclude(student => student!.Department).Include(grade => grade.Course).Include(grade => grade.SubmittedByTeacher)
+        var query = Db.GradeRecords.AsNoTracking()
             .Where(grade => (grade.AcademicYear == period.AcademicYear && grade.Term == period.Term || grade.SubmittedByTeacherId.HasValue)
                 && grade.Student!.Status != "Inactive"
                 && grade.Course!.IsActive
                 && (!departmentId.HasValue || grade.Student.DepartmentId == departmentId)
+                && (!teacherId.HasValue || grade.SubmittedByTeacherId == teacherId)
                 && (!year.HasValue || Db.StudentEnrollments.Any(enrollment =>
                     enrollment.StudentId == grade.StudentId
                     && enrollment.AcademicYear == grade.AcademicYear
                     && enrollment.Semester == grade.Term
-                    && enrollment.YearLevel == year.Value)))
+                    && enrollment.YearLevel == year.Value))
+                && (grade.AcademicYear == period.AcademicYear && grade.Term == period.Term
+                    || !Db.SemesterResultPublications.Any(publication => publication.StudentId == grade.StudentId && publication.AcademicYear == grade.AcademicYear && publication.Term == grade.Term)
+                    || !Db.FinancialAccounts.Any(account => account.StudentId == grade.StudentId && account.AcademicYear == grade.AcademicYear && account.Semester == grade.Term && account.ClosedAtUtc.HasValue)));
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            query = query.Where(grade =>
+                grade.GradeCode.Contains(term)
+                || grade.Student!.FullName.Contains(term)
+                || grade.Student.StudentCode.Contains(term)
+                || grade.Course!.Name.Contains(term)
+                || grade.Course.CourseCode.Contains(term)
+                || grade.LetterGrade.Contains(term)
+                || Db.StudentEnrollments.Any(enrollment =>
+                    enrollment.StudentId == grade.StudentId
+                    && enrollment.AcademicYear == grade.AcademicYear
+                    && enrollment.Semester == grade.Term
+                    && enrollment.EnrollmentCode.Contains(term)));
+        var grouping = groupBy?.Trim().ToLowerInvariant();
+        var requestedStatus = status?.Trim();
+        int totalCount;
+        IQueryable<GradeRecord> pageQuery;
+        HashSet<(Guid StudentId, string AcademicYear, string Term)>? studentGroups = null;
+        HashSet<(Guid? TeacherId, Guid CourseId, string AcademicYear, string Term)>? courseGroups = null;
+        if (grouping == "student")
+        {
+            var expectedCourseCountText = await Db.SystemSettings.AsNoTracking()
+                .Where(setting => setting.Section == "grade-rules" && setting.Key == "expectedCourseCount")
+                .Select(setting => setting.Value)
+                .FirstOrDefaultAsync(ct);
+            var expectedCourseCount = int.TryParse(expectedCourseCountText, out var configuredCourseCount) && configuredCourseCount > 0
+                ? configuredCourseCount
+                : SemesterResultRules.ExpectedCourseCount;
+            var studentQuery = query.Where(grade => grade.SubmittedByTeacherId.HasValue
+                && grade.SubmittedAtUtc.HasValue
+                && grade.ReviewStatus != "SubmissionRequested"
+                && grade.ReviewStatus != "SubmissionAuthorized");
+            var groups = studentQuery.GroupBy(grade => new { grade.StudentId, grade.AcademicYear, grade.Term })
+                .Select(group => new
+                {
+                    group.Key.StudentId,
+                    group.Key.AcademicYear,
+                    group.Key.Term,
+                    StudentCode = group.Min(grade => grade.Student!.StudentCode),
+                    CourseCount = group.Select(grade => grade.CourseId).Distinct().Count(),
+                    ApprovedCount = group.Count(grade => grade.ReviewStatus == "Approved"),
+                    FinalizedCount = group.Count(grade => grade.FinalizedAtUtc.HasValue)
+                });
+            groups = requestedStatus?.ToLowerInvariant() switch
+            {
+                "confirmed" => groups.Where(group => group.CourseCount >= expectedCourseCount && group.FinalizedCount == group.CourseCount),
+                "ready" => groups.Where(group => group.CourseCount >= expectedCourseCount && group.ApprovedCount == group.CourseCount && group.FinalizedCount < group.CourseCount),
+                "draft" => groups.Where(group => group.CourseCount < expectedCourseCount || group.ApprovedCount < group.CourseCount),
+                _ => groups
+            };
+            totalCount = await groups.CountAsync(ct);
+            var selected = await groups.OrderBy(group => group.AcademicYear).ThenBy(group => group.Term).ThenBy(group => group.StudentCode).ThenBy(group => group.StudentId)
+                .Skip(page.Skip).Take(page.NormalizedPageSize).ToListAsync(ct);
+            studentGroups = selected.Select(group => (group.StudentId, group.AcademicYear, group.Term)).ToHashSet();
+            var selectedStudentIds = selected.Select(group => group.StudentId).Distinct().ToList();
+            var academicYears = selected.Select(group => group.AcademicYear).Distinct().ToList();
+            var terms = selected.Select(group => group.Term).Distinct().ToList();
+            pageQuery = studentQuery.Where(grade => selectedStudentIds.Contains(grade.StudentId) && academicYears.Contains(grade.AcademicYear) && terms.Contains(grade.Term));
+        }
+        else if (grouping == "course")
+        {
+            var courseQuery = query.Where(grade => grade.SubmittedByTeacherId.HasValue);
+            var groups = courseQuery
+                .GroupBy(grade => new { grade.SubmittedByTeacherId, grade.CourseId, grade.AcademicYear, grade.Term })
+                .Select(group => new
+                {
+                    group.Key.SubmittedByTeacherId,
+                    group.Key.CourseId,
+                    group.Key.AcademicYear,
+                    group.Key.Term,
+                    CourseCode = group.Min(grade => grade.Course!.CourseCode),
+                    StatusPriority = group.Min(grade => grade.ReviewStatus == "SubmissionRequested" ? 0
+                        : grade.ReviewStatus == "ResubmitRequested" ? 1
+                        : grade.ReviewStatus == "Submitted" ? 2
+                        : grade.ReviewStatus == "Pending" ? 3
+                        : grade.ReviewStatus == "SubmissionAuthorized" ? 4
+                        : grade.ReviewStatus == "ResubmitAuthorized" ? 5
+                        : grade.ReviewStatus == "Rejected" ? 6
+                        : grade.ReviewStatus == "Approved" ? 7 : 3)
+                });
+            var requestedPriority = requestedStatus?.ToLowerInvariant() switch
+            {
+                "submissionrequested" => 0,
+                "resubmitrequested" => 1,
+                "submitted" => 2,
+                "pending" => 3,
+                "submissionauthorized" => 4,
+                "resubmitauthorized" => 5,
+                "rejected" => 6,
+                "approved" => 7,
+                _ => -1
+            };
+            if (requestedStatus?.Equals("Action", StringComparison.OrdinalIgnoreCase) == true)
+                groups = groups.Where(group => group.StatusPriority <= 3);
+            else if (requestedPriority >= 0)
+                groups = groups.Where(group => group.StatusPriority == requestedPriority);
+            totalCount = await groups.CountAsync(ct);
+            var selected = await groups.OrderBy(group => group.AcademicYear).ThenBy(group => group.Term).ThenBy(group => group.CourseCode).ThenBy(group => group.SubmittedByTeacherId).ThenBy(group => group.CourseId)
+                .Skip(page.Skip).Take(page.NormalizedPageSize).ToListAsync(ct);
+            courseGroups = selected.Select(group => (group.SubmittedByTeacherId, group.CourseId, group.AcademicYear, group.Term)).ToHashSet();
+            var teacherIds = selected.Select(group => group.SubmittedByTeacherId).Distinct().ToList();
+            var selectedCourseIds = selected.Select(group => group.CourseId).Distinct().ToList();
+            var academicYears = selected.Select(group => group.AcademicYear).Distinct().ToList();
+            var terms = selected.Select(group => group.Term).Distinct().ToList();
+            pageQuery = courseQuery.Where(grade => teacherIds.Contains(grade.SubmittedByTeacherId) && selectedCourseIds.Contains(grade.CourseId) && academicYears.Contains(grade.AcademicYear) && terms.Contains(grade.Term));
+        }
+        else
+        {
+            totalCount = await query.CountAsync(ct);
+            pageQuery = query
+                .OrderBy(grade => grade.AcademicYear)
+                .ThenBy(grade => grade.Term)
+                .ThenBy(grade => grade.Student!.StudentCode)
+                .ThenBy(grade => grade.Course!.CourseCode)
+                .ThenBy(grade => grade.Id)
+                .Skip(page.Skip)
+                .Take(page.NormalizedPageSize);
+        }
+        var grades = await pageQuery
+            .Include(grade => grade.Student)
+                .ThenInclude(student => student!.Department)
+            .Include(grade => grade.Course)
+            .Include(grade => grade.SubmittedByTeacher)
             .ToListAsync(ct);
-        grades = grades.Where(grade =>
-                grade.AcademicYear == period.AcademicYear && grade.Term == period.Term
-                || !publishedPeriods.Contains((grade.StudentId, grade.AcademicYear, grade.Term))
-                || !closedPaymentPeriods.Contains((grade.StudentId, grade.AcademicYear, grade.Term)))
-            .ToList();
+        if (studentGroups is not null)
+            grades = grades.Where(grade => studentGroups.Contains((grade.StudentId, grade.AcademicYear, grade.Term))).ToList();
+        if (courseGroups is not null)
+            grades = grades.Where(grade => courseGroups.Contains((grade.SubmittedByTeacherId, grade.CourseId, grade.AcademicYear, grade.Term))).ToList();
+        grades = grades.OrderBy(grade => grade.AcademicYear).ThenBy(grade => grade.Term).ThenBy(grade => grade.Student!.StudentCode).ThenBy(grade => grade.Course!.CourseCode).ThenBy(grade => grade.Id).ToList();
+        if (grades.Count == 0) return PagedResult<GradeResponseDto>.Create([], page, totalCount);
+        var courseIds = grades.Select(grade => grade.CourseId).Distinct().ToList();
         var sessions = await Db.ClassSessionRecords.AsNoTracking()
-            .Where(session => session.AcademicYear == period.AcademicYear && session.Term == period.Term)
+            .Where(session => session.AcademicYear == period.AcademicYear && session.Term == period.Term && courseIds.Contains(session.CourseId))
             .ToListAsync(ct);
         var sessionsByCourse = sessions.ToLookup(session => session.CourseId);
         var studentIds = grades.Select(grade => grade.StudentId).Distinct().ToList();
@@ -62,10 +182,10 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
                 var displayCode = enrollment is null
                     ? grade.GradeCode
                     : codeFormat.PeriodLinkedWithConfiguredPrefix(enrollment.EnrollmentCode, enrollment.YearLevel, enrollment.Semester, "gradeManagementPrefix", "GRD");
-                return Response(grade, sessionsByCourse[grade.CourseId], displayCode);
+                return Response(grade, sessionsByCourse[grade.CourseId], displayCode, enrollment);
             })
             .ToList();
-        return responses.Where(item => Matches(search, item.Values.GradeCode, item.Values.Student, item.Values.Course, item.Values.Grade)).ToList();
+        return PagedResult<GradeResponseDto>.Create(responses, page, totalCount);
     }
 
     public override Task<GradeResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct) =>
@@ -110,7 +230,10 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             Get(values, "submittedAtUtc"),
             Get(values, "reviewedAtUtc"),
             Get(values, "finalizedAtUtc"),
-            Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd"))));
+            Get(values, "createAt", DateTime.UtcNow.ToString("yyyy-MM-dd")),
+            Get(values, "year"),
+            Get(values, "shift"),
+            Get(values, "resultCode")));
 
     private async Task<GradeRecord> BuildAsync(GradeRecord entity, Dictionary<string, string> values, CancellationToken ct)
     {
@@ -157,7 +280,7 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
         if (entity.LetterGrade is "E" or "F" && (!bool.TryParse(reminders, out var enabled) || enabled)) Db.Notifications.Add(new Notification { Title = "Grade support reminder", Message = $"{student?.FullName ?? "Student"} received {entity.LetterGrade} in {course?.Name ?? "a course"}.", Severity = entity.LetterGrade == "F" ? "Warning" : "Info" });
         return entity;
     }
-    private static GradeResponseDto Response(GradeRecord grade, IEnumerable<ClassSessionRecord> sessions, string displayCode)
+    private static GradeResponseDto Response(GradeRecord grade, IEnumerable<ClassSessionRecord> sessions, string displayCode, StudentEnrollment? enrollment)
     {
         var attendance = GradeCompositionCalculator.Attendance(
             sessions,
@@ -193,7 +316,10 @@ public sealed class GradeCatalogService(InstituteDbContext db, InstituteCache ca
             grade.SubmittedAtUtc?.ToString("O") ?? "",
             grade.ReviewedAtUtc?.ToString("O") ?? "",
             grade.FinalizedAtUtc?.ToString("O") ?? "",
-            grade.CreateAt.ToString("yyyy-MM-dd")));
+            grade.CreateAt.ToString("yyyy-MM-dd"),
+            enrollment?.YearLevel.ToString() ?? "",
+            enrollment?.Shift ?? "",
+            enrollment?.ResultCode ?? ""));
     }
     private async Task<(string AcademicYear, string Term)> CurrentPeriodAsync(CancellationToken ct)
     {

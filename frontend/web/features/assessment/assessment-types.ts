@@ -4,6 +4,7 @@ export type GradeAssessmentValues = {
   assignmentScore: string; assignmentMaximum: string; midtermScore: string; midtermMaximum: string; finalExamScore: string; finalExamMaximum: string;
   score: string; grade: string; academicYear: string; term: string; submittedByTeacherId: string; submittedByTeacher: string;
   reviewStatus: "SubmissionRequested" | "SubmissionAuthorized" | "Submitted" | "Pending" | "Approved" | "Rejected" | "ResubmitRequested" | "ResubmitAuthorized"; reviewNote: string; submissionVersion: string; submittedAtUtc: string; reviewedAtUtc: string; finalizedAtUtc: string; createAt: string;
+  year: string; shift: string; resultCode: string;
 };
 
 export type GradeAssessment = { id: string; values: GradeAssessmentValues };

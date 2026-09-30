@@ -1,6 +1,8 @@
 "use client";
 
 import { type ReactNode, useMemo, useState } from "react";
+import type { PagedResult } from "@/lib/pagination";
+import { DATA_PAGE_SIZE } from "@/lib/pagination";
 
 type PaginatedDataRegionProps<T> = {
   items: T[];
@@ -12,7 +14,7 @@ type PaginatedDataRegionProps<T> = {
   as?: "section" | "div" | "fragment";
 };
 
-export const DATA_PAGE_SIZE = 40;
+export { DATA_PAGE_SIZE } from "@/lib/pagination";
 
 export function useDataPagination<T>(items: T[], resetKey: string, pageSize = DATA_PAGE_SIZE) {
   const [state, setState] = useState({ resetKey, page: 1 });
@@ -29,6 +31,30 @@ export function PaginatedDataRegion<T>({ items, resetKey, children, empty, class
   const content = <>
     {children(pagination.pageItems)}
     {items.length > 0 && <DataPagination page={pagination.page} pageCount={pagination.pageCount} total={items.length} pageSize={pagination.pageSize} onPage={pagination.setPage}/>}
+  </>;
+  if (as === "fragment") return content;
+  const Region = as;
+  return <Region className={`shared-data-region ${className}`.trim()}>{content}</Region>;
+}
+
+export function useServerPage(resetKey: string) {
+  const [state, setState] = useState({ resetKey, page: 1 });
+  const page = state.resetKey === resetKey ? state.page : 1;
+  const setPage = (nextPage: number) => setState({ resetKey, page: Math.max(1, nextPage) });
+  return [page, setPage] as const;
+}
+
+export function ServerPaginatedDataRegion<T>({ result, children, empty, className = "", as = "section", onPage }: {
+  result: PagedResult<T>;
+  children: (pageItems: T[]) => ReactNode;
+  empty?: ReactNode;
+  className?: string;
+  as?: "section" | "div" | "fragment";
+  onPage: (page: number) => void;
+}) {
+  const content = <>
+    {!result.items.length && empty ? empty : children(result.items)}
+    {result.totalCount > 0 && <DataPagination page={result.page} pageCount={Math.max(1, result.totalPages)} total={result.totalCount} pageSize={result.pageSize} onPage={onPage}/>}
   </>;
   if (as === "fragment") return content;
   const Region = as;

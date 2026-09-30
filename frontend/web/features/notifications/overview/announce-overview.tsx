@@ -4,9 +4,12 @@ import { Icon } from "@/components/icon";
 import type { AnnouncementItem } from "../announcements/announcement-types";
 import type { NotificationItem } from "../notifications/notification-types";
 
-export function AnnounceOverview({ notifications, alerts }: {
+export function AnnounceOverview({ notifications, alerts, notificationTotal, alertTotal, unreadNotifications }: {
   notifications: NotificationItem[];
   alerts: AnnouncementItem[];
+  notificationTotal: number;
+  alertTotal: number;
+  unreadNotifications: number;
 }) {
   const recent = [
     ...notifications.map(item => ({
@@ -29,14 +32,14 @@ export function AnnounceOverview({ notifications, alerts }: {
   const areas = [
     {
       label: "Notifications",
-      count: notifications.length,
-      detail: `${notifications.filter(item => !item.isRead).length} unread`,
+      count: notificationTotal,
+      detail: `${unreadNotifications} unread`,
       href: "/announce/notifications",
       icon: "bell" as const,
     },
     {
       label: "Active alerts",
-      count: alerts.length,
+      count: alertTotal,
       detail: "Institute announcements",
       href: "/announce/alerts",
       icon: "pulse" as const,

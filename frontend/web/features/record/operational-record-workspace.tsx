@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DataTable, DataTableToolbar, PaginatedDataRegion, type DataTableColumn } from "@/components/data-table";
+import { DataPagination, DataTable, DataTableToolbar, PaginatedDataRegion, useServerPage, type DataTableColumn } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { workflowSourceSearch } from "@/lib/workflow-code";
@@ -11,6 +11,7 @@ import { recordApi } from "./record-api";
 import type { OperationalRecord } from "./record-types";
 import { groupClassSessionRecords, sortClassSessionRecords, type ClassSessionRecordGroup } from "./sessions/class-session-record-ordering";
 import { academicNumber, shiftOrder } from "@/lib/academic-order";
+import { emptyPage, type PagedResult } from "@/lib/pagination";
 
 const modules: Record<string, { title: string; description: string; singular: string }> = {
   sessions: { title: "Class sessions by semester", description: "One semester group contains every daily class occurrence, with the newest class date and time shown first.", singular: "session" },
@@ -33,13 +34,15 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
   const year = searchParams.get("year") ?? "";
   const selectedPeriod = isClassSessionModule ? "all" : searchParams.get("period") ?? "all";
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
-  const [rows, setRows] = useState<OperationalRecord[]>([]);
+  const [result, setResult] = useState<PagedResult<OperationalRecord>>(() => emptyPage());
+  const [page, setPage] = useServerPage(`${currentModule}-${departmentId}-${history}-${query}-${year}-${selectedPeriod}`);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
-  const load = useCallback(() => recordApi.get(currentModule, workflowSourceSearch(query), departmentId, history).then(data => { setRows(data); setReady(true); setError(false); }).catch(() => setError(true)), [currentModule, departmentId, history, query]);
+  const load = useCallback(() => recordApi.getPage(currentModule, workflowSourceSearch(query), departmentId, history, year, selectedPeriod, { page }).then(data => { setResult(data); setReady(true); setError(false); }).catch(() => setError(true)), [currentModule, departmentId, history, page, query, selectedPeriod, year]);
   useEffect(() => { const timer = window.setTimeout(load, 180); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => { const timer = window.setTimeout(() => setQuery(searchParams.get("q") ?? ""), 0); return () => window.clearTimeout(timer); }, [searchParams]);
 
+  const rows = result.items;
   const periods = useMemo(() => isClassSessionModule ? [] : [...new Map(rows.flatMap(row => row.activities
     .filter(activity => activity["Academic year"] && activity.Term)
     .map(activity => [`${activity["Academic year"]}|${activity.Term}`, { key: `${activity["Academic year"]}|${activity.Term}`, label: `${activity["Academic year"]} · ${activity.Term}` }] as const))).values()]
@@ -79,6 +82,7 @@ export function OperationalRecordWorkspace({ module: rawModule, history = false 
     {history && <section className="operational-record-summary"><article className="panel"><span>All {config.singular}s</span><strong>{visibleRows.length.toLocaleString()}</strong><small>{isClassSessionModule ? "Time-linked session records" : "Semester-linked records"}</small></article><article className="panel"><span>Recorded activities</span><strong>{activityCount.toLocaleString()}</strong><small>Enrollment and completed class evidence</small></article><article className="panel"><span>Semester groups</span><strong>{recordGroups.length}</strong><small>{isClassSessionModule ? "Newest class date appears first inside each semester" : "Academic year / semester sections"}</small></article></section>}
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder={`Search ${config.title.toLowerCase()}…`} searchAriaLabel={`Search ${config.title}`} resultLabel={`Showing ${visibleRows.length} records`} className="record-toolbar panel" searchClassName="record-search management-search module-search-field"/>
     {visibleRows.length ? <section className="record-paginated-region"><div className="semester-history-scroll">{recordGroups.map(group => <RecordGroupSection module={currentModule} group={group} history={history} load={load} detailHref={detailHref} key={group.key}/>)}</div></section> : <section className="panel empty-state"><div className="empty-icon"><Icon name="archive" size={28}/></div><strong>{isClassSessionModule ? "No class sessions found" : history ? isStudentModule ? "No completed four-year archive yet" : "No completed semester history yet" : "No current semester records found"}</strong><span>{isClassSessionModule ? history ? "Completed-semester sessions appear here as read-only semester groups." : "Daily sessions appear inside the active semester group as their timetable periods finish." : history ? isStudentModule ? "A student moves here only after completing Year 4 Semester 2." : "This module receives a read-only entry after each semester closes." : isStudentModule ? "Student records accumulate here from enrollment through Year 4 Semester 2." : "Current-semester records appear automatically from Enrollment and timetable activity."}</span></section>}
+    {result.totalCount > 0 && <DataPagination page={result.page} pageCount={Math.max(1, result.totalPages)} total={result.totalCount} pageSize={result.pageSize} onPage={setPage}/>}
   </div>;
 
   function changePeriod(period: string) {

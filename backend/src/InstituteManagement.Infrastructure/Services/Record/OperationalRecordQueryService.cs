@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using InstituteManagement.Application.Features.Record;
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Infrastructure.Persistence;
 using InstituteManagement.Infrastructure.Services.Common;
 using InstituteManagement.Infrastructure.Services.Grades;
@@ -14,10 +15,21 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
 {
     private readonly IReadOnlyDictionary<string, IOperationalRecordReader> _readers = readers.ToDictionary(x => x.Module, StringComparer.OrdinalIgnoreCase);
 
-    public async Task<IReadOnlyList<OperationalRecordDto>> GetAsync(string module, string? search, Guid? departmentId, bool history, CancellationToken cancellationToken)
+    public async Task<PagedResult<OperationalRecordDto>> GetAsync(string module, string? search, Guid? departmentId, int? year, string? selectedPeriod, bool history, PageRequest page, CancellationToken cancellationToken)
     {
         if (!_readers.TryGetValue(module, out var reader)) throw new ArgumentException($"Operational records for '{module}' are not supported.");
-        var records = await reader.GetAsync(departmentId, cancellationToken);
+        int? databasePageTotal = null;
+        IReadOnlyList<OperationalRecordDto> records;
+        if (reader is StudentOperationalRecordReader studentReader)
+        {
+            var studentPage = await studentReader.GetPageAsync(departmentId, year, selectedPeriod, search, history, page, cancellationToken);
+            records = studentPage.Records;
+            databasePageTotal = studentPage.TotalCount;
+        }
+        else
+        {
+            records = await reader.GetAsync(departmentId, cancellationToken);
+        }
         var settings = await db.SystemSettings.AsNoTracking()
             .Where(x => x.Section == "academic-year" || x.Section == "semester" || x.Section == "grade-rules" || x.Section == "attendance-rules")
             .ToListAsync(cancellationToken);
@@ -55,10 +67,32 @@ public sealed class OperationalRecordQueryService(IEnumerable<IOperationalRecord
                 ? record
                 : record with { Code = codeFormat.Derive(record.Code, CodeResource(record.Module), history ? "history" : "record") };
         }).ToList();
-        if (string.IsNullOrWhiteSpace(search)) return records;
-        var searchTerm = search.Trim();
-        return records.Where(x => Matches(searchTerm, x.Subject, x.Code, x.Department, x.Identifier, x.Summary, x.AcademicYear, x.Term)
-            || x.Activities.Any(activity => activity.Values.Any(value => value.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))).ToList();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchTerm = search.Trim();
+            records = records.Where(x => Matches(searchTerm, x.Subject, x.Code, x.Department, x.Identifier, x.Summary, x.AcademicYear, x.Term)
+                || x.Activities.Any(activity => activity.Values.Any(value => value.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))).ToList();
+        }
+        if (year.HasValue)
+            records = records.Where(record => record.Activities.Any(activity => activity.GetValueOrDefault("Year") == $"Year {year.Value}")).ToList();
+        if (!string.IsNullOrWhiteSpace(selectedPeriod) && !selectedPeriod.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            var separator = selectedPeriod.IndexOf('|');
+            var selectedAcademicYear = separator < 0 ? selectedPeriod : selectedPeriod[..separator];
+            var selectedTerm = separator < 0 ? string.Empty : selectedPeriod[(separator + 1)..];
+            records = records.Where(record => record.Activities.Any(activity =>
+                activity.GetValueOrDefault("Academic year") == selectedAcademicYear
+                && (string.IsNullOrWhiteSpace(selectedTerm) || activity.GetValueOrDefault("Term") == selectedTerm))).ToList();
+        }
+        records = records
+            .OrderBy(record => record.Subject)
+            .ThenByDescending(record => record.AcademicYear)
+            .ThenBy(record => record.Term)
+            .ThenBy(record => record.Id)
+            .ToList();
+        if (databasePageTotal.HasValue)
+            return PagedResult<OperationalRecordDto>.Create(records.Take(page.NormalizedPageSize).ToList(), page, databasePageTotal.Value);
+        return PagedResult<OperationalRecordDto>.Create(records.Skip(page.Skip).Take(page.NormalizedPageSize).ToList(), page, records.Count);
     }
 
     private static IReadOnlyList<OperationalRecordDto> SplitByPeriod(IReadOnlyList<OperationalRecordDto> records, string academicYear, string term, PeriodScope scope)

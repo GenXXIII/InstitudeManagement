@@ -1,8 +1,9 @@
+using InstituteManagement.Application.Common.Pagination;
 using MediatR;
 
 using InstituteManagement.Application.Features.Enrollment;
 
 namespace InstituteManagement.Application.Features.Enrollment.Students.GetStudentEnrollments;
 
-public sealed record GetStudentEnrollmentsQuery(string? Search, Guid? DepartmentId, int? Year)
-    : IRequest<IReadOnlyList<EnrollmentItemDto>>;
+public sealed record GetStudentEnrollmentsQuery(string? Search, Guid? DepartmentId, int? Year, PageRequest Page)
+    : IRequest<PagedResult<EnrollmentItemDto>>;

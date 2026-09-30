@@ -28,8 +28,8 @@ export function groupCourseAssessments(rows: GradeAssessment[], enrollments: Enr
   for (const grade of rows.filter(item => Boolean(item.values.submittedByTeacherId))) {
     const value = grade.values;
     const enrollment = enrollmentByStudentPeriod.get(studentPeriodKey(value.studentId, value.academicYear, value.term));
-    const year = enrollment?.values.year ?? "";
-    const shift = enrollment?.values.shift ?? "";
+    const year = enrollment?.values.year ?? value.year;
+    const shift = enrollment?.values.shift ?? value.shift;
     const key = [value.submittedByTeacherId, value.courseId, value.departmentId, year, shift, value.academicYear, value.term].join("|");
     const current = groups.get(key) ?? {
       key,

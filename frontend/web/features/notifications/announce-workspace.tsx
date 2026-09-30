@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PaginatedDataRegion } from "@/components/data-table";
+import { ServerPaginatedDataRegion } from "@/components/data-table";
 import { CodeRecommendation } from "@/components/code-recommendation";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
@@ -15,14 +15,18 @@ import type { NotificationItem } from "./notifications/notification-types";
 import { AnnounceOverview } from "./overview/announce-overview";
 import { formatAlertCode } from "@/lib/workflow-code";
 import { recommendedCodeFromError } from "@/lib/code-recommendation";
+import { emptyPage, type PagedResult } from "@/lib/pagination";
 
 const emptyAlert: AnnouncementDraft = { announcementCode: "", type: "", title: "", message: "" };
 
 export function AnnounceWorkspace({ module }: { module: string }) {
   const router = useRouter();
   const current = ["overview", "notifications", "alerts"].includes(module) ? module : "overview";
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [alerts, setAlerts] = useState<AnnouncementItem[]>([]);
+  const [notifications, setNotifications] = useState<PagedResult<NotificationItem>>(() => emptyPage());
+  const [alerts, setAlerts] = useState<PagedResult<AnnouncementItem>>(() => emptyPage());
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [alertPage, setAlertPage] = useState(1);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [error, setError] = useState("");
@@ -32,16 +36,20 @@ export function AnnounceWorkspace({ module }: { module: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [nextNotifications, nextAlerts] = await Promise.all([notificationsApi.get(), announcementsApi.get()]);
-      setNotifications(nextNotifications); setAlerts(nextAlerts); setReady(true); setLoadError(false);
+      const [nextNotifications, nextAlerts, unread] = await Promise.all([
+        notificationsApi.getPage({ page: notificationPage }),
+        announcementsApi.getPage({ page: alertPage }),
+        notificationsApi.getPage({ pageSize: 1 }, true),
+      ]);
+      setNotifications(nextNotifications); setAlerts(nextAlerts); setUnreadNotifications(unread.totalCount); setReady(true); setLoadError(false);
     } catch { setLoadError(true); }
-  }, []);
+  }, [alertPage, notificationPage]);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
   if (loadError) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
 
   async function markAllNotificationsAsRead() {
-    if (!notifications.some(item => !item.isRead) || markingAll) return;
+    if (!unreadNotifications || markingAll) return;
     setMarkingAll(true); setError("");
     try { await notificationsApi.markAllRead(); notifyBell(); await load(); }
     catch (reason) { setError(message(reason)); } finally { setMarkingAll(false); }
@@ -62,12 +70,12 @@ export function AnnounceWorkspace({ module }: { module: string }) {
   const recommendation = recommendedCodeFromError(error);
 
   return <div className="viewport-data-page announce-viewport-page">
-    <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={current === "notifications" ? <button className="button secondary notification-mark-all-button" disabled={!notifications.some(item => !item.isRead) || markingAll} onClick={() => void markAllNotificationsAsRead()}>{markingAll ? "Marking all as read..." : "Mark all as read"}</button> : undefined}/>
+    <PageHeading eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={current === "notifications" ? <button className="button secondary notification-mark-all-button" disabled={!unreadNotifications || markingAll} onClick={() => void markAllNotificationsAsRead()}>{markingAll ? "Marking all as read..." : "Mark all as read"}</button> : undefined}/>
     {recommendation ? <CodeRecommendation code={recommendation} onUse={() => { setAlertDraft(currentDraft => ({ ...currentDraft, announcementCode: recommendation })); setError(""); }}/>
       : error && <section className="management-rule-error" role="alert"><Icon name="bell" size={16}/><div><strong>Could not apply change</strong><span>{error}</span></div><button onClick={() => setError("")}>Dismiss</button></section>}
-    {current === "overview" && <AnnounceOverview notifications={notifications} alerts={alerts}/>}
-    {current === "notifications" && <PaginatedDataRegion items={notifications} resetKey="notification-register" className="announce-paginated-region">{pageItems => <NotificationRegister rows={pageItems} onOpen={id => router.push(`/announce/notifications/${id}`)}/>}</PaginatedDataRegion>}
-    {current === "alerts" && <PaginatedDataRegion items={alerts} resetKey="alert-register" className="announce-paginated-region">{pageItems => <AlertRegister rows={pageItems} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onOpen={id => router.push(`/announce/alerts/${id}`)} onSave={saveAlert}/>}</PaginatedDataRegion>}
+    {current === "overview" && <AnnounceOverview notifications={notifications.items} alerts={alerts.items} notificationTotal={notifications.totalCount} alertTotal={alerts.totalCount} unreadNotifications={unreadNotifications}/>}
+    {current === "notifications" && <ServerPaginatedDataRegion result={notifications} onPage={setNotificationPage} className="announce-paginated-region">{pageItems => <NotificationRegister rows={pageItems} onOpen={id => router.push(`/announce/notifications/${id}`)}/>}</ServerPaginatedDataRegion>}
+    {current === "alerts" && <ServerPaginatedDataRegion result={alerts} onPage={setAlertPage} className="announce-paginated-region">{pageItems => <AlertRegister rows={pageItems} draft={alertDraft} saving={saving} onDraft={setAlertDraft} onOpen={id => router.push(`/announce/alerts/${id}`)} onSave={saveAlert}/>}</ServerPaginatedDataRegion>}
   </div>;
 }
 function message(reason: unknown) { return reason instanceof Error ? reason.message : "Could not apply this change."; }

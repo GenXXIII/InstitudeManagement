@@ -1,8 +1,8 @@
-using InstituteManagement.Application.Features.Record;
+using InstituteManagement.Application.Common.Pagination;
 
 namespace InstituteManagement.Application.Features.History;
 
 public interface IHistoryQueryService
 {
-    Task<IReadOnlyList<RecordDto>> GetAsync(string? search, string? type, CancellationToken cancellationToken);
+    Task<HistoryPageDto> GetAsync(string? search, string? type, PageRequest page, CancellationToken cancellationToken);
 }

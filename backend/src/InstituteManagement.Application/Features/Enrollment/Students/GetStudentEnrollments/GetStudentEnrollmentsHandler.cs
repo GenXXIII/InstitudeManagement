@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using MediatR;
 
 using InstituteManagement.Application.Features.Enrollment;
@@ -5,8 +6,8 @@ using InstituteManagement.Application.Features.Enrollment;
 namespace InstituteManagement.Application.Features.Enrollment.Students.GetStudentEnrollments;
 
 public sealed class GetStudentEnrollmentsHandler(IStudentEnrollmentService service)
-    : IRequestHandler<GetStudentEnrollmentsQuery, IReadOnlyList<EnrollmentItemDto>>
+    : IRequestHandler<GetStudentEnrollmentsQuery, PagedResult<EnrollmentItemDto>>
 {
-    public Task<IReadOnlyList<EnrollmentItemDto>> Handle(GetStudentEnrollmentsQuery request, CancellationToken cancellationToken) =>
-        service.GetAsync(request.Search, request.DepartmentId, request.Year, cancellationToken);
+    public Task<PagedResult<EnrollmentItemDto>> Handle(GetStudentEnrollmentsQuery request, CancellationToken cancellationToken) =>
+        service.GetAsync(request.Search, request.DepartmentId, request.Year, request.Page, cancellationToken);
 }

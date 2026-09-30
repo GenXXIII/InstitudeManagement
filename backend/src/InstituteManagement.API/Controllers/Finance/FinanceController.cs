@@ -1,5 +1,6 @@
 using InstituteManagement.API.Contracts.Finance;
 using InstituteManagement.API.Routes;
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Finance.UseCases;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -18,9 +19,11 @@ public sealed class FinanceController(ISender sender) : ControllerBase
         string? status,
         Guid? departmentId,
         int? year,
-        CancellationToken cancellationToken) =>
+        int page = 1,
+        int pageSize = 40,
+        CancellationToken cancellationToken = default) =>
         Ok(await sender.Send(
-            new GetFinanceAccountsQuery(search, academicYear, semester, status, departmentId, year),
+            new GetFinanceAccountsQuery(search, academicYear, semester, status, departmentId, year, new PageRequest(page, pageSize)),
             cancellationToken));
 
     [HttpGet("students/{studentId:guid}")]

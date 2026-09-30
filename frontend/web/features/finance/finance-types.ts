@@ -101,6 +101,10 @@ export type FinanceClosureReadiness = {
   paidAccounts: number;
   openPaidAccounts: number;
   canCloseAll: boolean;
+  totalDue: number;
+  totalCollected: number;
+  totalOutstanding: number;
+  currency: string;
 };
 
 export type BulkFinanceClosureResult = {

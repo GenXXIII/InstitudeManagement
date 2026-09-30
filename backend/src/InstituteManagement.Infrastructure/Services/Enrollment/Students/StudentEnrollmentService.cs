@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Application.Features.Enrollment.Students;
 
@@ -9,15 +10,17 @@ internal sealed class StudentEnrollmentService(
     StudentEnrollmentReader reader,
     StudentEnrollmentEditor editor) : IStudentEnrollmentService
 {
-    public async Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(
+    public async Task<PagedResult<EnrollmentItemDto>> GetAsync(
         string? search,
         Guid? departmentId,
         int? year,
+        PageRequest page,
         CancellationToken cancellationToken) =>
         await reader.GetAsync(
             search,
             departmentId,
             year,
+            page,
             await settings.CurrentPeriodAsync(cancellationToken),
             cancellationToken);
 

@@ -1,12 +1,9 @@
-"use client";
-
-import { useParams } from "next/navigation";
 import { EnrollmentWorkspace } from "@/features/enrollment/enrollment-workspace";
 import { EnrollmentOverview } from "@/features/enrollment/enrollment-overview";
 import type { EnrollmentResource } from "@/features/enrollment/common/enrollment-types";
 
-export default function EnrollmentPage() {
-  const { module } = useParams<{ module: string }>();
+export default async function EnrollmentPage({ params }: { params: Promise<{ module: string }> }) {
+  const { module } = await params;
   if (module === "overview") return <EnrollmentOverview/>;
   if (["students", "student-assignments", "teachers", "courses", "classrooms", "timetable", "departments"].includes(module)) return <EnrollmentWorkspace resource={module as EnrollmentResource}/>;
   return <EnrollmentOverview/>;

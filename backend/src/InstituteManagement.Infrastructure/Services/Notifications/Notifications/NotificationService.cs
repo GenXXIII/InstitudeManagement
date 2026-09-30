@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Notifications.Common;
 using InstituteManagement.Application.Features.Notifications.Notifications;
 using InstituteManagement.Domain.Entities;
@@ -11,10 +12,18 @@ public sealed class NotificationService(InstituteDbContext db, InstituteCache ca
 {
     private static readonly string[] Severities = ["Info", "Warning", "Critical"];
 
-    public async Task<IReadOnlyList<NotificationItemDto>> GetSystemAsync(CancellationToken cancellationToken) =>
-        await db.Notifications.AsNoTracking()
-            .Where(item => item.Type == "System")
-            .OrderByDescending(item => item.CreateAt)
+    public async Task<PagedResult<NotificationItemDto>> GetSystemAsync(string? search, bool unreadOnly, bool prioritizeUnread, PageRequest page, CancellationToken cancellationToken)
+    {
+        var query = db.Notifications.AsNoTracking().Where(item => item.Type == "System");
+        if (unreadOnly) query = query.Where(item => !item.IsRead);
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            query = query.Where(item => item.NotificationCode.Contains(term) || item.Title.Contains(term) || item.Message.Contains(term) || item.Severity.Contains(term));
+        var ordered = prioritizeUnread
+            ? query.OrderBy(item => item.IsRead).ThenByDescending(item => item.CreateAt)
+            : query.OrderByDescending(item => item.CreateAt);
+        return await ordered
+            .ThenByDescending(item => item.Id)
             .Select(item => new NotificationItemDto(
                 item.Id,
                 item.NotificationCode,
@@ -24,7 +33,8 @@ public sealed class NotificationService(InstituteDbContext db, InstituteCache ca
                 item.Severity,
                 item.IsRead,
                 item.CreateAt))
-            .ToListAsync(cancellationToken);
+            .ToPagedResultAsync(page, cancellationToken);
+    }
 
     public async Task<NotificationItemDto> GetAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -46,18 +56,14 @@ public sealed class NotificationService(InstituteDbContext db, InstituteCache ca
 
     public async Task<int> MarkAllReadAsync(CancellationToken cancellationToken)
     {
-        var unread = await db.Notifications.Where(item => item.Type == "System" && !item.IsRead).ToListAsync(cancellationToken);
-        if (unread.Count == 0) return 0;
-
         var changedAt = DateTime.UtcNow;
-        foreach (var entity in unread)
-        {
-            entity.IsRead = true;
-            entity.UpdatedAtUtc = changedAt;
-        }
-
-        await SaveAsync(cancellationToken);
-        return unread.Count;
+        var changed = await db.Notifications
+            .Where(item => item.Type == "System" && !item.IsRead)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(item => item.IsRead, true)
+                .SetProperty(item => item.UpdatedAtUtc, changedAt), cancellationToken);
+        if (changed > 0) await cache.InvalidateDashboardAsync(cancellationToken);
+        return changed;
     }
 
     public async Task<NotificationItemDto> UpdateAsync(Guid id, UpdateNotificationDto request, CancellationToken cancellationToken)

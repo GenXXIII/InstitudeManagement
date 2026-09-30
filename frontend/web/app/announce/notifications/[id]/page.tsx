@@ -1,9 +1,6 @@
-"use client";
-
-import { useParams } from "next/navigation";
 import { NotificationDetail } from "@/features/notifications/notifications/notification-detail";
 
-export default function NotificationDetailPage() {
-  const { id } = useParams<{ id: string }>();
+export default async function NotificationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   return <NotificationDetail id={id}/>;
 }

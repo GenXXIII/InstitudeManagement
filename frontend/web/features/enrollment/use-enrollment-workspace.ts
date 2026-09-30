@@ -9,7 +9,9 @@ import { studentApi } from "@/features/management/students/student-api";
 import { teacherApi } from "@/features/management/teachers/teacher-api";
 import { timetableApi } from "@/features/timetable/timetable-api";
 import type { DepartmentItem } from "@/features/management/departments/department-types";
+import { emptyPage, type PagedResult } from "@/lib/pagination";
 import { workflowSourceSearch } from "@/lib/workflow-code";
+import { useServerPage } from "@/components/data-table";
 import type { EnrollmentItem, EnrollmentResource } from "./common/enrollment-types";
 import { enrollmentApiFor } from "./enrollment-apis";
 import {
@@ -23,7 +25,8 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
-  const [items, setItems] = useState<EnrollmentItem[]>([]);
+  const [result, setResult] = useState<PagedResult<EnrollmentItem>>(() => emptyPage());
+  const [page, setPage] = useServerPage(`${resource}-${departmentId}-${year}-${query}`);
   const [candidates, setCandidates] = useState<EnrollmentItem[]>([]);
   const [teachers, setTeachers] = useState<EnrollmentItem[]>([]);
   const [courses, setCourses] = useState<EnrollmentItem[]>([]);
@@ -35,7 +38,7 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
   const [actionError, setActionError] = useState("");
 
   const load = useCallback(() => {
-    const candidateRequest: Promise<EnrollmentItem[]> = isSelectableEnrollment(resource)
+    const candidateRequest: Promise<EnrollmentItem[]> = editing !== undefined && isSelectableEnrollment(resource)
       ? Promise.all([getCatalogCandidates(resource, departmentId, year), enrollmentApiFor(resource).get()]).then(([catalogItems, enrollmentItems]) => {
           const assignedIds = new Set(enrollmentItems.filter(item => item.values.status !== "Unassigned" && item.values.periodState !== "Retained").map(item => item.id));
           if (resource === "timetable") {
@@ -49,14 +52,14 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
       : Promise.resolve([]);
 
     return Promise.all([
-      enrollmentApiFor(resource).get(workflowSourceSearch(query), departmentId, year),
+      enrollmentApiFor(resource).getPage(workflowSourceSearch(query), departmentId, year, { page }),
       departmentApi.get(),
       resource === "timetable" ? teacherApi.get() : Promise.resolve([]),
       resource === "timetable" ? courseApi.get() : Promise.resolve([]),
       resource === "timetable" ? classroomApi.get() : Promise.resolve([]),
       candidateRequest,
     ]).then(([rows, departmentRows, teacherRows, courseRows, classroomRows, candidateRows]) => {
-      setItems(rows);
+      setResult(rows);
       setDepartments(departmentRows);
       setTeachers(teacherRows);
       setCourses(courseRows);
@@ -65,7 +68,7 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
       setReady(true);
       setError(false);
     }).catch(() => setError(true));
-  }, [departmentId, query, resource, year]);
+  }, [departmentId, editing, page, query, resource, year]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 180);
@@ -92,7 +95,9 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
     departments,
     editing,
     error,
-    items,
+    items: result.items,
+    page,
+    result,
     load,
     query,
     ready,
@@ -101,6 +106,7 @@ export function useEnrollmentWorkspace(resource: EnrollmentResource) {
     setEditing,
     setError,
     setQuery,
+    setPage,
     teachers,
     year,
   };

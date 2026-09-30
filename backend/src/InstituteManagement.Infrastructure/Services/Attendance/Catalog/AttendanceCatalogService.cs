@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Attendance;
 using InstituteManagement.Infrastructure.Services.Catalog;
 using InstituteManagement.Domain.Entities;
@@ -12,15 +13,33 @@ namespace InstituteManagement.Infrastructure.Services.Attendance;
 public sealed class AttendanceCatalogService(InstituteDbContext db, InstituteCache cache) : CatalogFeatureBase<AttendanceResponseDto>(db, cache), IAttendanceCatalogService
 {
     public override CatalogResource Resource => CatalogResource.Attendance;
-    public override async Task<IReadOnlyList<AttendanceResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
+    public async Task<PagedResult<AttendanceResponseDto>> GetAsync(string? search, Guid? departmentId, int? year, string? shift, PageRequest page, CancellationToken ct)
     {
         var period = await CurrentPeriodAsync(ct);
-        var records = await Db.AttendanceRecords.AsNoTracking().Include(record => record.Student).ThenInclude(student => student!.Department)
-            .Where(record => record.AcademicYear == period.AcademicYear && record.Term == period.Term && record.Student!.Status != "Inactive" && (!departmentId.HasValue || record.Student.DepartmentId == departmentId))
+        var query = Db.AttendanceRecords.AsNoTracking()
+            .Where(record => record.AcademicYear == period.AcademicYear
+                && record.Term == period.Term
+                && record.Student!.Status != "Inactive"
+                && (!departmentId.HasValue || record.Student.DepartmentId == departmentId)
+                && (!year.HasValue || record.Student.YearLevel == year.Value)
+                && (string.IsNullOrWhiteSpace(shift) || record.Student.Shift == shift));
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            query = query.Where(record =>
+                record.AttendanceCode.Contains(term)
+                || record.Student!.FullName.Contains(term)
+                || record.Student.StudentCode.Contains(term)
+                || record.Status.Contains(term));
+        var totalCount = await query.CountAsync(ct);
+        var records = await query
             .OrderByDescending(record => record.CreateAt)
+            .ThenByDescending(record => record.Id)
+            .Skip(page.Skip)
+            .Take(page.NormalizedPageSize)
+            .Include(record => record.Student)
+                .ThenInclude(student => student!.Department)
             .ToListAsync(ct);
-        return records.Where(record => Matches(search, record.AttendanceCode, record.Student!.FullName, record.Student.StudentCode, record.Status))
-            .Select(record => new AttendanceResponseDto(record.Id, new AttendanceValuesDto(
+        var items = records.Select(record => new AttendanceResponseDto(record.Id, new AttendanceValuesDto(
                 record.AttendanceCode,
                 record.StudentId.ToString(),
                 record.Student?.FullName ?? "—",
@@ -35,6 +54,7 @@ public sealed class AttendanceCatalogService(InstituteDbContext db, InstituteCac
                 record.Term,
                 record.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
+        return PagedResult<AttendanceResponseDto>.Create(items, page, totalCount);
     }
 
     public override Task<AttendanceResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct) =>

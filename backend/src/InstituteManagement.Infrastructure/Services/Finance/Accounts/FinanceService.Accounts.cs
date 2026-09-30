@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Finance;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,54 +13,83 @@ public sealed partial class FinanceService
         string? status,
         Guid? departmentId,
         int? year,
+        CancellationToken cancellationToken) =>
+        (await GetAsync(search, academicYear, semester, status, departmentId, year, new PageRequest(1, 100), cancellationToken)).Items;
+
+    public async Task<PagedResult<StudentPaymentDto>> GetAsync(
+        string? search,
+        string? academicYear,
+        string? semester,
+        string? status,
+        Guid? departmentId,
+        int? year,
+        PageRequest page,
         CancellationToken cancellationToken)
     {
         await EnsureLedgerAsync(cancellationToken);
-        var accounts = await AccountQuery()
+        var period = await db.SystemSettings.AsNoTracking()
+            .Where(setting =>
+                setting.Section == "academic-year" && setting.Key == "currentYear"
+                || setting.Section == "semester" && setting.Key == "currentTerm")
+            .ToDictionaryAsync(setting => $"{setting.Section}:{setting.Key}", setting => setting.Value, cancellationToken);
+        var currentYear = period.GetValueOrDefault("academic-year:currentYear", "");
+        var currentSemester = period.GetValueOrDefault("semester:currentTerm", "");
+        var query = AccountQuery()
             .Where(account =>
                 (string.IsNullOrWhiteSpace(academicYear) || account.AcademicYear == academicYear)
                 && (string.IsNullOrWhiteSpace(semester) || account.Semester == semester)
                 && (!departmentId.HasValue || account.StudentEnrollment!.DepartmentId == departmentId)
-                && (!year.HasValue || account.StudentEnrollment!.YearLevel == year.Value))
+                && (!year.HasValue || account.StudentEnrollment!.YearLevel == year.Value));
+        var penaltyAccounts = await query
+            .Where(account => account.DeclaredAtUtc.HasValue
+                && account.ExpiresAtUtc.HasValue
+                && account.Status != "Paid"
+                && account.Status != "Cancelled"
+                && (account.ExpiresAtUtc <= DateTime.UtcNow || account.LatePenaltyDays != 0 || account.LatePenaltyAmount != 0))
+            .ToListAsync(cancellationToken);
+        await ApplyLatePenaltiesAsync(penaltyAccounts, cancellationToken);
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            query = query.Where(account =>
+                account.FinancialAccountCode.Contains(term)
+                || account.Student!.StudentCode.Contains(term)
+                || account.StudentEnrollment!.PublicId.Contains(term)
+                || account.Student.FullName.Contains(term)
+                || account.StudentEnrollment.EnrollmentCode.Contains(term)
+                || account.StudentEnrollment.Department!.Name.Contains(term)
+                || account.Title.Contains(term)
+                || account.PaymentPlan.Contains(term)
+                || account.Payments.Any(payment => payment.PaymentCode.Contains(term)));
+
+        var archived = query.Where(account =>
+            account.ClosedAtUtc.HasValue
+            && (account.AcademicYear != currentYear || account.Semester != currentSemester)
+            && db.SemesterResultPublications.Any(result => result.StudentId == account.StudentId && result.AcademicYear == account.AcademicYear && result.Term == account.Semester));
+        if (string.IsNullOrWhiteSpace(status) || status == "All")
+            query = query.Where(account => !account.ClosedAtUtc.HasValue
+                || account.AcademicYear == currentYear && account.Semester == currentSemester
+                || !db.SemesterResultPublications.Any(result => result.StudentId == account.StudentId && result.AcademicYear == account.AcademicYear && result.Term == account.Semester));
+        else if (status.Equals("History", StringComparison.OrdinalIgnoreCase))
+            query = archived;
+        else if (status.Equals("Closed", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(account => account.ClosedAtUtc.HasValue
+                && (account.AcademicYear == currentYear
+                    && account.Semester == currentSemester
+                    || !db.SemesterResultPublications.Any(result => result.StudentId == account.StudentId && result.AcademicYear == account.AcademicYear && result.Term == account.Semester)));
+        else
+            query = query.Where(account => !account.ClosedAtUtc.HasValue && account.Status == status);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var accounts = await query
             .OrderBy(account => account.StudentEnrollment!.YearLevel)
             .ThenBy(account => account.StudentEnrollment!.Shift == "Morning" ? 0 : account.StudentEnrollment.Shift == "Afternoon" ? 1 : account.StudentEnrollment.Shift == "Evening" ? 2 : account.StudentEnrollment.Shift == "Weekend" ? 3 : 4)
             .ThenBy(account => account.Student!.FullName)
+            .ThenBy(account => account.Id)
+            .Skip(page.Skip)
+            .Take(page.NormalizedPageSize)
             .ToListAsync(cancellationToken);
-        await ApplyLatePenaltiesAsync(accounts, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            accounts = accounts.Where(account => Matches(
-                search,
-                account.FinancialAccountCode,
-                account.Student!.StudentCode,
-                account.StudentEnrollment!.PublicId,
-                account.Student.FullName,
-                account.StudentEnrollment!.EnrollmentCode,
-                account.StudentEnrollment.Department!.Name,
-                account.Title,
-                account.PaymentPlan,
-                account.Payments.Select(payment => payment.PaymentCode).ToArray())).ToList();
-        }
-
         var mapped = await MapAsync(accounts, cancellationToken);
-        var mappedStudentIds = mapped.Select(account => account.StudentId).Distinct().ToList();
-        var publishedPeriods = (await db.SemesterResultPublications.AsNoTracking()
-                .Where(result => mappedStudentIds.Contains(result.StudentId))
-                .Select(result => new { result.StudentId, result.AcademicYear, result.Term })
-                .ToListAsync(cancellationToken))
-            .Select(result => (result.StudentId, result.AcademicYear, result.Term))
-            .ToHashSet();
-        bool IsArchived(StudentPaymentDto account) =>
-            account.ClosedAtUtc.HasValue
-            && account.PeriodState == "Retained"
-            && publishedPeriods.Contains((account.StudentId, account.AcademicYear, account.Semester));
-        return string.IsNullOrWhiteSpace(status) || status == "All"
-            ? mapped.Where(account => !IsArchived(account)).ToList()
-            : status.Equals("History", StringComparison.OrdinalIgnoreCase)
-                ? mapped.Where(IsArchived).ToList()
-            : status.Equals("Closed", StringComparison.OrdinalIgnoreCase)
-                ? mapped.Where(account => account.ClosedAtUtc.HasValue && !IsArchived(account)).ToList()
-                : mapped.Where(account => !account.ClosedAtUtc.HasValue && account.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+        return PagedResult<StudentPaymentDto>.Create(mapped, page, totalCount);
     }
 
     public async Task<IReadOnlyList<StudentPaymentDto>> GetStudentAsync(
@@ -262,11 +292,72 @@ public sealed partial class FinanceService
         int? year,
         CancellationToken cancellationToken)
     {
-        var accounts = await CurrentActiveAccountsAsync(departmentId, year, cancellationToken);
-        var paidAccounts = accounts.Count(account => account.Status == "Paid" && Balance(account) <= 0m);
-        var openPaidAccounts = accounts.Count(account => account.Status == "Paid" && Balance(account) <= 0m && !account.ClosedAtUtc.HasValue);
-        return new(accounts.Count, paidAccounts, openPaidAccounts, accounts.Count > 0 && paidAccounts == accounts.Count && openPaidAccounts > 0);
+        var period = await db.SystemSettings.AsNoTracking()
+            .Where(item => item.Section == "academic-year" && item.Key == "currentYear"
+                || item.Section == "semester" && item.Key == "currentTerm")
+            .ToDictionaryAsync(item => $"{item.Section}:{item.Key}", item => item.Value, cancellationToken);
+        var academicYear = period.GetValueOrDefault("academic-year:currentYear", string.Empty);
+        var semester = period.GetValueOrDefault("semester:currentTerm", string.Empty);
+        if (string.IsNullOrWhiteSpace(academicYear) || string.IsNullOrWhiteSpace(semester))
+            throw new InvalidOperationException("Set the current academic year and semester before closing payments.");
+        await synchronizer.EnsurePeriodAsync(academicYear, semester, cancellationToken);
+        if (db.ChangeTracker.HasChanges()) await SaveAsync(cancellationToken);
+        var rows = db.FinancialAccounts.AsNoTracking()
+            .Where(account => account.AcademicYear == academicYear
+                && account.Semester == semester
+                && (!departmentId.HasValue || account.StudentEnrollment!.DepartmentId == departmentId)
+                && (!year.HasValue || account.StudentEnrollment!.YearLevel == year.Value)
+                && account.StudentEnrollment!.Status == "Active"
+                && account.Student!.Status != "Inactive")
+            .Select(account => new
+            {
+                account.Status,
+                account.ClosedAtUtc,
+                Declared = account.DeclaredAtUtc.HasValue,
+                account.Currency,
+                Due = (account.DeclaredAmount ?? account.TuitionFee + account.OtherFee) + account.AdjustmentAmount + account.LatePenaltyAmount < 0m
+                    ? 0m
+                    : (account.DeclaredAmount ?? account.TuitionFee + account.OtherFee) + account.AdjustmentAmount + account.LatePenaltyAmount,
+                Paid = account.Payments.Where(payment => payment.Status == "Completed").Sum(payment => (decimal?)payment.Amount) ?? 0m
+            })
+            .Select(account => new
+            {
+                account.Status,
+                account.ClosedAtUtc,
+                account.Declared,
+                account.Currency,
+                account.Due,
+                account.Paid,
+                Balance = account.Due - account.Paid < 0m ? 0m : account.Due - account.Paid
+            });
+        var aggregate = await rows.GroupBy(_ => 1).Select(group => new FinanceReadinessAggregate(
+            group.Count(),
+            group.Count(account => account.Status == "Paid" && account.Balance <= 0m),
+            group.Count(account => account.Status == "Paid" && account.Balance <= 0m && !account.ClosedAtUtc.HasValue),
+            group.Sum(account => account.Declared ? account.Due : 0m),
+            group.Sum(account => account.Declared ? account.Paid : 0m),
+            group.Sum(account => account.Declared ? account.Balance : 0m),
+            group.Max(account => account.Currency) ?? "USD")).FirstOrDefaultAsync(cancellationToken);
+        if (aggregate is null) return new(0, 0, 0, false, 0m, 0m, 0m, "USD");
+        return new(
+            aggregate.TotalAccounts,
+            aggregate.PaidAccounts,
+            aggregate.OpenPaidAccounts,
+            aggregate.TotalAccounts > 0 && aggregate.PaidAccounts == aggregate.TotalAccounts && aggregate.OpenPaidAccounts > 0,
+            aggregate.TotalDue,
+            aggregate.TotalCollected,
+            aggregate.TotalOutstanding,
+            aggregate.Currency);
     }
+
+    private sealed record FinanceReadinessAggregate(
+        int TotalAccounts,
+        int PaidAccounts,
+        int OpenPaidAccounts,
+        decimal TotalDue,
+        decimal TotalCollected,
+        decimal TotalOutstanding,
+        string Currency);
 
     public async Task<BulkFinanceClosureResultDto> CloseAllPaymentsAsync(
         Guid? departmentId,

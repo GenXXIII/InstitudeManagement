@@ -12,7 +12,7 @@ public sealed class TimetableCatalogService(InstituteDbContext db, InstituteCach
 {
     public override CatalogResource Resource => CatalogResource.Timetable;
 
-    public override async Task<IReadOnlyList<TimetableResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
+    public async Task<IReadOnlyList<TimetableResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
         _ = departmentId;
         var entries = await Db.ScheduleEntries.AsNoTracking()

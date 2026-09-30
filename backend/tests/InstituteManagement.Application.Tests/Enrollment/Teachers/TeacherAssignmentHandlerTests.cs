@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Application.Features.Enrollment.Teachers;
 using InstituteManagement.Application.Features.Enrollment.Teachers.GetTeacherAssignments;
@@ -13,21 +14,21 @@ public sealed class TeacherAssignmentHandlerTests
         var departmentId = Guid.NewGuid();
 
         var result = await new GetTeacherAssignmentsHandler(service)
-            .Handle(new("sok", departmentId, 4), CancellationToken.None);
+            .Handle(new("sok", departmentId, 4, new PageRequest(2, 60)), CancellationToken.None);
 
-        Assert.Equal(("sok", departmentId, 4), service.Filters);
-        Assert.Same(service.Items, result);
+        Assert.Equal(("sok", departmentId, 4, new PageRequest(2, 60)), service.Filters);
+        Assert.Same(service.Items, result.Items);
     }
 
     private sealed class TeacherAssignmentServiceSpy : ITeacherAssignmentService
     {
         public IReadOnlyList<EnrollmentItemDto> Items { get; } = [new(Guid.NewGuid(), new Dictionary<string, string>())];
-        public (string? Search, Guid? DepartmentId, int? Year) Filters { get; private set; }
+        public (string? Search, Guid? DepartmentId, int? Year, PageRequest Page) Filters { get; private set; }
 
-        public Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(string? search, Guid? departmentId, int? year, CancellationToken cancellationToken)
+        public Task<PagedResult<EnrollmentItemDto>> GetAsync(string? search, Guid? departmentId, int? year, PageRequest page, CancellationToken cancellationToken)
         {
-            Filters = (search, departmentId, year);
-            return Task.FromResult(Items);
+            Filters = (search, departmentId, year, page);
+            return Task.FromResult(PagedResult<EnrollmentItemDto>.Create(Items, page, Items.Count));
         }
 
         public Task<EnrollmentItemDto> UpdateAsync(Guid teacherId, Dictionary<string, string> values, CancellationToken cancellationToken) => throw new NotSupportedException();

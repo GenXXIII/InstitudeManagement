@@ -1,10 +1,12 @@
 using InstituteManagement.Application.Features.Results;
 
+using InstituteManagement.Application.Common.Pagination;
+
 namespace InstituteManagement.Application.Features.Results;
 
 public interface IResultQueryService
 {
-    Task<IReadOnlyList<SemesterResultDto>> GetAsync(Guid? departmentId, int? year, string? semester, string? academicYear, bool history, CancellationToken cancellationToken);
-    Task<IReadOnlyList<SemesterResultDto>> GetAsync(Guid? departmentId, int? year, string? semester, string? academicYear, bool history, Guid? studentId, bool publishedOnly, CancellationToken cancellationToken);
+    Task<PagedResult<SemesterResultDto>> GetAsync(Guid? departmentId, int? year, string? semester, string? academicYear, bool history, Guid? studentId, bool publishedOnly, string? search, string? outcome, PageRequest page, CancellationToken cancellationToken);
+    Task<ResultPublicationReadinessDto> GetPublicationReadinessAsync(CancellationToken cancellationToken);
     Task<int> PublishAllAsync(CancellationToken cancellationToken);
 }

@@ -81,10 +81,21 @@ public static class DependencyInjection
             services.AddDbContext<InstituteDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("Database"), sql => sql.EnableRetryOnFailure()));
             var redisConnection = configuration.GetConnectionString("Redis");
             if (!string.IsNullOrWhiteSpace(redisConnection))
-                services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnection));
+                services.AddSingleton<IConnectionMultiplexer>(_ =>
+                {
+                    var options = ConfigurationOptions.Parse(redisConnection);
+                    options.AbortOnConnectFail = false;
+                    options.ClientName = "institute-management-api";
+                    options.ConnectRetry = Math.Max(options.ConnectRetry, 2);
+                    options.ConnectTimeout = Math.Min(options.ConnectTimeout, 2_000);
+                    options.AsyncTimeout = Math.Min(options.AsyncTimeout, 2_000);
+                    options.KeepAlive = 60;
+                    options.ReconnectRetryPolicy = new ExponentialRetry(5_000);
+                    return ConnectionMultiplexer.Connect(options);
+                });
         }
 
-        services.AddScoped<InstituteCache>();
+        services.AddSingleton<InstituteCache>();
         services.AddSignalR();
         services.AddScoped<ILiveUpdatePublisher, SignalRLiveUpdatePublisher>();
         services.AddScoped<IMaintenanceModeReader, MaintenanceModeReader>();

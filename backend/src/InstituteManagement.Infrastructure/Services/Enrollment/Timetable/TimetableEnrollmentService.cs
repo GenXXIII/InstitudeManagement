@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Application.Features.Enrollment.Timetable;
 
@@ -9,12 +10,13 @@ internal sealed class TimetableEnrollmentService(
     TimetableEnrollmentReader reader,
     TimetableEnrollmentEditor editor) : ITimetableEnrollmentService
 {
-    public async Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(
+    public async Task<PagedResult<EnrollmentItemDto>> GetAsync(
         string? search,
         Guid? departmentId,
         int? year,
+        PageRequest page,
         CancellationToken cancellationToken) =>
-        await reader.GetAsync(search, departmentId, year, await settings.CurrentPeriodAsync(cancellationToken), cancellationToken);
+        await reader.GetAsync(search, departmentId, year, page, await settings.CurrentPeriodAsync(cancellationToken), cancellationToken);
 
     public async Task<EnrollmentItemDto> UpdateAsync(
         Guid scheduleEntryId,

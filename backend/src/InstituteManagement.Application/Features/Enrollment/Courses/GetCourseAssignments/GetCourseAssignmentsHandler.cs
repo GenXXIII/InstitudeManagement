@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using MediatR;
 
 using InstituteManagement.Application.Features.Enrollment;
@@ -5,8 +6,8 @@ using InstituteManagement.Application.Features.Enrollment;
 namespace InstituteManagement.Application.Features.Enrollment.Courses.GetCourseAssignments;
 
 public sealed class GetCourseAssignmentsHandler(ICourseAssignmentService service)
-    : IRequestHandler<GetCourseAssignmentsQuery, IReadOnlyList<EnrollmentItemDto>>
+    : IRequestHandler<GetCourseAssignmentsQuery, PagedResult<EnrollmentItemDto>>
 {
-    public Task<IReadOnlyList<EnrollmentItemDto>> Handle(GetCourseAssignmentsQuery request, CancellationToken cancellationToken) =>
-        service.GetAsync(request.Search, request.DepartmentId, request.Year, cancellationToken);
+    public Task<PagedResult<EnrollmentItemDto>> Handle(GetCourseAssignmentsQuery request, CancellationToken cancellationToken) =>
+        service.GetAsync(request.Search, request.DepartmentId, request.Year, request.Page, cancellationToken);
 }

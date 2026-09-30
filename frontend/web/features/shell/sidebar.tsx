@@ -50,9 +50,12 @@ function BrandLogo({ source, instituteName }: { source: string; instituteName: s
   const fallback = "/branding/ink-logo.png";
   const [failedSource, setFailedSource] = useState("");
   const resolvedSource = !source || failedSource === source ? fallback : source;
+  const imageSource = resolvedSource.startsWith("/")
+    ? `/_next/image?url=${encodeURIComponent(resolvedSource)}&w=96&q=75`
+    : resolvedSource;
   // Settings may reference the API or a user-managed CDN, so Next Image host allowlists are not appropriate here.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className="brand-logo" src={resolvedSource} width={44} height={52} alt={`${instituteName} logo`} onError={() => {
+  return <img className="brand-logo" src={imageSource} width={44} height={52} alt={`${instituteName} logo`} onError={() => {
     if (resolvedSource !== fallback) setFailedSource(source);
   }}/>;
 }

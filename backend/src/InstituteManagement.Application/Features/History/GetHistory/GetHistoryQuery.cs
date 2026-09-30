@@ -1,6 +1,6 @@
-using InstituteManagement.Application.Features.Record;
+using InstituteManagement.Application.Common.Pagination;
 using MediatR;
 
 namespace InstituteManagement.Application.Features.History.GetHistory;
 
-public sealed record GetHistoryQuery(string? Search, string? Type) : IRequest<IReadOnlyList<RecordDto>>;
+public sealed record GetHistoryQuery(string? Search, string? Type, PageRequest Page) : IRequest<HistoryPageDto>;

@@ -17,7 +17,7 @@ import {
 } from "./data-table-layout";
 
 export type { DataTableAlignment } from "./data-table-layout";
-export { DATA_PAGE_SIZE, DataPagination, PaginatedDataRegion, useDataPagination } from "./data-pagination";
+export { DATA_PAGE_SIZE, DataPagination, PaginatedDataRegion, ServerPaginatedDataRegion, useDataPagination, useServerPage } from "./data-pagination";
 
 export type DataTableColumn = DataTableLayoutColumn & {
   key: string;

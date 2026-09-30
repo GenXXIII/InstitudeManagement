@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Application.Features.Enrollment.Students;
 using InstituteManagement.Application.Features.Enrollment.Students.GetStudentEnrollments;
@@ -15,9 +16,9 @@ public sealed class StudentEnrollmentHandlerTests
         var departmentId = Guid.NewGuid();
 
         await new GetStudentEnrollmentsHandler(service)
-            .Handle(new("kim", departmentId, 3), CancellationToken.None);
+            .Handle(new("kim", departmentId, 3, new PageRequest(2, 60)), CancellationToken.None);
 
-        Assert.Equal(("kim", departmentId, 3), service.Filters);
+        Assert.Equal(("kim", departmentId, 3, new PageRequest(2, 60)), service.Filters);
     }
 
     [Fact]
@@ -51,15 +52,15 @@ public sealed class StudentEnrollmentHandlerTests
     private sealed class StudentEnrollmentServiceSpy : IStudentEnrollmentService
     {
         public EnrollmentItemDto Result { get; } = new(Guid.NewGuid(), new Dictionary<string, string>());
-        public (string? Search, Guid? DepartmentId, int? Year) Filters { get; private set; }
+        public (string? Search, Guid? DepartmentId, int? Year, PageRequest Page) Filters { get; private set; }
         public Guid? UpdatedId { get; private set; }
         public Dictionary<string, string>? UpdatedValues { get; private set; }
         public Guid? RemovedId { get; private set; }
 
-        public Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(string? search, Guid? departmentId, int? year, CancellationToken cancellationToken)
+        public Task<PagedResult<EnrollmentItemDto>> GetAsync(string? search, Guid? departmentId, int? year, PageRequest page, CancellationToken cancellationToken)
         {
-            Filters = (search, departmentId, year);
-            return Task.FromResult<IReadOnlyList<EnrollmentItemDto>>([Result]);
+            Filters = (search, departmentId, year, page);
+            return Task.FromResult(PagedResult<EnrollmentItemDto>.Create([Result], page, 1));
         }
 
         public Task<EnrollmentItemDto> UpdateAsync(Guid studentId, Dictionary<string, string> values, CancellationToken cancellationToken)

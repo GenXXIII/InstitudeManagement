@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Management.Students;
 using InstituteManagement.Infrastructure.Services.Catalog;
 using InstituteManagement.Domain.Entities;
@@ -10,12 +11,25 @@ namespace InstituteManagement.Infrastructure.Services.Management.Students;
 public sealed class StudentManagementService(InstituteDbContext db, InstituteCache cache) : CatalogFeatureBase<StudentResponseDto>(db, cache), IStudentManagementService
 {
     public override CatalogResource Resource => CatalogResource.Students;
-    public override async Task<IReadOnlyList<StudentResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
+    public async Task<PagedResult<StudentResponseDto>> GetAsync(string? search, Guid? departmentId, Guid? profileId, PageRequest page, CancellationToken ct)
     {
         var query = Db.Students.AsNoTracking()
-            .Where(student => student.Status != "Inactive" && (!departmentId.HasValue || student.DepartmentId == departmentId));
+            .Where(student => student.Status != "Inactive" && (!departmentId.HasValue || student.DepartmentId == departmentId) && (!profileId.HasValue || student.Id == profileId));
+
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            query = query.Where(student =>
+                student.FullName.Contains(term)
+                || student.StudentCode.Contains(term)
+                || student.Email.Contains(term));
+
+        var totalCount = await query.CountAsync(ct);
 
         var students = await query
+            .OrderBy(student => student.StudentCode)
+            .ThenBy(student => student.Id)
+            .Skip(page.Skip)
+            .Take(page.NormalizedPageSize)
             .Select(student => new
             {
                 student.Id,
@@ -28,9 +42,7 @@ public sealed class StudentManagementService(InstituteDbContext db, InstituteCac
             })
             .ToListAsync(ct);
 
-        return students
-            .Where(student => Matches(search, student.FullName, student.StudentCode, student.Email))
-            .Select(student => new StudentResponseDto(
+        var items = students.Select(student => new StudentResponseDto(
             student.Id,
             new StudentValuesDto(
                 student.PhotoDataUrl,
@@ -45,6 +57,7 @@ public sealed class StudentManagementService(InstituteDbContext db, InstituteCac
                 student.Status,
                 student.CreateAt.ToString("yyyy-MM-dd"))))
             .ToList();
+        return PagedResult<StudentResponseDto>.Create(items, page, totalCount);
     }
     public override async Task<StudentResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {

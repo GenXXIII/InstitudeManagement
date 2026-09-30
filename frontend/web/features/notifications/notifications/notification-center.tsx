@@ -10,26 +10,48 @@ import type { NotificationItem } from "./notification-types";
 
 export function NotificationCenter({ open, events, onToggle, onClose }: { open: boolean; events: number; onToggle: () => void; onClose: () => void }) {
   const container = useRef<HTMLDivElement>(null);
+  const lastLoadedAt = useRef(0);
+  const loading = useRef<Promise<void> | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [alerts, setAlerts] = useState<AnnouncementItem[]>([]);
+  const [unread, setUnread] = useState(0);
   const [tab, setTab] = useState<"all" | "system" | "alerts">("all");
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      const [nextNotifications, nextAlerts] = await Promise.all([notificationsApi.get(), announcementsApi.get()]);
-      setNotifications(nextNotifications);
-      setAlerts(nextAlerts);
-      setError("");
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load notifications.");
-    }
+  const load = useCallback(() => {
+    if (loading.current) return loading.current;
+    const pending = (async () => {
+      try {
+        const [nextNotifications, nextAlerts, unreadNotifications, unreadAlerts] = await Promise.all([
+          notificationsApi.getPage({ pageSize: 3 }, false, true),
+          announcementsApi.getPage({ pageSize: 3 }, false, true),
+          notificationsApi.getPage({ pageSize: 1 }, true),
+          announcementsApi.getPage({ pageSize: 1 }, true),
+        ]);
+        setNotifications(nextNotifications.items);
+        setAlerts(nextAlerts.items);
+        setUnread(unreadNotifications.totalCount + unreadAlerts.totalCount);
+        setError("");
+        lastLoadedAt.current = Date.now();
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "Could not load notifications.");
+      }
+    })().finally(() => {
+      if (loading.current === pending) loading.current = null;
+    });
+    loading.current = pending;
+    return pending;
   }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
-  }, [load, open, events]);
+  }, [load, events]);
+  useEffect(() => {
+    if (!open || Date.now() - lastLoadedAt.current < 15_000) return;
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load, open]);
   useEffect(() => {
     const refresh = () => void load();
     window.addEventListener("ink:notifications-changed", refresh);
@@ -48,7 +70,6 @@ export function NotificationCenter({ open, events, onToggle, onClose }: { open: 
     ...notifications.map(item => ({ id: item.id, kind: "System" as const, type: item.severity, title: item.title, isRead: item.isRead, createAt: item.createAt, href: `/announce/notifications/${item.id}` })),
     ...alerts.map(item => ({ id: item.id, kind: "Alert" as const, type: item.type, title: item.title, isRead: item.isRead, createAt: item.createAt, href: `/announce/alerts/${item.id}` })),
   ];
-  const unread = items.filter(item => !item.isRead).length;
   const preview = items
     .filter(item => tab === "all" || item.kind === (tab === "system" ? "System" : "Alert"))
     .sort((left, right) => Number(left.isRead) - Number(right.isRead) || new Date(right.createAt).getTime() - new Date(left.createAt).getTime())

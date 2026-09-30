@@ -11,13 +11,24 @@ public sealed class FinancialAccountSynchronizer(
 {
     public async Task<int> EnsureAllAsync(CancellationToken cancellationToken)
     {
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        await UpdatePendingFeesAsync(db.FinancialAccounts
+            .Where(account => account.Status == "Pending"
+                && !account.DeclaredAtUtc.HasValue
+                && account.StudentEnrollment != null
+                && account.StudentEnrollment.Status != "Removed"
+                && (account.TuitionFee != settings.TuitionFee || account.OtherFee != settings.OtherFee || account.Currency != settings.Currency)),
+            settings,
+            cancellationToken);
         var enrollments = await db.StudentEnrollments
             .AsNoTracking()
             .Include(enrollment => enrollment.Student)
-            .Where(enrollment => enrollment.Status != "Removed" && enrollment.Student != null)
+            .Where(enrollment => enrollment.Status != "Removed"
+                && enrollment.Student != null
+                && !db.FinancialAccounts.Any(account => account.StudentEnrollmentId == enrollment.Id))
             .OrderBy(enrollment => enrollment.CreateAt)
             .ToListAsync(cancellationToken);
-        return await EnsureAsync(enrollments, cancellationToken);
+        return await CreateMissingAsync(enrollments, settings, cancellationToken);
     }
 
     public async Task<int> EnsurePeriodAsync(
@@ -25,6 +36,17 @@ public sealed class FinancialAccountSynchronizer(
         string semester,
         CancellationToken cancellationToken)
     {
+        var settings = await settingsReader.GetAsync(cancellationToken);
+        await UpdatePendingFeesAsync(db.FinancialAccounts
+            .Where(account => account.AcademicYear == academicYear
+                && account.Semester == semester
+                && account.Status == "Pending"
+                && !account.DeclaredAtUtc.HasValue
+                && account.StudentEnrollment != null
+                && account.StudentEnrollment.Status == "Active"
+                && (account.TuitionFee != settings.TuitionFee || account.OtherFee != settings.OtherFee || account.Currency != settings.Currency)),
+            settings,
+            cancellationToken);
         var enrollments = await db.StudentEnrollments
             .AsNoTracking()
             .Include(enrollment => enrollment.Student)
@@ -32,10 +54,11 @@ public sealed class FinancialAccountSynchronizer(
                 enrollment.AcademicYear == academicYear
                 && enrollment.Semester == semester
                 && enrollment.Status == "Active"
-                && enrollment.Student != null)
+                && enrollment.Student != null
+                && !db.FinancialAccounts.Any(account => account.StudentEnrollmentId == enrollment.Id))
             .OrderBy(enrollment => enrollment.StudentId)
             .ToListAsync(cancellationToken);
-        return await EnsureAsync(enrollments, cancellationToken);
+        return await CreateMissingAsync(enrollments, settings, cancellationToken);
     }
 
     public async Task<FinancialAccount> EnsureForEnrollmentAsync(
@@ -60,36 +83,38 @@ public sealed class FinancialAccountSynchronizer(
         return account;
     }
 
-    private async Task<int> EnsureAsync(
+    private async Task<int> CreateMissingAsync(
         IReadOnlyCollection<StudentEnrollment> enrollments,
+        FinanceSettings settings,
         CancellationToken cancellationToken)
     {
-        if (enrollments.Count == 0) return 0;
-        var enrollmentIds = enrollments.Select(enrollment => enrollment.Id).ToList();
-        var existing = (await db.FinancialAccounts
-                .Where(account => enrollmentIds.Contains(account.StudentEnrollmentId))
-                .ToListAsync(cancellationToken))
-            .ToDictionary(account => account.StudentEnrollmentId);
-        foreach (var local in db.FinancialAccounts.Local.Where(account => enrollmentIds.Contains(account.StudentEnrollmentId)))
-        {
-            existing[local.StudentEnrollmentId] = local;
-        }
-
-        var settings = await settingsReader.GetAsync(cancellationToken);
         var created = 0;
         foreach (var enrollment in enrollments)
         {
-            if (existing.TryGetValue(enrollment.Id, out var account))
-            {
-                ApplyPendingFees(account, settings);
-                continue;
-            }
-
+            if (db.FinancialAccounts.Local.Any(account => account.StudentEnrollmentId == enrollment.Id)) continue;
             var financeCode = await FinanceCodeAsync(enrollment, enrollment.Student!, cancellationToken);
             db.FinancialAccounts.Add(Create(enrollment, settings, financeCode));
             created++;
         }
         return created;
+    }
+
+    private async Task UpdatePendingFeesAsync(
+        IQueryable<FinancialAccount> query,
+        FinanceSettings settings,
+        CancellationToken cancellationToken)
+    {
+        if (db.Database.IsRelational())
+        {
+            await query.ExecuteUpdateAsync(update => update
+                .SetProperty(account => account.TuitionFee, settings.TuitionFee)
+                .SetProperty(account => account.OtherFee, settings.OtherFee)
+                .SetProperty(account => account.Currency, settings.Currency), cancellationToken);
+            return;
+        }
+
+        var accounts = await query.ToListAsync(cancellationToken);
+        foreach (var account in accounts) ApplyPendingFees(account, settings);
     }
 
     private static FinancialAccount Create(

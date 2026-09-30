@@ -1,4 +1,5 @@
 using InstituteManagement.API.Contracts.Enrollment.Classrooms;
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Enrollment.Classrooms.GetClassroomAssignments;
 using InstituteManagement.Application.Features.Enrollment.Classrooms.RemoveClassroomAssignment;
 using InstituteManagement.Application.Features.Enrollment.Classrooms.UpdateClassroomAssignment;
@@ -14,8 +15,8 @@ namespace InstituteManagement.API.Controllers.Enrollment.Classrooms;
 public sealed class ClassroomAssignmentController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(string? search, Guid? departmentId, int? year, CancellationToken cancellationToken) =>
-        Ok(await sender.Send(new GetClassroomAssignmentsQuery(search, departmentId, year), cancellationToken));
+    public async Task<IActionResult> Get(string? search, Guid? departmentId, int? year, int page = 1, int pageSize = 40, CancellationToken cancellationToken = default) =>
+        Ok(await sender.Send(new GetClassroomAssignmentsQuery(search, departmentId, year, new PageRequest(page, pageSize)), cancellationToken));
 
     [HttpPut("{classroomId:guid}")]
     public async Task<IActionResult> Update(Guid classroomId, ClassroomAssignmentValuesRequest values, CancellationToken cancellationToken) =>

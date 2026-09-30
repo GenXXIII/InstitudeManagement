@@ -32,4 +32,7 @@ public sealed record GradeValuesDto(
     string SubmittedAtUtc,
     string ReviewedAtUtc,
     string FinalizedAtUtc,
-    string CreateAt);
+    string CreateAt,
+    string Year,
+    string Shift,
+    string ResultCode);

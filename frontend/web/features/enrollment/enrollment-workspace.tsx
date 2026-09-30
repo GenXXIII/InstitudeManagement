@@ -1,12 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo } from "react";
-import { DataTable, DataTableToolbar, PaginatedDataRegion, type DataTableColumn } from "@/components/data-table";
+import { DataTable, DataTableToolbar, ServerPaginatedDataRegion, type DataTableColumn } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import type { EnrollmentResource } from "./common/enrollment-types";
 import { EnrollmentRow } from "./components/enrollment-row";
-import { EnrollmentEditor } from "./enrollment-editor";
 import {
   buildEnrollmentDisplayItems,
   enrollmentCopy,
@@ -14,6 +14,8 @@ import {
   sortEnrollmentItems,
 } from "./enrollment-workspace-model";
 import { useEnrollmentWorkspace } from "./use-enrollment-workspace";
+
+const EnrollmentEditor = dynamic(() => import("./enrollment-editor").then(module => module.EnrollmentEditor), { ssr: false });
 
 export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource }) {
   const {
@@ -29,17 +31,20 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     load,
     query,
     ready,
+    result,
     remove,
     setActionError,
     setEditing,
     setError,
     setQuery,
+    setPage,
     teachers,
     year,
   } = useEnrollmentWorkspace(resource);
 
   const displayItems = useMemo(() => buildEnrollmentDisplayItems(items, resource), [items, resource]);
   const sortedItems = useMemo(() => sortEnrollmentItems(displayItems, resource), [displayItems, resource]);
+  const sortedResult = useMemo(() => ({ ...result, items: sortedItems }), [result, sortedItems]);
   const details = enrollmentCopy[resource];
   const selectedDepartment = departments.find(department => department.id === departmentId)?.values.name ?? "All departments";
 
@@ -55,14 +60,14 @@ export function EnrollmentWorkspace({ resource }: { resource: EnrollmentResource
     />
     <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder={`Search ${resource}...`} searchAriaLabel={`Search ${resource}`} contextLabel="Enrollment scope" contextValue={`${selectedDepartment}${year ? ` - Year ${year}` : " - All years"}`}/>
     {actionError && <section className="management-rule-error"><Icon name="bell" size={16}/><div><strong>Enrollment relationship protected</strong><span>{actionError}</span></div><button type="button" onClick={() => setActionError("")}>Dismiss</button></section>}
-    <PaginatedDataRegion items={sortedItems} resetKey={`${resource}-enrollment-${departmentId}-${year}-${query}`} className="management-paginated-region">{pageItems => <>
+    <ServerPaginatedDataRegion result={sortedResult} onPage={setPage} className="management-paginated-region">{pageItems => <>
       <DataTable as="section" className={`panel horizontal-management-table enrollment-service-horizontal enrollment-${resource}`} headerClassName="horizontal-management-head" rowSelector=":scope > .horizontal-management-row" columns={enrollmentTableColumns(resource, details.columns)}>
         {pageItems.map(item => {
           const editable = isEditableEnrollment(resource) && item.values.periodState !== "Retained";
           return <EnrollmentRow resource={resource} item={item} onEdit={editable ? () => setEditing(item) : undefined} onRemove={editable ? () => { void remove(item); } : undefined} key={item.rowKey}/>;
         })}
       </DataTable>
-    </>}</PaginatedDataRegion>
+    </>}</ServerPaginatedDataRegion>
     {editing !== undefined && (resource === "students" || resource === "timetable") && <EnrollmentEditor
       resource={resource}
       item={editing}

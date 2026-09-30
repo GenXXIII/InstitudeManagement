@@ -1,5 +1,6 @@
 using InstituteManagement.API.Contracts.Notifications.Notifications;
 using InstituteManagement.API.Routes;
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Notifications.Notifications;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,8 +11,8 @@ namespace InstituteManagement.API.Controllers.Notifications.Notifications;
 public sealed class NotificationsController(INotificationService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetSystem(CancellationToken cancellationToken) =>
-        Ok(await service.GetSystemAsync(cancellationToken));
+    public async Task<IActionResult> GetSystem(string? search, bool unreadOnly = false, bool prioritizeUnread = false, int page = 1, int pageSize = 40, CancellationToken cancellationToken = default) =>
+        Ok(await service.GetSystemAsync(search, unreadOnly, prioritizeUnread, new PageRequest(page, pageSize), cancellationToken));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken) =>

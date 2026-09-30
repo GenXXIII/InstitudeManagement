@@ -10,7 +10,7 @@ namespace InstituteManagement.Infrastructure.Services.Management.Courses;
 public sealed class CourseManagementService(InstituteDbContext db, InstituteCache cache) : CatalogFeatureBase<CourseResponseDto>(db, cache), ICourseManagementService
 {
     public override CatalogResource Resource => CatalogResource.Courses;
-    public override async Task<IReadOnlyList<CourseResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
+    public async Task<IReadOnlyList<CourseResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
         var courses = await Db.Courses.AsNoTracking().Where(course => course.IsActive && (!departmentId.HasValue || course.DepartmentId == departmentId)).ToListAsync(ct);
         return courses.Where(course => Matches(search, course.CourseCode, course.Name, course.Semester, $"Year {course.YearLevel}"))

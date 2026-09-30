@@ -1,9 +1,6 @@
-"use client";
-
-import { useParams } from "next/navigation";
 import { ManagementWorkspace } from "@/features/management/management-workspace";
 
-export default function ManagementPage() {
-  const { module } = useParams<{ module: string }>();
+export default async function ManagementPage({ params }: { params: Promise<{ module: string }> }) {
+  const { module } = await params;
   return <ManagementWorkspace module={module}/>;
 }

@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -7,10 +8,11 @@ namespace InstituteManagement.Infrastructure.Services.Enrollment.Classrooms;
 
 internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
 {
-    public async Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(
+    public async Task<PagedResult<EnrollmentItemDto>> GetAsync(
         string? search,
         Guid? departmentId,
         int? year,
+        PageRequest page,
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
@@ -33,9 +35,23 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
                 && entry.YearLevel == year));
         }
 
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            assignmentQuery = assignmentQuery.Where(assignment =>
+                assignment.EnrollmentCode.Contains(term)
+                || assignment.Classroom!.ClassroomCode.Contains(term)
+                || assignment.Classroom.Building.Contains(term)
+                || assignment.Department!.Name.Contains(term)
+                || assignment.Classroom.Status.Contains(term));
+
+        var totalCount = await assignmentQuery.CountAsync(cancellationToken);
         var assignments = await assignmentQuery
+            .OrderBy(assignment => assignment.Classroom!.ClassroomCode)
+            .ThenBy(assignment => assignment.Id)
+            .Skip(page.Skip)
+            .Take(page.NormalizedPageSize)
             .ToListAsync(cancellationToken);
-        if (assignments.Count == 0) return [];
+        if (assignments.Count == 0) return PagedResult<EnrollmentItemDto>.Create([], page, totalCount);
 
         var roomIds = assignments.Select(assignment => assignment.ClassroomId).Distinct().ToList();
         var schedules = await db.ScheduleEntries
@@ -45,16 +61,7 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
             .Where(entry => entry.Status != "Cancelled" && entry.ClassroomId.HasValue && roomIds.Contains(entry.ClassroomId.Value))
             .ToListAsync(cancellationToken);
 
-        return assignments
-            .Where(assignment =>
-                Matches(
-                    search,
-                    assignment.EnrollmentCode,
-                    assignment.Classroom!.ClassroomCode,
-                    assignment.Classroom.Building,
-                    assignment.Department?.Name,
-                    assignment.Classroom.Status))
-            .Select(assignment =>
+        var items = assignments.Select(assignment =>
             {
                 var room = assignment.Classroom!;
                 var roomSchedule = schedules
@@ -83,6 +90,7 @@ internal sealed class ClassroomAssignmentReader(InstituteDbContext db)
                     ("createAt", assignment.CreateAt.ToString("yyyy-MM-dd")));
             })
             .ToList();
+        return PagedResult<EnrollmentItemDto>.Create(items, page, totalCount);
     }
 
     private static bool IsCurrent(string academicYear, string semester, EnrollmentPeriod period) =>

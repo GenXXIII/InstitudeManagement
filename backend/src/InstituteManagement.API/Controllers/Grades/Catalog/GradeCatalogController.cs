@@ -1,4 +1,5 @@
 using InstituteManagement.API.Contracts.Grades;
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Grades.CreateGradeRecord;
 using InstituteManagement.Application.Features.Grades.DeleteGradeRecord;
 using InstituteManagement.Application.Features.Grades.GetGradeRecords;
@@ -15,8 +16,8 @@ namespace InstituteManagement.API.Controllers.Grades;
 public sealed class GradeCatalogController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(string? search, Guid? departmentId, int? year, CancellationToken cancellationToken) =>
-        Ok(await sender.Send(new GetGradeRecordsQuery(search, departmentId, year), cancellationToken));
+    public async Task<IActionResult> Get(string? search, Guid? departmentId, int? year, Guid? teacherId, string? groupBy, string? status, int page = 1, int pageSize = 40, CancellationToken cancellationToken = default) =>
+        Ok(await sender.Send(new GetGradeRecordsQuery(search, departmentId, year, teacherId, groupBy, status, new PageRequest(page, pageSize)), cancellationToken));
 
     [HttpPost]
     public async Task<IActionResult> Create(GradeRecordValuesRequest values, CancellationToken cancellationToken)

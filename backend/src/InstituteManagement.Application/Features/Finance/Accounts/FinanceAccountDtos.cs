@@ -21,7 +21,11 @@ public sealed record FinanceClosureReadinessDto(
     int TotalAccounts,
     int PaidAccounts,
     int OpenPaidAccounts,
-    bool CanCloseAll);
+    bool CanCloseAll,
+    decimal TotalDue,
+    decimal TotalCollected,
+    decimal TotalOutstanding,
+    string Currency);
 
 public sealed record BulkFinanceClosureResultDto(
     int ClosedCount,

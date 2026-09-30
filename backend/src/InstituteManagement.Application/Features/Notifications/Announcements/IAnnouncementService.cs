@@ -1,8 +1,10 @@
+using InstituteManagement.Application.Common.Pagination;
+
 namespace InstituteManagement.Application.Features.Notifications.Announcements;
 
 public interface IAnnouncementService
 {
-    Task<IReadOnlyList<AnnouncementItemDto>> GetAsync(CancellationToken cancellationToken);
+    Task<PagedResult<AnnouncementItemDto>> GetAsync(string? search, bool unreadOnly, bool prioritizeUnread, PageRequest page, CancellationToken cancellationToken);
     Task<AnnouncementItemDto> GetAsync(Guid id, CancellationToken cancellationToken);
     Task<AnnouncementItemDto> CreateAsync(AnnouncementRequestDto request, CancellationToken cancellationToken);
     Task<AnnouncementItemDto> MarkReadAsync(Guid id, CancellationToken cancellationToken);

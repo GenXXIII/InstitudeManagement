@@ -2,13 +2,14 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DataTable, DataTableEmptyState, DataTableToolbar, PaginatedDataRegion, type DataTableColumn } from "@/components/data-table";
+import { DataTable, DataTableEmptyState, DataTableToolbar, ServerPaginatedDataRegion, useServerPage, type DataTableColumn } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ManagementDataCell } from "@/components/management-data-cell";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { workflowSourceSearch } from "@/lib/workflow-code";
-import { resultApi } from "./result-api";
+import { resultApi, type ResultPublicationReadiness } from "./result-api";
 import type { SemesterResult } from "./result-types";
+import { emptyPage, type PagedResult } from "@/lib/pagination";
 
 type ResultMode = "current" | "history";
 const copy: Record<ResultMode, { eyebrow: string; title: string; description: string }> = {
@@ -20,27 +21,26 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
-  const [rows, setRows] = useState<SemesterResult[]>([]);
-  const [allCurrentRows, setAllCurrentRows] = useState<SemesterResult[]>([]);
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [outcome, setOutcome] = useState("all");
+  const [result, setResult] = useState<PagedResult<SemesterResult>>(() => emptyPage());
+  const [publicationReadiness, setPublicationReadiness] = useState<ResultPublicationReadiness>();
+  const [page, setPage] = useServerPage(`${departmentId}-${year}-${mode}-${outcome}-${query}`);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
   const [publishingAll, setPublishingAll] = useState(false);
   const [actionError, setActionError] = useState("");
   const load = useCallback(() => Promise.all([
-    resultApi.get(departmentId, year, mode === "history"),
-    mode === "current" && (departmentId || year) ? resultApi.get("", "", false) : Promise.resolve<SemesterResult[]>([]),
-  ]).then(([value, globalCurrent]) => { setRows(value); setAllCurrentRows(mode === "current" ? globalCurrent.length ? globalCurrent : value : []); setReady(true); setError(false); }).catch(() => setError(true)), [departmentId, mode, year]);
+    resultApi.getPage(departmentId, year, mode === "history", workflowSourceSearch(query), outcome, { page }),
+    mode === "current" ? resultApi.getPublicationReadiness() : Promise.resolve(undefined),
+  ]).then(([value, readiness]) => { setResult(value); setPublicationReadiness(readiness); setReady(true); setError(false); }).catch(() => setError(true)), [departmentId, mode, outcome, page, query, year]);
   useEffect(() => { void load(); }, [load]);
-  const visible = useMemo(() => rows.filter(row => {
-    const text = workflowSourceSearch(query).toLowerCase();
+  const visible = useMemo(() => result.items.filter(row => {
     const normalizedOutcome = resultOutcome(row.totalGrade).toLowerCase().replaceAll(" ", "-");
     const matchesOutcome = outcome === "all" || normalizedOutcome === outcome;
-    return matchesOutcome && (!text || [row.resultCode, row.fullName, row.studentCode, row.department, row.shift, row.semester, row.attendanceGrade, row.totalGrade, ...row.grades.flatMap(grade => [grade.courseCode, grade.name, grade.grade])].some(value => value.toLowerCase().includes(text)));
-  }).toSorted((left, right) => left.year - right.year || semesterNumber(left.semester) - semesterNumber(right.semester) || shiftNumber(left.shift) - shiftNumber(right.shift) || left.fullName.localeCompare(right.fullName) || left.academicYear.localeCompare(right.academicYear, undefined, { numeric: true })), [outcome, query, rows]);
-  const readyCount = allCurrentRows.filter(row => row.publicationStatus === "Ready").length;
-  const canPublishAll = readyCount > 0 && allCurrentRows.every(row => row.publicationStatus === "Ready" || row.publicationStatus === "Published");
+    return matchesOutcome;
+  }).toSorted((left, right) => left.year - right.year || semesterNumber(left.semester) - semesterNumber(right.semester) || shiftNumber(left.shift) - shiftNumber(right.shift) || left.fullName.localeCompare(right.fullName) || left.academicYear.localeCompare(right.academicYear, undefined, { numeric: true })), [outcome, result.items]);
+  const canPublishAll = publicationReadiness?.canPublishAll ?? false;
   const details = copy[mode];
   if (error) return <ErrorPage retry={load}/>;
   if (!ready) return <LoadingPage/>;
@@ -60,10 +60,10 @@ export function ResultWorkspace({ mode }: { mode: ResultMode }) {
       actions={mode === "current" ? <button type="button" className="button primary" disabled={!canPublishAll || publishingAll} onClick={() => void publishAll()}>{publishingAll ? "Releasing…" : "Release Semester Results"}</button> : undefined}
     />
     {actionError && <section className="result-action-error" role="alert">{actionError}</section>}
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search result code, Student, course, shift, or department…" searchAriaLabel="Search results" resultLabel={`${visible.length} results`} className="record-toolbar panel result-toolbar" searchClassName="record-search management-search module-search-field">
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search result code, Student, course, shift, or department…" searchAriaLabel="Search results" resultLabel={`${result.totalCount} results`} className="record-toolbar panel result-toolbar" searchClassName="record-search management-search module-search-field">
       <select value={outcome} onChange={event => setOutcome(event.target.value)} aria-label="Result outcome"><option value="all">All outcomes</option><option value="pass">Pass</option><option value="retake">Retake</option><option value="fail">Fail</option><option value="pending">Pending</option></select>
     </DataTableToolbar>
-    <PaginatedDataRegion items={visible} resetKey={`${outcome}-${query}`} className="result-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No semester results found" description={mode === "history" ? "Released results archive here only after payments are finalized and the semester ends." : "Active students and their course cards will appear here as Draft before final grade approval."}/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table" headerClassName="horizontal-management-head semester-result-head" rowSelector=":scope > .semester-result-row" columns={resultColumns(mode)} ariaLabel="Semester Results">{pageItems.map(row => <ResultRow row={row} mode={mode} key={resultKey(row)}/>)}</DataTable>}</PaginatedDataRegion>
+    <ServerPaginatedDataRegion result={{ ...result, items: visible }} onPage={setPage} className="result-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No semester results found" description={mode === "history" ? "Released results archive here only after payments are finalized and the semester ends." : "Active students and their course cards will appear here as Draft before final grade approval."}/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table" headerClassName="horizontal-management-head semester-result-head" rowSelector=":scope > .semester-result-row" columns={resultColumns(mode)} ariaLabel="Semester Results">{pageItems.map(row => <ResultRow row={row} mode={mode} key={resultKey(row)}/>)}</DataTable>}</ServerPaginatedDataRegion>
   </div>;
 }
 

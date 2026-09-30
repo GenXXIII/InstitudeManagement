@@ -2,19 +2,19 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DataTable, DataTableEmptyState, DataTableToolbar, PaginatedDataRegion, type DataTableColumn } from "@/components/data-table";
+import { DataTable, DataTableEmptyState, DataTableToolbar, ServerPaginatedDataRegion, useServerPage, type DataTableColumn } from "@/components/data-table";
 import { Icon } from "@/components/icon";
 import { ManagementDataCell } from "@/components/management-data-cell";
 import { ErrorPage, LoadingPage, PageHeading } from "@/components/page-primitives";
 import { administrationApi } from "@/features/administration/administration-api";
 import { defaultSettings } from "@/features/administration/administration-defaults";
 import type { EnrollmentItem } from "@/features/enrollment/common/enrollment-types";
-import { studentEnrollmentApi } from "@/features/enrollment/students/student-enrollment-api";
 import { timetableEnrollmentApi } from "@/features/enrollment/timetable/timetable-enrollment-api";
 import { workflowSourceSearch } from "@/lib/workflow-code";
 import { assessmentApi } from "./assessment-api";
-import { assessmentScore, gradeLetter, statusLabel } from "./assessment-calculation";
+import { assessmentScore, gradeLetter } from "./assessment-calculation";
 import type { GradeAssessment } from "./assessment-types";
+import { emptyPage, type PagedResult } from "@/lib/pagination";
 
 export type AssessmentStudent = {
   key: string;
@@ -39,46 +39,42 @@ export function StudentResultsWorkspace() {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get("departmentId") ?? "";
   const year = searchParams.get("year") ?? "";
-  const [rows, setRows] = useState<GradeAssessment[]>([]);
-  const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [timetable, setTimetable] = useState<EnrollmentItem[]>([]);
   const [gradeRules, setGradeRules] = useState<Record<string, string>>(defaultSettings["grade-rules"]);
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [status, setStatus] = useState("All");
+  const [result, setResult] = useState<PagedResult<GradeAssessment>>(() => emptyPage());
+  const [readyCount, setReadyCount] = useState(0);
+  const [page, setPage] = useServerPage(`${departmentId}-${year}-${query}-${status}`);
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState<{ message: string; error: boolean }>();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
   const load = useCallback(() => Promise.all([
-    assessmentApi.get(departmentId, year),
-    studentEnrollmentApi.get("", departmentId, year),
+    assessmentApi.getPage(departmentId, year, workflowSourceSearch(query), "student", status, { page }),
     timetableEnrollmentApi.get("", departmentId, year),
     administrationApi.get("grade-rules"),
-  ]).then(([gradeRows, enrollmentRows, timetableRows, settings]) => {
-    setRows(gradeRows);
-    setEnrollments(enrollmentRows);
+    assessmentApi.getPage(departmentId, year, workflowSourceSearch(query), "student", "Ready", { pageSize: 1 }),
+  ]).then(([gradeRows, timetableRows, settings, readyRows]) => {
+    setResult(gradeRows);
     setTimetable(timetableRows);
     setGradeRules({ ...defaultSettings["grade-rules"], ...settings.values });
+    setReadyCount(readyRows.totalCount);
     setReady(true);
     setError(false);
-  }).catch(() => setError(true)), [departmentId, year]);
+  }).catch(() => setError(true)), [departmentId, page, query, status, year]);
   useEffect(() => { void load(); }, [load]);
 
   const studentResults = useMemo(() => {
-    const enrollmentByPeriod = new Map(enrollments.map(item => [enrollmentKey(item.id, item.values.academicYear, item.values.semester), item]));
     const expectedCourseCount = configuredCourseCount(gradeRules);
-    return groupAssessments(rows, enrollmentByPeriod, timetable, expectedCourseCount);
-  }, [enrollments, gradeRules, rows, timetable]);
+    return groupAssessments(result.items, new Map(), timetable, expectedCourseCount);
+  }, [gradeRules, result.items, timetable]);
   const visible = useMemo(() => {
-    const text = workflowSourceSearch(query).toLowerCase();
     return studentResults.filter(student => {
       const matchesStatus = status === "All" || resultStatus(student) === status;
-      const searchable = [student.resultCode, student.student, student.department, student.year, student.shift, student.academicYear, student.term, ...student.courseResults.flatMap(item => [item.courseCode, item.course]), ...student.courses.flatMap(item => [item.values.gradeCode, item.values.submittedByTeacher, statusLabel(item.values.reviewStatus)])];
-      return matchesStatus && (!text || searchable.some(value => value.toLowerCase().includes(text)));
+      return matchesStatus;
     }).toSorted((left, right) => Number(left.year || 999) - Number(right.year || 999) || semesterNumber(left.term) - semesterNumber(right.term) || shiftNumber(left.shift) - shiftNumber(right.shift) || left.student.localeCompare(right.student) || dateValue(right.latestSubmission) - dateValue(left.latestSubmission));
-  }, [query, status, studentResults]);
-  const readyCount = studentResults.filter(student => resultStatus(student) === "Ready").length;
-
+  }, [status, studentResults]);
   async function confirmFinalGrades() {
     if (!window.confirm(`Approve the complete final grades for ${readyCount} Student result${readyCount === 1 ? "" : "s"}? Every course grade will become read-only here and its score will appear in Semester Results.`)) return;
     setConfirming(true);
@@ -100,10 +96,10 @@ export function StudentResultsWorkspace() {
   return <div className="viewport-data-page assessment-viewport-page">
     <PageHeading eyebrow="Assessment · Grade records" title="Student Results" description="Latest Teacher-submitted course results. Approved results stay visible and read-only until payments are finalized, Semester Results are released, and the semester ends; their course scores also appear in Semester Results." actions={<button type="button" className="button primary" disabled={readyCount === 0 || confirming} onClick={() => void confirmFinalGrades()}>{confirming ? "Approving…" : "Approve Final Grades"}</button>}/>
     {notice && <section className={`result-action-error${notice.error ? "" : " is-success"}`} role={notice.error ? "alert" : "status"}>{notice.message}</section>}
-    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search result code, Student, Teacher, or course..." searchAriaLabel="Search Student results" resultLabel={`${visible.length} Students`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field">
+    <DataTableToolbar query={query} onQueryChange={setQuery} searchPlaceholder="Search result code, Student, Teacher, or course..." searchAriaLabel="Search Student results" resultLabel={`${result.totalCount} Students`} className="record-toolbar panel assessment-toolbar" searchClassName="record-search management-search module-search-field">
       <select value={status} onChange={event => setStatus(event.target.value)} aria-label="Final grade status"><option>All</option><option>Draft</option><option>Ready</option><option>Confirmed</option></select>
     </DataTableToolbar>
-    <PaginatedDataRegion items={visible} resetKey={`${departmentId}-${year}-${query}-${status}`} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No Student results" description="Latest Teacher-submitted course grades matching these filters will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table student-latest-result-table" headerClassName="horizontal-management-head semester-result-head student-latest-result-head" rowSelector=":scope > .student-latest-result-row" columns={studentResultColumns} ariaLabel="Student assessment results">{pageItems.map(student => <StudentResultRow student={student} gradeRules={gradeRules} key={student.key}/>)}</DataTable>}</PaginatedDataRegion>
+    <ServerPaginatedDataRegion result={{ ...result, items: visible }} onPage={setPage} className="assessment-paginated-region" empty={<DataTableEmptyState icon={<Icon name="grade" size={28}/>} title="No Student results" description="Latest Teacher-submitted course grades matching these filters will appear here."/>}>{pageItems => <DataTable as="section" className="panel horizontal-management-table semester-result-table student-latest-result-table" headerClassName="horizontal-management-head semester-result-head student-latest-result-head" rowSelector=":scope > .student-latest-result-row" columns={studentResultColumns} ariaLabel="Student assessment results">{pageItems.map(student => <StudentResultRow student={student} gradeRules={gradeRules} key={student.key}/>)}</DataTable>}</ServerPaginatedDataRegion>
   </div>;
 }
 
@@ -154,7 +150,7 @@ export function groupAssessments(rows: GradeAssessment[], enrollmentByStudent: M
   for (const item of rows.filter(hasTeacherSubmission)) {
     const value = item.values;
     const enrollment = enrollmentByStudent.get(enrollmentKey(value.studentId, value.academicYear, value.term));
-    const key = [value.studentId, value.courseId, enrollment?.values.year ?? "", enrollment?.values.shift ?? "", value.academicYear, value.term].join("|");
+    const key = [value.studentId, value.courseId, enrollment?.values.year ?? value.year, enrollment?.values.shift ?? value.shift, value.academicYear, value.term].join("|");
     const current = latestCourses.get(key);
     if (!current || compareTeacherSubmissions(item, current) > 0) latestCourses.set(key, item);
   }
@@ -162,14 +158,14 @@ export function groupAssessments(rows: GradeAssessment[], enrollmentByStudent: M
   for (const item of latestCourses.values()) {
     const value = item.values;
     const enrollment = enrollmentByStudent.get(enrollmentKey(value.studentId, value.academicYear, value.term));
-    const year = enrollment?.values.year ?? "";
-    const shift = enrollment?.values.shift ?? "";
+    const year = enrollment?.values.year ?? value.year;
+    const shift = enrollment?.values.shift ?? value.shift;
     const key = [value.studentId, year, shift, value.academicYear, value.term].join("|");
-    const existing = groups.get(key) ?? { key, studentId: value.studentId, student: value.student, departmentId: value.departmentId, department: value.department, year, shift, academicYear: value.academicYear, term: value.term, courses: [], courseResults: [], resultCode: value.gradeCode, latestSubmission: "", finalizedAtUtc: "" };
+    const existing = groups.get(key) ?? { key, studentId: value.studentId, student: value.student, departmentId: value.departmentId, department: value.department, year, shift, academicYear: value.academicYear, term: value.term, courses: [], courseResults: [], resultCode: value.resultCode || value.gradeCode, latestSubmission: "", finalizedAtUtc: "" };
     existing.courses.push(item);
     if (dateValue(value.submittedAtUtc) > dateValue(existing.latestSubmission)) {
       existing.latestSubmission = value.submittedAtUtc;
-      existing.resultCode = value.gradeCode;
+      existing.resultCode = value.resultCode || value.gradeCode;
     }
     groups.set(key, existing);
   }

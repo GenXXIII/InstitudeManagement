@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Notifications.Announcements;
 using InstituteManagement.Application.Features.Notifications.Common;
 using InstituteManagement.Domain.Entities;
@@ -12,10 +13,18 @@ public sealed class AnnouncementService(
     InstituteCache cache,
     AnnouncementPolicy policy) : IAnnouncementService
 {
-    public async Task<IReadOnlyList<AnnouncementItemDto>> GetAsync(CancellationToken cancellationToken) =>
-        await db.Announcements.AsNoTracking()
-            .Where(item => item.IsActive)
-            .OrderByDescending(item => item.CreateAt)
+    public async Task<PagedResult<AnnouncementItemDto>> GetAsync(string? search, bool unreadOnly, bool prioritizeUnread, PageRequest page, CancellationToken cancellationToken)
+    {
+        var query = db.Announcements.AsNoTracking().Where(item => item.IsActive);
+        if (unreadOnly) query = query.Where(item => !item.IsRead);
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            query = query.Where(item => item.AnnouncementCode.Contains(term) || item.Type.Contains(term) || item.Title.Contains(term) || item.Message.Contains(term));
+        var ordered = prioritizeUnread
+            ? query.OrderBy(item => item.IsRead).ThenByDescending(item => item.CreateAt)
+            : query.OrderByDescending(item => item.CreateAt);
+        return await ordered
+            .ThenByDescending(item => item.Id)
             .Select(item => new AnnouncementItemDto(
                 item.Id,
                 item.AnnouncementCode,
@@ -25,7 +34,8 @@ public sealed class AnnouncementService(
                 item.Message,
                 item.IsRead,
                 item.CreateAt))
-            .ToListAsync(cancellationToken);
+            .ToPagedResultAsync(page, cancellationToken);
+    }
 
     public async Task<AnnouncementItemDto> GetAsync(Guid id, CancellationToken cancellationToken) =>
         Map(await FindAsync(id, cancellationToken));

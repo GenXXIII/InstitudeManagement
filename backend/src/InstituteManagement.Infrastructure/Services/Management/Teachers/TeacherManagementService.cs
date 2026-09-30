@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Management.Teachers;
 using InstituteManagement.Infrastructure.Services.Catalog;
 using InstituteManagement.Domain.Entities;
@@ -10,10 +11,22 @@ namespace InstituteManagement.Infrastructure.Services.Management.Teachers;
 public sealed class TeacherManagementService(InstituteDbContext db, InstituteCache cache) : CatalogFeatureBase<TeacherResponseDto>(db, cache), ITeacherManagementService
 {
     public override CatalogResource Resource => CatalogResource.Teachers;
-    public override async Task<IReadOnlyList<TeacherResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
+    public async Task<PagedResult<TeacherResponseDto>> GetAsync(string? search, Guid? departmentId, Guid? profileId, PageRequest page, CancellationToken ct)
     {
-        var teachers = await Db.Teachers.AsNoTracking().Where(teacher => teacher.Status != "Inactive" && (!departmentId.HasValue || teacher.DepartmentId == departmentId)).ToListAsync(ct);
-        return teachers.Where(teacher => Matches(search, teacher.FullName, teacher.TeacherCode, teacher.Email)).Select(teacher => new TeacherResponseDto(teacher.Id, new TeacherValuesDto(teacher.PhotoDataUrl, teacher.TeacherCode, "", teacher.FullName, teacher.Email, "", "", teacher.Status, teacher.CreateAt.ToString("yyyy-MM-dd")))).ToList();
+        var query = Db.Teachers.AsNoTracking().Where(teacher => teacher.Status != "Inactive" && (!departmentId.HasValue || teacher.DepartmentId == departmentId) && (!profileId.HasValue || teacher.Id == profileId));
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+            query = query.Where(teacher => teacher.FullName.Contains(term) || teacher.TeacherCode.Contains(term) || teacher.Email.Contains(term));
+        var totalCount = await query.CountAsync(ct);
+        var teachers = await query
+            .OrderBy(teacher => teacher.TeacherCode)
+            .ThenBy(teacher => teacher.Id)
+            .Skip(page.Skip)
+            .Take(page.NormalizedPageSize)
+            .Select(teacher => new { teacher.Id, teacher.PhotoDataUrl, teacher.TeacherCode, teacher.FullName, teacher.Email, teacher.Status, teacher.CreateAt })
+            .ToListAsync(ct);
+        var items = teachers.Select(teacher => new TeacherResponseDto(teacher.Id, new TeacherValuesDto(teacher.PhotoDataUrl, teacher.TeacherCode, "", teacher.FullName, teacher.Email, "", "", teacher.Status, teacher.CreateAt.ToString("yyyy-MM-dd")))).ToList();
+        return PagedResult<TeacherResponseDto>.Create(items, page, totalCount);
     }
     public override async Task<TeacherResponseDto> CreateAsync(Dictionary<string, string> values, CancellationToken ct)
     {

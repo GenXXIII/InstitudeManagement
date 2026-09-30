@@ -1,4 +1,5 @@
 using InstituteManagement.API.Contracts.Management.Teachers;
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Management.Teachers.CreateTeacher;
 using InstituteManagement.Application.Features.Management.Teachers.DeleteTeacher;
 using InstituteManagement.Application.Features.Management.Teachers.GetTeachers;
@@ -15,8 +16,8 @@ namespace InstituteManagement.API.Controllers.Management.Teachers;
 public sealed class TeachersController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(string? search, Guid? departmentId, CancellationToken cancellationToken) =>
-        Ok(await sender.Send(new GetTeachersQuery(search, departmentId), cancellationToken));
+    public async Task<IActionResult> Get(string? search, Guid? departmentId, Guid? profileId, int page = 1, int pageSize = 40, CancellationToken cancellationToken = default) =>
+        Ok(await sender.Send(new GetTeachersQuery(search, departmentId, profileId, new PageRequest(page, pageSize)), cancellationToken));
 
     [HttpPost]
     public async Task<IActionResult> Create(TeacherValuesRequest values, CancellationToken cancellationToken)

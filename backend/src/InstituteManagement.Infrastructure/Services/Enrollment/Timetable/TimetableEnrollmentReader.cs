@@ -1,3 +1,4 @@
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Enrollment;
 using InstituteManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -7,14 +8,15 @@ namespace InstituteManagement.Infrastructure.Services.Enrollment.Timetable;
 
 internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
 {
-    public async Task<IReadOnlyList<EnrollmentItemDto>> GetAsync(
+    public async Task<PagedResult<EnrollmentItemDto>> GetAsync(
         string? search,
         Guid? departmentId,
         int? year,
+        PageRequest page,
         EnrollmentPeriod period,
         CancellationToken cancellationToken)
     {
-        var enrollments = await db.TimetableEnrollments
+        var query = db.TimetableEnrollments
             .AsNoTracking()
             .Include(enrollment => enrollment.ScheduleEntry)
             .Include(enrollment => enrollment.Course)
@@ -25,29 +27,46 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                 enrollment.Status == "Active"
                 && enrollment.ScheduleEntry != null
                 && (!departmentId.HasValue || enrollment.Course == null || enrollment.Course.DepartmentId == departmentId)
-                && (!year.HasValue || enrollment.YearLevel == year))
+                && (!year.HasValue || enrollment.YearLevel == year));
+        var term = search?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            var dateSearch = DateTime.TryParse(term, out var searchedDate);
+            query = query.Where(enrollment =>
+                enrollment.EnrollmentCode.Contains(term)
+                || enrollment.ScheduleEntry!.TimetableCode.Contains(term)
+                || enrollment.Course!.CourseCode.Contains(term)
+                || enrollment.Course.Name.Contains(term)
+                || enrollment.Teacher!.TeacherCode.Contains(term)
+                || enrollment.Teacher.FullName.Contains(term)
+                || enrollment.Classroom!.ClassroomCode.Contains(term)
+                || enrollment.ScheduleEntry.Shift.Contains(term)
+                || enrollment.Course.Department!.Name.Contains(term)
+                || enrollment.Semester.Contains(term)
+                || dateSearch && enrollment.CreateAt.Date == searchedDate.Date);
+        }
+        var totalCount = await query.CountAsync(cancellationToken);
+        var enrollments = await query
+            .OrderBy(enrollment => enrollment.ScheduleEntry!.DayOfWeek == DayOfWeek.Monday ? 0
+                : enrollment.ScheduleEntry.DayOfWeek == DayOfWeek.Tuesday ? 1
+                : enrollment.ScheduleEntry.DayOfWeek == DayOfWeek.Wednesday ? 2
+                : enrollment.ScheduleEntry.DayOfWeek == DayOfWeek.Thursday ? 3
+                : enrollment.ScheduleEntry.DayOfWeek == DayOfWeek.Friday ? 4
+                : enrollment.ScheduleEntry.DayOfWeek == DayOfWeek.Saturday ? 5 : 6)
+            .ThenBy(enrollment => enrollment.ScheduleEntry!.Shift == "Morning" ? 0 : enrollment.ScheduleEntry.Shift == "Afternoon" ? 1 : enrollment.ScheduleEntry.Shift == "Evening" ? 2 : enrollment.ScheduleEntry.Shift == "Weekend" ? 3 : 4)
+            .ThenBy(enrollment => enrollment.ScheduleEntry!.StartsAt)
+            .ThenBy(enrollment => enrollment.ScheduleEntry!.TimetableCode)
+            .ThenBy(enrollment => enrollment.Id)
+            .Skip(page.Skip)
+            .Take(page.NormalizedPageSize)
             .ToListAsync(cancellationToken);
-        return enrollments
+        var items = enrollments
             .Select(enrollment =>
             {
                 var resolvedDepartmentId = enrollment.Course?.DepartmentId;
                 var resolvedDepartmentName = enrollment.Course?.Department?.Name;
                 return new { Enrollment = enrollment, DepartmentId = resolvedDepartmentId, DepartmentName = resolvedDepartmentName };
             })
-            .Where(row =>
-                Matches(
-                    search,
-                    row.Enrollment.EnrollmentCode,
-                    row.Enrollment.ScheduleEntry!.TimetableCode,
-                    row.Enrollment.Course?.CourseCode,
-                    row.Enrollment.Course?.Name,
-                    row.Enrollment.Teacher?.TeacherCode,
-                    row.Enrollment.Teacher?.FullName,
-                    row.Enrollment.Classroom?.ClassroomCode,
-                    row.Enrollment.ScheduleEntry.Shift,
-                    row.DepartmentName,
-                    row.Enrollment.Semester,
-                    row.Enrollment.CreateAt.ToString("yyyy-MM-dd")))
             .Select(row =>
             {
                 return TimetableEnrollmentItemFactory.Create(
@@ -58,5 +77,6 @@ internal sealed class TimetableEnrollmentReader(InstituteDbContext db)
                     period);
             })
             .ToList();
+        return PagedResult<EnrollmentItemDto>.Create(items, page, totalCount);
     }
 }

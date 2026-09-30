@@ -1,6 +1,8 @@
+using InstituteManagement.Application.Common.Pagination;
+
 namespace InstituteManagement.Application.Features.Record;
 
 public interface IOperationalRecordQueryService
 {
-    Task<IReadOnlyList<OperationalRecordDto>> GetAsync(string module, string? search, Guid? departmentId, bool history, CancellationToken cancellationToken);
+    Task<PagedResult<OperationalRecordDto>> GetAsync(string module, string? search, Guid? departmentId, int? year, string? period, bool history, PageRequest page, CancellationToken cancellationToken);
 }

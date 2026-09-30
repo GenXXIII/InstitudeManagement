@@ -10,7 +10,7 @@ namespace InstituteManagement.Infrastructure.Services.Management.Classrooms;
 public sealed class ClassroomManagementService(InstituteDbContext db, InstituteCache cache) : CatalogFeatureBase<ClassroomResponseDto>(db, cache), IClassroomManagementService
 {
     public override CatalogResource Resource => CatalogResource.Classrooms;
-    public override async Task<IReadOnlyList<ClassroomResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
+    public async Task<IReadOnlyList<ClassroomResponseDto>> GetAsync(string? search, Guid? departmentId, CancellationToken ct)
     {
         var now = await InstituteLocalTime.NowAsync(Db, ct);
         var time = TimeOnly.FromDateTime(now);

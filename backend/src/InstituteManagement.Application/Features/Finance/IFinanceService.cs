@@ -1,14 +1,17 @@
+using InstituteManagement.Application.Common.Pagination;
+
 namespace InstituteManagement.Application.Features.Finance;
 
 public interface IFinanceService
 {
-    Task<IReadOnlyList<StudentPaymentDto>> GetAsync(
+    Task<PagedResult<StudentPaymentDto>> GetAsync(
         string? search,
         string? academicYear,
         string? semester,
         string? status,
         Guid? departmentId,
         int? year,
+        PageRequest page,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<StudentPaymentDto>> GetStudentAsync(Guid studentId, CancellationToken cancellationToken);

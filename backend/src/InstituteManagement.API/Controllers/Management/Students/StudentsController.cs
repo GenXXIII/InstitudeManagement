@@ -1,4 +1,5 @@
 using InstituteManagement.API.Contracts.Management.Students;
+using InstituteManagement.Application.Common.Pagination;
 using InstituteManagement.Application.Features.Management.Students.CreateStudent;
 using InstituteManagement.Application.Features.Management.Students.DeleteStudent;
 using InstituteManagement.Application.Features.Management.Students.GetStudents;
@@ -15,8 +16,8 @@ namespace InstituteManagement.API.Controllers.Management.Students;
 public sealed class StudentsController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(string? search, Guid? departmentId, CancellationToken cancellationToken) =>
-        Ok(await sender.Send(new GetStudentsQuery(search, departmentId), cancellationToken));
+    public async Task<IActionResult> Get(string? search, Guid? departmentId, Guid? profileId, int page = 1, int pageSize = 40, CancellationToken cancellationToken = default) =>
+        Ok(await sender.Send(new GetStudentsQuery(search, departmentId, profileId, new PageRequest(page, pageSize)), cancellationToken));
 
     [HttpPost]
     public async Task<IActionResult> Create(StudentValuesRequest values, CancellationToken cancellationToken)
